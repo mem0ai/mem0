@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+flush-worker.log
+plugin-errors.log
+pending/

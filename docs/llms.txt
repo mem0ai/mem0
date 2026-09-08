@@ -185,7 +185,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 ## Core Concepts
 
 - [How Mem0 Works](https://docs.mem0.ai/core-concepts/how-it-works) [Both]: Use when explaining the end-to-end pipeline: extraction (ADD-only distillation), storage across vector/entity/history stores, and multi-signal retrieval.
-- [Memory Types](https://docs.mem0.ai/core-concepts/memory-types) [Both]: Use when explaining working, factual, episodic, and semantic memory distinctions.
+- [Memory Types](https://docs.mem0.ai/core-concepts/memory-types) [Both]: Use when checking which `memory_type` values actually work: `procedural_memory` is implemented, `semantic_memory` and `episodic_memory` are defined in the enum but rejected by validation.
 - [Memory Operations - Add](https://docs.mem0.ai/core-concepts/memory-operations/add) [Both]: Use when explaining how `add()` extracts facts, resolves conflicts, and writes to both stores.
 - [Memory Operations - Search](https://docs.mem0.ai/core-concepts/memory-operations/search) [Both]: Use when explaining how queries are processed and ranked.
 - [Memory Operations - Update](https://docs.mem0.ai/core-concepts/memory-operations/update) [Both]: Use when memories need to be edited in place or reconciled against new info.
@@ -239,7 +239,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [OSS Multimodal Support (features)](https://docs.mem0.ai/open-source/features/multimodal-support) [OSS]: Use when handling images and PDFs self-hosted (feature guide).
 - [Custom Instructions (OSS)](https://docs.mem0.ai/open-source/features/custom-instructions) [OSS]: Use when tailoring extraction prompts in OSS.
 - [REST API Server](https://docs.mem0.ai/open-source/features/rest-api) [OSS]: Use when exposing a self-hosted Mem0 as a FastAPI service.
-- [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai_compatibility) [OSS]: Use when hitting an OpenAI-compatible endpoint with self-hosted.
+- [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai-compatibility) [OSS]: Use when hitting an OpenAI-compatible endpoint with self-hosted.
 
 ## Integrations
 
@@ -257,14 +257,18 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [ChatDev](https://docs.mem0.ai/integrations/chatdev) [Platform]: Use when the user is on ChatDev.
 - [Hermes](https://docs.mem0.ai/integrations/hermes) [Both]: Use when the user is on Hermes.
 - [Pi Agent](https://docs.mem0.ai/integrations/pi-agent) [Platform]: Use when adding persistent memory to Pi Agent with the Mem0 plugin.
+- [DeepSeek Harness](https://docs.mem0.ai/integrations/deepseek-plugin) [Platform]: Use when adding persistent memory to the DeepSeek Harness (Cordis) agent via the Mem0 plugin.
 - [OpenAI Agents SDK](https://docs.mem0.ai/integrations/openai-agents-sdk) [Platform]: Use when the user is on the OpenAI Agents SDK.
 - [Google AI ADK](https://docs.mem0.ai/integrations/google-ai-adk) [Platform]: Use when the user is on Google's Agent Development Kit.
 - [Mastra](https://docs.mem0.ai/integrations/mastra) [Platform]: Use when the user is on Mastra (TypeScript).
 - [OpenClaw](https://docs.mem0.ai/integrations/openclaw) [Both]: Use when wiring Mem0 into Claude Code or editors via OpenClaw.
 - [Vercel AI SDK](https://docs.mem0.ai/integrations/vercel-ai-sdk) [Both]: Use when the user is on the Vercel AI SDK.
+- [Vercel](https://docs.mem0.ai/integrations/vercel) [Platform]: Use when deploying on Vercel and installing Mem0 from the Vercel Marketplace.
+- [Strands Agents](https://docs.mem0.ai/integrations/strands) [Both]: Use when the user is on AWS Strands and wants a native MemoryStore.
 
 ### AI Coding Tools
 - [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Both]: Use when wiring memory into Claude Code.
+- [Claude.ai](https://docs.mem0.ai/integrations/claude-ai) [Platform]: Use when connecting Mem0 to Claude.ai (the hosted web app) via a custom remote MCP connector, or when Claude's native memory seems to be crowding out mem0 tool calls.
 - [Cursor](https://docs.mem0.ai/integrations/cursor) [Platform]: Use when wiring memory into Cursor.
 - [Codex](https://docs.mem0.ai/integrations/codex) [Platform]: Use when wiring memory into Codex / other editor assistants.
 - [OpenCode](https://docs.mem0.ai/integrations/opencode) [Platform]: Use when wiring memory into OpenCode.
@@ -379,6 +383,16 @@ All API Reference docs describe Mem0 Platform REST endpoints (requires API key).
 - [Remove Project Member](https://docs.mem0.ai/api-reference/project/remove-project-member) [Platform]: Use when removing a member from a project.
 - [Delete Project](https://docs.mem0.ai/api-reference/project/delete-project) [Platform]: Use when removing a project.
 
+### Dream
+- [Get Dream Configuration](https://docs.mem0.ai/api-reference/dream/get-dream-config) [Platform]: Use when reading a project's Dream (memory synthesis) config and plan entitlements.
+- [Update Dream Configuration](https://docs.mem0.ai/api-reference/dream/update-dream-config) [Platform]: Use when enabling/disabling Synthesis or changing its mode for a project.
+- [Get Dream Stats](https://docs.mem0.ai/api-reference/dream/get-dream-stats) [Platform]: Use when fetching lifecycle and synthesis counts for the Dream dashboard.
+- [Get Dream Activity](https://docs.mem0.ai/api-reference/dream/get-dream-activity) [Platform]: Use when listing recent supersede/merge activity for a project.
+- [Get Dream Synthesis Runs](https://docs.mem0.ai/api-reference/dream/get-dream-runs) [Platform]: Use when listing synthesis runs and the memories they generated.
+- [Get Memories in a Dream Run](https://docs.mem0.ai/api-reference/dream/get-dream-run-memories) [Platform]: Use when paging the synthesized memories within a single run.
+- [Get a Synthesized Memory's Sources](https://docs.mem0.ai/api-reference/dream/get-dream-memory-sources) [Platform]: Use when tracing the source memories a synthesized memory was distilled from.
+- [Preview Dream Scope](https://docs.mem0.ai/api-reference/dream/dream-preview) [Platform]: Use when previewing what Synthesis would analyze for a project (no writes).
+
 ### Webhooks
 - [Create Webhook](https://docs.mem0.ai/api-reference/webhook/create-webhook) [Platform]: Use when registering a webhook endpoint.
 - [Get Webhook](https://docs.mem0.ai/api-reference/webhook/get-webhook) [Platform]: Use when fetching webhook config.
@@ -399,11 +413,17 @@ Source: https://github.com/mem0ai/mem0/tree/main/skills
 
 Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load only the one that matches the user's stack.
 
+### Claude Code Plugin
+
+Source: https://github.com/mem0ai/mem0/tree/main/integrations/claude-code-plugin
+
+The `integrations/claude-code-plugin/` directory is the Claude Code plugin (v0.3.0, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes a single local MCP tool, `search_memories`, plus six `/mem0:*` skills and the `mem0:sidekick` agent. Pure-stdlib Python, nothing to install.
+
 ### Editor Plugin (shared glue)
 
 Source: https://github.com/mem0ai/mem0/tree/main/integrations/mem0-plugin
 
-The `integrations/mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Claude Code, Cursor, Codex, OpenCode, and Antigravity. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`.
+The `integrations/mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Cursor, Codex, Kimi, Antigravity, and OpenCode. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`. Claude Code moved to `integrations/claude-code-plugin/` in v0.3.0; do not run both at the same time.
 
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 
@@ -432,12 +452,12 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [LLM Configuration](https://docs.mem0.ai/components/llms/config) [OSS]: Use for the `llm` config schema.
 - [OpenAI](https://docs.mem0.ai/components/llms/models/openai) [OSS]: Use when the extraction LLM is OpenAI.
 - [Anthropic](https://docs.mem0.ai/components/llms/models/anthropic) [OSS]: Use when the extraction LLM is Claude.
-- [Azure OpenAI](https://docs.mem0.ai/components/llms/models/azure_openai) [OSS]: Use when the user is on Azure-hosted OpenAI.
-- [AWS Bedrock](https://docs.mem0.ai/components/llms/models/aws_bedrock) [OSS]: Use when the LLM runs through Bedrock.
-- [Google AI](https://docs.mem0.ai/components/llms/models/google_AI) [OSS]: Use when the LLM is Gemini.
+- [Azure OpenAI](https://docs.mem0.ai/components/llms/models/azure-openai) [OSS]: Use when the user is on Azure-hosted OpenAI.
+- [AWS Bedrock](https://docs.mem0.ai/components/llms/models/aws-bedrock) [OSS]: Use when the LLM runs through Bedrock.
+- [Google AI](https://docs.mem0.ai/components/llms/models/google-ai) [OSS]: Use when the LLM is Gemini.
 - [Groq](https://docs.mem0.ai/components/llms/models/groq) [OSS]: Use when the user wants Groq's low-latency inference.
 - [DeepSeek](https://docs.mem0.ai/components/llms/models/deepseek) [OSS]: Use when the LLM is DeepSeek.
-- [Mistral AI](https://docs.mem0.ai/components/llms/models/mistral_AI) [OSS]: Use when the LLM is Mistral.
+- [Mistral AI](https://docs.mem0.ai/components/llms/models/mistral-ai) [OSS]: Use when the LLM is Mistral.
 - [MiniMax](https://docs.mem0.ai/components/llms/models/minimax) [OSS]: Use when the LLM is MiniMax.
 - [xAI](https://docs.mem0.ai/components/llms/models/xAI) [OSS]: Use when the LLM is xAI Grok.
 - [Sarvam](https://docs.mem0.ai/components/llms/models/sarvam) [OSS]: Use for Indian-language Sarvam models.
@@ -452,9 +472,9 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Embeddings Overview](https://docs.mem0.ai/components/embedders/overview) [OSS]: Use when choosing an embedding model.
 - [Embeddings Configuration](https://docs.mem0.ai/components/embedders/config) [OSS]: Use for the `embedder` config schema.
 - [OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/openai) [OSS]: Use when embeddings come from OpenAI.
-- [Azure OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/azure_openai) [OSS]: Use for Azure-hosted OpenAI embeddings.
-- [AWS Bedrock Embeddings](https://docs.mem0.ai/components/embedders/models/aws_bedrock) [OSS]: Use for Bedrock-hosted embeddings.
-- [Google AI Embeddings](https://docs.mem0.ai/components/embedders/models/google_AI) [OSS]: Use for Gemini embeddings.
+- [Azure OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/azure-openai) [OSS]: Use for Azure-hosted OpenAI embeddings.
+- [AWS Bedrock Embeddings](https://docs.mem0.ai/components/embedders/models/aws-bedrock) [OSS]: Use for Bedrock-hosted embeddings.
+- [Google AI Embeddings](https://docs.mem0.ai/components/embedders/models/google-ai) [OSS]: Use for Gemini embeddings.
 - [Vertex AI Embeddings](https://docs.mem0.ai/components/embedders/models/vertexai) [OSS]: Use for Google Cloud Vertex AI embeddings.
 - [Hugging Face Embeddings](https://docs.mem0.ai/components/embedders/models/huggingface) [OSS]: Use for open-source HF embedding models.
 - [Ollama Embeddings](https://docs.mem0.ai/components/embedders/models/ollama) [OSS]: Use when embeddings run through local Ollama.
@@ -475,7 +495,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [MongoDB](https://docs.mem0.ai/components/vectordbs/dbs/mongodb) [OSS]: Use when Mongo Atlas Vector Search is the backing store.
 - [Oracle AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/oracledb) [OSS]: Use when Oracle Database AI Vector Search is the backing store.
 - [Azure AI Search](https://docs.mem0.ai/components/vectordbs/dbs/azure) [OSS]: Use when the user is on Azure AI Search.
-- [Azure MySQL](https://docs.mem0.ai/components/vectordbs/dbs/azure_mysql) [OSS]: Use when vector search runs on Azure Database for MySQL.
+- [Azure MySQL](https://docs.mem0.ai/components/vectordbs/dbs/azure-mysql) [OSS]: Use when vector search runs on Azure Database for MySQL.
 - [Redis](https://docs.mem0.ai/components/vectordbs/dbs/redis) [OSS]: Use when Redis Stack is the backing store.
 - [Valkey](https://docs.mem0.ai/components/vectordbs/dbs/valkey) [OSS]: Use when the user is on Valkey (Redis fork).
 - [Elasticsearch](https://docs.mem0.ai/components/vectordbs/dbs/elasticsearch) [OSS]: Use when Elasticsearch is the backing store.
@@ -484,15 +504,15 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Neon](https://docs.mem0.ai/components/vectordbs/dbs/neon) [OSS]: Use when Neon Postgres with pgvector is the backing store.
 - [Upstash Vector](https://docs.mem0.ai/components/vectordbs/dbs/upstash-vector) [OSS]: Use for serverless Upstash Vector.
 - [Vectorize](https://docs.mem0.ai/components/vectordbs/dbs/vectorize) [OSS]: Use when the store is Cloudflare Vectorize.
-- [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex_ai) [OSS]: Use when the store is Google Cloud Vertex Vector Search.
+- [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex-ai) [OSS]: Use when the store is Google Cloud Vertex Vector Search.
 - [Weaviate](https://docs.mem0.ai/components/vectordbs/dbs/weaviate) [OSS]: Use when Weaviate is the backing store.
 - [FAISS](https://docs.mem0.ai/components/vectordbs/dbs/faiss) [OSS]: Use for local FAISS-based similarity search.
 - [LangChain Vector Store](https://docs.mem0.ai/components/vectordbs/dbs/langchain) [OSS]: Use when the vector store is wrapped behind LangChain.
 - [Baidu](https://docs.mem0.ai/components/vectordbs/dbs/baidu) [OSS]: Use when the user is on Baidu Cloud vector service.
 - [Cassandra](https://docs.mem0.ai/components/vectordbs/dbs/cassandra) [OSS]: Use when Cassandra is the backing store.
-- [S3 Vectors](https://docs.mem0.ai/components/vectordbs/dbs/s3_vectors) [OSS]: Use for AWS S3 Vectors.
+- [S3 Vectors](https://docs.mem0.ai/components/vectordbs/dbs/s3-vectors) [OSS]: Use for AWS S3 Vectors.
 - [Databricks](https://docs.mem0.ai/components/vectordbs/dbs/databricks) [OSS]: Use when the user is on Databricks with Delta Lake.
-- [Neptune Analytics](https://docs.mem0.ai/components/vectordbs/dbs/neptune_analytics) [OSS]: Use when the user is on AWS Neptune Analytics (graph + vector).
+- [Neptune Analytics](https://docs.mem0.ai/components/vectordbs/dbs/neptune-analytics) [OSS]: Use when the user is on AWS Neptune Analytics (graph + vector).
 - [Turbopuffer](https://docs.mem0.ai/components/vectordbs/dbs/turbopuffer) [OSS]: Use when the user is on Turbopuffer serverless.
 
 ### Rerankers [OSS]
@@ -501,7 +521,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Reranker Optimization](https://docs.mem0.ai/components/rerankers/optimization) [OSS]: Use when tuning reranker performance.
 - [Custom Reranker Prompts](https://docs.mem0.ai/components/rerankers/custom-prompts) [OSS]: Use when rewriting reranker prompts.
 - [Cohere Reranker](https://docs.mem0.ai/components/rerankers/models/cohere) [OSS]: Use for Cohere Rerank.
-- [Sentence Transformer Reranker](https://docs.mem0.ai/components/rerankers/models/sentence_transformer) [OSS]: Use for local cross-encoder rerankers.
+- [Sentence Transformer Reranker](https://docs.mem0.ai/components/rerankers/models/sentence-transformer) [OSS]: Use for local cross-encoder rerankers.
 - [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.
-- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
-- [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero_entropy) [OSS]: Use for the Zero Entropy reranker.
+- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm-reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
+- [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero-entropy) [OSS]: Use for the Zero Entropy reranker.

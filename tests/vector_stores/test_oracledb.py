@@ -1081,7 +1081,7 @@ def test_documentation():
         },
     ]
     m.add(messages, user_id="alice", metadata={"category": "movies"})
-    results = m.search("What movie to watch?", user_id="alice", limit=2)["results"]
+    results = m.search("What movie to watch?", filters={"user_id": "alice"}, top_k=2)["results"]
     assert len(results) == 2
     assert all(res["user_id"] == "alice" for res in results)
     m.reset()

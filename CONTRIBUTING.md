@@ -40,9 +40,24 @@ agree the change is one we want.
 
 Pull requests that don't link an accepted issue are closed automatically by the
 [PR Gate](./.github/workflows/pr-gate.yml). **Closed does not mean rejected.** It
-means the change isn't in the queue yet. Once a maintainer labels the issue,
-reopen the pull request and it stays open. Documentation-only changes skip the
-gate entirely.
+means the change isn't in the queue yet. Once a maintainer labels the issue the
+pull request reopens itself, and you don't have to do anything. Documentation-only
+changes skip the gate entirely.
+
+A second check looks at who opened the pull request rather than what it changes.
+If you are not yet in this repo's contributor list
+([`.github/VOUCHED.td`](./.github/VOUCHED.td)) you get one comment saying so.
+**Nothing is blocked and there is nothing you need to do.** A maintainer can add
+you by commenting `!vouch @you` on any issue, which only stops that comment from
+appearing again. Being on the list is not permission to skip the accepted-issue
+rule, and being absent from it costs you nothing.
+
+The list has a negative side too. A maintainer can `!denounce` an account that
+has been through the
+[code of conduct](./CODE_OF_CONDUCT.md#contribution-conduct) enforcement process,
+and pull requests from that account are closed whether or not they link an
+accepted issue. This is rare, it is never where anyone starts, and it is
+reversible.
 
 Security fixes are the one exception, and they don't go through public pull
 requests at all. Follow the [Security Policy](./SECURITY.md) instead, which uses
@@ -84,6 +99,19 @@ When you open your first PR, the CLA bot will automatically comment with a link 
 sign. Signing takes less than a minute and only needs to be done once. Pull
 requests from contributors who have not signed the CLA will be blocked from
 merging.
+
+## First Contribution Fast Path
+
+Fixing a typo or a small docs issue? You don't need the full workflow below.
+
+1. **Pick something small.** Look for issues labeled `documentation` or `good first issue`, or a typo/broken link you noticed while reading the docs.
+2. **Branch from `main`** with a name that says what you're fixing, e.g. `docs/fix-quickstart-typo` or `fix/broken-crewai-link`.
+3. **Make the change, then run only what applies:**
+   - Docs-only change (`docs/**`): preview with `make docs`. If you added or removed an `.mdx` page, run `python scripts/check-llms-txt-coverage.py --write` so `docs/llms.txt` stays in sync.
+   - Code change: run the linter and tests for the package you touched, see [Development Workflow](#development-workflow) below.
+4. **Open a PR** against `main` with `Closes #<issue-number>` and a one-line description of what you fixed.
+
+For anything larger than a docs fix or a small bug, follow the full workflow below.
 
 ## Repository Layout
 

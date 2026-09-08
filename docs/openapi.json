@@ -7207,6 +7207,869 @@
 					}
 				]
 			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/dream/config/": {
+			"get": {
+				"tags": [
+					"dream"
+				],
+				"summary": "Get Dream configuration",
+				"description": "Retrieve the project's Dream (memory synthesis) configuration together with the plan entitlement snapshot. Dream automatically supersedes/merges memories on the add path; **Synthesis** (reflection) is the opt-in part controlled by `reflection_enabled`.",
+				"operationId": "get_dream_config",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project.",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successful response.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"config": {
+											"type": "object",
+											"properties": {
+												"reflection_enabled": {
+													"type": "boolean",
+													"description": "Whether background synthesis (reflection) is enabled for the project."
+												},
+												"reflection_enabled_at": {
+													"type": "string",
+													"description": "When synthesis was last enabled. Synthesis only considers memories created on or after this time (forward-only).",
+													"format": "date-time",
+													"nullable": true
+												},
+												"reflection_mode": {
+													"type": "string",
+													"description": "Synthesis execution mode.",
+													"enum": [
+														"batch",
+														"direct"
+													]
+												}
+											}
+										},
+										"entitlements": {
+											"type": "object",
+											"properties": {
+												"plan": {
+													"type": "string",
+													"description": "Resolved billing tier for the project (e.g. `free`, `pro`, `custom`)."
+												},
+												"reflection_interval_days": {
+													"type": "integer",
+													"description": "How often synthesis runs for this plan, in days (Pro weekly, Enterprise daily)."
+												},
+												"features": {
+													"type": "object",
+													"properties": {},
+													"description": "Per-feature entitlement snapshot, keyed by Dream feature (e.g. `dream_reflection`, `dream_tab`, `dream_preview`).",
+													"additionalProperties": {
+														"type": "object",
+														"properties": {
+															"entitled": {
+																"type": "boolean",
+																"description": "Whether the plan is entitled to the feature."
+															},
+															"killed": {
+																"type": "boolean",
+																"description": "Whether the feature is globally disabled by a kill switch."
+															},
+															"enabled": {
+																"type": "boolean",
+																"description": "Effective state: entitled AND not killed AND turned on."
+															}
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"patch": {
+				"tags": [
+					"dream"
+				],
+				"summary": "Update Dream configuration",
+				"description": "Enable or disable Synthesis (reflection) for the project, or change the reflection mode. Requires a Pro or Enterprise (CUSTOM) plan and organization-owner permission. Synthesis is forward-only: after enabling, it only synthesizes memories added from that point on.",
+				"operationId": "update_dream_config",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project.",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"reflection_enabled": {
+										"type": "boolean",
+										"description": "Turn background synthesis on or off."
+									},
+									"reflection_mode": {
+										"type": "string",
+										"description": "Synthesis execution mode.",
+										"enum": [
+											"batch",
+											"direct"
+										]
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Updated configuration.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"config": {
+											"type": "object",
+											"properties": {
+												"reflection_enabled": {
+													"type": "boolean",
+													"description": "Whether background synthesis (reflection) is enabled for the project."
+												},
+												"reflection_enabled_at": {
+													"type": "string",
+													"description": "When synthesis was last enabled. Synthesis only considers memories created on or after this time (forward-only).",
+													"format": "date-time",
+													"nullable": true
+												},
+												"reflection_mode": {
+													"type": "string",
+													"description": "Synthesis execution mode.",
+													"enum": [
+														"batch",
+														"direct"
+													]
+												}
+											}
+										},
+										"entitlements": {
+											"type": "object",
+											"properties": {
+												"plan": {
+													"type": "string",
+													"description": "Resolved billing tier for the project (e.g. `free`, `pro`, `custom`)."
+												},
+												"reflection_interval_days": {
+													"type": "integer",
+													"description": "How often synthesis runs for this plan, in days (Pro weekly, Enterprise daily)."
+												},
+												"features": {
+													"type": "object",
+													"properties": {},
+													"description": "Per-feature entitlement snapshot, keyed by Dream feature (e.g. `dream_reflection`, `dream_tab`, `dream_preview`).",
+													"additionalProperties": {
+														"type": "object",
+														"properties": {
+															"entitled": {
+																"type": "boolean",
+																"description": "Whether the plan is entitled to the feature."
+															},
+															"killed": {
+																"type": "boolean",
+																"description": "Whether the feature is globally disabled by a kill switch."
+															},
+															"enabled": {
+																"type": "boolean",
+																"description": "Effective state: entitled AND not killed AND turned on."
+															}
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error (e.g. a field the plan is not entitled to change)."
+					},
+					"403": {
+						"description": "Not entitled on the current plan (`upgrade_required: true`), or the caller is not an organization owner."
+					}
+				}
+			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/dream/stats/": {
+			"get": {
+				"tags": [
+					"dream"
+				],
+				"summary": "Get Dream stats",
+				"description": "Lifecycle + synthesis counts for the project's Dream dashboard, plus reflection freshness. Requires a Pro or Enterprise (CUSTOM) plan.",
+				"operationId": "get_dream_stats",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project.",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successful response.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"active": {
+											"type": "integer",
+											"description": "Active (current) memory count."
+										},
+										"merged": {
+											"type": "integer",
+											"description": "Count of memories merged into a canonical one."
+										},
+										"superseded": {
+											"type": "integer",
+											"description": "Count of memories superseded by a newer one."
+										},
+										"synthesized": {
+											"type": "integer",
+											"description": "Count of higher-order pattern memories created by synthesis."
+										},
+										"last_run_at": {
+											"type": "string",
+											"description": "When synthesis last completed.",
+											"format": "date-time",
+											"nullable": true
+										},
+										"processed_through": {
+											"type": "string",
+											"description": "Timestamp of the newest source memory synthesis has processed.",
+											"format": "date-time",
+											"nullable": true
+										},
+										"running": {
+											"type": "boolean",
+											"description": "Whether a synthesis run is currently in flight."
+										},
+										"next_run_at": {
+											"type": "string",
+											"description": "Projected next synthesis run.",
+											"format": "date-time",
+											"nullable": true
+										}
+									}
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Not entitled on the current plan (`upgrade_required: true`)."
+					}
+				}
+			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/dream/activity/": {
+			"get": {
+				"tags": [
+					"dream"
+				],
+				"summary": "Get Dream activity",
+				"description": "Supersede/merge activity feed (newest first), keyset-paginated. Synthesis output is not included here — see the runs endpoint.",
+				"operationId": "get_dream_activity",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"required": false,
+						"description": "Page size (default 50, max 200).",
+						"schema": {
+							"type": "integer",
+							"default": 50
+						}
+					},
+					{
+						"name": "cursor",
+						"in": "query",
+						"required": false,
+						"description": "Opaque keyset cursor from a previous page's `next_cursor`.",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successful response.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"results": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"memory_id": {
+														"type": "string",
+														"description": "The superseded/merged memory's ID."
+													},
+													"text": {
+														"type": "string",
+														"description": "The memory's text (truncated)."
+													},
+													"transition": {
+														"type": "string",
+														"description": "Lifecycle transition.",
+														"enum": [
+															"merged",
+															"superseded"
+														]
+													},
+													"at": {
+														"type": "string",
+														"description": "When the transition happened.",
+														"format": "date-time"
+													},
+													"replaced_by": {
+														"type": "object",
+														"properties": {
+															"id": {
+																"type": "string",
+																"description": "ID of the newer memory."
+															},
+															"text": {
+																"type": "string",
+																"description": "Text of the newer memory (truncated).",
+																"nullable": true
+															}
+														},
+														"nullable": true,
+														"description": "The newer memory that replaced this one (null for a merge with no single replacement)."
+													},
+													"sources": {
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"id": {
+																	"type": "string",
+																	"description": "Source memory ID."
+																},
+																"text": {
+																	"type": "string",
+																	"description": "Source memory text (truncated)."
+																}
+															}
+														},
+														"nullable": true,
+														"description": "Always null on this feed; synthesis provenance is shown on the runs feed."
+													}
+												}
+											}
+										},
+										"next_cursor": {
+											"type": "string",
+											"description": "Cursor for the next page, or null when there are no more.",
+											"nullable": true
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/dream/runs/": {
+			"get": {
+				"tags": [
+					"dream"
+				],
+				"summary": "Get Dream synthesis runs",
+				"description": "Synthesis activity grouped per run (newest first), keyset-paginated. Each run inlines its first page of synthesized memories with their sources; larger runs page the rest via the run-memories endpoint.",
+				"operationId": "get_dream_runs",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"required": false,
+						"description": "Number of runs per page (default 20, max 100).",
+						"schema": {
+							"type": "integer",
+							"default": 20
+						}
+					},
+					{
+						"name": "cursor",
+						"in": "query",
+						"required": false,
+						"description": "Opaque keyset cursor from a previous page's `next_cursor`.",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successful response.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"results": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"run_id": {
+														"type": "string",
+														"description": "Identifier of the synthesis run."
+													},
+													"at": {
+														"type": "string",
+														"description": "When the run produced memories.",
+														"format": "date-time"
+													},
+													"count": {
+														"type": "integer",
+														"description": "Total synthesized memories in this run."
+													},
+													"synthesized": {
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"id": {
+																	"type": "string",
+																	"description": "Synthesized memory ID."
+																},
+																"text": {
+																	"type": "string",
+																	"description": "Synthesized (pattern) memory text."
+																},
+																"sources": {
+																	"type": "array",
+																	"items": {
+																		"type": "object",
+																		"properties": {
+																			"id": {
+																				"type": "string",
+																				"description": "Source memory ID."
+																			},
+																			"text": {
+																				"type": "string",
+																				"description": "Source memory text (truncated)."
+																			}
+																		}
+																	},
+																	"description": "Source memories this pattern was distilled from."
+																}
+															}
+														},
+														"description": "First page of synthesized memories (each with its sources)."
+													},
+													"has_more": {
+														"type": "boolean",
+														"description": "Whether the run has more memories than are inlined here."
+													},
+													"mem_cursor": {
+														"type": "string",
+														"description": "Cursor to page this run's remaining memories via the run-memories endpoint.",
+														"nullable": true
+													},
+													"sources": {
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"id": {
+																	"type": "string",
+																	"description": "Source memory ID."
+																},
+																"text": {
+																	"type": "string",
+																	"description": "Source memory text (truncated)."
+																}
+															}
+														},
+														"description": "De-duplicated source memories across the inlined page."
+													}
+												}
+											}
+										},
+										"next_cursor": {
+											"type": "string",
+											"description": "Cursor for the next page, or null when there are no more.",
+											"nullable": true
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/dream/runs/{run_id}/memories/": {
+			"get": {
+				"tags": [
+					"dream"
+				],
+				"summary": "Get memories in a Dream run",
+				"description": "Keyset page of the synthesized memories within a single run (for runs whose `has_more` is true).",
+				"operationId": "get_dream_run_memories",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "run_id",
+						"in": "path",
+						"required": true,
+						"description": "Identifier of the synthesis run.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"required": false,
+						"description": "Page size (default 50, max 200).",
+						"schema": {
+							"type": "integer",
+							"default": 50
+						}
+					},
+					{
+						"name": "cursor",
+						"in": "query",
+						"required": false,
+						"description": "Opaque keyset cursor (use the run's `mem_cursor` or a previous `next_cursor`).",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successful response.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"results": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"id": {
+														"type": "string",
+														"description": "Synthesized memory ID."
+													},
+													"text": {
+														"type": "string",
+														"description": "Synthesized (pattern) memory text."
+													},
+													"sources": {
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"id": {
+																	"type": "string",
+																	"description": "Source memory ID."
+																},
+																"text": {
+																	"type": "string",
+																	"description": "Source memory text (truncated)."
+																}
+															}
+														},
+														"description": "Source memories this pattern was distilled from."
+													}
+												}
+											}
+										},
+										"next_cursor": {
+											"type": "string",
+											"description": "Cursor for the next page, or null when there are no more.",
+											"nullable": true
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/dream/memory/{memory_id}/sources/": {
+			"get": {
+				"tags": [
+					"dream"
+				],
+				"summary": "Get a synthesized memory's sources",
+				"description": "The source memories a synthesized (pattern) memory was distilled from, for the memory drawer's provenance panel.",
+				"operationId": "get_dream_memory_sources",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "memory_id",
+						"in": "path",
+						"required": true,
+						"description": "ID of the (synthesized) memory.",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successful response.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"memory_id": {
+											"type": "string",
+											"description": "The memory's ID."
+										},
+										"synthesized": {
+											"type": "boolean",
+											"description": "Whether this memory was produced by synthesis."
+										},
+										"sources": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"id": {
+														"type": "string",
+														"description": "Source memory ID."
+													},
+													"text": {
+														"type": "string",
+														"description": "Source memory text."
+													},
+													"lifecycle_state": {
+														"type": "string",
+														"description": "Source memory lifecycle state.",
+														"enum": [
+															"active",
+															"merged",
+															"superseded"
+														]
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Memory not found in this project."
+					}
+				}
+			}
+		},
+		"/api/v1/orgs/organizations/{org_id}/projects/{project_id}/dream/preview/": {
+			"post": {
+				"tags": [
+					"dream"
+				],
+				"summary": "Preview Dream scope",
+				"description": "A no-write preview of the scope Dream synthesis would analyze for the project (a capped sample plus the count of users with enough memories to benefit). Never runs the LLM and never mutates anything.",
+				"operationId": "dream_preview",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the organization.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "project_id",
+						"in": "path",
+						"required": true,
+						"description": "Unique identifier of the project.",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Successful response.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"active_total": {
+											"type": "integer",
+											"description": "Total active memories in the project."
+										},
+										"scanned": {
+											"type": "integer",
+											"description": "How many recent memories the preview aggregated over (capped)."
+										},
+										"cap": {
+											"type": "integer",
+											"description": "The scan cap applied."
+										},
+										"eligible_users": {
+											"type": "integer",
+											"description": "Users with enough memories to benefit from synthesis."
+										},
+										"note": {
+											"type": "string",
+											"description": "Human-readable note about the preview scope."
+										}
+									}
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Preview not available on the current plan (`upgrade_required: true`)."
+					}
+				}
+			}
 		}
 	},
 	"components": {

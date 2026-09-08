@@ -10,6 +10,7 @@ This is a polyglot monorepo and **every package sets its own rules**. Read the `
 ## Do NOT
 
 - Open a pull request without a signed CLA. It will not be reviewed. See [The CLA is not optional](#the-cla-is-not-optional).
+- Open a pull request that does not link an issue carrying the `accepted` label. A bot closes it within a minute. See [Two gates decide whether your pull request stays open](#two-gates-decide-whether-your-pull-request-stays-open).
 - Modify anything in `.github/workflows/` without explicit maintainer approval. Publishing credentials are pinned to workflow filenames.
 - Commit `.env` files, API keys, or credentials.
 - Skip pre-commit hooks.
@@ -121,6 +122,24 @@ Full guide: [`CONTRIBUTING.md`](CONTRIBUTING.md). Conduct: [`CODE_OF_CONDUCT.md`
 6. Open the PR against `main` and fill in [the template](.github/PULL_REQUEST_TEMPLATE.md). Do not paraphrase it; GitHub prefills it.
 7. **Sign the CLA.**
 
+### Two gates decide whether your pull request stays open
+
+Two workflows run on every pull request from a fork. They judge different things and neither covers for the other, so a pull request has to get past both.
+
+**The [PR Gate](.github/workflows/pr-gate.yml) judges the change.** It closes any pull request that does not link an issue carrying the `accepted` label. Closed is a queue decision, not a verdict: when a maintainer applies the label the pull request reopens by itself. Drafts, documentation-only changes, and branches pushed to this repository rather than a fork are all exempt.
+
+**The [vouch check](.github/workflows/vouch-check-pr.yml) judges the account.** It reads [`.github/VOUCHED.td`](.github/VOUCHED.td), which has three possible answers about any given person:
+
+| The list says | Meaning | Effect on the pull request |
+|---|---|---|
+| `-handle` | a maintainer ran `!denounce` after the code of conduct process | closed, even with an accepted issue |
+| nothing at all | everybody who has not contributed here before | **none.** One comment saying nothing is blocked. |
+| `handle` | a maintainer ran `!vouch` | none, and the comment stops appearing |
+
+Being vouched grants nothing. It is a "we have seen this person before" flag that mutes the newcomer comment, not permission to skip the accepted-issue rule. Being absent from the list costs nothing.
+
+If you are an agent opening a pull request on someone's behalf, the practical consequence is one rule: **get the linked issue labelled `accepted` before you open the pull request, or expect the pull request to be closed and to reopen later.** Do not work around either gate, do not reopen a gated pull request by hand, and do not re-file the same change under a new pull request when one is closed.
+
 ### The CLA is not optional
 
 **A pull request from a contributor who has not signed the Contributor License Agreement is not accepted, not reviewed, and not merged.** This is not a formality applied at merge time. An unsigned pull request does not enter the review queue at all: maintainers do not read the diff, do not leave feedback, and do not discuss the approach. It sits until the CLA is signed, and it is closed if it goes stale.
@@ -151,5 +170,6 @@ Beyond the CLA and the accepted-issue gate, the [Contribution Conduct](CODE_OF_C
 | Documentation contributions | `docs/contributing/documentation.mdx` |
 | PR template | `.github/PULL_REQUEST_TEMPLATE.md` |
 | Issue forms | `.github/ISSUE_TEMPLATE/` |
-| Trust list (vouch) | `.github/VOUCHED.td` |
+| Contribution gates | [Two gates decide whether your pull request stays open](#two-gates-decide-whether-your-pull-request-stays-open) |
+| Trust list (vouch) | [`.github/VOUCHED.td`](.github/VOUCHED.td) |
 | CI/CD, gates, rulesets | [`.github/AGENTS.md`](.github/AGENTS.md) |

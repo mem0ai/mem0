@@ -11,7 +11,7 @@ install:
 	hatch env create
 
 install_all:
-	pip install ruff==0.16.0 groq together boto3 litellm ollama chromadb weaviate weaviate-client sentence_transformers vertexai \
+	pip install ruff==0.16.0 groq together boto3 'litellm>=1.83.7,<1.98.0' ollama chromadb weaviate weaviate-client sentence_transformers vertexai \
 	            google-generativeai elasticsearch opensearch-py vecs "pinecone<7.0.0" pinecone-text faiss-cpu langchain-community \
 							upstash-vector azure-search-documents langchain-memgraph langchain-neo4j langchain-aws rank-bm25 pymochow pymongo psycopg kuzu databricks-sdk valkey
 

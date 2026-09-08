@@ -1,0 +1,19 @@
+# Example DeepSeek Harness config that loads deepseek-plugin alongside the built-in
+# tools plugin. Load with:
+#
+#   pnpm dsh web --patch ./integrations/deepseek-plugin/cordis.example.yml
+#
+# The tools plugin (and its system-prompt dependency) must be present, because
+# the memory tools contribute schemas the system prompt renders.
+
+- name: "@deepseek-ai/dsh-system-prompt"
+- name: "@deepseek-ai/dsh-tools"
+- insert:
+    - id: mem0
+      # Absolute path to the built plugin (run `pnpm build` first), or point
+      # at src/index.ts when running through tsx during development.
+      name: "/absolute/path/to/mem0/integrations/deepseek-plugin/dist/index.js"
+      config:
+        # apiKey is read from the MEM0_API_KEY env var when omitted here.
+        userId: "your-user-id"
+        # host: "https://your-onprem.mem0.ai"   # optional: Platform on-prem / dedicated base URL

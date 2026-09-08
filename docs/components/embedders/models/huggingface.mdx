@@ -99,6 +99,7 @@ Here are the parameters available for configuring the Hugging Face embedder:
 | `embedding_dims` | Dimensions of the embedding model | `selected_model_dimensions` |
 | `model_kwargs` | Additional arguments for the model | `None` |
 | `huggingface_base_url` | URL to connect to Text Embeddings Inference (TEI) API | `None` |
+| `api_key` | API key for the endpoint; falls back to the `HUGGINGFACE_API_KEY` env var. Only used on the `huggingface_base_url` path | `"hf"` |
 </Tab>
 <Tab title="TypeScript">
 | Parameter | Description | Default Value |

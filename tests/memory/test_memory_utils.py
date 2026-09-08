@@ -192,3 +192,16 @@ class TestProcessTelemetryFilters:
 class TestRemoveCodeBlocks:
     def test_none_content_returns_empty_string(self):
         assert remove_code_blocks(None) == ""
+
+    def test_list_content_from_langchain_aimessage_is_joined(self):
+        assert remove_code_blocks([{"type": "text", "text": "hello"}]) == "hello"
+
+    def test_list_content_joins_multiple_blocks_and_bare_strings(self):
+        content = [{"type": "text", "text": "hello "}, "world", {"type": "thinking", "thinking": "ignored"}]
+        assert remove_code_blocks(content) == "hello world"
+
+    def test_list_content_still_strips_code_fences(self):
+        assert remove_code_blocks([{"type": "text", "text": "```json\n{}\n```"}]) == "{}"
+
+    def test_unsupported_content_type_returns_empty_string(self):
+        assert remove_code_blocks(42) == ""

@@ -81,33 +81,25 @@ function performancePayload(overrides: Record<string, any> = {}) {
 
 function createFetchMock(options: {
   variant?: string;
-  payload?: unknown;
-  failFlags?: boolean;
-  flagEnabled?: boolean;
+  payload?: Record<string, any>;
+  failConfig?: boolean;
 }) {
   const calls: any[] = [];
+  const variantSplit = options.variant === "holdout" ? 0.0 : 1.0;
+  const payload = options.payload ?? performancePayload();
   const fetchMock = jest.fn(async (url: string | URL, init?: RequestInit) => {
     const target = String(url);
 
-    if (target.includes("/flags")) {
-      if (options.failFlags) {
-        throw new Error("flag evaluation failed");
+    if (target.includes("raw.githubusercontent.com")) {
+      if (options.failConfig) {
+        throw new Error("config fetch failed");
       }
-      const payload =
-        options.payload === undefined
-          ? JSON.stringify(performancePayload())
-          : options.payload;
       return {
         ok: true,
         json: jest.fn().mockResolvedValue({
-          flags: {
-            "mem0-oss-notices": {
-              key: "mem0-oss-notices",
-              enabled: options.flagEnabled ?? true,
-              variant: options.variant ?? "displayed",
-              metadata: { payload },
-            },
-          },
+          version: 1,
+          variant_split: variantSplit,
+          ...payload,
         }),
       };
     }
@@ -140,9 +132,10 @@ function performanceEvents(calls: any[]) {
   );
 }
 
-function flagRequestCount(fetchMock: jest.Mock) {
-  return fetchMock.mock.calls.filter(([url]) => String(url).includes("/flags"))
-    .length;
+function configRequestCount(fetchMock: jest.Mock) {
+  return fetchMock.mock.calls.filter(([url]) =>
+    String(url).includes("raw.githubusercontent.com"),
+  ).length;
 }
 
 function mockSearchElapsed(elapsedMs: number) {
@@ -294,20 +287,11 @@ describe("Node OSS performance slow query notice", () => {
   it.each([
     [
       "disabled payload",
-      JSON.stringify(performancePayload({ enabled: false })),
+      performancePayload({ enabled: false }),
       "payload_disabled",
     ],
-    [
-      "missing config",
-      JSON.stringify({ notices: {} }),
-      "missing_notice_config",
-    ],
-    [
-      "missing copy",
-      JSON.stringify(performancePayload({ copy: "" })),
-      "missing_copy",
-    ],
-    ["malformed payload", "{not-json", "missing_notice_config"],
+    ["missing config", { notices: {} }, "missing_notice_config"],
+    ["missing copy", performancePayload({ copy: "" }), "missing_copy"],
   ])("is silent and safe for %s", async (_label, payload, bypassReason) => {
     consumeFirstRun();
     const { fetchMock, calls } = createFetchMock({
@@ -347,7 +331,7 @@ describe("Node OSS performance slow query notice", () => {
       topK: 3,
     });
 
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
     expect(performanceEvents(calls)).toHaveLength(0);
     expect(readConfig().notice_state?.performance_slow_query).toBeUndefined();
   });
@@ -366,17 +350,14 @@ describe("Node OSS performance slow query notice", () => {
       }),
     ).rejects.toThrow("filters must contain");
 
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
     expect(performanceEvents(calls)).toHaveLength(0);
     expect(readConfig().notice_state?.performance_slow_query).toBeUndefined();
   });
 
-  it("does not consume cap or emit when the blunt flag is disabled", async () => {
+  it("emits not-displayed when config fetch fails (bundled config fallback)", async () => {
     consumeFirstRun();
-    const { fetchMock, calls } = createFetchMock({
-      variant: "displayed",
-      flagEnabled: false,
-    });
+    const { fetchMock, calls } = createFetchMock({ failConfig: true });
     global.fetch = fetchMock as any;
     const memory = await createMemory();
     await addSeed(memory);
@@ -387,25 +368,14 @@ describe("Node OSS performance slow query notice", () => {
       topK: 3,
     });
 
-    expect(performanceEvents(calls)).toHaveLength(0);
-    expect(readConfig().notice_state?.performance_slow_query).toBeUndefined();
-  });
-
-  it("does not consume cap or emit when PostHog fails", async () => {
-    consumeFirstRun();
-    const { fetchMock, calls } = createFetchMock({ failFlags: true });
-    global.fetch = fetchMock as any;
-    const memory = await createMemory();
-    await addSeed(memory);
-    mockSearchElapsed(2345);
-
-    await memory.search("favorite drink", {
-      filters: { user_id: "performance-user" },
-      topK: 3,
-    });
-
-    expect(performanceEvents(calls)).toHaveLength(0);
-    expect(readConfig().notice_state?.performance_slow_query).toBeUndefined();
+    const notices = performanceEvents(calls);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].properties).toEqual(
+      expect.objectContaining({
+        notice_id: "performance_slow_query",
+        displayed: false,
+      }),
+    );
   });
 
   it("does nothing when telemetry is off", async () => {
@@ -444,7 +414,7 @@ describe("Node OSS performance slow query notice", () => {
     }
 
     expect(performanceEvents(calls)).toHaveLength(10);
-    expect(flagRequestCount(fetchMock)).toBe(10);
+    expect(configRequestCount(fetchMock)).toBeLessThanOrEqual(1);
     expect(stderrSpy).toHaveBeenCalledTimes(10);
     expect(
       readConfig().notice_state.performance_slow_query.events,
