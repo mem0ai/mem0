@@ -1,5 +1,7 @@
 ---
 title: n8n
+seo:
+  title: "n8n Integration with Mem0"
 description: "Add long-term memory to n8n workflows and AI Agents with the Mem0 community node, no code required."
 ---
 
@@ -14,7 +16,7 @@ Your n8n workflows start from zero on every run. The [`@mem0/n8n-nodes-mem0`](ht
 
 ## Prerequisites
 
-1. A Mem0 API key from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-n8n" rel="nofollow">API Keys dashboard</a> (sign up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-n8n" rel="nofollow">app.mem0.ai</a> if you do not have an account).
+1. A Mem0 API key from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-n8n">API Keys dashboard</a> (sign up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-n8n">app.mem0.ai</a> if you do not have an account).
 2. A **self-hosted** n8n instance. Installing community nodes from npm is a self-hosted feature; n8n Cloud only offers nodes that n8n has verified.
 3. Owner access to that instance, since only instance owners can install community nodes.
 
@@ -139,7 +141,7 @@ The **User ID** is a stable string you pick to identify whose memories these are
 ## Troubleshooting
 
 - **The node does not appear in the panel**: community nodes install on self-hosted n8n only, and only instance owners can install them. On n8n Cloud, this node is not yet available.
-- **`401 Unauthorized`**: the API key is wrong or was revoked. Regenerate it in the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-n8n" rel="nofollow">API Keys dashboard</a> and update the credential.
+- **`401 Unauthorized`**: the API key is wrong or was revoked. Regenerate it in the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-n8n">API Keys dashboard</a> and update the credential.
 - **"Provide at least one of User ID, Agent ID, App ID, or Run ID"**: every Add, Search, and Get Many needs an entity scope. Fill in at least one.
 - **Search returns nothing right after an Add**: extraction is asynchronous. Leave **Wait for Completion** on, or add a short Wait node before searching.
 - **Searching two entity ids returns more than expected**: multiple ids are combined with OR by design. Run one operation per id to narrow.

@@ -239,7 +239,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [OSS Multimodal Support (features)](https://docs.mem0.ai/open-source/features/multimodal-support) [OSS]: Use when handling images and PDFs self-hosted (feature guide).
 - [Custom Instructions (OSS)](https://docs.mem0.ai/open-source/features/custom-instructions) [OSS]: Use when tailoring extraction prompts in OSS.
 - [REST API Server](https://docs.mem0.ai/open-source/features/rest-api) [OSS]: Use when exposing a self-hosted Mem0 as a FastAPI service.
-- [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai_compatibility) [OSS]: Use when hitting an OpenAI-compatible endpoint with self-hosted.
+- [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai-compatibility) [OSS]: Use when hitting an OpenAI-compatible endpoint with self-hosted.
 
 ## Integrations
 
@@ -452,12 +452,12 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [LLM Configuration](https://docs.mem0.ai/components/llms/config) [OSS]: Use for the `llm` config schema.
 - [OpenAI](https://docs.mem0.ai/components/llms/models/openai) [OSS]: Use when the extraction LLM is OpenAI.
 - [Anthropic](https://docs.mem0.ai/components/llms/models/anthropic) [OSS]: Use when the extraction LLM is Claude.
-- [Azure OpenAI](https://docs.mem0.ai/components/llms/models/azure_openai) [OSS]: Use when the user is on Azure-hosted OpenAI.
-- [AWS Bedrock](https://docs.mem0.ai/components/llms/models/aws_bedrock) [OSS]: Use when the LLM runs through Bedrock.
-- [Google AI](https://docs.mem0.ai/components/llms/models/google_AI) [OSS]: Use when the LLM is Gemini.
+- [Azure OpenAI](https://docs.mem0.ai/components/llms/models/azure-openai) [OSS]: Use when the user is on Azure-hosted OpenAI.
+- [AWS Bedrock](https://docs.mem0.ai/components/llms/models/aws-bedrock) [OSS]: Use when the LLM runs through Bedrock.
+- [Google AI](https://docs.mem0.ai/components/llms/models/google-ai) [OSS]: Use when the LLM is Gemini.
 - [Groq](https://docs.mem0.ai/components/llms/models/groq) [OSS]: Use when the user wants Groq's low-latency inference.
 - [DeepSeek](https://docs.mem0.ai/components/llms/models/deepseek) [OSS]: Use when the LLM is DeepSeek.
-- [Mistral AI](https://docs.mem0.ai/components/llms/models/mistral_AI) [OSS]: Use when the LLM is Mistral.
+- [Mistral AI](https://docs.mem0.ai/components/llms/models/mistral-ai) [OSS]: Use when the LLM is Mistral.
 - [MiniMax](https://docs.mem0.ai/components/llms/models/minimax) [OSS]: Use when the LLM is MiniMax.
 - [xAI](https://docs.mem0.ai/components/llms/models/xAI) [OSS]: Use when the LLM is xAI Grok.
 - [Sarvam](https://docs.mem0.ai/components/llms/models/sarvam) [OSS]: Use for Indian-language Sarvam models.
@@ -472,9 +472,9 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Embeddings Overview](https://docs.mem0.ai/components/embedders/overview) [OSS]: Use when choosing an embedding model.
 - [Embeddings Configuration](https://docs.mem0.ai/components/embedders/config) [OSS]: Use for the `embedder` config schema.
 - [OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/openai) [OSS]: Use when embeddings come from OpenAI.
-- [Azure OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/azure_openai) [OSS]: Use for Azure-hosted OpenAI embeddings.
-- [AWS Bedrock Embeddings](https://docs.mem0.ai/components/embedders/models/aws_bedrock) [OSS]: Use for Bedrock-hosted embeddings.
-- [Google AI Embeddings](https://docs.mem0.ai/components/embedders/models/google_AI) [OSS]: Use for Gemini embeddings.
+- [Azure OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/azure-openai) [OSS]: Use for Azure-hosted OpenAI embeddings.
+- [AWS Bedrock Embeddings](https://docs.mem0.ai/components/embedders/models/aws-bedrock) [OSS]: Use for Bedrock-hosted embeddings.
+- [Google AI Embeddings](https://docs.mem0.ai/components/embedders/models/google-ai) [OSS]: Use for Gemini embeddings.
 - [Vertex AI Embeddings](https://docs.mem0.ai/components/embedders/models/vertexai) [OSS]: Use for Google Cloud Vertex AI embeddings.
 - [Hugging Face Embeddings](https://docs.mem0.ai/components/embedders/models/huggingface) [OSS]: Use for open-source HF embedding models.
 - [Ollama Embeddings](https://docs.mem0.ai/components/embedders/models/ollama) [OSS]: Use when embeddings run through local Ollama.
@@ -494,7 +494,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [MongoDB](https://docs.mem0.ai/components/vectordbs/dbs/mongodb) [OSS]: Use when Mongo Atlas Vector Search is the backing store.
 - [Oracle AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/oracledb) [OSS]: Use when Oracle Database AI Vector Search is the backing store.
 - [Azure AI Search](https://docs.mem0.ai/components/vectordbs/dbs/azure) [OSS]: Use when the user is on Azure AI Search.
-- [Azure MySQL](https://docs.mem0.ai/components/vectordbs/dbs/azure_mysql) [OSS]: Use when vector search runs on Azure Database for MySQL.
+- [Azure MySQL](https://docs.mem0.ai/components/vectordbs/dbs/azure-mysql) [OSS]: Use when vector search runs on Azure Database for MySQL.
 - [Redis](https://docs.mem0.ai/components/vectordbs/dbs/redis) [OSS]: Use when Redis Stack is the backing store.
 - [Valkey](https://docs.mem0.ai/components/vectordbs/dbs/valkey) [OSS]: Use when the user is on Valkey (Redis fork).
 - [Elasticsearch](https://docs.mem0.ai/components/vectordbs/dbs/elasticsearch) [OSS]: Use when Elasticsearch is the backing store.
@@ -503,15 +503,15 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Neon](https://docs.mem0.ai/components/vectordbs/dbs/neon) [OSS]: Use when Neon Postgres with pgvector is the backing store.
 - [Upstash Vector](https://docs.mem0.ai/components/vectordbs/dbs/upstash-vector) [OSS]: Use for serverless Upstash Vector.
 - [Vectorize](https://docs.mem0.ai/components/vectordbs/dbs/vectorize) [OSS]: Use when the store is Cloudflare Vectorize.
-- [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex_ai) [OSS]: Use when the store is Google Cloud Vertex Vector Search.
+- [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex-ai) [OSS]: Use when the store is Google Cloud Vertex Vector Search.
 - [Weaviate](https://docs.mem0.ai/components/vectordbs/dbs/weaviate) [OSS]: Use when Weaviate is the backing store.
 - [FAISS](https://docs.mem0.ai/components/vectordbs/dbs/faiss) [OSS]: Use for local FAISS-based similarity search.
 - [LangChain Vector Store](https://docs.mem0.ai/components/vectordbs/dbs/langchain) [OSS]: Use when the vector store is wrapped behind LangChain.
 - [Baidu](https://docs.mem0.ai/components/vectordbs/dbs/baidu) [OSS]: Use when the user is on Baidu Cloud vector service.
 - [Cassandra](https://docs.mem0.ai/components/vectordbs/dbs/cassandra) [OSS]: Use when Cassandra is the backing store.
-- [S3 Vectors](https://docs.mem0.ai/components/vectordbs/dbs/s3_vectors) [OSS]: Use for AWS S3 Vectors.
+- [S3 Vectors](https://docs.mem0.ai/components/vectordbs/dbs/s3-vectors) [OSS]: Use for AWS S3 Vectors.
 - [Databricks](https://docs.mem0.ai/components/vectordbs/dbs/databricks) [OSS]: Use when the user is on Databricks with Delta Lake.
-- [Neptune Analytics](https://docs.mem0.ai/components/vectordbs/dbs/neptune_analytics) [OSS]: Use when the user is on AWS Neptune Analytics (graph + vector).
+- [Neptune Analytics](https://docs.mem0.ai/components/vectordbs/dbs/neptune-analytics) [OSS]: Use when the user is on AWS Neptune Analytics (graph + vector).
 - [Turbopuffer](https://docs.mem0.ai/components/vectordbs/dbs/turbopuffer) [OSS]: Use when the user is on Turbopuffer serverless.
 
 ### Rerankers [OSS]
@@ -520,7 +520,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Reranker Optimization](https://docs.mem0.ai/components/rerankers/optimization) [OSS]: Use when tuning reranker performance.
 - [Custom Reranker Prompts](https://docs.mem0.ai/components/rerankers/custom-prompts) [OSS]: Use when rewriting reranker prompts.
 - [Cohere Reranker](https://docs.mem0.ai/components/rerankers/models/cohere) [OSS]: Use for Cohere Rerank.
-- [Sentence Transformer Reranker](https://docs.mem0.ai/components/rerankers/models/sentence_transformer) [OSS]: Use for local cross-encoder rerankers.
+- [Sentence Transformer Reranker](https://docs.mem0.ai/components/rerankers/models/sentence-transformer) [OSS]: Use for local cross-encoder rerankers.
 - [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.
-- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
-- [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero_entropy) [OSS]: Use for the Zero Entropy reranker.
+- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm-reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
+- [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero-entropy) [OSS]: Use for the Zero Entropy reranker.
