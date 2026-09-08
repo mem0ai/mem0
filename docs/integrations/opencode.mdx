@@ -90,9 +90,9 @@ If you only need the memory tools without the plugin's hooks or skills, point Op
 |-------|-------|--------|
 | `project` *(default)* | this repo (`user_id` + `app_id`) | this repo |
 | `session` | this run only (`+ run_id`) | this run |
-| `global` | **all your projects in the workspace** (`app_id: "*"`) | user-wide |
+| `global` | **all your projects in the workspace** (filtered by your user ID) | user-wide |
 
-Ask naturally, for example, *"search my memories across all my projects"*. The agent passes `scope: "global"`. For normal questions it stays scoped to the current project automatically.
+Select `/mem0-scope global` before requesting a cross-project tool operation. A tool cannot enable global scope by supplying an argument alone. Switch back with `/mem0-scope project` when finished.
 
 To change the **default** scope (used when no scope is passed), run the `/mem0-scope` skill:
 

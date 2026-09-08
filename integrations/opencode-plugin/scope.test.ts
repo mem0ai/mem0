@@ -29,7 +29,6 @@ describe("memory scope (pi-agent parity)", () => {
   test("global scope spans all the user's projects (matches pi-agent)", () => {
     expect(scopeSearchFilters("global", "u", "app", "run")).toEqual({
       user_id: "u",
-      app_id: "*",
     });
     // global writes drop app_id so the memory is user-wide, not project-bound
     expect(scopeWriteParams("global", "u", "app", "run")).toEqual({ user_id: "u" });

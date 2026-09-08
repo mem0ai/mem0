@@ -193,7 +193,7 @@ describe("tool instrumentation", () => {
 
   it("records a write with its size but not its text", async () => {
     mockAdd.mockResolvedValue([{ id: "m1", memory: "Fact" }]);
-    const tools = applyAndCollect({ apiKey: "k", userId: "u" });
+    const tools = applyAndCollect({ apiKey: "k", userId: "u", allowUserOverride: true });
 
     await tools.get("add_memory")!.execute({ text: "secret fact", userId: "alice" }, {});
 

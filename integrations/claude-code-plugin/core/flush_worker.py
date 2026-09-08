@@ -14,7 +14,6 @@ import time
 from pathlib import Path
 
 import telemetry
-from hook_runner import default_record_stop
 from memory_core import (
     EvidenceStore,
     checkpoint_session,
@@ -44,9 +43,12 @@ def main() -> int:
         delay = float(payload.get("delay_seconds") or 0)
         if delay > 0:
             payload.pop("delay_seconds", None)
-            handoff_path.write_text(
-                json.dumps(payload), encoding="utf-8"
-            )
+            temporary = handoff_path.with_suffix(f".{os.getpid()}.tmp")
+            try:
+                temporary.write_text(json.dumps(payload), encoding="utf-8")
+                temporary.replace(handoff_path)
+            finally:
+                temporary.unlink(missing_ok=True)
             time.sleep(delay)
             if not handoff_path.exists():
                 return 0
@@ -69,8 +71,7 @@ def main() -> int:
                 ):
                     touch_handoff_heartbeat()
                     time.sleep(0.25)
-                if reason == "session-end":
-                    default_record_stop(store, hook_input)
+            # Hooks capture the conversation before handoff; the worker only flushes it.
             result = checkpoint_session(store, hook_input, reason)
             print(json.dumps(result, sort_keys=True), flush=True)
             completed = result.get("status") in {

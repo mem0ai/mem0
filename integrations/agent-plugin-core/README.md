@@ -85,3 +85,18 @@ For another native Python host:
 Keep capture, recall, memory scoping, redaction, skill text, and telemetry in this shared module. Host directories should contain only behavior required by their native SDK.
 
 For a TypeScript host, import the shared lifecycle modules directly and keep only native SDK registration in the integration. Do not advertise capture, compaction, or sidekick behavior unless the host exposes the necessary lifecycle seam.
+
+## Host capture capabilities
+
+| Host | Conversation capture | Tool outcomes | Subagent context and correlation |
+| --- | --- | --- | --- |
+| Claude Code | Incremental active transcript branch | Native success/failure hooks | Parent context; native agent ID |
+| Cursor | Prompt and response hooks; duplicate responses suppressed | Native success/failure hooks | Sidekick searches itself; no parent-injection claim |
+| Codex | Native prompt and final-response fields | Structured failure indicators when present; otherwise unknown | Parent context; native agent ID |
+| Kimi | Prompt hooks and completed v2 wire output | Native success/failure hooks | Parent context; without an ID, a stop matches only one unambiguous active run |
+| Antigravity | Incremental completed transcript messages, including later prompts | Native tool errors | Sidekick searches itself; no worktree-isolation claim |
+| Portable v1 | Explicit memory skills | No native lifecycle hooks | No native subagent declaration |
+
+An uncorrelated subagent completion is kept as its own record; the plugin never guesses which overlapping run completed. Codex's documented hook fields already match the shared input contract, so no speculative field aliases or unsupported failure event are registered.
+
+Offline conformance exercises the adapters and MCP servers with native-shaped payloads and builds each distributable package. It does not establish that every installed editor or Harness version loads the plugin correctly; those checks require smoke tests in the actual hosts.

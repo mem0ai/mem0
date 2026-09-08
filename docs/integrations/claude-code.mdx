@@ -5,7 +5,7 @@ description: "Persistent cross-session memory for Claude Code. Install once, mem
 
 Claude Code forgets everything between sessions. This plugin fixes that. Install it, work normally, and Claude remembers what happened across sessions.
 
-<Info>Current plugin version: `0.3.0`.</Info>
+<Info>Current plugin version: `0.3.1`.</Info>
 
 ## Prerequisites
 
@@ -112,9 +112,13 @@ Every memory carries identifiers showing where it came from:
 | Identifier | What it is | Example |
 | --- | --- | --- |
 | `user_id` | You (personal memory only) | Your Mem0 user ID |
-| `agent_id` | The project identity (shared memory only) | `acme-payments-api` |
+| `agent_id` | The project identity (shared memory only) | `acme-payments-api-<hash>` |
 | `app_id` | The repository (scopes both lanes) | `acme-payments-api` |
 | `run_id` | The Claude Code session | The session ID |
+
+New Git repository memories use an `agent_id` with a hash of the Git remote identity so matching owner/repository names on different hosts stay separate. Searches also include the previous unhashed `agent_id`, scoped by the repository's `app_id`, so existing shared memories remain available after upgrading. Those older memories retain their original namespace, which did not distinguish Git hosts. Local folders continue using a hash of their path.
+
+Explicitly forgetting shared project memory with `--include-project-memory` covers both repository IDs. Without that option, shared memories are preserved.
 
 A search returns the union of shared project memory and your personal preferences. The scope narrows the project part:
 
@@ -126,7 +130,7 @@ A search returns the union of shared project memory and your personal preference
 
 The `dir` scope is hierarchical: a parent directory sees everything in its children, but a child never sees the parent's memories.
 
-Pass `--run-id <session-id>` to see only what one specific session recorded. Set the default scope with the `search_scope` setting or `MEM0_CODE_SEARCH_SCOPE` env var.
+The search tool searches across sessions and does not require or accept a session ID. The plugin still records `run_id` internally with each memory update. Set the default scope with the `search_scope` setting or `MEM0_CODE_SEARCH_SCOPE` env var.
 
 ## Settings
 

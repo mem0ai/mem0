@@ -91,3 +91,17 @@ def test_native_codex_bundle_is_self_contained(tmp_path: Path) -> None:
     assert (root / ".mcp.json").is_file()
     assert not (root / "agents").exists()
     assert not any(path.is_symlink() for path in root.rglob("*"))
+
+
+def test_codex_post_tool_keeps_failures_and_unknown_outcomes(tmp_path):
+    for response, failed in [("raw command output", None), ({"exit_code": 1, "stderr": "failed"}, True), ({"isError": False}, False)]:
+        result = subprocess.run(
+            [sys.executable, str(HOST / "hooks" / "adapter.py"), "post-tool", "--plugin-data-dir", str(tmp_path / "data")],
+            input=json.dumps({"session_id": "s1", "cwd": str(tmp_path), "tool_name": "Bash",
+                              "tool_input": {"command": "test command"}, "tool_response": response}),
+            text=True, capture_output=True, check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        with sqlite3.connect(tmp_path / "data" / "evidence.sqlite3") as connection:
+            row = connection.execute("SELECT payload_json FROM events ORDER BY id DESC LIMIT 1").fetchone()
+        assert json.loads(row[0])["failed"] is failed

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Expose Mem0's memory search as one local Claude Code tool."""
+"""Expose Mem0's memory search as one local coding-agent tool."""
 
 from __future__ import annotations
 
@@ -11,12 +11,12 @@ from typing import Any
 import telemetry
 from memory_core import (
     CODING_MEMORY_CATEGORY_NAMES,
+    PLUGIN_VERSION,
+    SEARCH_SCOPES,
     format_search_result,
     resolve_repo,
-    SEARCH_SCOPES,
     search_memories,
 )
-
 
 PROTOCOL_VERSION = "2024-11-05"
 TOOL_NAME = "search_memories"
@@ -30,8 +30,7 @@ TOOL_DESCRIPTION = (
     "invocation works. The scope argument changes what is searched: 'repo' "
     "(default) is the whole repository's shared memory plus your own "
     "preferences, 'dir' narrows the shared part to the directory you are "
-    "working in, and 'mine' is your preferences alone. Pass run_id to look "
-    "at one earlier Claude Code session only."
+    "working in, and 'mine' is your preferences alone."
 )
 TOOL_SCHEMA = {
     "type": "object",
@@ -62,12 +61,6 @@ TOOL_SCHEMA = {
                 "part to the current directory, 'mine' is your preferences alone."
             ),
         },
-        "run_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200,
-            "description": "Optional Claude Code session ID. Restricts the search to memories written from that session.",
-        },
     },
     "required": ["query"],
     "additionalProperties": False,
@@ -80,11 +73,11 @@ class ToolInputError(ValueError):
 
 def _validate_arguments(
     arguments: Any,
-) -> tuple[str, int | None, str | None, str | None, str | None]:
+) -> tuple[str, int | None, str | None, str | None]:
     if not isinstance(arguments, dict):
         raise ToolInputError("Search arguments must be an object.")
 
-    unknown = set(arguments) - {"query", "top_k", "category", "scope", "run_id"}
+    unknown = set(arguments) - {"query", "top_k", "category", "scope"}
     if unknown:
         raise ToolInputError(f"Unknown search argument: {sorted(unknown)[0]}")
 
@@ -109,16 +102,11 @@ def _validate_arguments(
     if scope is not None and scope not in SEARCH_SCOPES:
         raise ToolInputError(f"scope must be one of {list(SEARCH_SCOPES)}.")
 
-    run_id = arguments.get("run_id")
-    if run_id is not None and (
-        not isinstance(run_id, str) or not run_id.strip() or len(run_id) > 200
-    ):
-        raise ToolInputError("run_id must be a non-empty string of at most 200 characters.")
-    return query, top_k, category, scope, run_id
+    return query, top_k, category, scope
 
 
 def call_search_memories(arguments: Any, cwd: str | None = None) -> str:
-    query, top_k, category, scope, run_id = _validate_arguments(arguments)
+    query, top_k, category, scope = _validate_arguments(arguments)
     repo = resolve_repo(cwd or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
     result = search_memories(
         None,
@@ -128,7 +116,6 @@ def call_search_memories(arguments: Any, cwd: str | None = None) -> str:
         top_k=top_k,
         category=category,
         scope=scope,
-        run_id=run_id,
         operation="mcp-search",
     )
     return format_search_result(result)
@@ -170,7 +157,7 @@ def handle_request(message: Any) -> dict[str, Any] | None:
             "result": {
                 "protocolVersion": requested or PROTOCOL_VERSION,
                 "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": "mem0", "version": "0.3.0"},
+                "serverInfo": {"name": "mem0", "version": PLUGIN_VERSION},
             },
         }
     if method == "ping":

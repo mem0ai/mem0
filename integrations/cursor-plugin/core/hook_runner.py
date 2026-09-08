@@ -14,8 +14,8 @@ from pathlib import Path
 
 import telemetry
 from memory_core import (
-    EvidenceStore,
     MAX_ASSISTANT_CHARS,
+    EvidenceStore,
     _session_id,
     api_key,
     bounded,
@@ -55,7 +55,7 @@ def default_record_stop(store: EvidenceStore, hook_input: dict):
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
     message = bounded(hook_input.get("last_assistant_message", ""), MAX_ASSISTANT_CHARS)
     if message:
-        store.record_event(repo, session_id, "assistant_stop", {"text": message})
+        store.record_assistant_response(repo, session_id, message)
     return repo, session_id
 
 

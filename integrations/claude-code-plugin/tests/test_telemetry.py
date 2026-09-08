@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 import pytest
 
-
 HOST_ROOT = Path(__file__).resolve().parents[1]
 CORE = HOST_ROOT / "core"
 sys.path.insert(0, str(CORE))
@@ -97,12 +96,15 @@ def test_record_rejects_sensitive_properties_at_the_shared_boundary(isolated_env
     assert not {"prompt", "query", "api_key", "user_id"} & event["properties"].keys()
 
 
-def test_record_removes_sensitive_keys_from_nested_lists(isolated_env):
+@pytest.mark.parametrize("key", ["password", "token", "secret", "authorization"])
+def test_record_removes_sensitive_keys_from_nested_lists(isolated_env, key):
+    secret = "sk-eval-12345678901234567890"
     telemetry.record(
         "search",
         details=[
-            {"password": "plain-password", "count": 2},
-            {"nested": {"authorization": "plain-authorization", "ok": True}},
+            {key: "plain-value", "count": 2},
+            {"nested": {key.upper(): "plain-value", "ok": True}},
+            [f"failure contained {secret}"],
         ],
     )
 
@@ -110,6 +112,7 @@ def test_record_removes_sensitive_keys_from_nested_lists(isolated_env):
     assert event["properties"]["details"] == [
         {"count": 2},
         {"nested": {"ok": True}},
+        ["failure contained [REDACTED]"],
     ]
 
 

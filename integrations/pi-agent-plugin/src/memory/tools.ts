@@ -1,3 +1,4 @@
+import { resolveToolScope } from "../../../agent-plugin-core/typescript/src/scoping.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { StringEnum } from "@earendil-works/pi-ai";
@@ -54,7 +55,7 @@ export function buildToolExecute(
   defaultScope: Scope,
 ) {
   return async (params: ToolParams, signal?: AbortSignal) => {
-    const scope = params.scope ?? defaultScope;
+    const scope = resolveToolScope(params.scope, defaultScope);
 
     switch (params.action) {
       case "search": {
@@ -150,7 +151,7 @@ export function registerMemoryTool(
       'For multi-part or comparative questions, run several searches with different phrasings and combine the results before answering -- one search is rarely enough',
       'Use mem0_memory with action "add" to save important facts, preferences, goals, decisions, or lessons the user shares',
       'Use mem0_memory with action "update" to modify an existing memory — requires memory_id and content. Preserves the memory ID',
-      "Always use the default project scope unless the user EXPLICITLY asks to search across all projects — only then use scope \"global\"",
+      "Always use the default project scope unless the user EXPLICITLY asks to search across all projects — only after the user selects /mem0-scope global use scope \"global\"",
       "Do NOT pass scope at all for normal queries — omitting it uses the project default automatically",
     ],
     parameters: Type.Object({

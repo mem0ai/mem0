@@ -39,4 +39,4 @@ export function resolveDefaultScope(settings: Record<string, unknown> | null | u
 }
 
 export const SCOPE_GUIDANCE =
-  'Memory tools accept an optional `scope`: omit it (or "project") for normal queries; use "session" to limit to the current run; use "global" ONLY when the user explicitly asks to search across all their projects in this workspace.';
+  'Memory tools accept an optional `scope`: omit it (or "project") for normal queries; use "session" to limit to the current run; use "global" only after the user enables /mem0-scope global.';

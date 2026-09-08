@@ -191,7 +191,7 @@ describe("search_memory tool", () => {
 
   it("honors a per-call userId override and limit", async () => {
     mockSearch.mockResolvedValue({ results: [] });
-    const tools = applyAndCollect({ apiKey: "k", userId: "u" });
+    const tools = applyAndCollect({ apiKey: "k", userId: "u", allowUserOverride: true });
 
     await tools.get("search_memory")!.execute({ query: "x", userId: "alice", limit: 3 }, {});
 
@@ -260,5 +260,15 @@ describe("add_memory tool", () => {
 
     expect(out).toContain("add_memory failed");
     expect(out).toContain("boom");
+  });
+});
+
+describe("tool user ownership", () => {
+  it("rejects cross-user reads and writes before contacting Mem0", async () => {
+    const tools = applyAndCollect({ apiKey: "k", userId: "u" });
+    await expect(tools.get("search_memory")!.execute({ query: "x", userId: "other" }, {})).rejects.toThrow(/allowUserOverride/);
+    await expect(tools.get("add_memory")!.execute({ text: "x", userId: "other" }, {})).rejects.toThrow(/allowUserOverride/);
+    expect(mockSearch).not.toHaveBeenCalled();
+    expect(mockAdd).not.toHaveBeenCalled();
   });
 });

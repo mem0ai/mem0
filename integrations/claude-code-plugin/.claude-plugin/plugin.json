@@ -1,6 +1,6 @@
 {
   "name": "mem0",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Cross-session memory and token savings for coding agents.",
   "author": {
     "name": "Mem0"

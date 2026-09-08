@@ -17,7 +17,12 @@ sys.path.insert(0, str(CORE))
 
 import hook_runner  # noqa: E402
 import telemetry  # noqa: E402
-from memory_core import configure_harness, record_sidekick_start, record_sidekick_stop, record_tool  # noqa: E402
+from memory_core import (  # noqa: E402
+    configure_harness,
+    record_sidekick_start,
+    record_sidekick_stop,
+    record_tool,
+)
 
 EVENTS = {
     "sessionStart": "session-start",
@@ -63,7 +68,7 @@ def _record_response(store, payload):
 
 
 def _record_sidekick_start(store, payload):
-    record_sidekick_start(store, payload)
+    record_sidekick_start(store, payload, inject_context=False)
     return {"permission": "allow"}
 
 

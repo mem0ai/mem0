@@ -103,6 +103,7 @@ For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that
 |---|---|---|---|
 | `apiKey` | no | `$MEM0_API_KEY` | Mem0 platform API key |
 | `userId` | yes | | Default entity that owns the memories |
+| `allowUserOverride` | no | `false` | Permit model-selected access to a different user only in a trusted multi-user deployment |
 | `host` | no | `api.mem0.ai` | Platform base URL (on-prem / dedicated) |
 | `autoRecall` | no | `true` | Recall relevant memory before model requests |
 | `autoCapture` | no | `true` | Store completed human and assistant turns |
@@ -122,3 +123,5 @@ Writes are tagged `source="DEEPSEEK_HARNESS"` so Mem0 can attribute usage to thi
 - **`MISSING_CREDENTIAL` for `deepseek-official`**: Configure `DEEPSEEK_API_KEY` through Harness's Models page or export it in the shell that launches Harness.
 - **`EMFILE: too many open files, watch` on macOS**: Launch Harness with `CHOKIDAR_USEPOLLING=1`.
 - **Mem0 tools do not appear**: Run Harness with `--dump-config` and confirm the final composition contains the `mem0` row and the installed `dist/index.js` path.
+
+Per-call `userId` overrides are rejected unless the operator enables `allowUserOverride: true`. Automatic recall and capture always use the configured user.

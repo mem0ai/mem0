@@ -65,6 +65,7 @@ For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that
 |---|---|---|---|
 | `apiKey` | no | `$MEM0_API_KEY` | Mem0 platform API key |
 | `userId` | yes | | Entity that owns the memories |
+| `allowUserOverride` | no | `false` | Permit model-selected access to a different user only in a trusted multi-user deployment |
 | `host` | no | `api.mem0.ai` | Platform base URL (on-prem / dedicated) |
 | `autoRecall` | no | `true` | Recall relevant memory before model requests |
 | `autoCapture` | no | `true` | Store completed human/assistant turns |
@@ -78,3 +79,5 @@ The plugin also sends anonymous usage events (which tool ran, duration, result c
 ## Status
 
 Developer preview. Tracks the DeepSeek Harness v0.1 plugin API, which is young and moving. Harness capability packages are peer dependencies supplied by the host; this package pins matching release-candidate versions for local typechecking and tests.
+
+Per-call `userId` overrides are rejected unless the operator enables `allowUserOverride: true`. Automatic recall and capture always use the configured user.

@@ -1,3 +1,4 @@
+import { resolveToolScope } from "../agent-plugin-core/typescript/src/scoping.ts";
 // Mem0 memory plugin for OpenCode: captures and recalls memories across sessions
 // (add / search / manage) via the Mem0 platform, wired through OpenCode plugin hooks.
 // Memory operations are exposed as native OpenCode tools backed by the mem0ai SDK
@@ -326,7 +327,7 @@ Identity context (resolved at plugin startup):
   // user's persisted default scope (read fresh so /mem0-scope applies at once).
   // A "project" default preserves the existing behavior, including global_search.
   function readScopeFilters(args: any): any {
-    if (args.scope) return scopeSearchFilters(asScope(args.scope), userId, appId, sessionId);
+    if (args.scope) return scopeSearchFilters(resolveToolScope(asScope(args.scope), loadDefaultScope()), userId, appId, sessionId);
     if (args.filters || args.agent_id) return resolveFilters(args, globalSearch, userId, appId);
     const ds = loadDefaultScope();
     return ds === "project"
@@ -389,7 +390,7 @@ Identity context (resolved at plugin startup):
         async execute(args) {
           stats.adds++;
           captureEvent("tool_use", {tool: "add_memory"}, apiKey, appId);
-          const effScope: Scope = args.scope ? asScope(args.scope) : loadDefaultScope();
+          const effScope: Scope = resolveToolScope(args.scope ? asScope(args.scope) : undefined, loadDefaultScope());
           const sp = scopeWriteParams(effScope, userId, appId, sessionId);
           const finalUserId = args.agent_id ? args.user_id : (args.user_id ?? sp.user_id);
           const finalAppId = args.app_id ?? sp.app_id;
@@ -526,7 +527,7 @@ Identity context (resolved at plugin startup):
         },
         async execute(args) {
           captureEvent("tool_use", {tool: "delete_all_memories"}, apiKey, appId);
-          const sp = args.scope ? scopeWriteParams(asScope(args.scope), userId, appId, sessionId) : null;
+          const sp = args.scope ? scopeWriteParams(resolveToolScope(asScope(args.scope), loadDefaultScope()), userId, appId, sessionId) : null;
           const res = await mem0.deleteAll({
             user_id: sp ? sp.user_id : (args.agent_id ? args.user_id : (args.user_id ?? userId)),
             app_id: sp ? sp.app_id : (args.app_id ?? appId),

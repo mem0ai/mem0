@@ -117,3 +117,24 @@ def test_native_antigravity_bundle_uses_supported_events(tmp_path: Path) -> None
     assert (root / "mcp_config.json").is_file()
     assert (root / "agents" / "sidekick" / "agent.md").is_file()
     assert not any(path.is_symlink() for path in root.rglob("*"))
+
+
+def test_stop_captures_later_prompts_once(tmp_path):
+    transcript = tmp_path / "transcript.jsonl"
+    store = adapter.hook_runner.EvidenceStore(tmp_path / "evidence.sqlite3")
+    payload = {"session_id": "s1", "cwd": str(tmp_path), "transcript_path": str(transcript)}
+    turns = []
+    try:
+        for prompt, answer in [("First question", "First answer"), ("Next question", "Next answer")]:
+            turns.extend([
+                {"type": "USER_INPUT", "status": "DONE", "content": prompt},
+                {"type": "PLANNER_RESPONSE", "source": "MODEL", "status": "DONE", "content": answer},
+            ])
+            transcript.write_text(''.join(json.dumps(row) + '\n' for row in turns))
+            adapter._record_stop(store, payload)
+            adapter._record_stop(store, payload)
+        rows = store.conn.execute("SELECT payload_json FROM events WHERE kind = 'assistant_stop' ORDER BY id").fetchall()
+        messages = [message for row in rows for message in json.loads(row[0])["transcript_messages"]]
+        assert [m["content"] for m in messages] == ["First question", "First answer", "Next question", "Next answer"]
+    finally:
+        store.close()

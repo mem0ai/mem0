@@ -51,6 +51,8 @@ export interface Config {
   apiKey?: string;
   /** Default entity that owns the memories (Mem0 user scope). */
   userId: string;
+  /** Explicitly allow model-selected cross-user access. Defaults to false. */
+  allowUserOverride?: boolean;
   /** Optional Mem0 Platform base-URL override (on-prem / dedicated); defaults to api.mem0.ai. Not a switch to self-hosted OSS. */
   host?: string;
   /** Recall relevant memory before each model request. Defaults to true. */
@@ -75,7 +77,7 @@ const scopeParams = {
   userId: {
     type: "string",
     description:
-      "Entity that owns the memory. Defaults to the plugin's configured userId; set this only to read or write another user's memories.",
+      "Entity that owns the memory. Defaults to the plugin's configured userId; cross-user overrides require allowUserOverride in plugin configuration.",
   },
   agentId: {
     type: "string",
@@ -92,8 +94,8 @@ export function apply(ctx: Context, config: Config): void {
   if (!apiKey) {
     throw new Error("deepseek-plugin: set config.apiKey or the MEM0_API_KEY env var");
   }
-  const userId = config.userId;
-  if (!userId) {
+  const userId = config.userId?.trim();
+  if (!userId || /^\*+$/.test(userId)) {
     throw new Error("deepseek-plugin: config.userId is required");
   }
 
@@ -208,6 +210,9 @@ export function apply(ctx: Context, config: Config): void {
       },
       output: textOutput,
       async execute({ query, limit, userId: u, agentId, runId }) {
+        if (u?.trim() && u.trim() !== userId && config.allowUserOverride !== true) {
+          throw new Error("Cross-user access requires allowUserOverride in plugin configuration.");
+        }
         const safeQuery = toolLifecycle.prepareUserText(query);
         const filters = resolveSearchFilters({ userId: u, agentId, runId }, userId);
         const topK = limit && limit > 0 ? limit : DEFAULT_SEARCH_LIMIT;
@@ -258,6 +263,9 @@ export function apply(ctx: Context, config: Config): void {
       },
       output: textOutput,
       async execute({ text, userId: u, agentId, runId }) {
+        if (u?.trim() && u.trim() !== userId && config.allowUserOverride !== true) {
+          throw new Error("Cross-user access requires allowUserOverride in plugin configuration.");
+        }
         const addParams = resolveAddParams({ userId: u, agentId, runId }, userId);
         const started = Date.now();
         try {

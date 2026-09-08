@@ -18,11 +18,17 @@ sys.path.insert(0, str(CORE))
 
 import hook_runner  # noqa: E402
 import telemetry  # noqa: E402
-from memory_core import configure_harness, record_tool  # noqa: E402
+from memory_core import (  # noqa: E402
+    MAX_ASSISTANT_CHARS,
+    MAX_PROMPT_CHARS,
+    bounded,
+    configure_harness,
+    record_tool,
+)
 
 
-def _transcript_messages(path: str) -> tuple[str, str]:
-    prompt = assistant = ""
+def _read_transcript(path: str) -> list[dict[str, str]]:
+    messages = []
     try:
         with open(path, encoding="utf-8") as transcript:
             for line in transcript:
@@ -35,12 +41,42 @@ def _transcript_messages(path: str) -> tuple[str, str]:
                     continue
                 if step.get("type") == "USER_INPUT":
                     match = re.search(r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", content, re.DOTALL)
-                    prompt = match.group(1) if match else content
+                    messages.append({"role": "user", "content": bounded(
+                        match.group(1) if match else content, MAX_PROMPT_CHARS
+                    )})
                 elif step.get("source") == "MODEL" and step.get("type") == "PLANNER_RESPONSE":
-                    assistant = content
+                    messages.append({"role": "assistant", "content": bounded(content, MAX_ASSISTANT_CHARS)})
     except (OSError, TypeError):
         pass
-    return prompt, assistant
+    return messages
+
+
+def _transcript_messages(path: str) -> tuple[str, str]:
+    messages = _read_transcript(path)
+    return tuple(next((m["content"] for m in reversed(messages) if m["role"] == role), "")
+                 for role in ("user", "assistant"))
+
+
+def _record_stop(store, payload):
+    session_id = str(payload.get("session_id") or "unknown-session")
+    repo = store.repo_for_session(session_id, payload.get("cwd"))
+    path = str(payload.get("transcript_path") or "")
+    messages = _read_transcript(path)
+    if not messages:
+        return hook_runner.default_record_stop(store, payload)
+    with store.conn:
+        store.conn.execute("BEGIN IMMEDIATE")
+        previous = store.latest_event_payload(repo.identity, session_id, "assistant_stop")
+        offset = previous.get("transcript_count", 0) if previous.get("transcript_path") == path else 0
+        if not isinstance(offset, int) or not 0 <= offset <= len(messages):
+            offset = 0
+        if messages[offset:]:
+            store.record_event(repo, session_id, "assistant_stop", {
+                "transcript_messages": messages[offset:],
+                "transcript_count": len(messages),
+                "transcript_path": path,
+            })
+    return repo, session_id
 
 
 def normalize(payload: dict) -> dict:
@@ -75,6 +111,7 @@ def _run_shared(arguments: list[str], payload: dict) -> tuple[int, str]:
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
         result = hook_runner.run(
+            record_stop_fn=_record_stop,
             extra_actions={"post-tool-failure": _record_failure},
             automatic_flush_reasons={"session-end"},
         )

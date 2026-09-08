@@ -19,18 +19,17 @@ import subprocess
 import sys
 import time
 import urllib.error
-import urllib.request
 import urllib.parse
+import urllib.request
 from dataclasses import dataclass
-from datetime import timezone, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
 import telemetry
 
-
 DEFAULT_API_URL = "https://api.mem0.ai"
-PLUGIN_VERSION = "0.3.0"
+PLUGIN_VERSION = "0.3.1"
 
 _harness_name: str = "generic"
 _harness_env_prefix: str = "MEM0_PLUGIN"
@@ -80,7 +79,7 @@ A completed change should produce one memory explaining the resulting behavior, 
 
 A command that failed and was then made to work should produce one memory naming the failing invocation, the error it returned, and the invocation that succeeded. Do not save one-off errors caused by an edit still in progress, transient network failures, or anything a rerun would fix on its own.
 
-Use Claude's final response for conclusions about current repository behavior. Do not save proposed or recommended changes unless the user accepted them or Claude completed them. Treat subagent responses as supporting repository evidence, not as decisions.
+Use the current coding agent's final response for conclusions about current repository behavior. Do not save proposed or recommended changes unless the user accepted them or the coding agent completed them. Treat subagent responses as supporting repository evidence, not as decisions.
 
 Write about the repository, not the user, assistant, session, or task. Do not save personal preferences. Do not save a memory that only states which repository, branch, or directory the session worked in. Do not include test results, documentation updates, release notes, or temporary state.
 
@@ -161,7 +160,7 @@ SECRET_PATTERNS = [
     re.compile(
         r'(?i)("(?:api[_-]?key|password|secret(?:[_-]?access[_-]?key)?'
         r'|(?:access|refresh|session)[_-]?token|token|authorization|credential'
-        r')"\s*:\s*")[^"]*'
+        r')"\s*:\s*")(?:\\.|[^"\\])*'
     ),
 ]
 
@@ -246,13 +245,21 @@ def directory_chain(repo: RepoContext) -> list[str]:
     return ["/".join(parts[: index + 1]) for index in range(len(parts))]
 
 
+def _shared_project_ids(repo: RepoContext) -> list[str]:
+    """Current and pre-upgrade namespaces, shared by recall and explicit deletion."""
+    if not repo.identity.startswith("local:") and repo.project_id != repo.app_id:
+        return [repo.project_id, repo.app_id]
+    return [repo.project_id]
+
+
 def _search_filters(user: str, repo: RepoContext, scope: str) -> dict[str, Any]:
     """Build the scope filter: app_id scopes to the repo, then union shared and personal lanes."""
     app_scope = {"app_id": repo.app_id}
     mine = {"AND": [{"user_id": user}, app_scope]}
     if scope == "mine":
         return mine
-    shared: dict[str, Any] = {"AND": [{"agent_id": repo.project_id}, app_scope]}
+    projects = [{"AND": [{"agent_id": project_id}, app_scope]} for project_id in _shared_project_ids(repo)]
+    shared: dict[str, Any] = projects[0] if len(projects) == 1 else {"OR": projects}
     if scope == "dir" and repo.directory:
         shared = {"AND": [shared, {"metadata": {"dirs": {"contains": repo.directory}}}]}
     return {"OR": [shared, mine]}
@@ -446,7 +453,7 @@ def clear_stale_api_key_cache() -> bool:
 
 
 def detached_process_kwargs(platform: str | None = None) -> dict:
-    """Keep a spawned worker alive after Claude Code exits, on POSIX and Windows."""
+    """Keep a spawned worker alive after the coding agent exits, on POSIX and Windows."""
     if (platform or sys.platform) == "win32":
         return {
             "creationflags": subprocess.DETACHED_PROCESS
@@ -732,8 +739,27 @@ class EvidenceStore:
         self.conn.commit()
         return int(cursor.lastrowid)
 
+    def record_assistant_response(self, repo: RepoContext, session_id: str, message: str) -> None:
+        """Ignore repeated response hooks until another prompt or a different answer arrives."""
+        with self.conn:
+            # Serialize the check and insert across concurrent Stop and SessionEnd hooks.
+            self.conn.execute("BEGIN IMMEDIATE")
+            previous = self.conn.execute(
+                """SELECT kind, payload_json FROM events
+                   WHERE repo_id = ? AND session_id = ? AND kind IN ('user_prompt', 'assistant_stop')
+                   ORDER BY id DESC LIMIT 1""",
+                (repo.identity, session_id),
+            ).fetchone()
+            if (
+                previous is not None
+                and previous["kind"] == "assistant_stop"
+                and json.loads(previous["payload_json"]).get("text") == message
+            ):
+                return
+            self.record_event(repo, session_id, "assistant_stop", {"text": message})
+
     def repo_for_session(self, session_id: str, cwd: str | None) -> RepoContext:
-        """Keep one project scope for every hook in a Claude Code session."""
+        """Keep one project scope for every hook in a coding-agent session."""
         current = resolve_repo(cwd)
         if session_id == "unknown-session":
             return current
@@ -775,78 +801,77 @@ class EvidenceStore:
     def prepare_flush(
         self, repo: RepoContext, session_id: str, reason: str
     ) -> tuple[str, list[dict[str, Any]]] | None:
-        existing = self.conn.execute(
-            """SELECT * FROM flushes
-               WHERE repo_id = ? AND session_id = ?
-                 AND status NOT IN ('semantic-succeeded', 'explicitly-stored', 'gave-up')
-               ORDER BY created_at LIMIT 1""",
-            (repo.identity, session_id),
-        ).fetchone()
-        if existing and int(existing["attempts"] or 0) >= MAX_FLUSH_ATTEMPTS:
-            with self.conn:
+        with self.conn:
+            self.conn.execute("BEGIN IMMEDIATE")
+            existing = self.conn.execute(
+                """SELECT * FROM flushes
+                   WHERE repo_id = ? AND session_id = ?
+                     AND status NOT IN ('semantic-succeeded', 'explicitly-stored', 'gave-up')
+                   ORDER BY created_at LIMIT 1""",
+                (repo.identity, session_id),
+            ).fetchone()
+            if existing and int(existing["attempts"] or 0) >= MAX_FLUSH_ATTEMPTS:
                 self.conn.execute(
                     "UPDATE flushes SET status = 'gave-up', updated_at = ? WHERE packet_id = ?",
                     (utc_now(), existing["packet_id"]),
                 )
-            telemetry.record(
-                "flush",
-                repo=repo,
-                session_id=session_id,
-                reason=reason,
-                status="gave-up",
-                success=False,
-                attempts=int(existing["attempts"] or 0),
-            )
-            existing = None
-        if existing:
-            if reason != "periodic" and existing["reason"] == "periodic":
-                with self.conn:
+                telemetry.record(
+                    "flush",
+                    repo=repo,
+                    session_id=session_id,
+                    reason=reason,
+                    status="gave-up",
+                    success=False,
+                    attempts=int(existing["attempts"] or 0),
+                )
+                existing = None
+            if existing:
+                if reason != "periodic" and existing["reason"] == "periodic":
                     self.conn.execute(
                         "UPDATE flushes SET reason = ?, updated_at = ? WHERE packet_id = ?",
                         (reason, utc_now(), existing["packet_id"]),
                     )
-            existing_rows = self.conn.execute(
-                "SELECT * FROM events WHERE flush_id = ? ORDER BY id",
-                (existing["packet_id"],),
+                existing_rows = self.conn.execute(
+                    "SELECT * FROM events WHERE flush_id = ? ORDER BY id",
+                    (existing["packet_id"],),
+                ).fetchall()
+                if existing_rows:
+                    return str(existing["packet_id"]), [
+                        {
+                            "id": row["id"],
+                            "created_at": row["created_at"],
+                            "kind": row["kind"],
+                            "payload": json.loads(row["payload_json"]),
+                        }
+                        for row in existing_rows
+                    ]
+
+            rows = self.conn.execute(
+                """SELECT * FROM events
+                   WHERE repo_id = ? AND session_id = ? AND flush_id IS NULL
+                   ORDER BY id""",
+                (repo.identity, session_id),
             ).fetchall()
-            if existing_rows:
-                return str(existing["packet_id"]), [
-                    {
-                        "id": row["id"],
-                        "created_at": row["created_at"],
-                        "kind": row["kind"],
-                        "payload": json.loads(row["payload_json"]),
-                    }
-                    for row in existing_rows
-                ]
+            if not rows:
+                return None
 
-        rows = self.conn.execute(
-            """SELECT * FROM events
-               WHERE repo_id = ? AND session_id = ? AND flush_id IS NULL
-               ORDER BY id""",
-            (repo.identity, session_id),
-        ).fetchall()
-        if not rows:
-            return None
+            events = [
+                {
+                    "id": row["id"],
+                    "created_at": row["created_at"],
+                    "kind": row["kind"],
+                    "payload": json.loads(row["payload_json"]),
+                }
+                for row in rows
+            ]
+            events = select_checkpoint_events(events, force=reason != "periodic")
+            if not events:
+                return None
+            event_start, event_end = events[0]["id"], events[-1]["id"]
+            packet_material = f"{repo.identity}\0{session_id}\0{event_start}\0{event_end}"
+            packet_id = hashlib.sha256(packet_material.encode()).hexdigest()[:32]
+            now = utc_now()
 
-        events = [
-            {
-                "id": row["id"],
-                "created_at": row["created_at"],
-                "kind": row["kind"],
-                "payload": json.loads(row["payload_json"]),
-            }
-            for row in rows
-        ]
-        events = select_checkpoint_events(events, force=reason != "periodic")
-        if not events:
-            return None
-        event_start, event_end = events[0]["id"], events[-1]["id"]
-        packet_material = f"{repo.identity}\0{session_id}\0{event_start}\0{event_end}"
-        packet_id = hashlib.sha256(packet_material.encode()).hexdigest()[:32]
-        now = utc_now()
-
-        with self.conn:
             self.conn.execute(
                 """INSERT OR IGNORE INTO flushes
                    (packet_id, repo_id, app_id, session_id, reason, event_start,
@@ -871,7 +896,7 @@ class EvidenceStore:
                 f"WHERE id IN ({placeholders}) AND flush_id IS NULL",
                 (packet_id, *event_ids),
             )
-        return packet_id, events
+            return packet_id, events
 
     def checkpoint_due(self, repo_id: str, session_id: str) -> bool:
         if self.has_inflight_flush(repo_id, session_id):
@@ -1057,13 +1082,14 @@ class EvidenceStore:
         self.conn.execute("BEGIN IMMEDIATE")
         try:
             if not agent_id:
-                row = self.conn.execute(
+                rows = self.conn.execute(
                     """SELECT agent_id FROM sidekick_runs
                        WHERE repo_id = ? AND session_id = ? AND agent_type = ? AND stopped_at IS NULL
-                       ORDER BY started_at DESC, rowid DESC LIMIT 1""",
+                       LIMIT 2""",
                     (repo.identity, session_id, agent_type),
-                ).fetchone()
-                agent_id = row["agent_id"] if row else f"unknown-agent-{time.time_ns()}"
+                ).fetchall()
+                # Without a host ID, overlapping runs cannot be correlated reliably.
+                agent_id = rows[0]["agent_id"] if len(rows) == 1 else f"unknown-agent-{time.time_ns()}"
             self.conn.execute(
                 """INSERT INTO sidekick_runs
                    (repo_id, session_id, agent_id, agent_type, started_at,
@@ -1291,7 +1317,7 @@ def _tool_result_preview(response: Any) -> str:
     return bounded(response, MAX_RESULT_CHARS)
 
 
-def tool_payload(hook_input: dict[str, Any], *, failed: bool = False) -> dict[str, Any]:
+def tool_payload(hook_input: dict[str, Any], *, failed: bool | None = False) -> dict[str, Any]:
     name = str(hook_input.get("tool_name") or "unknown")
     tool_input = hook_input.get("tool_input") or {}
     if not isinstance(tool_input, dict):
@@ -1345,7 +1371,7 @@ def tool_payload(hook_input: dict[str, Any], *, failed: bool = False) -> dict[st
 
 
 def record_tool(
-    store: EvidenceStore, hook_input: dict[str, Any], *, failed: bool = False
+    store: EvidenceStore, hook_input: dict[str, Any], *, failed: bool | None = False
 ) -> None:
     session_id = _session_id(hook_input)
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
@@ -1361,7 +1387,7 @@ def record_tool(
 
 
 def record_sidekick_start(
-    store: EvidenceStore, hook_input: dict[str, Any]
+    store: EvidenceStore, hook_input: dict[str, Any], *, inject_context: bool = True
 ) -> str:
     """Record a native sidekick and reuse the main turn's retrieved memories."""
     session_id = _session_id(hook_input)
@@ -1371,6 +1397,8 @@ def record_sidekick_start(
     context = combine_context(
         format_context(store.injected_memories(session_id, repo.identity))
     )
+    if not inject_context:
+        context = ""
     first_start = store.start_sidekick(
         repo, session_id, agent_id, agent_type, len(context)
     )
@@ -1517,7 +1545,7 @@ def build_episode(
         {
             "command": t.get("command", ""),
             "kind": t.get("command_kind", "shell"),
-            "status": "failed" if t.get("failed") else "succeeded",
+            "status": "unknown" if t.get("failed", False) is None else "failed" if t.get("failed") else "succeeded",
             "result": t.get("result_preview", ""),
         }
         for t in tools
@@ -1549,7 +1577,7 @@ def build_episode(
             transcript_messages = event["payload"].get("transcript_messages") or []
             if isinstance(transcript_messages, list) and transcript_messages:
                 transcript_users = {
-                    str(message.get("content") or "").strip()
+                    bounded(message.get("content") or "", MAX_PROMPT_CHARS)
                     for message in transcript_messages
                     if isinstance(message, dict) and message.get("role") == "user"
                 }
@@ -1561,7 +1589,10 @@ def build_episode(
                 extraction_messages.extend(
                     {
                         "role": str(message.get("role") or ""),
-                        "content": str(message.get("content") or ""),
+                        "content": bounded(
+                            message.get("content") or "",
+                            MAX_PROMPT_CHARS if message.get("role") == "user" else MAX_ASSISTANT_CHARS,
+                        ),
                     }
                     for message in transcript_messages
                     if isinstance(message, dict)
@@ -1677,7 +1708,9 @@ def build_extraction_messages(structured: dict[str, Any]) -> list[dict[str, str]
     """Build the session messages sent to Mem0 for memory extraction."""
     evidence = build_semantic_evidence(structured)
     messages = [
-        {"role": message["role"], "content": message["content"]}
+        {"role": message["role"], "content": bounded(
+            message["content"], MAX_PROMPT_CHARS if message["role"] == "user" else MAX_ASSISTANT_CHARS
+        )}
         for message in structured.get("extraction_messages", [])
         if message.get("role") in {"user", "assistant"} and message.get("content")
     ]
@@ -1719,7 +1752,7 @@ def extraction_message_batches(
     *,
     max_tokens: int = MAX_EXTRACTION_INPUT_TOKENS,
 ) -> list[list[dict[str, str]]]:
-    """Split large extraction input without cutting messages or agent pairs."""
+    """Keep exchanges together when possible; split oversized messages to enforce the request budget."""
     if not messages or _message_tokens(messages) <= max_tokens:
         return [messages]
 
@@ -1752,9 +1785,29 @@ def extraction_message_batches(
                 units.append([message])
                 index += 1
 
+    bounded_units: list[list[dict[str, str]]] = []
+    for unit in units:
+        if _message_tokens(unit) <= max_tokens:
+            bounded_units.append(unit)
+            continue
+        for message in unit:
+            remaining = message["content"]
+            while remaining:
+                low, high = 0, len(remaining)
+                while low < high:
+                    middle = (low + high + 1) // 2
+                    if _message_tokens([{**message, "content": remaining[:middle]}]) <= max_tokens:
+                        low = middle
+                    else:
+                        high = middle - 1
+                if low == 0:
+                    raise ValueError("Extraction token budget cannot fit a message")
+                bounded_units.append([{**message, "content": remaining[:low]}])
+                remaining = remaining[low:]
+
     batches: list[list[dict[str, str]]] = []
     batch: list[dict[str, str]] = []
-    for unit in units:
+    for unit in bounded_units:
         candidate = [*batch, *unit]
         if batch and _message_tokens(candidate) > max_tokens:
             batches.append(batch)
@@ -1857,6 +1910,11 @@ def _wait_for_event(api_url: str, key: str, event_id: str) -> tuple[str, int, in
                 key,
                 min(10, poll_seconds + 5),
             )
+        except urllib.error.HTTPError as exc:
+            if exc.code not in {408, 429} and exc.code < 500:
+                raise
+            time.sleep(poll_seconds)
+            continue
         except (urllib.error.URLError, TimeoutError, OSError):
             # The extraction job is durable server-side. A transient polling
             # failure must not discard a job that may still complete normally.
@@ -2389,7 +2447,7 @@ def format_context(
 
 
 def format_search_result(result: MemorySearchResult) -> str:
-    """Return only the text Claude needs from an explicit memory search."""
+    """Return only the text the coding agent needs from an explicit memory search."""
     if not result.succeeded:
         return "Memory search failed."
     if result.memories:
@@ -2436,7 +2494,11 @@ def _scoped_memory_ids(
         app_id_prefix=prefix,
     )
     if include_project:
-        _collect_memory_ids(api_url, key, {"agent_id": repo.project_id}, ids, seen)
+        for project_id in _shared_project_ids(repo):
+            _collect_memory_ids(
+                api_url, key, {"agent_id": project_id}, ids, seen,
+                app_id_prefix=prefix,
+            )
     return ids
 
 

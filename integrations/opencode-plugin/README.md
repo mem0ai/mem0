@@ -70,7 +70,7 @@ scope (used when none is passed) with the `/mem0-scope` skill:
 |-------|-------|--------|
 | `project` (default) | this repo (`user_id` + `app_id`) | this repo |
 | `session` | this run (adds `run_id`) | this run |
-| `global` | all your projects (`app_id="*"`) | user-wide (drops `app_id`) |
+| `global` | all your projects (filtered by your user ID) | user-wide (drops `app_id`) |
 
 ```
 /mem0-scope            # show the current default scope
@@ -100,3 +100,5 @@ If the `mem0` tools respond, you're all set.
 ## License
 
 Apache-2.0
+
+A memory tool cannot select global scope unless `/mem0-scope global` or the plugin settings already enable it.

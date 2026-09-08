@@ -2060,25 +2060,26 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Tabs>
 <Tab title="Mem0 Plugin">
 
-<Update label="2026-09-03" description="mem0-plugin v0.3.0">
+<Update label="2026-09-08" description="Shared agent plugin runtime">
 
-**New Features:**
-- **Unified plugin core:** Claude Code, Cursor, Codex, Kimi Code, and Antigravity now build self-contained native and Agent Plugins specification bundles from one Python memory runtime and one set of six skills ([#7203](https://github.com/mem0ai/mem0/pull/7203)).
-- **TypeScript lifecycle:** OpenClaw, OpenCode, Pi Agent, and DeepSeek Harness now reuse shared lifecycle safety, formatting, identity, project scoping, and telemetry utilities while keeping their existing packages and native host APIs ([#7203](https://github.com/mem0ai/mem0/pull/7203)).
-- **DeepSeek automatic memory:** The Harness plugin recalls relevant context during system-prompt assembly and captures completed turns from the durable session event stream ([#7203](https://github.com/mem0ai/mem0/pull/7203)).
-- **Kimi Code guide:** Added installation, verification, lifecycle, and troubleshooting documentation for the native Kimi plugin.
+**Changed:**
+- Consolidated the coding-agent integrations into `integrations/agent-plugin-core/`: one Python runtime, one TypeScript utility library, and six canonical Python-plugin skill templates. Native adapters retain each host's event contracts and capabilities.
+- Python plugins ship generated, self-contained `core/` and `skills/` directories. Builds validate portable schemas and skills, parse native JSON, and reject generated-file drift, missing files, stale generated files, and symlinks. TypeScript packages bundle the shared source into their distributable JavaScript and verify their entry points.
+- Replaced the old `integrations/mem0-plugin/` layout with native host directories and one portable `integrations/mem0-agent-plugin/` package. Updated marketplace paths, installation guides, and integration-skill links. OpenCode now lives in `integrations/opencode-plugin/`.
+- Native Python plugins expose one local, read-only `search_memories` MCP tool and six skills: search, remember, forget, status, pause, and resume. The shared search tool no longer accepts `run_id`; session IDs remain internal metadata. This local tool is separate from the hosted Mem0 MCP server's tool set.
 
-**Improvements:**
-- **Host adapters:** Native event differences now live in small adapters. Memory policy, redaction, bounds, failure isolation, and telemetry stay in the shared cores.
-- **Generated bundles:** Native and portable Python artifacts contain no symlinks and are validated against their manifests during CI.
-- **Claude Code compatibility:** The existing capture, recall, scope, and `mem0:sidekick` worktree behavior are preserved. Public plugin names and memory namespaces are unchanged.
+**Fixes:**
+- Hooks, controls, MCP servers, and detached workers use the same host-specific data directory. Detached workers retain the host identity and telemetry source; `--plugin-data-dir` reaches the shared resolver.
+- Session-end workers flush the conversation already captured by hooks. Repeated and concurrent response hooks no longer duplicate an answer, while identical answers after separate prompts are preserved.
+- Shared transcript content is redacted and bounded before extraction; oversized messages are split to enforce each request's input budget. Flush event selection and claims share one write transaction, delayed handoffs are replaced atomically, and permanent HTTP polling errors fail promptly.
+- Extraction instructions refer to the current coding agent. Python redaction covers JSON-shaped credentials; both telemetry runtimes recursively remove sensitive keys, including keys inside nested lists.
+- New Git repository writes use a hash of the remote identity in `agent_id`. Search and explicit shared-memory deletion include both current and legacy repository IDs within the repository's `app_id`. Existing memories are not rewritten. Legacy IDs retain their original ambiguity for matching owner/repository names on different Git hosts.
 
-**Removed:**
-- Removed obsolete plugin-side consolidation commands, skills, configuration, and runtime paths from OpenClaw, OpenCode, and Pi Agent.
+**Packaging:**
+- Claude Code, Cursor, Codex, Kimi, Antigravity, and the portable Python bundle are versioned at `0.3.1`. OpenCode, Pi Agent, and DeepSeek Harness are `0.3.0`; OpenClaw is `1.1.0`. Each host's changes and upgrade considerations are listed in its tab.
+- Python and TypeScript CI run their respective runtime suites. Package checks build the installable artifacts, check generated-file consistency, and reject TypeScript output that still imports monorepo source.
 
-<Note>
-  Claude Code stays at `0.3.0`. Cursor, Codex, Kimi Code, Antigravity, the portable bundle, OpenCode, Pi Agent, and DeepSeek Harness are aligned at `0.3.0`. OpenClaw moves to `1.1.0` because Dream and pin APIs were intentionally removed.
-</Note>
+[#7203](https://github.com/mem0ai/mem0/pull/7203)
 
 </Update>
 
@@ -2368,15 +2369,97 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 </Tab>
 
+<Tab title="Claude Code">
+
+<Update label="2026-09-08" description="Claude Code plugin v0.3.1">
+
+**Changed:**
+- Extracted hook orchestration and memory behavior into the shared Python core; Claude transcript parsing remains in its native adapter. The installed package contains the generated runtime rather than importing files outside its plugin directory.
+- Preserves the public `mem0` name, hook declarations, MCP launch configuration, user configuration, and `mem0:sidekick` worktree behavior. The manifest and marketplace version advance from `0.3.0` to `0.3.1` so installations can identify the update.
+
+**Fixes:**
+- Session-end extraction no longer appends a final answer already captured from the transcript while an earlier extraction was running.
+- Existing repository memories remain searchable after the shared-ID change; explicit shared-memory deletion also covers the legacy ID. Background workers and control skills consistently use Claude's data directory.
+- Receives the shared JSON-secret redaction and nested telemetry filtering fixes. The local search tool exposes query, result count, category, and scope without asking the agent for a session ID.
+
+[#7203](https://github.com/mem0ai/mem0/pull/7203)
+
+</Update>
+
+</Tab>
+
+<Tab title="Cursor">
+
+<Update label="2026-09-08" description="Cursor plugin v0.3.1">
+
+**Changed:**
+- Moves from the legacy shared editor-plugin directory to a native `integrations/cursor-plugin/` package with generated Python core and skills, Cursor variables, local MCP configuration, and a native Sidekick.
+- Translates Cursor conversation/workspace fields, response and summary fields, tool outcomes, and subagent lifecycle events into the shared runtime. The Sidekick searches memory itself because Cursor's subagent-start response cannot inject parent context.
+
+**Fixes:**
+- Adapter errors are logged and exit successfully so a memory failure does not terminate the host hook. Sidekick telemetry reports zero parent-injected context because this host uses self-search.
+- Repeated response events and Stop/session-end capture do not duplicate the same answer.
+- Receives shared data-directory handling, background-worker identity, redaction, and legacy-memory retrieval fixes.
+
+[#7203](https://github.com/mem0ai/mem0/pull/7203)
+
+</Update>
+
+</Tab>
+
+<Tab title="Codex">
+
+<Update label="2026-09-08" description="Codex plugin v0.3.1">
+
+**Changed:**
+- Moves from the legacy shared editor-plugin directory to a native `integrations/codex-plugin/` package, with generated Python core and six skills, a local search MCP server, and native lifecycle hooks.
+- Resolves MCP repository searches from Codex workspace metadata when supplied. Control skills, hooks, and workers use the same plugin data directory.
+- Native subagent start/stop hooks supply parent-retrieved memory context and record completions for every native subagent. Named custom agents remain project/user configuration; the plugin does not distribute a named Codex Sidekick.
+
+**Fixes:**
+- Receives shared credential redaction, legacy-memory retrieval, background-worker identity, and duplicate-response fixes. Codex tool outcomes use available structured failure indicators; missing outcome information is recorded as unknown.
+
+[#7203](https://github.com/mem0ai/mem0/pull/7203)
+
+</Update>
+
+</Tab>
+
+<Tab title="Agent Plugins v1">
+
+<Update label="2026-09-08" description="Portable Mem0 plugin v0.3.1">
+
+**Added:**
+- One portable package at `integrations/mem0-agent-plugin/`, using the Agent Plugins 1.0.0 root `plugin.json`, `mcp.json`, and fixed `skills/` locations.
+- Ships a local, read-only `search_memories` server and the six shared memory skills. Uses `PLUGIN_ROOT` for bundled files and `PLUGIN_DATA` for persistent plugin state; all package files remain inside the installable directory.
+
+**Packaging:**
+- Generated from the shared Python runtime and skill templates. Builds validate the manifest, MCP configuration, skills, and generated-file consistency.
+- Host lifecycle hooks and native Sidekick declarations remain in the native plugin packages; the portable package does not claim automatic lifecycle capture or host-specific subagent isolation.
+
+[#7203](https://github.com/mem0ai/mem0/pull/7203)
+
+</Update>
+
+</Tab>
+
 <Tab title="OpenCode">
 
-<Update label="2026-09-03" description="OpenCode plugin v0.3.0">
+<Update label="2026-09-08" description="OpenCode plugin v0.3.0">
 
-**Breaking changes:**
-- Removed the obsolete Dream consolidation and pin commands, skills, configuration, and runtime paths.
+**Changed:**
+- Moved the source from `integrations/mem0-plugin/.opencode-plugin/` to `integrations/opencode-plugin/`, retaining the `@mem0/opencode-plugin` package name and native OpenCode hooks.
+- Reuses shared conversation preparation, redaction, scoping, and telemetry. Builds a self-contained Bun/ESM `dist/index.js` and publishes its TypeScript entry declaration.
+- Global memory tool scope requires the user to enable it in plugin settings first; empty and wildcard identities are rejected.
+- Retains the seven commands for context loading, search, remember, forget, scope, status, and tour; bundled skills continue loading through OpenCode's native configuration.
 
-**Improvements:**
-- Reuses the shared TypeScript lifecycle, scoping, formatting, and telemetry implementation while retaining OpenCode's native plugin API.
+**Removed:**
+- Removed auto-Dream consolidation, its gates and state handling, and the Dream and pin skills/commands. Existing configurations and workflows that use these features must be updated.
+
+**Builds:**
+- Updated build and publish paths for the relocated source directory; the existing release tag prefix and publishing workflow filename are unchanged.
+
+[#7203](https://github.com/mem0ai/mem0/pull/7203)
 
 </Update>
 
@@ -2460,13 +2543,19 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Antigravity">
 
-<Update label="2026-09-03" description="Antigravity plugin v0.3.0">
+<Update label="2026-09-08" description="Antigravity plugin v0.3.1">
 
 **Changed:**
-- **Claude Code architecture:** Antigravity now ships as a generated, self-contained bundle built from the same Python capture, recall, scoping, MCP, skill, and telemetry sources as Claude Code ([#7203](https://github.com/mem0ai/mem0/pull/7203)).
-- **Native lifecycle:** A thin adapter maps Antigravity's supported `PreInvocation`, `PostToolUse`, and `Stop` events into capture and session handling. Recall remains explicit because `PreInvocation` does not include the user's prompt.
-- **Focused interface:** The plugin exposes the local `search_memories` tool and six memory skills: search, status, remember, forget, pause, and resume.
-- **Compatibility:** The public plugin name and existing memory namespace remain unchanged.
+- Ships a native package with generated Python core and six skills, a local search MCP server, a Sidekick declaration, and an adapter for `PreInvocation`, `PostToolUse`, and `Stop`.
+- Normalizes conversation IDs, transcript paths, workspace paths, tool calls, and errors. The adapter captures all completed user/assistant transcript messages incrementally, including later-turn intent, without replaying earlier messages.
+- Sidekick searches Mem0 itself; this plugin does not provide Claude Code's worktree isolation.
+
+**Fixes and host limitations:**
+- Accepts `MEM0_CWD` as an explicit workspace fallback when the host omits `workspacePaths`. Skips capture when neither is available, rather than writing under an unrelated directory.
+- Documents global MCP registration with `agy mcp add` when the host does not register the plugin-scoped server. Recall on the initial invocation depends on the host providing a prompt or readable transcript.
+- Receives the shared data-directory, redaction, legacy-memory retrieval, and duplicate-response fixes.
+
+[#7203](https://github.com/mem0ai/mem0/pull/7203)
 
 </Update>
 
@@ -2546,14 +2635,21 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Kimi">
 
-<Update label="2026-09-03" description="Kimi plugin v0.3.0">
+<Update label="2026-09-08" description="Kimi Code plugin v0.3.1">
 
 **Changed:**
-- **Claude Code architecture:** Kimi Code now ships as a generated, self-contained bundle built from the shared Python memory runtime and six canonical memory skills ([#7203](https://github.com/mem0ai/mem0/pull/7203)).
-- **Native lifecycle:** The adapter maps Kimi's session, prompt, tool, compaction, shutdown, and subagent events into shared capture and recall behavior.
-- **Local memory server:** The plugin uses the bundled `search_memories` server instead of the previous remote MCP-only configuration.
-- **Sidekick behavior:** Kimi's sidekick receives parent context through Kimi's native subagent lifecycle without claiming Claude Code worktree isolation.
-- **Compatibility:** The public plugin name and existing memory namespace remain unchanged.
+- Ships a self-contained native package with six skills, nine lifecycle hooks, a local search MCP server, and a native Sidekick declaration. Added a dedicated installation and troubleshooting guide.
+- Translates Kimi's session, prompt, tool, compaction, shutdown, and subagent events into the shared Python runtime. Sidekicks receive parent memory context through Kimi's native lifecycle.
+
+**Fixes:**
+- Recovers completed assistant output from Kimi's indexed v2 wire transcript when Stop events omit the response text. Repeated Sidekick invocations receive distinct run identifiers. Stops without a host ID are left uncorrelated when multiple matching runs are active, preserving their responses without assigning them to the wrong run.
+- Keeps controls, hooks, MCP, and detached workers on the same Kimi data directory and preserves host identity in background workers.
+- Receives the shared redaction, legacy-memory retrieval, and duplicate-response fixes.
+
+**Host compatibility:**
+- Documents `CHOKIDAR_USEPOLLING=1` for the observed macOS watcher issue. Filesystem isolation remains Kimi's responsibility.
+
+[#7203](https://github.com/mem0ai/mem0/pull/7203)
 
 </Update>
 
@@ -2573,13 +2669,20 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="OpenClaw">
 
-<Update label="2026-09-03" description="openclaw-mem0 v1.1.0">
+<Update label="2026-09-08" description="openclaw-mem0 v1.1.0">
 
-**Breaking changes:**
-- Removed the obsolete Dream consolidation and pin APIs, skills, configuration, and runtime paths.
+**Changed:**
+- Reuses shared conversation preparation, redaction, and telemetry while retaining OpenClaw's native memory backend, tools, CLI, and Platform/OSS modes.
+- Continues to publish a self-contained ESM package under `@mem0/openclaw-mem0`; the plugin manifest and package version now agree.
 
-**Improvements:**
-- Reuses the shared TypeScript lifecycle, identity, project-scoping, formatting, and telemetry implementation while retaining OpenClaw's native memory backend and CLI.
+**Removed:**
+- Removed Dream consolidation: automatic scheduling and locking, `openclaw mem0 dream`, Dream configuration, the memory-dream skill, and Dream-state public artifacts. Triage, recall, and memory/entity artifacts remain available. Update configurations or integrations that use the removed Dream surface.
+
+**Fixes:**
+- `openclaw mem0 status` handles an unconfigured installation without crashing and directs users to setup.
+- Telemetry removes sensitive properties recursively and uses the shared failure-safe delivery implementation.
+
+[#7203](https://github.com/mem0ai/mem0/pull/7203)
 
 </Update>
 
@@ -2853,14 +2956,21 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Pi Agent">
 
-<Update label="2026-09-03" description="Pi Agent plugin v0.3.0">
+<Update label="2026-09-08" description="Pi Agent plugin v0.3.0">
 
-**Breaking changes:**
-- **Focused memory surface:** Removed the obsolete Dream consolidation and pin commands, skills, configuration, exports, and runtime code. Pi Agent now exposes the same six maintained memory workflows documented across the plugin family.
+**Changed:**
+- Reuses shared conversation preparation, memory formatting, project/session/global scope utilities, and telemetry while preserving Pi's native extension API and `@mem0/pi-agent-plugin` package name.
+- Pi loads the built `dist/entry.js` extension instead of executing source TypeScript from an installed package. Builds also publish the library entry point and declarations.
 
-**Improvements:**
-- **Shared runtime behavior:** Reuses the common TypeScript lifecycle, formatting, identity, project-scoping, and telemetry utilities while keeping Pi's native extension API and package name.
-- **Publishable entry point:** Loads the built `dist/entry.js` artifact so registry installs do not execute TypeScript source directly.
+**Removed:**
+- Removed Dream consolidation and pin commands, skills, configuration, types, and exports. The remaining commands are remember, search, forget, tour, scope, and status. Update integrations that import removed APIs or invoke removed commands.
+
+**Fixes:**
+- Global memory tool scope requires the user to select `/mem0-scope global` or configure a global default first. Empty and wildcard identities are rejected.
+- Memory update and delete accept the `mem0:<uuid>` and `[mem0:<uuid>]` citations displayed in tool results, as well as raw IDs.
+- Shared capture preparation filters conversation roles and redacts content; telemetry removes sensitive keys inside nested structures.
+
+[#7203](https://github.com/mem0ai/mem0/pull/7203)
 
 </Update>
 
@@ -2959,13 +3069,20 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="DeepSeek Harness">
 
-<Update label="2026-09-03" description="deepseek-plugin v0.3.0">
+<Update label="2026-09-08" description="deepseek-plugin v0.3.0">
 
-**New features:**
-- Recalls relevant memory during system-prompt assembly and captures completed turns from the durable Harness session stream.
+**Added:**
+- Automatic recall during `system-prompt/assemble`, using the latest human prompt and avoiding repeated context injection within a session.
+- Automatic capture from the durable `session/event` stream after a completed turn. Interrupted or incomplete turns are not sent through this automatic capture path. `autoRecall` and `autoCapture` default to `true` and can be disabled.
 
-**Improvements:**
-- Reuses the shared TypeScript lifecycle, identity, project-scoping, formatting, and telemetry implementation while retaining the native Cordis plugin API.
+**Changed:**
+- Reuses shared lifecycle, redaction, identity, and telemetry utilities while retaining the explicit `search_memory` and `add_memory` tools and their per-call agent/session scope. Cross-user `userId` overrides now require operator opt-in with `allowUserOverride: true`.
+- Publishes a self-contained ESM artifact under `@mem0/deepseek-plugin`; native Harness services and the Mem0 SDK remain external dependencies. Plugin cleanup remains tied to the native Cordis lifecycle.
+
+**Host compatibility:**
+- Supports the declared Harness runtime dependencies and documents the macOS watcher workaround. The plugin does not bundle a named Sidekick or provide child filesystem isolation.
+
+[#7203](https://github.com/mem0ai/mem0/pull/7203)
 
 </Update>
 

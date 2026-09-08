@@ -105,7 +105,11 @@ Categories for `--category`: `project_knowledge`, `decisions_and_constraints`, `
 | `dir` | Project memory from the current directory (and children), plus your preferences |
 | `mine` | Your personal preferences only |
 
-Set the default with the `search_scope` setting or `MEM0_CODE_SEARCH_SCOPE`. Pass `--run-id <session-id>` to see only what one specific session recorded.
+Set the default with the `search_scope` setting or `MEM0_CODE_SEARCH_SCOPE`. Search spans earlier sessions without a session ID; `run_id` remains internal metadata.
+
+New Git repository memories use a hash of the remote identity in `agent_id`. Searches also include the previous unhashed ID under the same repository `app_id`, so shared memories remain available after upgrading. Older IDs retain their original limitation: matching owner/repository names on different Git hosts share that legacy namespace. Local folders keep their path-based namespaces.
+
+Explicit shared-memory deletion with `--include-project-memory` covers both repository IDs. Default deletion preserves shared memories.
 
 ## Settings
 

@@ -132,3 +132,5 @@ pnpm run build        # Build (ESM + declarations)
 ## License
 
 [Apache-2.0](LICENSE)
+
+Global tool operations require `/mem0-scope global` or `defaultScope: "global"` in plugin configuration. A model-supplied `scope` argument cannot enable cross-project access on its own. Empty or wildcard user, project, and session identities are rejected.

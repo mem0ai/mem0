@@ -131,8 +131,8 @@ def test_repeated_sidekick_invocations_get_distinct_run_ids(tmp_path: Path) -> N
     }
 
     try:
-        adapter._sidekick_start(store, adapter.normalize(payload))
-        adapter._sidekick_start(store, adapter.normalize(payload))
+        adapter._sidekick_start(store, adapter.normalize({**payload, "agent_id": "first"}))
+        adapter._sidekick_start(store, adapter.normalize({**payload, "agent_id": "second"}))
         adapter._sidekick_stop(
             store,
             adapter.normalize(
@@ -140,6 +140,7 @@ def test_repeated_sidekick_invocations_get_distinct_run_ids(tmp_path: Path) -> N
                     **payload,
                     "hook_event_name": "SubagentStop",
                     "response": "First run complete.",
+                    "agent_id": "first",
                 }
             ),
         )
@@ -150,6 +151,7 @@ def test_repeated_sidekick_invocations_get_distinct_run_ids(tmp_path: Path) -> N
                     **payload,
                     "hook_event_name": "SubagentStop",
                     "response": "Second run complete.",
+                    "agent_id": "second",
                 }
             ),
         )
@@ -163,7 +165,9 @@ def test_repeated_sidekick_invocations_get_distinct_run_ids(tmp_path: Path) -> N
     assert len(rows) == 2
     assert rows[0]["agent_id"] != rows[1]["agent_id"]
     assert all(row["stopped_at"] for row in rows)
-    assert {row["final_message"] for row in rows} == {"First run complete.", "Second run complete."}
+    assert {row["agent_id"]: row["final_message"] for row in rows} == {
+        "first": "First run complete.", "second": "Second run complete."
+    }
 
 
 def test_native_kimi_bundle_uses_inline_native_contract(tmp_path: Path) -> None:

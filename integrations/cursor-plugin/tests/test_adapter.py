@@ -75,7 +75,7 @@ def test_normalizes_cursor_sidekick_fields() -> None:
 
 
 def test_cursor_sidekick_records_lifecycle_without_blocking(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(adapter, "record_sidekick_start", lambda store, payload: "unused cursor context")
+    monkeypatch.setattr(adapter, "record_sidekick_start", lambda store, payload, *, inject_context: "" if not inject_context else pytest.fail("cannot inject context"))
     stopped = []
     monkeypatch.setattr(adapter, "record_sidekick_stop", lambda store, payload: stopped.append(payload))
 

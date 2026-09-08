@@ -39,11 +39,13 @@ describe("buildToolExecute", () => {
     expect(call[1].customCategories.length).toBe(10);
   });
 
-  it("search with scope=global filters by user_id with app_id wildcard", async () => {
+  it("search uses global scope only after the user selects it", async () => {
     mockMem0.search.mockResolvedValue({ results: [] });
-    await execute({ action: "search", query: "preferences", scope: "global" });
+    await expect(execute({ action: "search", query: "preferences", scope: "global" })).rejects.toThrow(/Select global/);
+    const globalExecute = buildToolExecute(mockMem0 as any, scopeCtx, "global");
+    await globalExecute({ action: "search", query: "preferences", scope: "global" });
     expect(mockMem0.search).toHaveBeenCalledWith("preferences", {
-      filters: { user_id: "testuser", app_id: "*" },
+      filters: { user_id: "testuser" },
     });
   });
 
