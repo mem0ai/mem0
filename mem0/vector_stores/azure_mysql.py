@@ -297,8 +297,10 @@ class AzureMySQL(VectorStoreBase):
                 if not _VALID_FILTER_KEY.match(k):
                     logger.warning("Skipping invalid filter key: %r", k)
                     continue
-                filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
-                filter_params.extend([f"$.{k}", json.dumps(v)])
+                # Bind native scalars + JSON_UNQUOTE so string entity IDs match
+                # stored JSON scalars (json.dumps double-encodes and never matches).
+                filter_conditions.append("JSON_UNQUOTE(JSON_EXTRACT(payload, %s)) = %s")
+                filter_params.extend([f"$.{k}", v])
 
         filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
 
@@ -356,8 +358,8 @@ class AzureMySQL(VectorStoreBase):
                     if not _VALID_FILTER_KEY.match(k):
                         logger.warning("Skipping invalid filter key: %r", k)
                         continue
-                    filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
-                    filter_params.extend([f"$.{k}", json.dumps(v)])
+                    filter_conditions.append("JSON_UNQUOTE(JSON_EXTRACT(payload, %s)) = %s")
+                    filter_params.extend([f"$.{k}", v])
 
             filter_clause = ""
             if filter_conditions:
@@ -515,8 +517,8 @@ class AzureMySQL(VectorStoreBase):
                 if not _VALID_FILTER_KEY.match(k):
                     logger.warning("Skipping invalid filter key: %r", k)
                     continue
-                filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
-                filter_params.extend([f"$.{k}", json.dumps(v)])
+                filter_conditions.append("JSON_UNQUOTE(JSON_EXTRACT(payload, %s)) = %s")
+                filter_params.extend([f"$.{k}", v])
 
         filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
 

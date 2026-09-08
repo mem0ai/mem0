@@ -330,3 +330,61 @@ class TestAzureMySQLFilterKeySanitization:
         azure_mysql_instance.list(filters=self._FILTERS)
         blob = self._executed_blob(azure_mysql_instance)
         assert "$.user_id" in blob and "OR '1'='1" not in blob
+
+
+def _select_filter_call(cursor, needle: str):
+    """Return (sql, params) for the first execute call whose SQL contains needle."""
+    for call in cursor.execute.call_args_list:
+        if not call.args or not isinstance(call.args[0], str):
+            continue
+        if needle in call.args[0]:
+            params = call.args[1] if len(call.args) > 1 else ()
+            return call.args[0], params
+    raise AssertionError(f"expected an execute call containing {needle!r}")
+
+
+def test_search_binds_native_filter_values(azure_mysql_instance, mock_connection_pool):
+    """Regression for #7255/#6178: filters must not use json.dumps (double-quoted RHS)."""
+    cursor = mock_connection_pool.connection.return_value.cursor.return_value
+    cursor.fetchall.return_value = []
+    cursor.execute.reset_mock()
+
+    azure_mysql_instance.search(
+        query="",
+        vectors=[0.1] * 128,
+        top_k=5,
+        filters={"user_id": "alice", "priority": 1},
+    )
+
+    sql, params = _select_filter_call(cursor, "SELECT id, vector, payload")
+    assert "JSON_UNQUOTE(JSON_EXTRACT(payload, %s))" in sql
+    assert "json.dumps" not in sql
+    assert params == ("$.user_id", "alice", "$.priority", 1)
+
+
+def test_keyword_search_binds_native_filter_values(azure_mysql_instance, mock_connection_pool):
+    cursor = mock_connection_pool.connection.return_value.cursor.return_value
+    cursor.fetchall.return_value = []
+    cursor.execute.reset_mock()
+
+    azure_mysql_instance.keyword_search(
+        query="hello",
+        top_k=5,
+        filters={"user_id": "alice"},
+    )
+
+    sql, params = _select_filter_call(cursor, "MATCH(text_lemmatized)")
+    assert "JSON_UNQUOTE(JSON_EXTRACT(payload, %s))" in sql
+    assert params[2:4] == ("$.user_id", "alice")
+
+
+def test_list_binds_native_filter_values(azure_mysql_instance, mock_connection_pool):
+    cursor = mock_connection_pool.connection.return_value.cursor.return_value
+    cursor.fetchall.return_value = []
+    cursor.execute.reset_mock()
+
+    azure_mysql_instance.list(filters={"user_id": "alice"}, top_k=10)
+
+    sql, params = _select_filter_call(cursor, "SELECT id, vector, payload")
+    assert "JSON_UNQUOTE(JSON_EXTRACT(payload, %s))" in sql
+    assert params == ("$.user_id", "alice", 10)
