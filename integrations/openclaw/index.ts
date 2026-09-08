@@ -874,7 +874,7 @@ function registerHooks(
         content: m.content,
       }));
 
-      // Apply noise filtering pipeline: drop noise, strip fragments, truncate
+      // Filter noise and redact secrets without truncating message text.
       const formattedMessages: Array<{ role: string; content: string }> =
         lifecycle.prepareConversation(filterMessagesForExtraction(selected));
 

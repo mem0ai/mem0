@@ -1,6 +1,6 @@
 /**
  * Pre-extraction message filtering: noise detection, content stripping,
- * generic assistant detection, truncation, and deduplication.
+ * and generic assistant detection.
  */
 
 import type { MemoryItem } from "./types.ts";
@@ -109,8 +109,6 @@ const NOISE_CONTENT_PATTERNS: Array<{ pattern: RegExp; replacement: string }> =
     },
   ];
 
-const MAX_MESSAGE_LENGTH = 2000;
-
 /**
  * Patterns indicating an assistant message is a generic acknowledgment with
  * no extractable facts. These are produced when the agent receives a
@@ -180,18 +178,8 @@ export function stripNoiseFromContent(content: string): string {
 }
 
 /**
- * Truncate a message to `MAX_MESSAGE_LENGTH` characters, preserving the
- * opening (which typically contains the summary/conclusion) and appending
- * a truncation marker so the extraction model knows content was cut.
- */
-function truncateMessage(content: string): string {
-  if (content.length <= MAX_MESSAGE_LENGTH) return content;
-  return content.slice(0, MAX_MESSAGE_LENGTH) + "\n[...truncated]";
-}
-
-/**
  * Full pre-extraction pipeline: drop noise messages, strip noise fragments,
- * filter session-specific content, and truncate remaining messages.
+ * and filter session-specific content without truncating remaining messages.
  */
 export function filterMessagesForExtraction(
   messages: Array<{ role: string; content: string }>,
@@ -206,7 +194,7 @@ export function filterMessagesForExtraction(
     if (isSessionSpecificContent(msg.content)) continue;
     const cleaned = stripNoiseFromContent(msg.content);
     if (!cleaned) continue;
-    filtered.push({ role: msg.role, content: truncateMessage(cleaned) });
+    filtered.push({ role: msg.role, content: cleaned });
   }
   return filtered;
 }
