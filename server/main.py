@@ -338,7 +338,8 @@ def set_config(config: Dict[str, Any], _auth=Depends(require_admin)):
 
 
 @app.post("/generate-instructions", summary="Generate custom instructions from a use case")
-def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify_auth)):
+@limiter.limit("10/minute")
+def generate_instructions(request: Request, req: GenerateInstructionsRequest, _auth=Depends(verify_auth)):
     """Generate custom instructions and a contextual test message tailored to a use case."""
     try:
         llm = get_memory_instance().llm
@@ -365,7 +366,8 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
 
 
 @app.post("/memories", summary="Create memories")
-def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
+@limiter.limit("30/minute")
+def add_memory(request: Request, memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     """Store new memories."""
     if not any([memory_create.user_id, memory_create.agent_id, memory_create.run_id]):
         raise HTTPException(status_code=400, detail="At least one identifier (user_id, agent_id, run_id) is required.")
@@ -450,7 +452,8 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
 
 
 @app.post("/search", summary="Search memories")
-def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
+@limiter.limit("30/minute")
+def search_memories(request: Request, search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
     try:
         filters = search_req.filters or {}
