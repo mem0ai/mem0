@@ -36,6 +36,7 @@ class Weaviate(VectorStoreBase):
         cluster_url: str = None,
         auth_client_secret: str = None,
         additional_headers: dict = None,
+        distance: str = "cosine",
     ):
         """
         Initialize the Weaviate vector store.
@@ -81,6 +82,7 @@ class Weaviate(VectorStoreBase):
 
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
+        self.distance = (distance or "cosine").lower()
         self.create_col(embedding_model_dims)
 
     def _parse_output(self, data: Dict) -> List[OutputData]:
@@ -124,6 +126,7 @@ class Weaviate(VectorStoreBase):
             vector_size (int): Size of the vectors to be stored.
             distance (str, optional): Distance metric for vector similarity. Defaults to "cosine".
         """
+        self.distance = (distance or getattr(self, "distance", None) or "cosine").lower()
         if self.client.collections.exists(self.collection_name):
             logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
             return
@@ -178,6 +181,17 @@ class Weaviate(VectorStoreBase):
 
                 batch.add_object(collection=self.collection_name, properties=data_object, uuid=object_id, vector=vector)
 
+
+    def _distance_to_score(self, raw_distance):
+        """Convert Weaviate distance to similarity (VectorStoreBase.search contract)."""
+        if raw_distance is None:
+            return None
+        distance = float(raw_distance)
+        metric = (getattr(self, "distance", None) or "cosine").lower().replace("_", "-")
+        if metric in {"l2", "euclidean", "l2-squared", "squaredeuclidean", "squared-euclidean"}:
+            return 1.0 / (1.0 + distance)
+        return max(0.0, 1.0 - distance)
+
     def search(
         self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
@@ -209,7 +223,7 @@ class Weaviate(VectorStoreBase):
 
             payload["id"] = str(obj.uuid).split("'")[0]  # Include the id in the payload
             if obj.metadata.distance is not None:
-                score = 1 - obj.metadata.distance  # Convert distance to similarity score
+                score = self._distance_to_score(obj.metadata.distance)
             elif obj.metadata.score is not None:
                 score = obj.metadata.score
             else:

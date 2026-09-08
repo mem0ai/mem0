@@ -267,3 +267,13 @@ class TestWeaviateDB(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+def test_distance_to_score_metric_aware():
+    from mem0.vector_stores.weaviate import Weaviate
+
+    store = Weaviate.__new__(Weaviate)
+    store.distance = "cosine"
+    assert store._distance_to_score(0.25) == 0.75
+    store.distance = "l2-squared"
+    assert store._distance_to_score(4.0) == 0.2
+    assert store._distance_to_score(4.0) > 0.0
