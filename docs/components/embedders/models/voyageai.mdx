@@ -1,13 +1,13 @@
 ---
-title: Voyage AI
-description: "Configure Voyage AI as an embedding provider in Mem0, including the voyage-context-* contextualized embedding models."
+title: Voyage AI by MongoDB
+description: "Configure Voyage AI by MongoDB as an embedding provider in Mem0, including the voyage-context-* contextualized embedding models."
 ---
 
-To use Voyage AI embedding models, set the `VOYAGE_API_KEY` environment variable. You can obtain a Voyage AI API key from the [Voyage AI dashboard](https://dashboard.voyageai.com/).
+[Voyage AI by MongoDB](https://www.voyageai.com/) provides state-of-the-art embedding and reranking models. To use its embedding models, set the `VOYAGE_API_KEY` environment variable. You can obtain a Voyage AI by MongoDB API key from the [Voyage AI dashboard](https://dashboard.voyageai.com/).
 
 ### Usage
 
-<Note> The `embedding_model_dims` parameter for `vector_store` should match the embedding dimension of the chosen model (`1024` by default). Voyage models that support Matryoshka dimensions (`voyage-4*`, `voyage-3-large`, `voyage-3.5`, `voyage-3.5-lite`, `voyage-code-3`, `voyage-context-*`) accept `embedding_dims` values of `256`, `512`, `1024`, or `2048`. Fixed-dimension models (e.g. `voyage-2`, `voyage-finance-2`, `voyage-law-2`) ignore it. </Note>
+<Note> The `embedding_model_dims` parameter for `vector_store` should match the embedding dimension of the chosen model (`1024` by default). Voyage models that support Matryoshka dimensions (the 4-series `voyage-4-large`, `voyage-4`, `voyage-4-lite`, `voyage-4-nano`, `voyage-code-4`, plus `voyage-3-large`, `voyage-3.5`, `voyage-3.5-lite`, `voyage-code-3`, `voyage-context-*`) accept `embedding_dims` values of `256`, `512`, `1024`, or `2048`. Fixed-dimension models (e.g. `voyage-finance-2`, `voyage-law-2`, `voyage-multilingual-2`) ignore it. </Note>
 
 ```python Python
 import os
@@ -38,14 +38,23 @@ m.add(messages, user_id="john")
 
 ### Available models
 
-Voyage AI exposes general-purpose, domain-specific, and contextualized embedding models. Pass any of the model names below as `model`:
+Voyage AI by MongoDB exposes general-purpose, code, domain-specific, and contextualized embedding models. Any model name is accepted as `model`; the current catalog is below.
 
-- **General:** `voyage-4-large`, `voyage-4`, `voyage-4-lite`, `voyage-4-nano`, `voyage-3-large`, `voyage-3.5`, `voyage-3.5-lite`
-- **Code:** `voyage-code-4`, `voyage-code-3`
-- **Domain-specific:** `voyage-finance-2`, `voyage-law-2`, `voyage-multilingual-2`
-- **Contextualized:** `voyage-context-4`, `voyage-context-3`
+**Latest (recommended) — the mutually compatible 4-series:**
 
-See the [Voyage AI model overview](https://docs.voyageai.com/docs/embeddings) for dimensions, context lengths, and per-model token limits.
+- **General:** `voyage-4-large`, `voyage-4`, `voyage-4-lite`, `voyage-4-nano`
+- **Code:** `voyage-code-4`
+- **Contextualized:** `voyage-context-4`
+- **Domain-specific:** `voyage-finance-2` (finance), `voyage-law-2` (legal)
+
+**Legacy (still accessible, superseded by the 4-series):**
+
+- **General:** `voyage-3-large`, `voyage-3.5`, `voyage-3.5-lite`
+- **Code:** `voyage-code-3`
+- **Contextualized:** `voyage-context-3`
+- **Multilingual:** `voyage-multilingual-2`
+
+See the [Voyage AI by MongoDB model overview](https://docs.voyageai.com/docs/embeddings) for dimensions, context lengths, and per-model token limits.
 
 <Note>
 `voyage-4-nano` runs **on-device** through the `voyageai` SDK rather than the hosted API, so it needs the local extras (`pip install "voyageai[local]"`, which pulls in `torch` and `sentence-transformers`) and no `VOYAGE_API_KEY`. All other models call the hosted API. The Mem0 config is identical either way — only the model name changes.
@@ -56,7 +65,7 @@ See the [Voyage AI model overview](https://docs.voyageai.com/docs/embeddings) fo
 Selecting a `voyage-context-*` model routes embeddings through Voyage's [contextualized embeddings](https://docs.voyageai.com/docs/contextualized-chunk-embeddings) endpoint.
 
 <Note>
-Each input string is embedded as its **own independent document**. Mem0 passes the batch as a flat list with server-side auto-chunking (`chunk_size=32000`) so that every string resolves to exactly one chunk and one embedding vector. Inputs are **not** contextualized against one another, because generic embedding callers pass unrelated texts. Voyage rejects auto-chunking for queries, so the retrieval (search) path sends the query without it.
+Each input string is embedded as its **own independent document**. Mem0 sends the batch in the endpoint's nested form (`inputs: List[List[str]]`), one single-chunk document per string, so every string resolves to exactly one embedding vector. The same document-side processing is used for both the add (document) and search (query) paths. Inputs are **not** contextualized against one another, because generic embedding callers pass unrelated texts. The call also accepts an already-chunked `List[List[str]]` batch, matching Voyage's `Union[List[List[str]], List[str]]` [input contract](https://docs.voyageai.com/docs/contextualized-chunk-embeddings).
 </Note>
 
 ```python Python
@@ -77,10 +86,10 @@ For the plain text embedding path, Mem0 groups inputs into requests by estimated
 
 ### Config
 
-Here are the parameters available for configuring the Voyage AI embedder:
+Here are the parameters available for configuring the Voyage AI by MongoDB embedder:
 
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `model` | The name of the embedding model to use | `voyage-3.5` |
 | `embedding_dims` | Dimensions of the embedding model | `1024` |
-| `api_key` | The Voyage AI API key | `None` (falls back to `VOYAGE_API_KEY`) |
+| `api_key` | The Voyage AI by MongoDB API key | `None` (falls back to `VOYAGE_API_KEY`) |

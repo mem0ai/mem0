@@ -101,7 +101,7 @@ def _ctx_response(vectors):
     return Mock(results=results)
 
 
-def test_contextualized_document_path_uses_auto_chunking(mock_voyage_client):
+def test_contextualized_document_path_uses_nested_inputs(mock_voyage_client):
     embedder = VoyageEmbedding(BaseEmbedderConfig(model="voyage-context-4"))
     mock_voyage_client.contextualized_embed.return_value = _ctx_response([[0.1], [0.2]])
 
@@ -109,16 +109,16 @@ def test_contextualized_document_path_uses_auto_chunking(mock_voyage_client):
 
     assert embeddings == [[0.1], [0.2]]
     _, kwargs = mock_voyage_client.contextualized_embed.call_args
-    # Flat list[str] — each string is its own independent document, not one
-    # document's chunk list.
-    assert kwargs["inputs"] == ["doc one", "doc two"]
+    # Per the official spec, each input string is sent as its own document,
+    # already split into a single chunk: nested list[list[str]], no auto-chunking.
+    assert kwargs["inputs"] == [["doc one"], ["doc two"]]
     assert kwargs["input_type"] == "document"
-    assert kwargs["enable_auto_chunking"] is True
-    assert kwargs["chunk_size"] == voyageai_module.CONTEXT_CHUNK_SIZE
+    assert "enable_auto_chunking" not in kwargs
+    assert "chunk_size" not in kwargs
     mock_voyage_client.embed.assert_not_called()
 
 
-def test_contextualized_query_path_disables_auto_chunking(mock_voyage_client):
+def test_contextualized_query_path_matches_document_processing(mock_voyage_client):
     embedder = VoyageEmbedding(BaseEmbedderConfig(model="voyage-context-4"))
     mock_voyage_client.contextualized_embed.return_value = _ctx_response([[0.9]])
 
@@ -126,9 +126,24 @@ def test_contextualized_query_path_disables_auto_chunking(mock_voyage_client):
 
     _, kwargs = mock_voyage_client.contextualized_embed.call_args
     assert kwargs["input_type"] == "query"
-    # Auto-chunking is invalid for queries and must not be sent.
+    # The query path uses the same nested, pre-chunked document form as the
+    # document path — one single-chunk document, no auto-chunking either side.
+    assert kwargs["inputs"] == [["a question"]]
     assert "enable_auto_chunking" not in kwargs
     assert "chunk_size" not in kwargs
+
+
+def test_contextualized_accepts_pre_chunked_nested_inputs(mock_voyage_client):
+    # The embedder must forward an already-nested list[list[str]] batch unchanged,
+    # per the endpoint's Union[List[List[str]], List[str]] input contract.
+    embedder = VoyageEmbedding(BaseEmbedderConfig(model="voyage-context-4"))
+    mock_voyage_client.contextualized_embed.return_value = _ctx_response([[0.1], [0.2]])
+
+    embeddings = embedder._embed_contextualized([["chunk a1", "chunk a2"], ["chunk b1"]], "document")
+
+    assert embeddings == [[0.1], [0.2]]
+    _, kwargs = mock_voyage_client.contextualized_embed.call_args
+    assert kwargs["inputs"] == [["chunk a1", "chunk a2"], ["chunk b1"]]
 
 
 def test_contextualized_result_order_preserved(mock_voyage_client):

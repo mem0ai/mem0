@@ -1,5 +1,5 @@
 import os
-from typing import Iterator, List, Literal, Optional
+from typing import Iterator, List, Literal, Optional, Union
 
 from voyageai import Client
 
@@ -46,11 +46,6 @@ FLEXIBLE_DIMENSION_MODELS = {
     "voyage-context-4",
     "voyage-context-3",
 }
-
-# Chunk size (in tokens) for the document side of contextualized embeddings. It is
-# set to the per-chunk maximum so that every input string resolves to exactly one
-# chunk, and therefore exactly one embedding vector. See `_embed_contextualized`.
-CONTEXT_CHUNK_SIZE = 32_000
 
 
 class VoyageEmbedding(EmbeddingBase):
@@ -155,27 +150,47 @@ class VoyageEmbedding(EmbeddingBase):
         response = self.client.embed(batch, **kwargs)
         return list(response.embeddings)
 
-    def _embed_contextualized(self, batch: List[str], input_type: str) -> List[List[float]]:
-        """Embed each input string as its OWN independent document.
+    @staticmethod
+    def _as_document_chunks(batch: Union[List[str], List[List[str]]]) -> List[List[str]]:
+        """Normalize an input batch to the nested form the contextualized endpoint
+        expects.
 
-        Every string is passed as a flat ``list[str]`` element with auto-chunking
-        enabled and ``chunk_size`` set to the per-chunk maximum, so each input
-        resolves to exactly one chunk and therefore exactly one embedding vector.
-        Inputs are NOT contextualized against one another: generic ``embed_batch``
-        callers pass unrelated texts, so cross-input contextualization would leak
-        one text's context into another's vector. The API rejects auto-chunking
-        for queries, so the retrieval path drops it.
+        Voyage's ``contextualized_embed`` accepts ``inputs`` as
+        ``Union[List[List[str]], List[str]]`` (see
+        https://docs.voyageai.com/docs/contextualized-chunk-embeddings): a flat
+        ``list[str]`` is a list of documents to be chunked server-side, while a
+        nested ``list[list[str]]`` is a list of documents already split into
+        chunks. Both formats are supported here:
+
+        - a flat ``list[str]`` becomes one single-chunk document per string, so
+          each input resolves to exactly one embedding vector;
+        - an already-nested ``list[list[str]]`` is passed through unchanged.
         """
+        if batch and isinstance(batch[0], list):
+            return batch
+        return [[text] for text in batch]
+
+    def _embed_contextualized(self, batch: Union[List[str], List[List[str]]], input_type: str) -> List[List[float]]:
+        """Embed each input as its OWN independent, pre-chunked document.
+
+        Inputs are sent in the nested ``list[list[str]]`` form (one document per
+        input, each already split into chunks), so the call is identical for the
+        document and query paths and no server-side auto-chunking is needed. A
+        flat ``list[str]`` batch — what Mem0's ``embed``/``embed_batch`` produce —
+        becomes one single-chunk document per string, so every document resolves
+        to exactly one embedding vector. Inputs are NOT contextualized against one
+        another: generic ``embed_batch`` callers pass unrelated texts, so
+        cross-input contextualization would leak one text's context into
+        another's vector.
+        """
+        documents = self._as_document_chunks(batch)
         output_dimension = self._output_dimension()
-        kwargs = {"inputs": batch, "model": self.config.model, "input_type": input_type}
+        kwargs = {"inputs": documents, "model": self.config.model, "input_type": input_type}
         if output_dimension is not None:
             kwargs["output_dimension"] = output_dimension
-        if input_type != "query":
-            kwargs["enable_auto_chunking"] = True
-            kwargs["chunk_size"] = CONTEXT_CHUNK_SIZE
         response = self.client.contextualized_embed(**kwargs)
         embeddings: List[List[float]] = []
         for result in sorted(response.results, key=lambda r: r.index):
-            # Each input is one document of one chunk -> take that single vector.
+            # Each document is a single chunk -> take that one vector.
             embeddings.append(result.embeddings[0])
         return embeddings
