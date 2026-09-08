@@ -6,7 +6,7 @@ description: Search memories from earlier Coding Agent sessions in this reposito
 # Search memories
 
 Call `search_memories` with the user's question. Treat `--top-k`, `--category`,
-and `--scope` as tool arguments instead of including them in the
+`--scope`, and `--run-id` as tool arguments instead of including them in the
 query.
 
 Omit `top_k` to use Mem0's configured default. Omit `category` to search every
@@ -18,5 +18,9 @@ preferences.
 
 Pass `scope` when the question needs something else: `dir` to narrow the
 shared memory to the directory you are working in (a package inside a
-monorepo), `mine` for your own preferences alone. Search across earlier sessions
-without needing a session ID. Return the tool's result directly.
+monorepo), `mine` for your own preferences alone.
+
+Pass `run_id` with any scope to retrieve memories saved in a specific coding-agent
+session. Omit `run_id` to search across sessions. It filters the memories returned;
+it does not identify the session making the search request. Use a known session ID,
+never invent one. Return the tool's result directly.

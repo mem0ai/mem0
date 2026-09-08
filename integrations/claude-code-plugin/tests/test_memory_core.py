@@ -2561,6 +2561,7 @@ def test_mcp_tool_contract_is_small_and_read_only():
         "top_k",
         "category",
         "scope",
+        "run_id",
     }
     assert tool["inputSchema"]["required"] == ["query"]
     assert tool["inputSchema"]["properties"]["top_k"]["minimum"] == 1
@@ -2655,6 +2656,7 @@ def test_mcp_tool_is_session_independent_and_returns_plain_memories(
         "top_k": 5,
         "category": "project_knowledge",
         "scope": None,
+        "run_id": None,
         "operation": "mcp-search",
     }
     assert rendered == (
@@ -2664,6 +2666,22 @@ def test_mcp_tool_is_session_independent_and_returns_plain_memories(
     assert "memory-1" not in rendered
     assert "0.91" not in rendered
     assert "project_knowledge" not in rendered
+
+
+@pytest.mark.parametrize("scope", ["repo", "dir", "mine"])
+def test_mcp_search_passes_run_id_for_every_scope(isolated_env, monkeypatch, scope):
+    from dataclasses import replace
+
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    project = replace(repo(), directory="src", project_id="code-example-hash")
+    monkeypatch.setattr(mcp_server, "resolve_repo", lambda cwd: project)
+    with patch.object(
+        memory_core, "_request_json_with_network_retry", return_value=({"results": []}, 0, 0)
+    ) as request:
+        mcp_server.call_search_memories({"query": "parser", "scope": scope})
+        across_sessions = request.call_args.args[2]["filters"]
+        mcp_server.call_search_memories({"query": "parser", "scope": scope, "run_id": "session-42"})
+        assert request.call_args.args[2]["filters"] == {"AND": [across_sessions, {"run_id": "session-42"}]}
 
 
 def test_mcp_tool_uses_codex_workspace_metadata(isolated_env):
@@ -2703,7 +2721,8 @@ def test_mcp_tool_uses_codex_workspace_metadata(isolated_env):
         ({"query": "parser", "top_k": True}, "1 to 20"),
         ({"query": "parser", "category": "other"}, "supported categories"),
         ({"query": "parser", "threshold": 0.5}, "Unknown search argument"),
-        ({"query": "parser", "run_id": "session-42"}, "Unknown search argument"),
+        ({"query": "parser", "run_id": " "}, "run_id must be a non-empty string"),
+        ({"query": "parser", "run_id": 42}, "run_id must be a non-empty string"),
     ],
 )
 def test_mcp_tool_rejects_invalid_arguments(arguments, message):
@@ -2720,8 +2739,9 @@ def test_search_skill_describes_memory_as_optional_starting_knowledge():
     assert "Call `search_memories` with the user's question" in normalized
     assert "Return the tool's result directly" in normalized
     assert "Run the search before repository exploration" not in normalized
-    assert "run_id" not in normalized
-    assert "--run-id" not in normalized
+    assert "run_id" in normalized
+    assert "--run-id" in normalized
+    assert "Omit `run_id` to search across sessions" in normalized
 
 
 def test_control_skills_exposed():

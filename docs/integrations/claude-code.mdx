@@ -132,7 +132,7 @@ A search returns the union of shared project memory and your personal preference
 
 The `dir` scope is hierarchical: a parent directory sees everything in its children, but a child never sees the parent's memories.
 
-The search tool searches across sessions and does not require or accept a session ID. The plugin still records `run_id` internally with each memory update. Set the default scope with the `search_scope` setting or `MEM0_CODE_SEARCH_SCOPE` env var.
+The search tool accepts an optional `run_id` with every scope (`repo`, `dir`, and `mine`); `/mem0:search` exposes it as `--run-id session-id`. It restricts both shared and personal results to memories saved in that coding-agent session. Omit it to search across sessions. This is a memory filter, not a label for the session making the request; automatically filtering by the current session would hide earlier-session memories. Each memory update still records the session's `run_id`. Set the default scope with the `search_scope` setting or `MEM0_CODE_SEARCH_SCOPE` env var.
 
 ## Settings
 

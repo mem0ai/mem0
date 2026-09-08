@@ -61,6 +61,14 @@ TOOL_SCHEMA = {
                 "part to the current directory, 'mine' is your preferences alone."
             ),
         },
+        "run_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "Optional coding-agent session ID. With any scope, restricts results to memories "
+                "saved in that session. Omit to recall memories across sessions."
+            ),
+        },
     },
     "required": ["query"],
     "additionalProperties": False,
@@ -73,11 +81,11 @@ class ToolInputError(ValueError):
 
 def _validate_arguments(
     arguments: Any,
-) -> tuple[str, int | None, str | None, str | None]:
+) -> tuple[str, int | None, str | None, str | None, str | None]:
     if not isinstance(arguments, dict):
         raise ToolInputError("Search arguments must be an object.")
 
-    unknown = set(arguments) - {"query", "top_k", "category", "scope"}
+    unknown = set(arguments) - {"query", "top_k", "category", "scope", "run_id"}
     if unknown:
         raise ToolInputError(f"Unknown search argument: {sorted(unknown)[0]}")
 
@@ -102,11 +110,17 @@ def _validate_arguments(
     if scope is not None and scope not in SEARCH_SCOPES:
         raise ToolInputError(f"scope must be one of {list(SEARCH_SCOPES)}.")
 
-    return query, top_k, category, scope
+    run_id = arguments.get("run_id")
+    if run_id is not None:
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise ToolInputError("run_id must be a non-empty string.")
+        run_id = run_id.strip()
+
+    return query, top_k, category, scope, run_id
 
 
 def call_search_memories(arguments: Any, cwd: str | None = None) -> str:
-    query, top_k, category, scope = _validate_arguments(arguments)
+    query, top_k, category, scope, run_id = _validate_arguments(arguments)
     repo = resolve_repo(cwd or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
     result = search_memories(
         None,
@@ -116,6 +130,7 @@ def call_search_memories(arguments: Any, cwd: str | None = None) -> str:
         top_k=top_k,
         category=category,
         scope=scope,
+        run_id=run_id,
         operation="mcp-search",
     )
     return format_search_result(result)
