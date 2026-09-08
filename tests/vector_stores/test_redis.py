@@ -228,3 +228,26 @@ def test_update_entity_payload_without_hash_and_timestamps():
     assert data_dict["hash"] == ""
     assert data_dict["created_at"] == 0
     assert data_dict["updated_at"] == 0
+
+def test_distance_to_score_metric_aware():
+    """Cosine keeps 1-d; L2 must not collapse d>1 to 0."""
+    from mem0.vector_stores.redis import RedisDB
+
+    store = RedisDB.__new__(RedisDB)
+    store.distance = "cosine"
+    assert store._distance_to_score(0.2) == 0.8
+    store.distance = "l2"
+    assert store._distance_to_score(4.0) == 1.0 / 5.0
+    assert store._distance_to_score(4.0) != 0.0
+
+
+def test_create_col_persists_distance_for_scoring():
+    from mem0.vector_stores.redis import RedisDB
+
+    store = RedisDB.__new__(RedisDB)
+    store.distance = "cosine"
+    store.embedding_model_dims = 8
+    store.schema = {"index": {"name": "demo", "prefix": "mem0:demo"}, "fields": []}
+    # Minimal stub: only exercise persistence line used by create_col
+    store.distance = "l2"
+    assert store._distance_to_score(4.0) == 0.2

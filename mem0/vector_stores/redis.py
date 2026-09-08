@@ -51,6 +51,7 @@ class RedisDB(VectorStoreBase):
         redis_url: str,
         collection_name: str,
         embedding_model_dims: int,
+        distance: str = "cosine",
     ):
         """
         Initialize the Redis vector store.
@@ -59,8 +60,10 @@ class RedisDB(VectorStoreBase):
             redis_url (str): Redis URL.
             collection_name (str): Collection name.
             embedding_model_dims (int): Embedding model dimensions.
+            distance (str, optional): Distance metric (cosine, l2, ip). Defaults to cosine.
         """
         self.embedding_model_dims = embedding_model_dims
+        self.distance = (distance or "cosine").lower()
         index_schema = {
             "name": collection_name,
             "prefix": f"mem0:{collection_name}",
@@ -68,6 +71,7 @@ class RedisDB(VectorStoreBase):
 
         fields = copy.deepcopy(DEFAULT_FIELDS)
         fields[-1]["attrs"]["dims"] = embedding_model_dims
+        fields[-1]["attrs"]["distance_metric"] = self.distance
 
         self.schema = {"index": index_schema, "fields": fields}
 
@@ -91,7 +95,8 @@ class RedisDB(VectorStoreBase):
         # Use provided parameters or fall back to instance attributes
         collection_name = name or self.schema["index"]["name"]
         embedding_dims = vector_size or self.embedding_model_dims
-        distance_metric = distance or "cosine"
+        distance_metric = (distance or self.distance or "cosine").lower()
+        self.distance = distance_metric
 
         # Create a new schema with the specified parameters
         index_schema = {
@@ -145,6 +150,18 @@ class RedisDB(VectorStoreBase):
             data.append(entry)
         self.index.load(data, id_field="memory_id")
 
+
+    def _distance_to_score(self, raw_distance):
+        """Convert Redis vector_distance to similarity (VectorStoreBase.search contract)."""
+        if raw_distance is None:
+            return None
+        distance = float(raw_distance)
+        metric = (getattr(self, "distance", None) or "cosine").lower()
+        if metric in {"l2", "euclidean"}:
+            return 1.0 / (1.0 + distance)
+        # cosine / ip (Redis often exposes IP in a comparable distance form)
+        return max(0.0, 1.0 - distance)
+
     def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None):
         filter = None
         if filters:
@@ -165,7 +182,7 @@ class RedisDB(VectorStoreBase):
         return [
             MemoryResult(
                 id=result["memory_id"],
-                score=max(0.0, 1.0 - float(result["vector_distance"])),
+                score=self._distance_to_score(result.get("vector_distance")),
                 payload={
                     "hash": result["hash"],
                     "data": result["memory"],
