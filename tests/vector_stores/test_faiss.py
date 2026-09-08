@@ -285,6 +285,16 @@ def test_list(faiss_instance):
         assert result.payload["category"] == "A"
 
 
+def test_apply_filters_rejects_empty_payload(faiss_instance):
+    """Regression for #7256: empty payload must not satisfy scoped filters."""
+    assert faiss_instance._apply_filters({}, {"user_id": "alice"}) is False
+    assert faiss_instance._apply_filters(None, {"user_id": "alice"}) is False
+    assert faiss_instance._apply_filters({"user_id": "alice"}, {"user_id": "alice"}) is True
+    assert faiss_instance._apply_filters({"user_id": "bob"}, {"user_id": "alice"}) is False
+    assert faiss_instance._apply_filters({}, {}) is True
+    assert faiss_instance._apply_filters({"user_id": "alice"}, None) is True
+
+
 def test_list_uninitialized_index_returns_nested_list(faiss_instance):
     # Regression for the List[List[OutputData]] contract: callers (e.g.
     # Memory.delete_all) do `vector_store.list(filters=...)[0]`, so an

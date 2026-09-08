@@ -427,8 +427,13 @@ class FAISS(VectorStoreBase):
         Returns:
             bool: True if payload passes filters, False otherwise.
         """
-        if not filters or not payload:
+        if not filters:
             return True
+        # Empty / missing payload must fail scoped filters (tenancy boundary).
+        # Previously `if not filters or not payload: return True` let `{}` pass
+        # every user_id/agent_id/run_id check.
+        if not payload:
+            return False
 
         for key, value in filters.items():
             if key not in payload:
