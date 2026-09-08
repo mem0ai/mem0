@@ -14,7 +14,6 @@ from pathlib import Path
 
 import telemetry
 from memory_core import (
-    MAX_ASSISTANT_CHARS,
     EvidenceStore,
     _session_id,
     api_key,
@@ -30,6 +29,7 @@ from memory_core import (
     record_session_start,
     record_tool,
     record_user_prompt,
+    redact,
     search_memories,
 )
 
@@ -53,7 +53,7 @@ def default_record_stop(store: EvidenceStore, hook_input: dict):
     """Record the assistant's response without transcript parsing."""
     session_id = _session_id(hook_input)
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
-    message = bounded(hook_input.get("last_assistant_message", ""), MAX_ASSISTANT_CHARS)
+    message = redact(hook_input.get("last_assistant_message", "")).strip()
     if message:
         store.record_assistant_response(repo, session_id, message)
     return repo, session_id
@@ -71,7 +71,7 @@ def first_prompt_memory_output(store: EvidenceStore, hook_input: dict) -> dict:
     if len(prompt.strip()) < max(minimum_query_chars, 1):
         return {}
     result = search_memories(
-        store, repo, session_id, prompt,
+        store, repo, session_id, bounded(prompt, 6000),
         top_k=5, operation="first-prompt-search", timeout=2,
     )
     if not result.memories:

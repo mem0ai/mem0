@@ -1,8 +1,7 @@
 import type { MemoryLike } from "./formatting.ts";
 import { formatMemoryCompact } from "./formatting.ts";
 
-export const MAX_PROMPT_CHARS = 6_000;
-export const MAX_ASSISTANT_CHARS = 6_000;
+const MAX_RECALL_QUERY_CHARS = 6_000;
 export const DEFAULT_MAX_CONTEXT_CHARS = 4_000;
 
 const SECRET_PATTERNS: Array<[RegExp, string]> = [
@@ -64,10 +63,7 @@ export function extractConversation(
     if (message.role !== "user" && message.role !== "assistant") continue;
     const text = extractText(message.content);
     if (!text) continue;
-    const content = boundedText(
-      text,
-      message.role === "user" ? MAX_PROMPT_CHARS : MAX_ASSISTANT_CHARS,
-    );
+    const content = redactSecrets(text).trim();
     if (content) conversation.push({ role: message.role, content });
   }
   return conversation;
@@ -104,7 +100,7 @@ class MemoryLifecycle {
   }
 
   prepareUserText(value: unknown): string {
-    return boundedText(value, MAX_PROMPT_CHARS);
+    return redactSecrets(value).trim();
   }
 
   recall(
@@ -133,7 +129,7 @@ export async function buildRecallContext(
   options: RecallOptions = {},
 ): Promise<string> {
   if (!enabled) return "";
-  const query = boundedText(prompt, MAX_PROMPT_CHARS);
+  const query = boundedText(prompt, MAX_RECALL_QUERY_CHARS);
   if (!query) return "";
 
   try {

@@ -601,7 +601,7 @@ def test_record_stop_processes_only_new_transcript_entries(
     ]
 
 
-def test_extraction_messages_bound_long_content():
+def test_extraction_messages_preserve_long_content():
     long_response = "repository detail " * 4000
     structured = {
         "extraction_messages": [
@@ -615,8 +615,45 @@ def test_extraction_messages_bound_long_content():
 
     assert messages == [
         {"role": "user", "content": "Explain the repository."},
-        {"role": "assistant", "content": memory_core.bounded(long_response, memory_core.MAX_ASSISTANT_CHARS)},
+        {"role": "assistant", "content": long_response.strip()},
     ]
+
+
+@pytest.mark.parametrize("capture", ["hook", "transcript"])
+def test_long_conversation_reaches_extraction_without_truncation(isolated_env, monkeypatch, capture):
+    import hook_runner
+
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    monkeypatch.setattr(memory_core, "resolve_repo", lambda cwd: repo())
+    prompt = "Repository question. " * 2000 + "Final user requirement. api_key=hidden-user-secret"
+    answer = "Repository answer. " * 4000 + "Final implementation detail. password=hidden-agent-secret"
+    payload = {"session_id": "s1", "cwd": "/tmp/repo", "prompt": prompt, "last_assistant_message": answer}
+    store = memory_core.EvidenceStore()
+    memory_core.record_user_prompt(store, payload)
+    if capture == "transcript":
+        transcript = isolated_env / "long-session.jsonl"
+        _write_transcript(transcript, "s1", [
+            {"type": "user", "message": {"role": "user", "content": prompt}},
+            {"type": "assistant", "message": {"role": "assistant", "content": answer}},
+        ])
+        transcript_mod.record_stop(store, {**payload, "transcript_path": str(transcript)})
+    else:
+        hook_runner.default_record_stop(store, payload)
+
+    with (
+        patch.object(memory_core, "_request_json", return_value=({"event_id": "extraction"}, 200, 20)) as request,
+        patch.object(memory_core, "_wait_for_event", return_value=("SUCCEEDED", 20, 1)),
+    ):
+        assert memory_core.flush_session(store, payload, "session-end")["status"] == "semantic-succeeded"
+
+    batches = [call.args[2]["messages"] for call in request.call_args_list]
+    assert len(batches) > 1
+    assert all(memory_core._message_tokens(batch) <= memory_core.MAX_EXTRACTION_INPUT_TOKENS for batch in batches)
+    for role, text in (("user", prompt), ("assistant", answer)):
+        actual = "".join(message["content"] for batch in batches for message in batch if message["role"] == role)
+        prefix = "Main Claude response:\n" if capture == "transcript" and role == "assistant" else ""
+        assert actual == prefix + memory_core.redact(text)
+    store.close()
 
 
 def test_upgrade_removes_legacy_snapshot_tables(isolated_env):
@@ -4508,7 +4545,7 @@ def test_every_write_carries_the_session_run_id(isolated_env, monkeypatch):
     store.close()
 
 
-def test_shared_transcripts_redact_and_bound_before_extraction():
+def test_shared_transcripts_redact_without_truncating_before_extraction():
     secret = '"password": "plain-private-value" '
     prompt = secret + 'x' * 20000
     answer = secret + '界' * 40000
@@ -4523,7 +4560,7 @@ def test_shared_transcripts_redact_and_bound_before_extraction():
     messages = memory_core.build_extraction_messages(structured)
     assert [message["role"] for message in messages] == ["user", "assistant"]
     assert "plain-private-value" not in json.dumps(structured)
-    assert all(len(message["content"]) < 6100 for message in messages)
+    assert [message["content"] for message in messages] == [memory_core.redact(prompt), memory_core.redact(answer)]
 
 
 @pytest.mark.parametrize("status", [400, 401, 403, 404, 422])

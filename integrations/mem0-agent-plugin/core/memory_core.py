@@ -59,8 +59,6 @@ def harness_config() -> dict[str, str]:
     }
 
 
-MAX_PROMPT_CHARS = 6000
-MAX_ASSISTANT_CHARS = 6000
 MAX_COMMAND_CHARS = 2000
 MAX_RESULT_CHARS = 2500
 MAX_EPISODE_CHARS = 12000
@@ -514,7 +512,7 @@ def _checkpoint_message(event: dict[str, Any]) -> str:
     kind = event.get("kind")
     payload = event.get("payload") or {}
     if kind == "user_prompt":
-        return bounded(payload.get("text", ""), MAX_PROMPT_CHARS)
+        return redact(payload.get("text", "")).strip()
     if kind == "assistant_stop":
         transcript_messages = payload.get("transcript_messages") or []
         if isinstance(transcript_messages, list):
@@ -525,9 +523,9 @@ def _checkpoint_message(event: dict[str, Any]) -> str:
             )
             if text:
                 return text
-        return bounded(payload.get("text", ""), MAX_ASSISTANT_CHARS)
+        return redact(payload.get("text", "")).strip()
     if kind == "sidekick_stop":
-        return bounded(payload.get("final_message", ""), MAX_ASSISTANT_CHARS)
+        return redact(payload.get("final_message", "")).strip()
     return ""
 
 
@@ -1107,7 +1105,7 @@ class EvidenceStore:
                     now,
                     now,
                     bounded(transcript_path, 2000),
-                    bounded(final_message, MAX_ASSISTANT_CHARS),
+                    redact(final_message).strip(),
                 ),
             )
             self.conn.commit()
@@ -1292,7 +1290,7 @@ def record_user_prompt(
 ) -> tuple[RepoContext, str, str, bool]:
     session_id = _session_id(hook_input)
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
-    prompt = bounded(hook_input.get("prompt", ""), MAX_PROMPT_CHARS)
+    prompt = redact(hook_input.get("prompt", "")).strip()
     is_first_prompt = not store.has_event(repo.identity, session_id, "user_prompt")
     store.record_event(repo, session_id, "user_prompt", {"text": prompt})
     return repo, session_id, prompt, is_first_prompt
@@ -1429,9 +1427,7 @@ def record_sidekick_stop(store: EvidenceStore, hook_input: dict[str, Any]) -> No
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
     agent_type = bounded(hook_input.get("agent_type", "mem0:sidekick"), 200)
     agent_id = bounded(hook_input.get("agent_id", ""), 200)
-    final_message = bounded(
-        hook_input.get("last_assistant_message", ""), MAX_ASSISTANT_CHARS
-    )
+    final_message = redact(hook_input.get("last_assistant_message", "")).strip()
     transcript_path = bounded(hook_input.get("agent_transcript_path", ""), 2000)
     agent_id = store.stop_sidekick(
         repo,
@@ -1508,17 +1504,17 @@ def build_episode(
     task_outcome: str = "",
 ) -> tuple[str, dict[str, Any]]:
     prompts = [
-        bounded(e["payload"].get("text", ""), MAX_PROMPT_CHARS)
+        redact(e["payload"].get("text", "")).strip()
         for e in events
         if e["kind"] == "user_prompt" and e["payload"].get("text")
     ]
     assistant_conclusions = [
-        bounded(e["payload"].get("text", ""), MAX_ASSISTANT_CHARS)
+        redact(e["payload"].get("text", "")).strip()
         for e in events
         if e["kind"] == "assistant_stop" and e["payload"].get("text")
     ]
     sidekick_outcomes = [
-        bounded(e["payload"].get("final_message", ""), MAX_ASSISTANT_CHARS)
+        redact(e["payload"].get("final_message", "")).strip()
         for e in events
         if e["kind"] == "sidekick_stop" and e["payload"].get("final_message")
     ]
@@ -1553,10 +1549,7 @@ def build_episode(
     ]
 
     task = bounded(canonical_task or (prompts[0] if prompts else ""), 4000)
-    conclusion = bounded(
-        assistant_conclusions[-1] if assistant_conclusions else "",
-        MAX_ASSISTANT_CHARS,
-    )
+    conclusion = redact(assistant_conclusions[-1] if assistant_conclusions else "").strip()
     outcome = bounded(task_outcome, 2000)
 
     extraction_messages: list[dict[str, str]] = []
@@ -1568,16 +1561,14 @@ def build_episode(
             pending_user_messages.append(
                 {
                     "role": "user",
-                    "content": bounded(
-                        event["payload"].get("text", ""), MAX_PROMPT_CHARS
-                    ),
+                    "content": redact(event["payload"].get("text", "")).strip(),
                 }
             )
         elif event["kind"] == "assistant_stop":
             transcript_messages = event["payload"].get("transcript_messages") or []
             if isinstance(transcript_messages, list) and transcript_messages:
                 transcript_users = {
-                    bounded(message.get("content") or "", MAX_PROMPT_CHARS)
+                    redact(message.get("content") or "").strip()
                     for message in transcript_messages
                     if isinstance(message, dict) and message.get("role") == "user"
                 }
@@ -1589,10 +1580,7 @@ def build_episode(
                 extraction_messages.extend(
                     {
                         "role": str(message.get("role") or ""),
-                        "content": bounded(
-                            message.get("content") or "",
-                            MAX_PROMPT_CHARS if message.get("role") == "user" else MAX_ASSISTANT_CHARS,
-                        ),
+                        "content": redact(message.get("content") or "").strip(),
                     }
                     for message in transcript_messages
                     if isinstance(message, dict)
@@ -1605,10 +1593,7 @@ def build_episode(
                     extraction_messages.append(
                         {
                             "role": "assistant",
-                            "content": bounded(
-                                event["payload"].get("text", ""),
-                                MAX_ASSISTANT_CHARS,
-                            ),
+                            "content": redact(event["payload"].get("text", "")).strip(),
                         }
                     )
             pending_user_messages = []
@@ -1708,9 +1693,7 @@ def build_extraction_messages(structured: dict[str, Any]) -> list[dict[str, str]
     """Build the session messages sent to Mem0 for memory extraction."""
     evidence = build_semantic_evidence(structured)
     messages = [
-        {"role": message["role"], "content": bounded(
-            message["content"], MAX_PROMPT_CHARS if message["role"] == "user" else MAX_ASSISTANT_CHARS
-        )}
+        {"role": message["role"], "content": redact(message["content"]).strip()}
         for message in structured.get("extraction_messages", [])
         if message.get("role") in {"user", "assistant"} and message.get("content")
     ]

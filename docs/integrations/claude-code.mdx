@@ -89,7 +89,7 @@ The plugin follows a simple cycle: capture during a session, extract memories in
 
 2. **Flush.** After every five completed exchanges, a detached background worker sends that batch to Mem0. Large exchanges flush sooner. Ending or compacting the session flushes anything remaining. If the session sits idle, an auto-flush runs after five minutes (configurable with `MEM0_CODE_IDLE_FLUSH_SECONDS`). The timer resets on each new exchange. The worker survives Claude Code exiting.
 
-3. **Extract.** Each flush sends a single `add` call with `agent_id` (the project identity), `user_id` (you), `app_id` (the repository), and `run_id` (the session). Mem0 classifies each extracted memory as shared project knowledge or a personal preference.
+3. **Extract.** Each flush sends `add` calls with `agent_id` (the project identity), `user_id` (you), `app_id` (the repository), and `run_id` (the session). Prompts and responses are redacted without a character cutoff. Large conversations are split across requests without dropping message text. Mem0 classifies each extracted memory as shared project knowledge or a personal preference.
 
 4. **Recall.** On the next session's first prompt, the plugin searches automatically and supplies up to five relevant memories. No model is called to write the query.
 

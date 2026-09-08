@@ -5,10 +5,9 @@ from __future__ import annotations
 import html
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
-
-import sys
 
 _here = Path(__file__).resolve()
 sys.path.insert(0, str(_here.parents[2] / "core" / "python"))
@@ -16,9 +15,7 @@ sys.path.insert(0, str(_here.parents[2] / "core" / "python"))
 from memory_core import (  # noqa: E402
     EvidenceStore,
     RepoContext,
-    MAX_ASSISTANT_CHARS,
     _session_id,
-    bounded,
     redact,
 )
 
@@ -327,7 +324,7 @@ def record_stop(
 ) -> tuple[RepoContext, str]:
     session_id = _session_id(hook_input)
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
-    message = bounded(hook_input.get("last_assistant_message", ""), MAX_ASSISTANT_CHARS)
+    message = redact(hook_input.get("last_assistant_message", "")).strip()
     previous_stop = store.latest_event_payload(
         repo.identity, session_id, "assistant_stop"
     )

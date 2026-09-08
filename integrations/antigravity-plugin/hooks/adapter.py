@@ -19,11 +19,9 @@ sys.path.insert(0, str(CORE))
 import hook_runner  # noqa: E402
 import telemetry  # noqa: E402
 from memory_core import (  # noqa: E402
-    MAX_ASSISTANT_CHARS,
-    MAX_PROMPT_CHARS,
-    bounded,
     configure_harness,
     record_tool,
+    redact,
 )
 
 
@@ -41,11 +39,9 @@ def _read_transcript(path: str) -> list[dict[str, str]]:
                     continue
                 if step.get("type") == "USER_INPUT":
                     match = re.search(r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", content, re.DOTALL)
-                    messages.append({"role": "user", "content": bounded(
-                        match.group(1) if match else content, MAX_PROMPT_CHARS
-                    )})
+                    messages.append({"role": "user", "content": redact(match.group(1) if match else content).strip()})
                 elif step.get("source") == "MODEL" and step.get("type") == "PLANNER_RESPONSE":
-                    messages.append({"role": "assistant", "content": bounded(content, MAX_ASSISTANT_CHARS)})
+                    messages.append({"role": "assistant", "content": redact(content).strip()})
     except (OSError, TypeError):
         pass
     return messages

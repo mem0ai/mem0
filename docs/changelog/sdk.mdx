@@ -2071,7 +2071,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 **Fixes:**
 - Hooks, controls, MCP servers, and detached workers use the same host-specific data directory. Detached workers retain the host identity and telemetry source; `--plugin-data-dir` reaches the shared resolver.
 - Session-end workers flush the conversation already captured by hooks. Repeated and concurrent response hooks no longer duplicate an answer, while identical answers after separate prompts are preserved.
-- Shared transcript content is redacted and bounded before extraction; oversized messages are split to enforce each request's input budget. Flush event selection and claims share one write transaction, delayed handoffs are replaced atomically, and permanent HTTP polling errors fail promptly.
+- Shared prompts and responses are redacted without the previous 6,000-character cutoff. Python extraction splits oversized messages without dropping text to enforce each request's input budget. Flush event selection and claims share one write transaction, delayed handoffs are replaced atomically, and permanent HTTP polling errors fail promptly.
 - Extraction instructions refer to the current coding agent. Python redaction covers JSON-shaped credentials; both telemetry runtimes recursively remove sensitive keys, including keys inside nested lists.
 - New Git repository writes use a hash of the remote identity in `agent_id`. Search and explicit shared-memory deletion include both current and legacy repository IDs within the repository's `app_id`. Existing memories are not rewritten. Legacy IDs retain their original ambiguity for matching owner/repository names on different Git hosts.
 

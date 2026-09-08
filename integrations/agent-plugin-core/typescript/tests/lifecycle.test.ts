@@ -35,6 +35,20 @@ test("one lifecycle owns capture preparation", () => {
   );
 });
 
+test("capture preserves long prompts and responses while redacting secrets", () => {
+  const lifecycle = createMemoryLifecycle();
+  const prompt = "Repository question. ".repeat(2000) + "Final requirement. api_key=hidden-user-secret";
+  const answer = "Repository answer. ".repeat(4000) + "Final detail. password=hidden-agent-secret";
+  assert.deepEqual(lifecycle.prepareConversation([
+    { role: "user", content: prompt },
+    { role: "assistant", content: [{ type: "text", text: answer }] },
+  ]), [
+    { role: "user", content: redactSecrets(prompt) },
+    { role: "assistant", content: redactSecrets(answer) },
+  ]);
+  assert.equal(lifecycle.prepareUserText(prompt), redactSecrets(prompt));
+});
+
 test("redacts Claude-equivalent credentials before content leaves the host", () => {
   const privateKey = "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----";
   const input = [
