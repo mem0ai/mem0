@@ -16,9 +16,12 @@ from mem0_cli.branding import (
     BRAND_COLOR,
     DIM_COLOR,
     print_error,
+    print_info,
     print_success,
 )
-from mem0_cli.config import Mem0Config, save_config
+from mem0_cli.config import CONFIG_FILE, Mem0Config, save_config
+from mem0_cli.output import format_json_envelope
+from mem0_cli.state import capture_notice, is_agent_mode
 
 console = Console()
 err_console = Console(stderr=True)
@@ -124,13 +127,41 @@ def bootstrap_via_backend(
     config.defaults.user_id = envelope["default_user_id"]
     save_config(config)
 
+    claim_cmd = envelope.get("claim_command") or "mem0 init --email <your-email>"
+    if is_agent_mode():
+        capture_notice(envelope.get("mem0_notice"))
+        format_json_envelope(
+            console,
+            command="init",
+            data={
+                "api_key_saved": True,
+                "api_key_source": "config",
+                "agent_mode": True,
+                "default_user_id": envelope["default_user_id"],
+                # Saving CLI config does not authenticate a running MCP host.
+                "mcp_ready": False,
+                "next_step": {
+                    "action": "set_environment_variable",
+                    "name": "MEM0_API_KEY",
+                    "value_from": {"file": str(CONFIG_FILE), "key": "platform.api_key"},
+                    "restart_required": True,
+                },
+                "claim_command": claim_cmd,
+            },
+        )
+        return
+
     print_success(console, f"Agent Mode active. Default user_id: {envelope['default_user_id']}")
+    print_info(
+        console,
+        "For MCP, set MEM0_API_KEY from ~/.mem0/config.json (platform.api_key) "
+        "in your MCP host's environment, then restart the host.",
+    )
     notice = envelope.get("mem0_notice")
     if notice:
         console.print(f"\n[yellow]🔔 {notice}[/yellow]\n")
     else:
         # Fallback if the backend hasn't deployed the unified notice yet.
-        claim_cmd = envelope.get("claim_command", "mem0 init --email <your-email>")
         console.print(f"  [{DIM_COLOR}]To claim this account later: {claim_cmd}[/]")
 
     if not agent_caller:

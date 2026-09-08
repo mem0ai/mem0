@@ -18,7 +18,7 @@ npm install -g @mem0/cli
 
 Then run: `mem0 init --agent --agent-caller <your-name> --json`. Replace `<your-name>` with the AI agent you are (e.g. `claude-code`, `cursor`, `codex`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init to attribute the signup.
 
-This mints an evaluation key in <5 seconds. Use it immediately against the Platform API or MCP server. When the human is ready, claim with `mem0 init --email <your-email>` to transfer ownership (memories preserved, same API key, no agent disruption).
+This mints an evaluation key in <5 seconds and saves it to `~/.mem0/config.json` for immediate CLI use. A fresh bootstrap reports `mcp_ready: false`; follow `data.next_step` to load the saved key into the MCP host's `MEM0_API_KEY` environment variable and restart the host. See [Agent signup](https://docs.mem0.ai/platform/agent-signup#machine-readable-bootstrap) for the JSON response format. When the human is ready, claim with `mem0 init --email <your-email>` to transfer ownership (memories preserved, same API key, no agent disruption).
 
 ### Routing and references
 

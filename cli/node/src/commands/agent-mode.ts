@@ -4,7 +4,9 @@
 
 import readline from "node:readline";
 import { colors, printError, printInfo, printSuccess } from "../branding.js";
-import { type Mem0Config, saveConfig } from "../config.js";
+import { CONFIG_FILE, type Mem0Config, saveConfig } from "../config.js";
+import { formatJsonEnvelope } from "../output.js";
+import { captureNotice, isAgentMode } from "../state.js";
 
 const { brand, dim } = colors;
 
@@ -134,14 +136,40 @@ export async function bootstrapViaBackend(
 	config.defaults.userId = envelope.default_user_id;
 	saveConfig(config);
 
+	const claimCmd = envelope.claim_command ?? "mem0 init --email <your-email>";
+	if (isAgentMode()) {
+		captureNotice(envelope.mem0_notice);
+		formatJsonEnvelope({
+			command: "init",
+			data: {
+				api_key_saved: true,
+				api_key_source: "config",
+				agent_mode: true,
+				default_user_id: envelope.default_user_id,
+				// Saving CLI config does not authenticate a running MCP host.
+				mcp_ready: false,
+				next_step: {
+					action: "set_environment_variable",
+					name: "MEM0_API_KEY",
+					value_from: { file: CONFIG_FILE, key: "platform.api_key" },
+					restart_required: true,
+				},
+				claim_command: claimCmd,
+			},
+		});
+		return;
+	}
+
 	printSuccess(
 		`Agent Mode active. Default user_id: ${envelope.default_user_id}`,
+	);
+	printInfo(
+		"For MCP, set MEM0_API_KEY from ~/.mem0/config.json (platform.api_key) in your MCP host's environment, then restart the host.",
 	);
 	if (envelope.mem0_notice) {
 		console.log(`\n\x1b[33m🔔 ${envelope.mem0_notice}\x1b[0m\n`);
 	} else {
 		// Fallback for older backends without the unified notice field.
-		const claimCmd = envelope.claim_command ?? "mem0 init --email <your-email>";
 		console.log(`  ${dim(`To claim this account later: ${claimCmd}`)}`);
 	}
 

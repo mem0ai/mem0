@@ -249,8 +249,6 @@ export function formatJsonEnvelope(opts: {
 	// If the platform flagged this as an unclaimed Agent Mode account, surface
 	// the notice inside the JSON envelope so an agent consuming the output
 	// sees it without needing to inspect HTTP headers.
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { takeNotice } = require("./state.js");
 	const notice = takeNotice();
 	if (notice) envelope.mem0_notice = notice;
 
