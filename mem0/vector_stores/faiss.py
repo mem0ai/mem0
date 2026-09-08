@@ -168,6 +168,8 @@ class FAISS(VectorStoreBase):
             if os.path.exists(index_path) and (os.path.exists(json_docstore_path) or os.path.exists(pkl_docstore_path)):
                 # _load will prefer JSON over pickle and auto-migrate
                 self._load(index_path, pkl_docstore_path)
+                if self.index is None:
+                    self.create_col(collection_name)
             else:
                 self.create_col(collection_name)
 
@@ -221,6 +223,7 @@ class FAISS(VectorStoreBase):
             raise ValueError(f"Failed to load FAISS docstore: potentially malicious pickle file. {e}") from e
         except Exception as e:
             logger.warning(f"Failed to load FAISS index: {e}")
+            self.index = None
             self.docstore = {}
             self.index_to_id = {}
 
