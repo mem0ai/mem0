@@ -3,7 +3,7 @@ title: Codex
 description: "Add persistent memory to OpenAI Codex with automatic capture, automatic recall, a search tool, and six memory skills."
 ---
 
-Add persistent memory to [**OpenAI Codex**](https://openai.com/index/codex/) with the Mem0 plugin. Codex forgets everything between tasks. This plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context before every response.
+Add persistent memory to [**OpenAI Codex**](https://openai.com/index/codex/) with the Mem0 plugin. Codex forgets everything between tasks. This plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context on the first prompt of a session. Codex can use the search tool for recall later in the session.
 
 <Info>Current plugin version: `0.3.1`.</Info>
 
@@ -79,7 +79,7 @@ bearer_token_env_var = "MEM0_API_KEY"
 
 Make sure `MEM0_API_KEY` is exported in the shell you launch Codex from, then restart Codex.
 
-This gives you the MCP tools but not the lifecycle hooks or SDK skill.
+This gives you the hosted MCP tools but not the plugin's lifecycle hooks or six memory skills.
 
 ### Managing the Plugin
 
@@ -115,7 +115,7 @@ Lifecycle hooks that shell out to local scripts (Option A) are not applicable in
 | Native subagent memory lifecycle | Yes | No |
 | Memory skills | 6 | No |
 
-Codex plugins cannot currently bundle a named custom agent. If you define project or user agents under `.codex/agents/` or `~/.codex/agents/`, the full Mem0 plugin gives every native subagent the parent turn's retrieved memory context and records its completed result.
+Mem0's Codex package does not bundle a named custom agent. If you define project or user agents under `.codex/agents/` or `~/.codex/agents/`, the full Mem0 plugin gives every native subagent the parent turn's retrieved memory context and records its completed result.
 
 ## Direct MCP tools
 
@@ -139,8 +139,8 @@ Option A registers the hooks with the plugin. No separate hook installer or glob
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| **Session start** | `SessionStart` | Loads prior memories and displays status banner |
-| **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message |
+| **Session start** | `SessionStart` | Initializes the project session and recovers pending capture |
+| **User prompt** | `UserPromptSubmit` | Records each prompt; searches on the first prompt when it has at least 20 characters |
 | **Post-tool** | `PostToolUse` | Records useful tool outcomes for the completed exchange |
 | **Subagent start** | `SubagentStart` | Reuses the parent turn's retrieved memory context in the child |
 | **Subagent stop** | `SubagentStop` | Records the child transcript path and completed result |
@@ -148,18 +148,18 @@ Option A registers the hooks with the plugin. No separate hook installer or glob
 | **Pre-compact** | `PreCompact` | Flushes pending capture before context compaction |
 | **Session end** | `SessionEnd` | Flushes any remaining capture in the background |
 
-What you type is stored as yours. What Codex produces (session summaries and compaction summaries) is stored as the assistant's, so its suggestions never become your stated preferences.
+What you type is stored as yours. Codex's captured responses are stored as the assistant's, so its suggestions never become your stated preferences.
 
 ## Example Workflow
 
 ```text
 # Task 1: Setting up a new service
-You: Create a REST API for the notifications service using Express and TypeScript.
+You: Create a REST API for the notifications service using Express and TypeScript. Prefer explicit error types over generic catch-all handlers.
 
 # Codex searches memories, finds your preferences from prior tasks.
 # Mem0 stores what you said as yours:
 #   - Your preference: "Prefers explicit error types over generic catch-all"
-# ...and what Codex did as the assistant's, in the session summary:
+# ...and completed work reported by Codex as the assistant's:
 #   - Decision: "Notifications service uses Express + TypeScript + Zod validation"
 #   - Convention: "All API routes follow /api/v1/{resource} pattern"
 
@@ -169,6 +169,12 @@ You: Add WebSocket support for real-time notification delivery.
 # Codex searches memories, retrieves the architecture decisions and conventions.
 # Follows the same patterns established in the first task.
 ```
+
+## Search and capture
+
+The local `search_memories` tool accepts `query`, `top_k`, `category`, `scope` (`repo`, `dir`, or `mine`), and optional `run_id` with every scope. Use a known session ID to recall memories saved in that session; omit it to search across sessions. See [search scopes](/integrations/claude-code#search-scope) for the shared Python search contract, including legacy repository memory compatibility.
+
+Captured prompts and responses retain their full redacted text without a per-message character cutoff. Large extraction inputs are split across requests without dropping message text; recall output and tool-result previews have separate limits.
 
 ## Troubleshooting
 

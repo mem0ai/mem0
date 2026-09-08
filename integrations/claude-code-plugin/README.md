@@ -4,6 +4,8 @@ Persistent cross-session memory for Claude Code, plus a Sonnet sidekick agent fo
 
 Claude Code forgets everything between sessions. This plugin fixes that: hooks capture session details locally, a background worker turns them into Mem0 memories, and Claude automatically gets the relevant ones back at the start of later sessions.
 
+Current bundle version: `0.3.1`.
+
 ## Prerequisites
 
 - Python 3.10+ and Git.
@@ -45,15 +47,17 @@ claude --plugin-dir integrations/claude-code-plugin
 
 ### Memory
 
-1. **Capture.** Hooks save the main agent's activity locally: user messages, Claude's answers, changed file paths, and short test/build results. No model calls, no blocking. Sidekick output is excluded.
+1. **Capture.** Hooks save the main agent's activity locally: user messages, Claude's answers, changed file paths, and short test/build results. Capture does not call a model. Sidekick assignments and completed responses are recorded separately as supporting evidence.
 
-2. **Flush.** After every five completed exchanges, a detached background worker sends that batch to Mem0. Large exchanges flush sooner. Ending or compacting the session flushes anything remaining. If idle, an auto-flush runs after five minutes (configurable with `MEM0_CODE_IDLE_FLUSH_SECONDS`). The worker survives Claude Code exiting.
+2. **Flush.** After every five completed exchanges, a detached background worker sends that batch to Mem0. Large exchanges flush sooner. Ending or compacting the session flushes anything remaining. The session-end worker sends the conversation already collected by hooks without recording the final answer again. If idle, an auto-flush runs after five minutes (configurable with `MEM0_CODE_IDLE_FLUSH_SECONDS`). The worker survives Claude Code exiting.
 
-3. **Extract.** Each flush sends a single `add` call with `agent_id` (the project identity), `user_id` (you), `app_id` (the repository), and `run_id` (the session). Mem0 classifies each extracted memory as either:
+3. **Extract.** Each flush sends one or more `add` calls with `agent_id` (the project identity), `user_id` (you), `app_id` (the repository), and `run_id` (the session). Mem0 classifies each extracted memory as either:
    - **Shared project memory** (`agent_id`): one namespace per repo, scoped by `app_id`. Stores conventions, decisions, constraints, working commands, and failed commands with their fixes. Everyone on the repo reads and writes the same pool. Never carries a `user_id`. Directory information is stored in metadata for directory-scoped searches.
    - **Personal memory** (`user_id`): your preferred tools, style, habits, and anything you asked to be remembered. Scoped to the repo by `app_id`. Private to you.
 
-4. **Recall.** On the next session's first prompt, the plugin searches automatically and supplies up to five relevant memories. No model is called to write the query.
+4. **Recall.** On the next session's first prompt, if it has at least 20 characters, the plugin searches automatically and supplies up to five relevant memories. No model is called to write the query.
+
+Captured prompts and responses retain their full text after secret redaction. Oversized extraction input is split across requests without discarding message text. Search results and tool evidence still have separate size limits.
 
 After that first search, Claude can call `search_memories` with a specific question, and you can run `/mem0:search` yourself. Explicit searches return up to 3 results by default (configurable to 20), capped at 4,000 characters.
 
@@ -88,7 +92,7 @@ By default the worktree branches from the repo's default branch. Set `worktree.b
 
 | Command | What it does |
 | --- | --- |
-| `/mem0:search` | Search memories from earlier sessions. Accepts `--top-k <n>`, `--category <name>`, and `--scope <repo\|dir\|mine>`. |
+| `/mem0:search` | Search memories from earlier sessions. Accepts `--top-k <n>`, `--category <name>`, `--scope <repo\|dir\|mine>`, and `--run-id <session-id>`. |
 | `/mem0:status` | Check config, capture state, pending flushes, and API key validity. |
 | `/mem0:forget` | Delete your memories for this repo (shared project memory stays unless you pass `--include-project-memory`). |
 | `/mem0:pause` | Pause memory capture. |
@@ -105,7 +109,7 @@ Categories for `--category`: `project_knowledge`, `decisions_and_constraints`, `
 | `dir` | Project memory from the current directory (and children), plus your preferences |
 | `mine` | Your personal preferences only |
 
-Set the default with the `search_scope` setting or `MEM0_CODE_SEARCH_SCOPE`. Search spans earlier sessions without a session ID; `run_id` remains internal metadata.
+Set the default with the `search_scope` setting or `MEM0_CODE_SEARCH_SCOPE`. Pass optional `run_id` to `search_memories` (or `--run-id` to `/mem0:search`) with any scope to search memories saved in that session. Omit it to search across sessions. This filters the returned memories; it does not identify the session making the request. Use a known session ID.
 
 New Git repository memories use a hash of the remote identity in `agent_id`. Searches also include the previous unhashed ID under the same repository `app_id`, so shared memories remain available after upgrading. Older IDs retain their original limitation: matching owner/repository names on different Git hosts share that legacy namespace. Local folders keep their path-based namespaces.
 
@@ -132,7 +136,7 @@ Local data lives in `${CLAUDE_PLUGIN_DATA}`:
 - `plugin-errors.log`: hook errors (no credentials)
 - `telemetry.jsonl` / `telemetry-identity.json`: anonymous usage events
 
-Mem0 receives each block of user messages, Claude's answers, the sidekick's answer, and changed file paths. Complete files and general tool output stay on your machine. Values that look like credentials are redacted before anything is sent.
+Mem0 receives captured user messages, Claude's answers, sidekick assignments and completed responses, and changed file paths. When a failed command is recorded, extraction can also include bounded command details and results. Complete files and general tool output stay on your machine. Values that look like credentials are redacted before anything is sent.
 
 ## Telemetry
 

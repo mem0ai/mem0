@@ -11,7 +11,9 @@ It gives a Harness agent automatic long-term memory plus two explicit memory too
 | `search_memory` | Recall facts from Mem0 relevant to a query |
 | `add_memory` | Store a fact in Mem0 for future sessions |
 
-Unlike the local/file-based memory plugins in the ecosystem, Mem0 is a managed backend: server-side extraction, semantic dedup and conflict resolution, and the same memory bank reusable across Harness, Claude Code, Codex, and other agents.
+Unlike the local/file-based memory plugins in the ecosystem, Mem0 is a managed backend: server-side extraction, semantic dedup and conflict resolution, and memories that other agents can retrieve when their user and entity filters match.
+
+Current package version: `0.3.0`.
 
 ## How it works
 
@@ -20,6 +22,8 @@ A Cordis plugin is a module exporting `apply(ctx, config)`. This one waits for t
 - `system-prompt/assemble` recalls memory before a model request.
 - `session/event` captures only completed turns from the durable event stream.
 - `ctx.tools.register(...)` exposes explicit search and add tools.
+
+Completed human and assistant text is preserved after secret redaction, without the former 6,000-character per-message cutoff. Recall queries and displayed tool results retain separate size limits. These behaviors use [agent-plugin-core](../agent-plugin-core/README.md); this integration keeps its native tools and user-based scoping.
 
 Cordis owns listener and tool cleanup when the plugin unmounts. Every automatic path is fail-open: a memory API failure does not block the agent.
 
@@ -70,6 +74,14 @@ For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that
 | `autoRecall` | no | `true` | Recall relevant memory before model requests |
 | `autoCapture` | no | `true` | Store completed human/assistant turns |
 
+## Memory scope
+
+Automatic capture and recall use the configured `userId` across sessions. Automatic writes do not attach a repository ID or `runId`.
+
+Both `search_memory` and `add_memory` accept optional `agentId` and `runId`. On search, these narrow the returned memories; on add, they attach those identities to the stored memory. Pass a known `runId` to search memories explicitly saved with that session ID. This does not include automatically captured user-only memories or identify the session making the request.
+
+Per-call `userId` overrides are rejected unless the operator enables `allowUserOverride: true`. Automatic recall and capture always use the configured user.
+
 ## Telemetry
 
 Writes are tagged `source="DEEPSEEK_HARNESS"` so Mem0's backend can attribute usage to this integration. For it to surface by name (rather than bucketing into `OTHERS`), `DEEPSEEK_HARNESS` must be present in the backend's `KNOWN_EVENT_SOURCES` allowlist, a one-line platform change matching the existing `ZAPIER` / `STRANDS` sources.
@@ -79,5 +91,3 @@ The plugin also sends anonymous usage events (which tool ran, duration, result c
 ## Status
 
 Developer preview. Tracks the DeepSeek Harness v0.1 plugin API, which is young and moving. Harness capability packages are peer dependencies supplied by the host; this package pins matching release-candidate versions for local typechecking and tests.
-
-Per-call `userId` overrides are rejected unless the operator enables `allowUserOverride: true`. Automatic recall and capture always use the configured user.

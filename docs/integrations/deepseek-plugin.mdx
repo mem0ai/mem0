@@ -18,7 +18,7 @@ The plugin provides automatic memory plus two agent-callable tools:
 | `search_memory` | Recall facts from Mem0 relevant to a query |
 | `add_memory` | Store a fact in Mem0 for future sessions |
 
-Unlike file-based memory plugins, Mem0 is a managed backend: server-side extraction, semantic dedup, and conflict resolution, with the same memory reusable across every agent you connect.
+Unlike file-based memory plugins, Mem0 is a managed backend: server-side extraction, semantic dedup, and conflict resolution, with memories reusable by integrations that use compatible user identities and search filters.
 
 ## How it works
 
@@ -108,7 +108,7 @@ For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that
 | `autoRecall` | no | `true` | Recall relevant memory before model requests |
 | `autoCapture` | no | `true` | Store completed human and assistant turns |
 
-Both tools also accept optional per-call `userId`, `agentId`, and `runId` params so a single install can partition memory by entity, agent, or session; when omitted they fall back to the configured `userId`.
+Both tools also accept optional per-call `userId`, `agentId`, and `runId` params so a single install can partition memory by entity, agent, or session; `userId` defaults to the configured user, while `agentId` and `runId` are omitted unless supplied. Automatic recall and capture use the configured user without an agent, repository, or session filter. Automatic capture preserves full redacted user and assistant message text without a per-message character cutoff.
 
 ## Telemetry
 

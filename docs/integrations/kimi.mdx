@@ -38,7 +38,7 @@ Run `/plugins info mem0` to confirm that the plugin, MCP server, skills, hooks, 
 ## What you get
 
 - **Automatic capture:** Kimi records completed exchanges locally and flushes durable project knowledge to Mem0 in the background.
-- **Automatic recall:** Relevant memories are added before Kimi answers the first prompt in a session.
+- **Automatic recall:** Relevant memories are added before Kimi answers the first prompt in a session, if that prompt has at least 20 characters.
 - **Explicit search:** Kimi can call `search_memories` when it needs a more specific answer.
 - **Six memory skills:** Search, status, remember, forget, pause, and resume use the same memory behavior as the other Mem0 coding-agent plugins.
 - **Project scoping:** Memories stay attached to the repository, with separate personal and shared project lanes.
@@ -52,8 +52,8 @@ Kimi's native lifecycle events are translated into the shared Mem0 memory lifecy
 
 | Kimi event | What Mem0 does |
 | --- | --- |
-| `SessionStart` | Loads recent project context |
-| `UserPromptSubmit` | Searches for relevant memories before the response |
+| `SessionStart` | Initializes the project session and recovers pending capture |
+| `UserPromptSubmit` | Records each prompt; searches on the first prompt when it has at least 20 characters |
 | `PostToolUse` / `PostToolUseFailure` | Records useful tool results and failures |
 | `Stop` | Captures the completed exchange |
 | `PreCompact` / `SessionEnd` | Flushes pending capture in the background |
@@ -86,6 +86,12 @@ Kimi should return `ORCHID-9274` from memory.
 ```
 
 Run `/reload` or start a new session after enabling, disabling, or reinstalling the plugin.
+
+## Search and capture
+
+The local `search_memories` tool accepts `query`, `top_k`, `category`, `scope` (`repo`, `dir`, or `mine`), and optional `run_id` with every scope. Use a known session ID to recall memories saved in that session; omit it to search across sessions. See [search scopes](/integrations/claude-code#search-scope) for the shared Python search contract, including legacy repository memory compatibility.
+
+Captured prompts and responses retain their full redacted text without a per-message character cutoff. Large extraction inputs are split across requests without dropping message text; recall output and tool-result previews have separate limits.
 
 ## Troubleshooting
 

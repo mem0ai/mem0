@@ -139,7 +139,7 @@ Cursor's `subagentStart` hook also cannot inject parent context. The bundled Sid
 
 ```text
 # Session 1: Debugging a performance issue
-You: The API endpoint /users is taking 3 seconds. Help me optimize it.
+You: The API endpoint /users is taking 3 seconds. Help me optimize it. Prefer query-level fixes over caching.
 
 # Cursor agent searches memories, proceeds with investigation.
 # Mem0 stores what you said as yours:
@@ -154,6 +154,12 @@ You: The /orders endpoint is also slow, same pattern as before.
 # Agent searches memories, retrieves the optimization learnings.
 # Immediately checks for N+1 queries and missing indexes.
 ```
+
+## Search and capture
+
+The local `search_memories` tool accepts `query`, `top_k`, `category`, `scope` (`repo`, `dir`, or `mine`), and optional `run_id` with every scope. Use a known session ID to recall memories saved in that session; omit it to search across sessions. See [search scopes](/integrations/claude-code#search-scope) for the shared Python search contract, including legacy repository memory compatibility.
+
+Captured prompts and responses retain their full redacted text without a per-message character cutoff. Large extraction inputs are split across requests without dropping message text; recall output and tool-result previews have separate limits.
 
 ## Troubleshooting
 

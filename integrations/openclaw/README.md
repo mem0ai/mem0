@@ -6,6 +6,8 @@ Your agent forgets everything between sessions. This plugin fixes that — it st
 
 By default, the plugin runs in **skills mode**: the agent controls what to remember (triage) and how to recall (recall). Skills mode, `autoRecall`, and `autoCapture` are all enabled by default during `openclaw mem0 init`.
 
+Current package version: `1.1.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); OpenClaw keeps its own tools, skills, and memory scopes.
+
 ## Requirements
 
 Check your OpenClaw version:
@@ -218,12 +220,14 @@ When skills mode is active, the skills handle memory operations. `autoRecall` an
 
 ### Auto-Recall & Auto-Capture
 
-When skills mode is not configured, the plugin uses `autoRecall` and `autoCapture` (both enabled by default):
+The plugin also registers `autoRecall` and `autoCapture` when their flags are enabled (both default to `true`), including alongside skills mode:
 
 - **Auto-Recall** — Before the agent responds, the plugin searches Mem0 for relevant memories and injects them into context.
 - **Auto-Capture** — After the agent responds, the conversation is filtered through a noise-removal pipeline and sent to Mem0. New facts get stored, stale ones updated, duplicates merged.
 
-Set `autoRecall: false` or `autoCapture: false` to disable individually. The agent can also use memory tools (`memory_add`, `memory_search`, etc.) explicitly regardless of these settings.
+Automatic capture selects a recent-message window and earlier assistant summaries, removes injected context and noise, and redacts secrets. Selected message text is no longer cut off at 2,000 characters. This preserves full redacted text for selected messages, not every message in the session. Capture skips non-interactive triggers, subagent sessions, and turns that already used memory mutation tools.
+
+Set `autoRecall: false` or `autoCapture: false` to disable these automatic hooks individually. The agent can also use memory tools (`memory_add`, `memory_search`, etc.) explicitly regardless of these settings.
 
 ### Memory Scopes
 
@@ -293,8 +297,8 @@ openclaw mem0 help --json                                   # discover all comma
 | --- | ---- | ------- | ----------- |
 | `mode` | `"platform"` \| `"open-source"` | `"platform"` | Backend mode |
 | `userId` | `string` | OS username | User identifier. All memories scoped to this value. |
-| `autoRecall` | `boolean` | `true` | Inject relevant memories before each turn. Ignored when `skills` is set. |
-| `autoCapture` | `boolean` | `true` | Extract and store facts after each turn. Ignored when `skills` is set. |
+| `autoRecall` | `boolean` | `true` | Inject relevant memories before each turn. Also runs when skills mode is enabled. |
+| `autoCapture` | `boolean` | `true` | Extract and store facts after each turn. Also runs when skills mode is enabled. |
 | `topK` | `number` | `5` | Max memories returned per recall |
 | `searchThreshold` | `number` | `0.1` | Minimum similarity score (0-1) |
 
@@ -357,7 +361,7 @@ To avoid plaintext credentials:
 
 In **skills mode** (default after `openclaw mem0 init`), the agent uses structured triage and recall protocols to decide what to store and recall. The built-in `session-memory` hook is disabled to avoid conflicts.
 
-Without skills, `autoCapture` and `autoRecall` are both enabled by default:
+`autoCapture` and `autoRecall` are both enabled by default, including alongside skills:
 - `autoCapture`: sends conversation content to your configured backend after each agent turn
 - `autoRecall`: queries your memory store before each agent turn and injects results into context
 

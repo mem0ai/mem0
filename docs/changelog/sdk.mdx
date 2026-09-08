@@ -2066,7 +2066,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 - Consolidated the coding-agent integrations into `integrations/agent-plugin-core/`: one Python runtime, one TypeScript utility library, and six canonical Python-plugin skill templates. Native adapters retain each host's event contracts and capabilities.
 - Python plugins ship generated, self-contained `core/` and `skills/` directories. Builds validate portable schemas and skills, parse native JSON, and reject generated-file drift, missing files, stale generated files, and symlinks. TypeScript packages bundle the shared source into their distributable JavaScript and verify their entry points.
 - Replaced the old `integrations/mem0-plugin/` layout with native host directories and one portable `integrations/mem0-agent-plugin/` package. Updated marketplace paths, installation guides, and integration-skill links. OpenCode now lives in `integrations/opencode-plugin/`.
-- Native Python plugins expose one local, read-only `search_memories` MCP tool and six skills: search, remember, forget, status, pause, and resume. The shared search tool no longer accepts `run_id`; session IDs remain internal metadata. This local tool is separate from the hosted Mem0 MCP server's tool set.
+- Native Python plugins expose one local, read-only `search_memories` MCP tool and six skills: search, remember, forget, status, pause, and resume. The shared search tool accepts optional `run_id` with every scope (`repo`, `dir`, and `mine`) to recall memories from a specific coding-agent session. Omitting it searches across sessions. This local tool is separate from the hosted Mem0 MCP server's tool set.
 
 **Fixes:**
 - Hooks, controls, MCP servers, and detached workers use the same host-specific data directory. Detached workers retain the host identity and telemetry source; `--plugin-data-dir` reaches the shared resolver.
@@ -2380,7 +2380,7 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 **Fixes:**
 - Session-end extraction no longer appends a final answer already captured from the transcript while an earlier extraction was running.
 - Existing repository memories remain searchable after the shared-ID change; explicit shared-memory deletion also covers the legacy ID. Background workers and control skills consistently use Claude's data directory.
-- Receives the shared JSON-secret redaction and nested telemetry filtering fixes. The local search tool exposes query, result count, category, and scope without asking the agent for a session ID.
+- Receives the shared JSON-secret redaction and nested telemetry filtering fixes. The local search tool exposes query, result count, category, scope, and optional `run_id` for session-specific recall across all scopes.
 
 [#7203](https://github.com/mem0ai/mem0/pull/7203)
 
@@ -2435,7 +2435,7 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 **Packaging:**
 - Generated from the shared Python runtime and skill templates. Builds validate the manifest, MCP configuration, skills, and generated-file consistency.
-- Host lifecycle hooks and native Sidekick declarations remain in the native plugin packages; the portable package does not claim automatic lifecycle capture or host-specific subagent isolation.
+- Host lifecycle hooks and native Sidekick declarations remain in the native plugin packages; the portable package does not provide automatic lifecycle capture or host-specific subagent isolation. Its bundled remember skill cannot persist a new memory on its own because the portable package has no capture hooks or write tool.
 
 [#7203](https://github.com/mem0ai/mem0/pull/7203)
 
@@ -2680,6 +2680,7 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 **Fixes:**
 - `openclaw mem0 status` handles an unconfigured installation without crashing and directs users to setup.
+- Removed OpenClaw's separate 2,000-character extraction cutoff. Selected user and assistant messages retain their full redacted text; recent-message selection, earlier summary selection, and noise filtering still apply.
 - Telemetry removes sensitive properties recursively and uses the shared failure-safe delivery implementation.
 
 [#7203](https://github.com/mem0ai/mem0/pull/7203)

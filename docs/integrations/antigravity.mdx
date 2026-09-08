@@ -78,7 +78,7 @@ The plugin translates Antigravity events into the shared Mem0 capture lifecycle.
 |------|-------|-------------|
 | **Invocation** | `PreInvocation` | Initializes the first invocation and recovers pending capture |
 | **Post-tool** | `PostToolUse` | Records useful tool results and failures |
-| **Stop** | `Stop` | Captures the completed exchange for a later session |
+| **Stop** | `Stop` | Reads completed transcript messages and starts a background flush |
 
 Recall is explicit through `search_memories` and the search skill. The current Antigravity adapter does not inject query-specific memory during `PreInvocation` because that event does not include the user's prompt.
 
@@ -105,6 +105,12 @@ MEM0_CWD="$PWD" agy
 ```
 
 The adapter uses `MEM0_CWD` only when Antigravity omits the workspace. If neither value is available, it skips recall and capture instead of writing memories under an incorrect repository scope.
+
+## Search and capture
+
+The local `search_memories` tool accepts `query`, `top_k`, `category`, `scope` (`repo`, `dir`, or `mine`), and optional `run_id` with every scope. Use a known session ID to recall memories saved in that session; omit it to search across sessions. See [search scopes](/integrations/claude-code#search-scope) for the shared Python search contract, including legacy repository memory compatibility.
+
+Captured prompts and responses retain their full redacted text without a per-message character cutoff. Large extraction inputs are split across requests without dropping message text; recall output and tool-result previews have separate limits.
 
 ## Troubleshooting
 

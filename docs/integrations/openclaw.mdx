@@ -343,8 +343,8 @@ openclaw mem0 status --json
 |-----|------|---------|-------------|
 | `mode` | `"platform"` \| `"open-source"` | `"platform"` | Which backend to use |
 | `userId` | `string` | OS username | Scope memories per user |
-| `autoRecall` | `boolean` | `true` | Inject memories before each turn. Ignored when `skills` is configured. |
-| `autoCapture` | `boolean` | `true` | Store facts after each turn. Ignored when `skills` is configured. |
+| `autoRecall` | `boolean` | `true` | Inject memories before each turn, including when skills mode is configured. |
+| `autoCapture` | `boolean` | `true` | Store facts after each turn, including when skills mode is configured. |
 | `topK` | `number` | `5` | Max memories per recall |
 | `searchThreshold` | `number` | `0.3` | Min similarity (0–1) |
 
@@ -443,7 +443,7 @@ If `openclaw plugins update` fails:
 
 ### Auto-Capture and Auto-Recall
 
-Auto-capture and auto-recall are **enabled by default**. When skills mode is configured (the default after `openclaw mem0 init`), these are ignored in favor of the skills-based triage and recall protocol.
+Auto-capture and auto-recall are **enabled by default**. They also run when skills mode is configured (the default after `openclaw mem0 init`). Set `autoRecall` or `autoCapture` to `false` to disable the corresponding automatic hook while using skills.
 
 To disable either:
 

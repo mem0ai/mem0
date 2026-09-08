@@ -27,6 +27,28 @@ Claude Code remains the behavioral source of truth. Its sidekick stays at `claud
 
 TypeScript integrations (`openclaw`, `opencode-plugin`, `pi-agent-plugin`, and `deepseek-plugin`) import `typescript/src/` at build time. Their package builders include the shared implementation in their normal output; they do not carry checked-in copies.
 
+## Shared memory behavior
+
+The six Python packages use the same `search_memories` MCP tool and six skill templates. Native hooks collect conversations and flush them to Mem0 in the background. The portable package uses the Agent Plugins v1 layout so compatible hosts can load its MCP server and skills. It has no lifecycle hooks or flush worker; its bundled `remember` skill assumes automatic capture and cannot save a memory on its own.
+
+Python search accepts `query`, `top_k`, `category`, `scope`, and optional `run_id`:
+
+| Scope | Memories searched |
+| --- | --- |
+| `repo` (default) | Shared repository memories and your personal memories in that repository |
+| `dir` | Shared memories from the current directory and its children, plus your personal repository memories |
+| `mine` | Your personal memories in that repository |
+
+`run_id` filters any scope to memories saved in a known coding-agent session. Omit it for recall across sessions; it does not attribute the search request to the current session. Native Python extraction writes include the session's `run_id`.
+
+New Git repository writes use a hashed remote identity for shared `agent_id`. Search and explicit shared-memory deletion include both that ID and the legacy unhashed ID under the same `app_id`. Legacy memories remain accessible, but their original ambiguity between matching owner/repository names on different Git hosts remains.
+
+Captured prompts and responses preserve their full text after secret redaction. Python extraction splits oversized input across requests without dropping message text. The session-end worker flushes the conversation already collected by hooks without adding the final answer again. Search queries, retrieved context, and tool evidence have separate limits.
+
+TypeScript hosts reuse redaction and lifecycle utilities but retain their own tools, scopes, and capture events. They do not inherit the Python `repo`/`dir`/`mine` contract or its background batching. OpenCode captures selected user prompts; Pi and DeepSeek capture completed conversation turns; OpenClaw selects recent messages and earlier summaries, then filters noise. Removing message-length truncation does not turn these integrations into complete transcript archives.
+
+For installation, follow the host guides: [Claude Code](../../docs/integrations/claude-code.mdx), [Cursor](../../docs/integrations/cursor.mdx), [Codex](../../docs/integrations/codex.mdx), [Kimi](../../docs/integrations/kimi.mdx), and [Antigravity](../../docs/integrations/antigravity.mdx).
+
 ## Build and verify
 
 From the repository root:

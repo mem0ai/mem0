@@ -113,12 +113,14 @@ The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SD
 | OpenCode Event | Hook | What happens |
 |----------------|------|-------------|
 | `config` | **Config** | Registers the `/mem0-*` slash commands (`config.command`) and adds the plugin's own `opencode-skills/` dir to OpenCode's `skills.paths` for in-place skill discovery (no copying) |
-| `chat.message` | **Chat message** | Searches prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
+| `chat.message` | **Chat message** | Searches prior memories on session start, searches relevant memories before each prompt, sends every third qualifying user prompt for extraction |
 | `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
 | `tool.execute.after` | **Post-tool** | Scans Bash errors and pre-fetches related error memories |
 | `experimental.chat.messages.transform` | **Messages transform** | Injects memory context (session memories, search results, error lookups) into the prompt |
-| `experimental.session.compacting` | **Compaction** | Stores session state memory, then injects prior memories into compaction context so nothing is lost |
+| `experimental.session.compacting` | **Compaction** | Stores session state memory, then injects prior memories into compaction context |
 | `shell.env` | **Shell env** | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to all shell executions |
+
+Automatic capture sends the selected user prompt with its full redacted text, without a per-message character cutoff. It does not capture every prompt or the full assistant transcript. These automatic writes use user and project scope, with the session ID in `metadata.session_id`; session-scoped tools use top-level `run_id`. A session-scoped search therefore does not include automatic writes that lack `run_id`.
 
 ## Troubleshooting
 

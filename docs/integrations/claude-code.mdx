@@ -42,14 +42,14 @@ claude plugin uninstall mem0@mem0-plugins      # uninstall the plugin (keeps the
 
 Once installed, memory works without any action from you:
 
-- **Capture** happens in the background as you work. Hooks save user messages, Claude's answers, changed files, and test/build results locally. Nothing calls a model or slows your session.
-- **Recall** happens automatically before Claude's first response in a new session. The plugin searches your memories with your prompt and injects up to five relevant ones.
+- **Capture** happens in the background as you work. Hooks save user messages, Claude's answers, changed files, and test/build results locally. Capture records evidence locally; memory extraction runs through Mem0 in a background worker.
+- **Recall** happens automatically before Claude's first response in a new session. If the first prompt has at least 20 characters, the plugin searches with that prompt and injects up to five relevant memories. For shorter prompts or later questions, use explicit search.
 
 ### Commands
 
 | Command | What it does |
 | --- | --- |
-| `/mem0:search` | Search memories from earlier sessions. Supports `--top-k <n>`, `--category <name>`, and `--scope <repo\|dir\|mine>`. |
+| `/mem0:search` | Search memories from earlier sessions. Supports `--top-k <n>`, `--category <name>`, `--scope <repo\|dir\|mine>`, and `--run-id <session-id>`. |
 | `/mem0:status` | Check if memory is working: config, capture state, pending flushes, API key validity. |
 | `/mem0:forget` | Delete your memories for this repo (shared project memory stays unless you pass `--include-project-memory`). |
 | `/mem0:pause` | Pause memory capture. |
@@ -60,7 +60,7 @@ Categories for `--category`: `project_knowledge`, `decisions_and_constraints`, `
 
 ### Search tool
 
-After the automatic first-prompt search, Claude can also call `search_memories` with a specific question, and you can run `/mem0:search` yourself. Explicit searches return up to 3 results by default (configurable to 20). All results are capped at 4,000 characters.
+After the automatic first-prompt search, Claude can also call `search_memories` with a specific question, and you can run `/mem0:search` yourself. Explicit searches return up to 3 results by default (configurable to 20). The combined search output is capped at 4,000 characters by default, configurable with `max_context_chars`. This recall limit does not truncate captured messages sent for extraction.
 
 ### Sidekick agent
 
@@ -80,7 +80,7 @@ At startup, Sidekick receives the memories already recalled for its parent sessi
 The plugin follows a simple cycle: capture during a session, extract memories in the background, recall in the next session.
 
 <Frame>
-  <img src="/images/plugin-sequence.svg" alt="Sequence diagram: session start triggers first-prompt search, hooks capture activity during the session, a background worker extracts memories after every five exchanges or on idle/exit, and the next session recalls them." />
+  <img src="/images/plugin-sequence.svg" alt="Sequence diagram: the first user prompt triggers search, hooks capture activity during the session, a background worker extracts memories after every five exchanges or on idle/exit, and the next session recalls them." />
 </Frame>
 
 **Step by step:**
@@ -153,7 +153,7 @@ Breaking update. Your memories carry over, most local config does not.
 - **Commands replaced.** Old commands replaced by `/mem0:search`, `/mem0:status`, `/mem0:forget`, `/mem0:pause`, `/mem0:resume`, `/mem0:remember`.
 - **MCP server replaced.** Nine read/write tools replaced by the single read-only `search_memories` tool.
 - **Local config ignored.** `~/.mem0/settings.json` and per-project `mem0.md` files are no longer read.
-- **Old memories searchable, not by category.** Normal search finds pre-upgrade memories, but category filters do not.
+- **Old memories remain searchable.** Pre-upgrade memories may use different categories. Omit category filters if an older memory is missing from the results.
 
 ```bash
 claude plugin marketplace update mem0-plugins

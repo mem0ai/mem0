@@ -11,7 +11,7 @@ Add persistent memory to [**Pi Agent**](https://pi.dev) with `@mem0/pi-agent-plu
 
 The plugin provides:
 1. **Auto-capture**: Extracts durable facts from both user and assistant messages automatically
-2. **Semantic recall**: Retrieves relevant memories via the `mem0_memory` tool before each response
+2. **Semantic recall**: Automatically searches project memories before each agent turn; `mem0_memory` supports additional explicit searches
 3. **Monorepo-aware scoping**: Uses git root for project detection, consistent across subdirectories
 4. **Confirmation dialogs**: Destructive commands ask before acting via Pi's built-in UI
 5. **6 skills + 6 commands**: Essential memory management from slash commands and agent-guided workflows
@@ -117,10 +117,12 @@ Memories are scoped using Mem0's `user_id`, `app_id`, and `run_id` parameters:
 | Scope | Filters | Use Case |
 |-------|---------|----------|
 | `project` | user_id + app_id (git root) | **Default.** Project-specific knowledge: decisions, architecture, config |
-| `session` | user_id + app_id + run_id | Ephemeral context for the current session only |
+| `session` | user_id + app_id + run_id | Memories saved with the current session ID (no automatic expiration) |
 | `global` | user_id only | All memories across all your projects |
 
-The `app_id` is auto-detected from the git repository root (`git rev-parse --show-toplevel`), so all subdirectories within a monorepo share the same memory pool. Falls back to the working directory name for non-git directories. The `run_id` is derived from Pi's session file path.
+The `app_id` is auto-detected from the git repository root (`git rev-parse --show-toplevel`), so all subdirectories within a monorepo share the same memory pool. Falls back to the working directory name for non-git directories. The `run_id` is derived from Pi's session file path. Automatic recall and capture use project scope, regardless of `defaultScope`; automatic writes do not include `run_id`. Use session-scoped tools or commands to save and recall session-specific memories. Captured user and assistant message text is redacted without a per-message character cutoff.
+
+Global tool operations require `/mem0-scope global` or `defaultScope: "global"` in plugin configuration. A model-supplied `scope` argument cannot enable cross-project access on its own. Empty or wildcard user, project, and session identities are rejected.
 
 ## Confirmation Dialogs
 
@@ -144,7 +146,7 @@ You: What do you know about my preferences?
 ## Troubleshooting
 
 - **"No API key found"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
-- **Extension not loading**: Check Pi startup output for errors. Run `pi -e ./src/entry.ts` from the plugin directory for verbose output
+- **Extension not loading**: Check Pi startup output for errors. For a source checkout, run `pnpm build`, then `pi -e ./dist/entry.js` from the plugin directory
 - **Memories not capturing**: Verify `autoCapture` is `true` (default). Check `/mem0-status` for connection health
 - **Wrong project detected**: The plugin uses the git repository root as `app_id`. If not in a git repo, it falls back to the working directory name. Run `/mem0-status` to see the detected project
 
@@ -158,5 +160,3 @@ You: What do you know about my preferences?
 </CardGroup>
 
 <Snippet file="star-on-github.mdx" />
-
-Global tool operations require `/mem0-scope global` or `defaultScope: "global"` in plugin configuration. A model-supplied `scope` argument cannot enable cross-project access on its own. Empty or wildcard user, project, and session identities are rejected.
