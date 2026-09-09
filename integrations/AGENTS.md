@@ -4,6 +4,7 @@ Agent and editor integrations. Each subdirectory is self-contained: its own `pac
 
 | Directory | Package | Build | Lint | Test |
 |-----------|---------|-------|------|------|
+| `eve/` | `@mem0/eve` | tsup (ESM) | none | vitest |
 | `vercel-ai-sdk/` | `@mem0/vercel-ai-provider` | tsup (CJS+ESM) | ESLint + Prettier | jest + vitest (edge/node) |
 | `openclaw/` | `@mem0/openclaw-mem0` | tsup (ESM) | none | vitest |
 | `claude-code-plugin/` | Claude Code plugin, installs as `mem0@mem0-plugins` (v0.3.0) | none | ruff | pytest |
@@ -20,6 +21,12 @@ pnpm everywhere except `.opencode-plugin/` (Bun) and `mem0-strands/` (Python: pi
 ## Commands
 
 ```bash
+cd integrations/eve
+pnpm install
+pnpm run typecheck
+pnpm run test
+pnpm run build
+
 cd integrations/vercel-ai-sdk
 pnpm install
 pnpm run build           # tsup
@@ -40,6 +47,7 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 
 ## What each one is
 
+- **`eve/`** is the Eve memory provider (`mem0Provider`). Eve calls recall before each turn and capture after each turn. This is not the Mem0 MCP connection.
 - **`vercel-ai-sdk/`** wraps the Vercel AI SDK through a `createMem0` provider. Integrations for AI-SDK repos go through this wrapper, not raw `MemoryClient`.
 - **`claude-code-plugin/`** is the Claude Code plugin (v0.3.0, installs as `mem0@mem0-plugins`): local evidence capture via lifecycle hooks, background memory extraction to the Mem0 Platform, a local `search_memories` MCP tool, six `/mem0:*` skills, and the `mem0:sidekick` agent. Pure-stdlib Python — no dependencies to install. Its `core/` + `adapters/claude/` split marks engine vs. harness glue; future per-harness plugins start by copying `core/` and keeping the contract tests verbatim (see its `docs/CONTRACT.md`).
 - **`mem0-plugin/`** connects Cursor, Codex, Kimi, Antigravity, and OpenCode to the MCP server at `mcp.mem0.ai` and installs lifecycle hooks for automatic memory capture. Exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`. The Claude Code plugin moved to [`claude-code-plugin/`](claude-code-plugin/) in v0.3.0 (installs as `mem0@mem0-plugins`); do not run both at the same time.

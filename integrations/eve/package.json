@@ -1,0 +1,59 @@
+{
+  "name": "@mem0/eve",
+  "version": "0.1.0",
+  "description": "Mem0 memory provider for Eve agents. Recall, capture, and scope-bound tools.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "integrations/eve"
+  },
+  "keywords": [
+    "eve",
+    "mem0",
+    "memory",
+    "agents",
+    "vercel"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "mem0ai": "^3.1.0",
+    "zod": "^4.0.0"
+  },
+  "peerDependencies": {
+    "eve": ">=0.47.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "eve": "^0.52.2",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.7"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
