@@ -2,7 +2,18 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 import type { MemoryStore } from "./store.js";
 
-export function createMem0Tools(store: MemoryStore, scopeKey: string) {
+export interface Mem0ToolOptions {
+  readonly topK: number;
+  readonly threshold: number;
+  readonly rerank: boolean;
+  readonly infer: boolean;
+}
+
+export function createMem0Tools(
+  store: MemoryStore,
+  scopeKey: string,
+  options: Mem0ToolOptions,
+) {
   return {
     search: defineTool({
       description: "Search long-term memories for the current caller.",
@@ -11,10 +22,10 @@ export function createMem0Tools(store: MemoryStore, scopeKey: string) {
       }),
       async execute({ query }) {
         const { results } = await store.search(query, {
-          filters: { user_id: scopeKey },
-          topK: 8,
-          threshold: 0.1,
-          rerank: false,
+          userId: scopeKey,
+          topK: options.topK,
+          threshold: options.threshold,
+          rerank: options.rerank,
         });
         return {
           memories: results.map((hit) => ({
@@ -33,7 +44,7 @@ export function createMem0Tools(store: MemoryStore, scopeKey: string) {
       async execute({ text }) {
         await store.add([{ role: "user", content: text }], {
           userId: scopeKey,
-          infer: true,
+          infer: options.infer,
           metadata: { source: "eve-tool" },
         });
         return { saved: true };
@@ -45,7 +56,7 @@ export function createMem0Tools(store: MemoryStore, scopeKey: string) {
         id: z.string().min(1),
       }),
       async execute({ id }) {
-        await store.delete(id);
+        await store.delete(id, scopeKey);
         return { deleted: true };
       },
     }),

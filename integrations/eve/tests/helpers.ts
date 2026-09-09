@@ -1,29 +1,86 @@
-import type { MemoryMessage, MemoryStore, SearchHit } from "../src/store.js";
+import type {
+  AddMemoryInput,
+  MemoryMessage,
+  MemoryRecord,
+  MemoryStore,
+  SearchHit,
+  SearchMemoryInput,
+} from "../src/store.js";
 
-export function createFakeStore(hits: SearchHit[] = []): MemoryStore & {
-  added: Array<{ messages: readonly MemoryMessage[]; userId: string }>;
-  searched: Array<{ query: string; userId: string }>;
+export type FakeHit = SearchHit & {
+  readonly userId?: string;
+  readonly metadata?: Readonly<Record<string, unknown>>;
+};
+
+export type FakeAdd = {
+  messages: readonly MemoryMessage[];
+  userId: string;
+  infer: boolean;
+  metadata: Readonly<Record<string, unknown>>;
+};
+
+export type FakeSearch = SearchMemoryInput & {
+  query: string;
+};
+
+export function createFakeStore(hits: FakeHit[] = []): MemoryStore & {
+  added: FakeAdd[];
+  searched: FakeSearch[];
   deleted: string[];
+  records: MemoryRecord[];
 } {
-  const added: Array<{ messages: readonly MemoryMessage[]; userId: string }> = [];
-  const searched: Array<{ query: string; userId: string }> = [];
+  const added: FakeAdd[] = [];
+  const searched: FakeSearch[] = [];
   const deleted: string[] = [];
+  const records: MemoryRecord[] = hits.map((hit) => ({
+    id: hit.id,
+    userId: hit.userId ?? "scope_abc",
+    metadata: hit.metadata ?? {},
+  }));
 
   return {
     added,
     searched,
     deleted,
+    records,
     async add(messages, input) {
-      added.push({ messages, userId: input.userId });
-      return { eventId: "evt_1" };
+      added.push({
+        messages,
+        userId: input.userId,
+        infer: input.infer,
+        metadata: input.metadata,
+      });
+      records.push({
+        id: `mem_added_${added.length}`,
+        userId: input.userId,
+        metadata: input.metadata,
+      });
     },
     async search(query, input) {
-      searched.push({ query, userId: input.filters.user_id });
-      return { results: hits };
+      searched.push({ query, ...input });
+      return {
+        results: hits.filter((hit) => (hit.userId ?? "scope_abc") === input.userId),
+      };
     },
-    async delete(memoryId) {
+    async get(memoryId) {
+      return records.find((record) => record.id === memoryId) ?? null;
+    },
+    async listByMetadata({ userId, metadata }) {
+      return records.filter((record) => {
+        if (record.userId !== userId) {
+          return false;
+        }
+        return Object.entries(metadata).every(
+          ([key, value]) => record.metadata[key] === value,
+        );
+      });
+    },
+    async delete(memoryId, userId) {
+      const record = records.find((item) => item.id === memoryId);
+      if (!record || record.userId !== userId) {
+        throw new Error("Memory not found");
+      }
       deleted.push(memoryId);
-      return { message: "ok" };
     },
   };
 }
@@ -31,6 +88,14 @@ export function createFakeStore(hits: SearchHit[] = []): MemoryStore & {
 export function memoryContext(input?: {
   scopeKey?: string;
   operationId?: string;
+  aborted?: boolean;
+  turn?:
+    | {
+        id?: string;
+        sequence?: number;
+        input: Array<{ role: string; content: unknown }>;
+      }
+    | null;
   turnInput?: Array<{ role: string; content: unknown }>;
   messages?: Array<{ role: string; content: unknown }>;
 }): {
@@ -46,10 +111,21 @@ export function memoryContext(input?: {
     id: string;
     sequence: number;
     input: Array<{ role: string; content: unknown }>;
-  };
+  } | null;
 } {
+  const controller = new AbortController();
+  if (input?.aborted) {
+    controller.abort();
+  }
+
+  const turnInput =
+    input?.turn === null
+      ? undefined
+      : (input?.turn?.input ??
+        input?.turnInput ?? [{ role: "user", content: "I am vegetarian" }]);
+
   return {
-    abortSignal: new AbortController().signal,
+    abortSignal: controller.signal,
     operationId: input?.operationId ?? "op_1",
     session: { id: "sess_1" },
     memory: {
@@ -64,10 +140,13 @@ export function memoryContext(input?: {
       { role: "user", content: "I am vegetarian" },
       { role: "assistant", content: "I will remember that." },
     ],
-    turn: {
-      id: "turn_1",
-      sequence: 1,
-      input: input?.turnInput ?? [{ role: "user", content: "I am vegetarian" }],
-    },
+    turn:
+      input?.turn === null
+        ? null
+        : {
+            id: input?.turn?.id ?? "turn_1",
+            sequence: input?.turn?.sequence ?? 1,
+            input: turnInput ?? [{ role: "user", content: "I am vegetarian" }],
+          },
   };
 }

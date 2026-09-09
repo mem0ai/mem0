@@ -47,7 +47,7 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 
 ## What each one is
 
-- **`eve/`** is the Eve memory provider (`mem0Provider`). Eve calls recall before each turn and capture after each turn. This is not the Mem0 MCP connection.
+- **`eve/`** is the Eve memory provider (`mem0Provider`). Eve calls recall on `turn.started` and `compaction.completed`, capture on `turn.completed` when enabled, and exposes `search` / `remember` / `forget` tools. This is not the Mem0 MCP connection.
 - **`vercel-ai-sdk/`** wraps the Vercel AI SDK through a `createMem0` provider. Integrations for AI-SDK repos go through this wrapper, not raw `MemoryClient`.
 - **`claude-code-plugin/`** is the Claude Code plugin (v0.3.0, installs as `mem0@mem0-plugins`): local evidence capture via lifecycle hooks, background memory extraction to the Mem0 Platform, a local `search_memories` MCP tool, six `/mem0:*` skills, and the `mem0:sidekick` agent. Pure-stdlib Python — no dependencies to install. Its `core/` + `adapters/claude/` split marks engine vs. harness glue; future per-harness plugins start by copying `core/` and keeping the contract tests verbatim (see its `docs/CONTRACT.md`).
 - **`mem0-plugin/`** connects Cursor, Codex, Kimi, Antigravity, and OpenCode to the MCP server at `mcp.mem0.ai` and installs lifecycle hooks for automatic memory capture. Exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`. The Claude Code plugin moved to [`claude-code-plugin/`](claude-code-plugin/) in v0.3.0 (installs as `mem0@mem0-plugins`); do not run both at the same time.

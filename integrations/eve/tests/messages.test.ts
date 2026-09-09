@@ -20,6 +20,10 @@ describe("extractText", () => {
     ).toBe("I like\ntea");
   });
 
+  it("reads a single text object", () => {
+    expect(extractText({ type: "text", text: "  solo  " })).toBe("solo");
+  });
+
   it("ignores non-text parts", () => {
     expect(extractText([{ type: "image", url: "x" }])).toBe("");
   });

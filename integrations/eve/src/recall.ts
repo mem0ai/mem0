@@ -7,8 +7,9 @@ export interface RecallMessage {
 
 export function formatRecallMessages(hits: readonly SearchHit[]): RecallMessage[] {
   return hits.flatMap((hit) => {
+    const id = hit.id.trim();
     const content = hit.memory.trim();
-    return content.length > 0 ? [{ id: hit.id, content }] : [];
+    return id.length > 0 && content.length > 0 ? [{ id, content }] : [];
   });
 }
 
@@ -26,7 +27,7 @@ export async function recallMemories(input: {
   }
 
   const { results } = await input.store.search(query, {
-    filters: { user_id: input.scopeKey },
+    userId: input.scopeKey,
     topK: input.topK,
     threshold: input.threshold,
     rerank: input.rerank,

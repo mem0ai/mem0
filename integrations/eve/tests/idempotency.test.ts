@@ -29,4 +29,19 @@ describe("createIdempotencyGate", () => {
     await once("op_1", work);
     expect(calls).toBe(2);
   });
+
+  it("evicts the oldest id after the cap", async () => {
+    const once = createIdempotencyGate(2);
+    let calls = 0;
+    const work = async () => {
+      calls += 1;
+    };
+
+    await once("op_1", work);
+    await once("op_2", work);
+    await once("op_3", work);
+    await once("op_1", work);
+
+    expect(calls).toBe(4);
+  });
 });

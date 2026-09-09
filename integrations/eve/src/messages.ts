@@ -5,27 +5,29 @@ export interface ConversationMessage {
   readonly content: unknown;
 }
 
+function textFromPart(part: unknown): string {
+  if (typeof part === "string") {
+    return part;
+  }
+  if (part && typeof part === "object" && "text" in part) {
+    const text = (part as { text: unknown }).text;
+    return typeof text === "string" ? text : "";
+  }
+  return "";
+}
+
 export function extractText(content: unknown): string {
   if (typeof content === "string") {
     return content.trim();
+  }
+  if (content && typeof content === "object" && !Array.isArray(content)) {
+    return textFromPart(content).trim();
   }
   if (!Array.isArray(content)) {
     return "";
   }
 
-  return content
-    .map((part) => {
-      if (typeof part === "string") {
-        return part;
-      }
-      if (part && typeof part === "object" && "text" in part) {
-        const text = (part as { text: unknown }).text;
-        return typeof text === "string" ? text : "";
-      }
-      return "";
-    })
-    .join("\n")
-    .trim();
+  return content.map(textFromPart).join("\n").trim();
 }
 
 export function lastUserText(messages: readonly ConversationMessage[]): string {
@@ -70,6 +72,7 @@ export function completedTurnMessages(input: {
     return [];
   }
 
+  // Pair this turn's users with the latest assistant in the settled history.
   const history = conversationMessages(input.messages);
   const lastAssistant = [...history]
     .reverse()

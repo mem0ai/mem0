@@ -26,24 +26,26 @@ npm install @mem0/eve
 
 `eve` is a peer dependency. Get an API key from the [Mem0 dashboard](https://app.mem0.ai/dashboard/api-keys).
 
-Until Eve lists Mem0 in the official registry, add the slot file yourself as `agent/memory/mem0.ts`. After the registry PR lands, this becomes:
+Until Eve lists Mem0 in the official registry, add the slot file yourself as `agent/memory/mem0.ts`. `eve add memory/mem0` is not available yet. After the registry PR lands, that command will create the same file.
 
-```bash
-eve add memory/mem0
-```
+The live MCP path today is `eve add connection/mem0`. That is a different integration: tools the model may call, not automatic recall/capture.
 
 ## What it does
 
 | Eve hook | Mem0 behavior |
 |---|---|
 | `recall["turn.started"]` | Semantic search over memories for the locked scope |
-| `recall["compaction.completed"]` | Same search after Eve compacting history |
-| `capture["turn.completed"]` | Add the completed user/assistant turn |
+| `recall["compaction.completed"]` | Same search after Eve compacting history (`turn` may be null) |
+| `capture["turn.completed"]` | Add the completed user turn and, when present, the latest assistant reply |
 | `tools()` | `search`, `remember`, `forget` |
 
-Every read and write is partitioned by `memory.scope.key`. The model cannot choose another caller. Replay uses `operationId` as an idempotency key.
+Search, capture, remember, and forget are partitioned by `memory.scope.key`. Forget loads the memory first and deletes only when `userId` matches that key.
+
+Capture uses `operationId` as an idempotency key: an in-process gate plus a durable `metadata.operation_id` lookup so Eve replays after restart do not write twice.
 
 If the slot file is named `mem0.ts`, Eve qualifies tools as `mem0__search`, `mem0__remember`, and `mem0__forget`.
+
+A throwing `recall` fails the Eve turn. A throwing `capture` is logged by Eve and does not fail the turn. Tool `execute` errors become failed tool results the model can see.
 
 ## Options
 
@@ -63,15 +65,16 @@ mem0Provider({
 
 | Option | Default | Purpose |
 |---|---|---|
-| `apiKey` | required | String or async getter |
-| `host` | `https://api.mem0.ai` | Mem0 Platform host |
-| `topK` | `5` | Memories recalled per turn |
-| `threshold` | `0.1` | Minimum similarity |
-| `rerank` | `false` | Mem0 reranking |
-| `infer` | `true` | Extract facts on capture |
-| `autoSearch.enabled` | `true` | Recall before each turn |
+| `apiKey` | required without `store` | String or async getter. Function keys are validated on first use. |
+| `host` | `https://api.mem0.ai` | Mem0 Platform host (`http:` or `https:` URL) |
+| `topK` | `5` | Result count for automatic recall and the `search` tool |
+| `threshold` | `0.1` | Minimum similarity for automatic recall and the `search` tool |
+| `rerank` | `false` | Mem0 reranking for automatic recall and the `search` tool |
+| `infer` | `true` | Extract facts on capture and on `remember` |
+| `autoSearch.enabled` | `true` | Recall on `turn.started` and `compaction.completed` |
 | `capture.enabled` | `true` | Write after each successful turn |
 | `metadata` | `{}` | Extra metadata on captured turns |
+| `store` | unset | Test / advanced injection. Replaces the Mem0 client and must honor `userId`. |
 
 ## Official registry
 

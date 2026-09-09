@@ -2,7 +2,7 @@
 
 These files are the Mem0 side of `eve add memory/mem0`. They are not published in the npm tarball. Copy them into a PR against [vercel/eve](https://github.com/vercel/eve) after `@mem0/eve` is on npm.
 
-Supermemory's version of this change is [vercel/eve#2775](https://github.com/vercel/eve/pull/2775). Eve already asked Mem0 to own the package and open that PR.
+Supermemory's version of this change is [vercel/eve#2775](https://github.com/vercel/eve/pull/2775). Use that PR as the catalog/shape reference.
 
 ## What the Eve PR should do
 

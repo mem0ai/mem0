@@ -1,5 +1,7 @@
 const DEFAULT_LIMIT = 256;
 
+// In-process fast path only. Durable replay after restart is handled by
+// listing memories with metadata.operation_id before add.
 export function createIdempotencyGate(limit = DEFAULT_LIMIT) {
   const seen = new Map<string, Promise<void>>();
 
