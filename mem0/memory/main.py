@@ -1646,13 +1646,12 @@ class Memory(MemoryBase):
         is_local_backend = getattr(self.vector_store, "is_local", False)
 
         def _run_semantic():
-            try:
-                return self.vector_store.search(
-                    query=query, vectors=embeddings, top_k=internal_limit, filters=filters
-                )
-            except Exception as e:
-                logger.warning(f"Semantic search failed: {e}")
-                return []
+            # Unlike keyword_search (best-effort enhancement, degrades to None),
+            # semantic search failure must propagate: a silent [] would mask a
+            # retrieval outage as "no memories" (re-raise philosophy of #6519).
+            return self.vector_store.search(
+                query=query, vectors=embeddings, top_k=internal_limit, filters=filters
+            )
 
         def _run_keyword():
             try:
@@ -3336,6 +3335,10 @@ class AsyncMemory(MemoryBase):
         keyword_search_supported = (
             getattr(type(self.vector_store), "keyword_search", None) is not VectorStoreBase.keyword_search
         )
+        # Skip concurrency for local backends (e.g. QdrantLocal uses SQLite which enforces
+        # check_same_thread); keep embed/keyword/semantic on sequential to_thread hops,
+        # mirroring the sync path's is_local guard.
+        is_local_backend = getattr(self.vector_store, "is_local", False)
 
         async def _run_embed():
             return await asyncio.to_thread(self.embedding_model.embed, query, "search")
@@ -3352,24 +3355,23 @@ class AsyncMemory(MemoryBase):
                 logger.warning(f"Keyword search failed: {e}")
                 return None
 
-        if keyword_search_supported:
+        if keyword_search_supported and not is_local_backend:
             embeddings, keyword_results = await asyncio.gather(_run_embed(), _run_keyword())
         else:
+            # Sequential fallback (local backends or no keyword support)
             embeddings = await _run_embed()
-            keyword_results = None
+            keyword_results = await _run_keyword() if keyword_search_supported else None
 
         # Step 4: Semantic search (depends on embeddings)
-        try:
-            semantic_results = await asyncio.to_thread(
-                self.vector_store.search,
-                query=query,
-                vectors=embeddings,
-                top_k=internal_limit,
-                filters=filters,
-            )
-        except Exception as e:
-            logger.warning(f"Semantic search failed: {e}")
-            semantic_results = []
+        # Failure must propagate (not degrade to []): a silent [] would mask a
+        # retrieval outage as "no memories" (re-raise philosophy of #6519).
+        semantic_results = await asyncio.to_thread(
+            self.vector_store.search,
+            query=query,
+            vectors=embeddings,
+            top_k=internal_limit,
+            filters=filters,
+        )
 
         # Step 5: Compute BM25 scores
         bm25_scores = {}

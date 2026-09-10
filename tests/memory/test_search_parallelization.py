@@ -9,6 +9,10 @@ via asyncio.gather, then semantic search runs sequentially after the gather.
 
 Interleaving is verified with threading.Event handshakes -- no sleeps and no
 timing thresholds, so the tests fail deterministically when parallelism is lost.
+
+Failure contract (#6519 re-raise philosophy): semantic search and embed are on
+the critical path, so their errors propagate; keyword_search is a best-effort
+enhancement and degrades to None with a warning.
 """
 
 import logging
@@ -94,8 +98,9 @@ class _FakeNoKeywordStore(_FakeKeywordStore):
 class _FakeEmbedder:
     """Embedding model whose embed() can participate in Event handshakes."""
 
-    def __init__(self, vector=None):
+    def __init__(self, vector=None, error=None):
         self.vector = vector or [0.1, 0.2, 0.3]
+        self.error = error
         self.calls = 0
         self.on_embed_start = None
 
@@ -103,6 +108,8 @@ class _FakeEmbedder:
         self.calls += 1
         if self.on_embed_start:
             self.on_embed_start()
+        if self.error:
+            raise self.error
         return self.vector
 
 
@@ -222,29 +229,42 @@ class TestSyncParallelSearch:
         assert store.keyword_calls == 1
         assert any("Keyword search failed" in record.message for record in caplog.records)
 
-    def test_semantic_failure_returns_empty(self, caplog):
-        """semantic search failure must degrade to [] instead of raising."""
+    def test_semantic_failure_propagates(self):
+        """semantic search failure must propagate (re-raise, #6519 philosophy),
+        not silently degrade to [] which would mask a retrieval outage."""
         store = _FakeKeywordStore(
             semantic_error=RuntimeError("sem boom"),
             keyword_results=[_mem("mem-2")],
         )
-        with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
-            results = self._run(store, _FakeEmbedder())
+        with pytest.raises(RuntimeError, match="sem boom"):
+            self._run(store, _FakeEmbedder())
 
-        assert results == []
         assert store.search_calls == 1
-        assert any("Semantic search failed" in record.message for record in caplog.records)
 
-    def test_both_failures_return_empty(self, caplog):
-        """Both searches failing must degrade to [] without raising."""
+    def test_both_failures_propagate_semantic_error(self):
+        """When both searches fail, the semantic error must propagate (keyword
+        failure stays degraded to None as best-effort enhancement)."""
         store = _FakeKeywordStore(
             semantic_error=RuntimeError("sem boom"),
             keyword_error=RuntimeError("kw boom"),
         )
-        with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
-            results = self._run(store, _FakeEmbedder())
+        with pytest.raises(RuntimeError, match="sem boom"):
+            self._run(store, _FakeEmbedder())
 
-        assert results == []
+        assert store.search_calls == 1
+        assert store.keyword_calls == 1
+
+    def test_embed_failure_propagates(self):
+        """embed failure must propagate like semantic failure (consistent
+        failure contract on the critical path)."""
+        store = _FakeKeywordStore(semantic_results=[_mem("mem-1")])
+        embedder = _FakeEmbedder(error=RuntimeError("embed boom"))
+
+        with pytest.raises(RuntimeError, match="embed boom"):
+            self._run(store, embedder)
+
+        # semantic search never ran (it needs the embedding)
+        assert store.search_calls == 0
 
 
 class TestAsyncParallelSearch:
@@ -312,6 +332,34 @@ class TestAsyncParallelSearch:
         assert _result_ids(results) == {"mem-1"}
 
     @pytest.mark.asyncio
+    async def test_store_without_keyword_override_takes_sequential_path(self):
+        """Stores that don't override keyword_search never have it called."""
+        store = _FakeNoKeywordStore(
+            semantic_results=[_mem("mem-1")],
+            keyword_results=[_mem("mem-2")],
+        )
+        results = await self._run(store, _FakeEmbedder())
+
+        assert store.keyword_calls == 0
+        assert store.search_calls == 1
+        assert _result_ids(results) == {"mem-1"}
+
+    @pytest.mark.asyncio
+    async def test_local_backend_takes_sequential_path(self):
+        """is_local stores must skip gather-based concurrency (SQLite
+        check_same_thread guard) and still return correct results."""
+        store = _FakeKeywordStore(
+            semantic_results=[_mem("mem-1")],
+            keyword_results=[_mem("mem-2")],
+        )
+        store.is_local = True
+        results = await self._run(store, _FakeEmbedder())
+
+        assert store.keyword_calls == 1
+        assert store.search_calls == 1
+        assert _result_ids(results) == {"mem-1"}
+
+    @pytest.mark.asyncio
     async def test_keyword_failure_degrades_to_semantic_only(self, caplog):
         """keyword_search failure must degrade to None and keep semantic results."""
         store = _FakeKeywordStore(
@@ -326,27 +374,41 @@ class TestAsyncParallelSearch:
         assert any("Keyword search failed" in record.message for record in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_semantic_failure_returns_empty(self, caplog):
-        """semantic search failure must degrade to [] instead of raising."""
+    async def test_semantic_failure_propagates(self):
+        """semantic search failure must propagate (re-raise, #6519 philosophy),
+        not silently degrade to [] which would mask a retrieval outage."""
         store = _FakeKeywordStore(
             semantic_error=RuntimeError("sem boom"),
             keyword_results=[_mem("mem-2")],
         )
-        with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
-            results = await self._run(store, _FakeEmbedder())
+        with pytest.raises(RuntimeError, match="sem boom"):
+            await self._run(store, _FakeEmbedder())
 
-        assert results == []
         assert store.search_calls == 1
-        assert any("Semantic search failed" in record.message for record in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_both_failures_return_empty(self, caplog):
-        """Both searches failing must degrade to [] without raising."""
+    async def test_both_failures_propagate_semantic_error(self):
+        """When both searches fail, the semantic error must propagate (keyword
+        failure stays degraded to None as best-effort enhancement)."""
         store = _FakeKeywordStore(
             semantic_error=RuntimeError("sem boom"),
             keyword_error=RuntimeError("kw boom"),
         )
-        with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
-            results = await self._run(store, _FakeEmbedder())
+        with pytest.raises(RuntimeError, match="sem boom"):
+            await self._run(store, _FakeEmbedder())
 
-        assert results == []
+        assert store.search_calls == 1
+        assert store.keyword_calls == 1
+
+    @pytest.mark.asyncio
+    async def test_embed_failure_propagates(self):
+        """embed failure must propagate like semantic failure (consistent
+        failure contract on the critical path)."""
+        store = _FakeKeywordStore(semantic_results=[_mem("mem-1")])
+        embedder = _FakeEmbedder(error=RuntimeError("embed boom"))
+
+        with pytest.raises(RuntimeError, match="embed boom"):
+            await self._run(store, embedder)
+
+        # semantic search never ran (it needs the embedding)
+        assert store.search_calls == 0
