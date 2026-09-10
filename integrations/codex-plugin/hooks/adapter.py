@@ -15,8 +15,8 @@ import hook_runner  # noqa: E402
 import telemetry  # noqa: E402
 from memory_core import (  # noqa: E402
     configure_harness,
-    record_sidekick_start,
-    record_sidekick_stop,
+    record_subagent_start,
+    record_subagent_stop,
     record_tool,
 )
 
@@ -24,8 +24,8 @@ configure_harness("codex", data_dir_name="codex-plugin", source_tag="codex_plugi
 telemetry.init(harness="codex", source_tag="CODEX_PLUGIN")
 
 
-def _sidekick_start(store, hook_input):
-    context = record_sidekick_start(store, hook_input)
+def _subagent_start(store, hook_input):
+    context = record_subagent_start(store, hook_input)
     if context:
         return {
             "hookSpecificOutput": {
@@ -35,8 +35,8 @@ def _sidekick_start(store, hook_input):
         }
 
 
-def _sidekick_stop(store, hook_input):
-    record_sidekick_stop(store, hook_input)
+def _subagent_stop(store, hook_input):
+    record_subagent_stop(store, hook_input)
 
 
 def _post_tool(store, payload):
@@ -59,6 +59,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "post-tool":
         sys.argv[1] = "codex-post-tool"
     hook_runner.entry_point(
-        extra_actions={"sidekick-start": _sidekick_start, "sidekick-stop": _sidekick_stop, "codex-post-tool": _post_tool},
+        extra_actions={"subagent-start": _subagent_start, "subagent-stop": _subagent_stop, "codex-post-tool": _post_tool},
         automatic_flush_reasons={"session-end", "pre-compact"},
     )

@@ -7,6 +7,8 @@ Add persistent memory to [**Google Antigravity**](https://antigravity.google) (`
 
 <Info>Current plugin version: `0.3.1`.</Info>
 
+Sidekick is exclusive to the [Claude Code plugin](/integrations/claude-code#sidekick-agent). This plugin does not bundle a Sidekick agent.
+
 ## Prerequisites
 
 1. A Mem0 API key (starts with `m0-`):
@@ -48,11 +50,10 @@ This installs the generated Antigravity bundle with the Mem0 server, lifecycle h
 | Local MCP Server (`search_memories`) | Yes |
 | Lifecycle Hooks | Yes |
 | 6 Memory Skills | Yes |
-| Sidekick Agent | Yes |
 
 ## Memory tools and skills
 
-The full plugin exposes a focused `search_memories` tool and captures completed work through lifecycle hooks. Six skills provide search, status, remember, forget, pause, and resume workflows. A native sidekick can handle a bounded task in the workspace assigned by Antigravity; it does not claim Claude Code worktree isolation.
+The full plugin exposes a focused `search_memories` tool and captures completed work through lifecycle hooks. Six skills provide search, status, remember, forget, pause, and resume workflows.
 
 If you need the full set of direct CRUD tools, connect the [hosted Mem0 MCP server](/platform/mem0-mcp) separately instead of installing both configurations under the same server name.
 

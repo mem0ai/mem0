@@ -8,6 +8,8 @@ By default, the plugin runs in **skills mode**: the agent controls what to remem
 
 Current package version: `1.1.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); OpenClaw keeps its own tools, skills, and memory scopes.
 
+Sidekick is exclusive to the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent). This package does not bundle a Sidekick agent.
+
 ## Requirements
 
 Check your OpenClaw version:

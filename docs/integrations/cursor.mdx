@@ -7,6 +7,8 @@ Add persistent memory to [**Cursor**](https://cursor.com) with the Mem0 plugin. 
 
 <Info>Current plugin version: `0.3.1`.</Info>
 
+Sidekick is exclusive to the [Claude Code plugin](/integrations/claude-code#sidekick-agent). This plugin does not bundle a Sidekick agent.
+
 ## Prerequisites
 
 Before setting up Mem0 with Cursor, ensure you have:
@@ -49,7 +51,7 @@ cursor-agent plugin marketplace add https://github.com/mem0ai/mem0
 
 Open Cursor's **Customize** page or run `/plugins`, select the **Mem0 Plugins** marketplace, and install **Mem0** at user or project scope. Enter your Mem0 API key when Cursor asks for the plugin configuration, then restart Cursor.
 
-The full plugin includes automatic capture, the `search_memories` recall tool, lifecycle hooks, a sidekick agent, and six memory skills.
+The full plugin includes automatic capture, the `search_memories` recall tool, lifecycle hooks, and six memory skills.
 
 ### Option B: One-Click Deeplink (MCP Only)
 
@@ -98,7 +100,6 @@ Add the following to your `.cursor/mcp.json`:
 | Recall | `search_memories` | MCP search tools |
 | Lifecycle hooks | Yes | No |
 | Memory skills | 6 | No |
-| Sidekick agent | Yes | No |
 
 ## MCP-only tools
 
@@ -125,15 +126,14 @@ The full plugin translates Cursor's native events into the shared Mem0 memory li
 | `sessionStart` | Initializes the project session and recovers pending capture |
 | `beforeSubmitPrompt` | Observes the submitted prompt; recall stays tool-driven because this event cannot inject context |
 | `postToolUse` / `postToolUseFailure` | Records useful tool results and failures |
-| `subagentStart` / `subagentStop` | Records the Mem0 Sidekick lifecycle and completed result |
 | `afterAgentResponse` / `stop` | Captures the completed exchange |
 | `preCompact` / `sessionEnd` | Flushes pending capture in the background |
 
 <Note>
-  Cursor's `beforeSubmitPrompt` hook can allow or block a prompt, but it cannot add context to that prompt. The plugin therefore gives the agent `search_memories` and a memory-aware sidekick for recall instead of claiming automatic per-prompt injection.
+  Cursor's `beforeSubmitPrompt` hook can allow or block a prompt, but it cannot add context to that prompt. The plugin therefore gives the agent `search_memories` for recall instead of claiming automatic per-prompt injection.
 </Note>
 
-Cursor's `subagentStart` hook also cannot inject parent context. The bundled Sidekick searches Mem0 itself, while the lifecycle hooks correlate its start and completion for later capture.
+The plugin does not register subagent start or stop hooks.
 
 ## Example Workflow
 

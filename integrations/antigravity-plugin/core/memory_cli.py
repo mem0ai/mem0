@@ -11,10 +11,10 @@ import telemetry
 from memory_core import (
     EvidenceStore,
     api_key,
+    configure_harness,
     data_dir,
     doctor,
     forget_remote_repo,
-    configure_harness,
     resolve_repo,
     user_id,
 )
@@ -32,7 +32,7 @@ def _print_status(value: dict) -> None:
     )
     print(
         f"Used in this repository: {value['retrievals']} memories returned, "
-        f"{value['sidekick_runs']} sidekick runs"
+        f"{value['subagent_runs']} subagent runs"
     )
     if last:
         item_label = ""
@@ -48,13 +48,13 @@ def _print_status(value: dict) -> None:
             f"{'succeeded' if last['success'] else 'failed'} "
             f"({last['duration_ms']:.1f} ms{item_label})"
         )
-    sidekick = value.get("last_sidekick") or {}
-    if sidekick:
-        state = "finished" if sidekick.get("stopped_at") else "started"
+    subagent = value.get("last_subagent") or {}
+    if subagent:
+        state = "finished" if subagent.get("stopped_at") else "started"
         print(
-            "Last sidekick: "
-            f"{state}, received {sidekick['context_chars']} characters of memory, "
-            f"agent {sidekick['agent_id']}"
+            "Last subagent: "
+            f"{state}, received {subagent['context_chars']} characters of memory, "
+            f"agent {subagent['agent_id']}"
         )
 
 

@@ -11,7 +11,6 @@
     "shortDescription": "Cross-session memory for Kimi Code"
   },
   "skills": "./skills/",
-  "agents": "./agents/",
   "mcpServers": {
     "mem0": {
       "command": "python3",
@@ -25,8 +24,6 @@
     { "event": "PostToolUseFailure", "matcher": ".*", "command": "python3 ./hooks/adapter.py PostToolUseFailure", "timeout": 3 },
     { "event": "Stop", "command": "python3 ./hooks/adapter.py Stop", "timeout": 3 },
     { "event": "PreCompact", "command": "python3 ./hooks/adapter.py PreCompact", "timeout": 5 },
-    { "event": "SessionEnd", "command": "python3 ./hooks/adapter.py SessionEnd", "timeout": 5 },
-    { "event": "SubagentStart", "matcher": "^sidekick$", "command": "python3 ./hooks/adapter.py SubagentStart", "timeout": 5 },
-    { "event": "SubagentStop", "matcher": "^sidekick$", "command": "python3 ./hooks/adapter.py SubagentStop", "timeout": 5 }
+    { "event": "SessionEnd", "command": "python3 ./hooks/adapter.py SessionEnd", "timeout": 5 }
   ]
 }

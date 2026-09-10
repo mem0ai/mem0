@@ -8,7 +8,6 @@
       ".cursor-plugin/plugin.json": ".cursor-plugin/plugin.json",
       "hooks/hooks.json": "hooks/hooks.json",
       "hooks/adapter.py": "hooks/adapter.py",
-      "agents/sidekick.md": "agents/sidekick.md",
       "mcp.json": "mcp.json"
     }
   }

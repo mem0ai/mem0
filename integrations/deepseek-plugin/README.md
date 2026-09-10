@@ -15,6 +15,8 @@ Unlike the local/file-based memory plugins in the ecosystem, Mem0 is a managed b
 
 Current package version: `0.3.0`.
 
+Sidekick is exclusive to the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent). This package does not bundle a Sidekick agent.
+
 ## How it works
 
 A Cordis plugin is a module exporting `apply(ctx, config)`. This one waits for the Harness tool and system-prompt services, then uses the native extension points:

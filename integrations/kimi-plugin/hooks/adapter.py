@@ -8,7 +8,6 @@ import io
 import json
 import os
 import sys
-import uuid
 from pathlib import Path
 
 HERE = Path(__file__).resolve()
@@ -18,7 +17,7 @@ sys.path.insert(0, str(CORE))
 
 import hook_runner  # noqa: E402
 import telemetry  # noqa: E402
-from memory_core import configure_harness, record_sidekick_start, record_sidekick_stop, record_tool  # noqa: E402
+from memory_core import configure_harness, record_tool  # noqa: E402
 
 EVENTS = {
     "SessionStart": ["session-start"],
@@ -28,8 +27,6 @@ EVENTS = {
     "Stop": ["stop"],
     "PreCompact": ["flush", "--reason", "pre-compact"],
     "SessionEnd": ["flush", "--reason", "session-end"],
-    "SubagentStart": ["sidekick-start"],
-    "SubagentStop": ["sidekick-stop"],
 }
 
 
@@ -93,8 +90,6 @@ def normalize(payload: dict) -> dict:
         value.setdefault("tool_response", value["error"])
     if "response" in value:
         value.setdefault("last_assistant_message", value["response"])
-    if "agent_name" in value:
-        value.setdefault("agent_type", value["agent_name"])
     if value.get("hook_event_name") == "Stop":
         session = _session_dir(str(value.get("session_id") or ""))
         transcript = session / "agents" / "main" / "wire.jsonl" if session else None
@@ -103,17 +98,6 @@ def normalize(payload: dict) -> dict:
             if message := _last_assistant_message(transcript):
                 value.setdefault("last_assistant_message", message)
     return value
-
-
-def _sidekick_start(store, payload):
-    payload = dict(payload)
-    payload.setdefault("agent_id", f"kimi-{uuid.uuid4().hex}")
-    context = record_sidekick_start(store, payload)
-    return {"hookSpecificOutput": {"additionalContext": context}} if context else None
-
-
-def _sidekick_stop(store, payload):
-    record_sidekick_stop(store, payload)
 
 
 def main() -> int:
@@ -133,12 +117,10 @@ def main() -> int:
         result = hook_runner.run(
             extra_actions={
                 "post-tool-failure": lambda store, payload: record_tool(store, payload, failed=True),
-                "sidekick-start": _sidekick_start,
-                "sidekick-stop": _sidekick_stop,
             },
             automatic_flush_reasons={"session-end", "pre-compact"},
         )
-    if event in {"UserPromptSubmit", "SubagentStart"} and (raw_output := output.getvalue().strip()):
+    if event == "UserPromptSubmit" and (raw_output := output.getvalue().strip()):
         parsed = json.loads(raw_output)
         context = parsed.get("hookSpecificOutput", {}).get("additionalContext", "")
         if context:

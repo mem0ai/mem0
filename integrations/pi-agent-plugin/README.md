@@ -6,6 +6,8 @@ This extension gives Pi Agent long-term memory that persists across sessions, pr
 
 Current package version: `0.3.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); Pi keeps its own tools and scopes.
 
+Sidekick is exclusive to the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent). This package does not bundle a Sidekick agent.
+
 ## Features
 
 - **Automatic memory capture** — learns from every conversation (both user and assistant messages)

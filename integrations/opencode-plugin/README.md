@@ -4,6 +4,8 @@ Persistent memory for [OpenCode](https://opencode.ai). Your agent remembers deci
 
 Current package version: `0.3.0`. This native TypeScript integration keeps its own tools and scopes while sharing redaction and lifecycle utilities with [agent-plugin-core](../agent-plugin-core/README.md).
 
+Sidekick is exclusive to the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent). This package does not bundle a Sidekick agent.
+
 ## Install
 
 ```bash

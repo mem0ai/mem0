@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import sys
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,7 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = ROOT.parents[1]
 sys.path.insert(0, str(ROOT))
 
-from build.build import build, bundle_drift, render_template, replace_output  # noqa: E402
+from build.build import (  # noqa: E402
+    build,
+    bundle_drift,
+    render_template,
+    replace_output,
+)
 from build.validate import validate_bundle  # noqa: E402
 
 
@@ -57,6 +62,7 @@ def test_portable_bundle_is_conformant_and_self_contained(tmp_path: Path) -> Non
     assert "env" not in server
     assert not (root / "core" / "hook_runner.py").exists()
     assert not (root / "core" / "flush_worker.py").exists()
+    assert not (root / "agents").exists()
     for skill in (root / "skills").glob("*/SKILL.md"):
         frontmatter = skill.read_text(encoding="utf-8").split("---", 2)[1]
         keys = {line.split(":", 1)[0] for line in frontmatter.splitlines() if ":" in line}
@@ -71,6 +77,19 @@ def test_native_bundle_is_self_contained(host: str, tmp_path: Path) -> None:
     assert (root / "core" / "memory_core.py").is_file()
     assert (root / "skills" / "remember" / "SKILL.md").is_file()
     assert not any(path.is_symlink() for path in root.rglob("*"))
+
+
+@pytest.mark.parametrize("host", ["claude-code", "cursor", "codex", "kimi", "antigravity"])
+def test_only_claude_bundles_sidekick(host: str, tmp_path: Path) -> None:
+    root = build(host, "native", tmp_path / host)
+    if host == "claude-code":
+        agent = (root / "agents" / "sidekick.md").read_text()
+        assert "model: sonnet" in agent
+        assert "isolation: worktree" in agent
+    else:
+        assert not (root / "agents").exists()
+        for path in root.rglob("*.json"):
+            assert "sidekick" not in path.read_text().lower()
 
 
 @pytest.mark.parametrize("host", ["claude-code", "cursor", "codex", "kimi", "antigravity"])

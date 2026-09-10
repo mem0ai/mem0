@@ -35,7 +35,7 @@ def test_codex_hooks_use_native_events_and_plugin_paths() -> None:
     assert all(hook.get("timeout", 0) <= 3 for groups in hooks.values() for group in groups for hook in group["hooks"])
 
 
-def test_codex_sidekick_records_lifecycle(tmp_path: Path) -> None:
+def test_codex_subagent_records_lifecycle(tmp_path: Path) -> None:
     adapter = HOST / "hooks" / "adapter.py"
     payload = {
         "session_id": "session-1",
@@ -45,8 +45,8 @@ def test_codex_sidekick_records_lifecycle(tmp_path: Path) -> None:
     }
 
     for action, extra in (
-        ("sidekick-start", {}),
-        ("sidekick-stop", {"last_assistant_message": "SIDEKICK_OK"}),
+        ("subagent-start", {}),
+        ("subagent-stop", {"last_assistant_message": "SUBAGENT_OK"}),
     ):
         result = subprocess.run(
             [sys.executable, str(adapter), action, "--plugin-data-dir", str(tmp_path / "data")],
@@ -65,7 +65,7 @@ def test_codex_sidekick_records_lifecycle(tmp_path: Path) -> None:
     assert row is not None
     assert row[0] == "agent-1"
     assert row[1]
-    assert row[2] == "SIDEKICK_OK"
+    assert row[2] == "SUBAGENT_OK"
 
 
 def test_codex_mcp_uses_host_relative_paths() -> None:

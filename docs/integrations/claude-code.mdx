@@ -64,6 +64,8 @@ After the automatic first-prompt search, Claude can also call `search_memories` 
 
 ### Sidekick agent
 
+Sidekick is exclusive to the Claude Code plugin. Its agent definition and dedicated hooks live in this package; other Mem0 plugins provide memory without bundling Sidekick.
+
 `mem0:sidekick` is a Sonnet coding agent that runs in a separate Git worktree. Use it to offload investigation, implementation, testing, or review without burning main-session context.
 
 ```text
