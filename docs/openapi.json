@@ -8070,6 +8070,377 @@
 					}
 				}
 			}
+		},
+		"/v2/entities/{entity_type}/{entity_id}/profile/": {
+			"get": {
+				"tags": [
+					"profiles"
+				],
+				"operationId": "profiles_read",
+				"summary": "Get an entity's profile",
+				"description": "Return the memory profile for one user or agent.\n\nGeneration is asynchronous, so a known entity that has no profile yet is a normal 200 carrying a `status`. A 404 means only that no such entity exists.",
+				"parameters": [
+					{
+						"name": "entity_type",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"enum": [
+								"user",
+								"agent"
+							]
+						},
+						"description": "The kind of entity that carries the profile."
+					},
+					{
+						"name": "entity_id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string"
+						},
+						"description": "The entity's id, as supplied when the memory was added."
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The profile envelope.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"profile": {
+											"type": "object",
+											"additionalProperties": true,
+											"description": "The generated profile, shaped by the project's schema. Empty unless status is succeeded."
+										},
+										"status": {
+											"type": "string",
+											"enum": [
+												"succeeded",
+												"pending",
+												"failed",
+												"not_enabled",
+												"insufficient_data"
+											],
+											"description": "Generation state. Branch on this rather than on an empty profile."
+										},
+										"entity_type": {
+											"type": "string",
+											"enum": [
+												"user",
+												"agent"
+											]
+										},
+										"entity_id": {
+											"type": "string"
+										},
+										"updated_at": {
+											"type": "string",
+											"format": "date-time",
+											"nullable": true
+										},
+										"generation_count": {
+											"type": "integer"
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Unsupported entity type."
+					},
+					"404": {
+						"description": "No such entity in this project."
+					}
+				}
+			}
+		},
+		"/v2/profiles/settings/": {
+			"get": {
+				"tags": [
+					"profiles"
+				],
+				"operationId": "profiles_settings_read",
+				"summary": "Get profile settings",
+				"description": "Return the profile settings for the project the API key is scoped to.",
+				"responses": {
+					"200": {
+						"description": "Current settings.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"enabled": {
+											"type": "boolean",
+											"description": "Whether profile generation runs for this project."
+										},
+										"schema": {
+											"type": "object",
+											"additionalProperties": true,
+											"nullable": true,
+											"description": "JSON Schema describing the profile. Every property needs a description."
+										},
+										"custom_instructions": {
+											"type": "string",
+											"nullable": true,
+											"description": "Extra guidance for the extraction step."
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"tags": [
+					"profiles"
+				],
+				"operationId": "profiles_settings_update",
+				"summary": "Update profile settings",
+				"description": "Update the project's profile settings. Only the fields present in the body are written, so one setting can change without re-sending the others.",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"enabled": {
+										"type": "boolean",
+										"description": "Whether profile generation runs for this project."
+									},
+									"schema": {
+										"type": "object",
+										"additionalProperties": true,
+										"nullable": true,
+										"description": "JSON Schema describing the profile. Every property needs a description."
+									},
+									"custom_instructions": {
+										"type": "string",
+										"nullable": true,
+										"description": "Extra guidance for the extraction step."
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Settings as stored after the update.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"enabled": {
+											"type": "boolean",
+											"description": "Whether profile generation runs for this project."
+										},
+										"schema": {
+											"type": "object",
+											"additionalProperties": true,
+											"nullable": true,
+											"description": "JSON Schema describing the profile. Every property needs a description."
+										},
+										"custom_instructions": {
+											"type": "string",
+											"nullable": true,
+											"description": "Extra guidance for the extraction step."
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The schema is not a valid profile schema."
+					}
+				}
+			}
+		},
+		"/v2/profiles/trigger/": {
+			"post": {
+				"tags": [
+					"profiles"
+				],
+				"operationId": "profiles_trigger",
+				"summary": "Generate one entity's profile now",
+				"description": "Generate or refresh the profile for a single entity immediately.\n\nProfiles are otherwise built once an entity crosses an internal message threshold, so a new entity has none for its first few memories. Returns 202: poll the read endpoint and branch on `status`.",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"entity_id"
+								],
+								"properties": {
+									"entity_type": {
+										"type": "string",
+										"enum": [
+											"user",
+											"agent"
+										],
+										"default": "user"
+									},
+									"entity_id": {
+										"type": "string"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"202": {
+						"description": "Generation queued.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string"
+										},
+										"entity_type": {
+											"type": "string"
+										},
+										"entity_id": {
+											"type": "string"
+										},
+										"profile_id": {
+											"type": "string"
+										},
+										"status": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Unsupported entity type, or profiles are not enabled and configured."
+					},
+					"404": {
+						"description": "No such entity in this project."
+					}
+				}
+			}
+		},
+		"/v2/profiles/samples/": {
+			"post": {
+				"tags": [
+					"profiles"
+				],
+				"operationId": "profiles_samples",
+				"summary": "Sample profiles to check a schema",
+				"description": "Generate profiles for a handful of real entities so a schema can be judged before it is applied project-wide.\n\nThese are real generations and the results are kept, so the work counts toward a later regenerate.",
+				"requestBody": {
+					"required": false,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"limit": {
+										"type": "integer",
+										"minimum": 1,
+										"maximum": 10,
+										"description": "How many entities to sample."
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"202": {
+						"description": "Sampling queued.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string"
+										},
+										"sampled": {
+											"type": "integer"
+										},
+										"results": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"additionalProperties": true
+											}
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Profiles are not enabled and configured."
+					},
+					"429": {
+						"description": "A sample run was already started for this project very recently."
+					}
+				}
+			}
+		},
+		"/v2/profiles/regenerate/": {
+			"post": {
+				"tags": [
+					"profiles"
+				],
+				"operationId": "profiles_regenerate",
+				"summary": "Rebuild every profile in the project",
+				"description": "Rebuild the profile of every entity in the project. This is how a new schema reaches entities that already have a profile.\n\nReturns 202 immediately; the rebuild runs in the background.",
+				"responses": {
+					"202": {
+						"description": "Regenerate queued.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"status": {
+											"type": "string"
+										},
+										"message": {
+											"type": "string"
+										},
+										"project_id": {
+											"type": "string"
+										},
+										"existing_profile_count": {
+											"type": "integer"
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Profiles are not enabled and configured."
+					},
+					"409": {
+						"description": "A regenerate is already running for this project."
+					},
+					"429": {
+						"description": "A regenerate already ran for this project within the last hour."
+					}
+				}
+			}
 		}
 	},
 	"components": {
