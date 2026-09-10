@@ -4,7 +4,7 @@ Persistent semantic memory for [Pi Agent](https://pi.dev), powered by [Mem0](htt
 
 This extension gives Pi Agent long-term memory that persists across sessions, projects, and devices. Memories are automatically captured from conversations and can be searched and managed through slash commands and an agent-accessible tool.
 
-Current package version: `0.3.2`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); Pi keeps its own tools and scopes.
+Current package version: `0.3.1`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); Pi keeps its own tools and scopes.
 
 ## Features
 
@@ -54,13 +54,11 @@ Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 
 ## Session handoff
 
-Run `/mem0-handoff codex` to continue the current Pi session in Codex. The plugin reads native session context, including readable compaction summaries and completed tool outcomes.
+Run `/mem0-handoff` to save the current session, `/mem0-handoff list` to find this project’s resources, or `/mem0-handoff resume /absolute/path.json` to continue from one.
 
-Handoff requires **Node.js 22.19+**, matching the native Pi SDK. The SDK loads only when handoff is invoked; existing memory features remain available on Node.js 20.
+All plugins share local resources in `~/.mem0/handoffs/`, preserving supported active context, images, and completed tool outcomes. Resume reads that context as historical evidence. Requires **Python 3.11+** as `python3`; no destination CLI or Mem0 credentials are required. Pi save requires Node.js 22.19+ for its native SDK; list, resume, and memory features remain available on Node.js 20.
 
-Requires **Python 3.11+** available as `python3` and an installed, signed-in Codex CLI with native session import support. Handoff works independently of Mem0 credentials and never sends the transcript through the Mem0 API. Unsupported content, missing results, and unrelated unfinished calls fail explicitly.
-
-The shared launcher and pinned runtime manifest are packaged in `dist/` by [agent-plugin-core](../agent-plugin-core/README.md); the importer is fetched once from its pinned GitHub commit, verified, and cached for all plugins. A valid cache works offline. Failed imports save a private recovery bundle under `~/.mem0/handoffs/`. See the [session handoff guide](../agent-plugin-core/README.md#session-handoff) for supported formats, privacy, and recovery.
+The shared engine is fetched from a pinned GitHub commit on first use, verified, and cached across all plugins. Cached use works offline; no transcript is sent to GitHub. See the [shared handoff logic](../agent-plugin-core/README.md#session-handoff) for source formats and validation.
 
 ## Commands
 
@@ -72,7 +70,7 @@ The shared launcher and pinned runtime manifest are packaged in `dist/` by [agen
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
 | `/mem0-scope <scope>` | Change default scope for this session |
 | `/mem0-status` | Connection health, identity, and memory count |
-| `/mem0-handoff codex` | Continue the current Pi session in Codex |
+| `/mem0-handoff [save|list|resume <path>]` | Save or resume shared session context |
 
 ## Skills
 

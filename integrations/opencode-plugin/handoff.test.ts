@@ -1,9 +1,10 @@
 import {afterEach, describe, expect, mock, test} from "bun:test";
 const shared = await import("../agent-plugin-core/typescript/src/handoff.ts");
-const run = mock(async (_script: URL, _bundle: unknown) => "Created Codex task");
-mock.module("../agent-plugin-core/typescript/src/handoff.ts", () => ({...shared, runHandoff: run}));
+const actionRun = mock(async (_script: URL, _action: string, _cwd: string, _resource?: string) => "Full historical context");
+const run = mock(async (_script: URL, _bundle: unknown) => "Saved shared resource");
+mock.module("../agent-plugin-core/typescript/src/handoff.ts", () => ({...shared, runHandoff: run, runHandoffAction: actionRun}));
 const {createHandoffTool, activeMessages, registerHandoffCommand} = await import("./handoff");
-afterEach(() => {run.mockReset(); run.mockResolvedValue("Created Codex task");});
+afterEach(() => {actionRun.mockClear(); run.mockReset(); run.mockResolvedValue("Saved shared resource");});
 const user = (id: string, text: string) => ({info: {role: "user", id}, parts: [{type: "text", text}]});
 const toolMessage = (id: string, tool = "mem0_handoff") => ({info: {role: "assistant", id, time: {completed: 1}}, parts: [{type: "tool", callID: id, tool, state: {status: "running", input: {}}}]});
 function tool(messages: any[]) {
@@ -12,13 +13,13 @@ function tool(messages: any[]) {
     messages: async () => ({data: messages}),
   }} as any);
 }
-const context = {sessionID: "native", messageID: "handoff"} as any;
+const context = {sessionID: "native", messageID: "handoff", directory: "/tmp/native-project"} as any;
 describe("native OpenCode handoff", () => {
   test("exports current full context and skips only its own invocation", async () => {
     const config: any = {};
     registerHandoffCommand(config);
     expect(config.command["mem0-handoff"].template).toContain("$ARGUMENTS");
-    expect(await tool([user("u", "x".repeat(20000)), toolMessage("handoff")]).execute({}, context)).toBe("Created Codex task");
+    expect(await tool([user("u", "x".repeat(20000)), toolMessage("handoff")]).execute({}, context)).toBe("Saved shared resource");
     const bundle = run.mock.calls[0][1] as any;
     expect(bundle.source.session_id).toBe("native");
     expect(bundle.items[0].content[0].text.length).toBe(20000);
@@ -52,4 +53,13 @@ describe("native OpenCode handoff", () => {
     run.mockRejectedValue(new Error("saved at /tmp/retry.json"));
     await expect(tool([user("u", "hi")]).execute({}, context)).rejects.toThrow("saved at /tmp/retry.json");
   });
+});
+
+test("list and resume return shared history to the current model using its native project", async () => {
+  for (const action of ["list", "resume"] as const) {
+    const native = createHandoffTool({session: {get: () => {throw new Error("should not export");}}} as any);
+    expect(await native.execute({action, resource: "/tmp/shared task.json"}, context)).toBe("Full historical context");
+    expect(actionRun).toHaveBeenLastCalledWith(expect.any(URL), action, "/tmp/native-project", "/tmp/shared task.json");
+  }
+  expect(run).not.toHaveBeenCalled();
 });

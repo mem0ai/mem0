@@ -118,9 +118,9 @@ def test_handoff_packaging_rejects_missing_and_drifted_runtime(tmp_path: Path) -
         (dist / name).write_bytes((PLUGIN_ROOT / ("python" if name.endswith(".py") else "build") / name).read_bytes())
     assert verify_artifact("opencode", tmp_path, required)["status"] == "passed"
 
-    (dist / "claude_to_codex.py").write_text("# obsolete bundled engine\n", encoding="utf-8")
+    (dist / "handoff_engine.py").write_text("# obsolete bundled engine\n", encoding="utf-8")
     assert "duplicated handoff engine" in verify_artifact("opencode", tmp_path, required)["output"]
-    (dist / "claude_to_codex.py").unlink()
+    (dist / "handoff_engine.py").unlink()
     (dist / "session_handoff.py").write_text("# stale importer\n", encoding="utf-8")
     assert "differs from shared source" in verify_artifact("opencode", tmp_path, required)["output"]
     (dist / "session_handoff.py").unlink()

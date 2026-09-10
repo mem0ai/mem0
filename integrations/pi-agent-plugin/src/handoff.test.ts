@@ -1,8 +1,8 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import mem0Extension from "./entry.ts";
 import {buildSessionContext, convertToLlm} from "@earendil-works/pi-coding-agent";
-import {runHandoff} from "../../agent-plugin-core/typescript/src/handoff.ts";
-vi.mock("../../agent-plugin-core/typescript/src/handoff.ts", async (original) => ({...await original<typeof import("../../agent-plugin-core/typescript/src/handoff.ts")>(), runHandoff: vi.fn()}));
+import {runHandoff, runHandoffAction} from "../../agent-plugin-core/typescript/src/handoff.ts";
+vi.mock("../../agent-plugin-core/typescript/src/handoff.ts", async (original) => ({...await original<typeof import("../../agent-plugin-core/typescript/src/handoff.ts")>(), runHandoff: vi.fn(), runHandoffAction: vi.fn()}));
 vi.mock("@earendil-works/pi-coding-agent", () => ({
   buildSessionContext: vi.fn(() => ({messages: [{role: "user", content: "Native summary and retained tail"}]})),
   convertToLlm: vi.fn(messages => messages),
@@ -34,15 +34,15 @@ describe("native Pi handoff", () => {
   it("keeps startup working on Node 20 and explains the native handoff runtime requirement", async () => {
     vi.stubGlobal("process", {...process, versions: {...process.versions, node: "20.20.2"}});
     const {ctx, handler} = setup();
-    await handler("codex", ctx);
+    await handler("save", ctx);
     expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("Node.js 22.19+"), "error");
     expect(buildSessionContext).not.toHaveBeenCalled();
     expect(runHandoff).not.toHaveBeenCalled();
   });
   it("uses host compaction/branch selection and the current session without a Mem0 key", async () => {
     const {pi, ctx, handler} = setup();
-    vi.mocked(runHandoff).mockResolvedValue("Created Codex task");
-    await handler("codex", ctx);
+    vi.mocked(runHandoff).mockResolvedValue("Saved shared resource");
+    await handler("save", ctx);
     expect(buildSessionContext).toHaveBeenCalledWith(ctx.sessionManager.getEntries(), "new");
     expect(convertToLlm).toHaveBeenCalledOnce();
     const bundle = vi.mocked(runHandoff).mock.calls[0][1];
@@ -50,21 +50,33 @@ describe("native Pi handoff", () => {
     expect(JSON.stringify(bundle.items)).toContain("Native summary");
     expect(JSON.stringify(bundle.items)).toContain("retained tail");
     expect(JSON.stringify(bundle.items)).not.toContain("old context");
-    expect(pi.sendMessage).toHaveBeenCalledWith({customType: "mem0-handoff", content: "Created Codex task", display: true});
+    expect(pi.sendMessage).toHaveBeenCalledWith({customType: "mem0-handoff", content: "Saved shared resource", display: true});
   });
-  it.each(["", "codex session-id", "claude"])("rejects unsupported arguments %s", async (args) => {
+  it.each(["resume", "save session-id", "claude"])("rejects unsupported arguments %s", async (args) => {
     const {ctx, handler} = setup();
     await handler(args, ctx);
     expect(runHandoff).not.toHaveBeenCalled();
-    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("Usage:"), "warning");
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("Usage:"), "error");
   });
   it("reports an active response or importer failure", async () => {
     const {pi, ctx, handler} = setup();
-    await handler("codex", {...ctx, isIdle: () => false});
+    await handler("save", {...ctx, isIdle: () => false});
     expect(runHandoff).not.toHaveBeenCalled();
     vi.mocked(runHandoff).mockRejectedValue(new Error("saved at /tmp/retry.json"));
-    await handler("codex", ctx);
+    await handler("save", ctx);
     expect(ctx.ui.notify).toHaveBeenCalledWith("saved at /tmp/retry.json", "error");
     expect(pi.sendMessage).not.toHaveBeenCalled();
   });
+});
+
+it.each(["list", "resume /tmp/shared task.json"])("supports %s on Node 20 without loading native export helpers", async (args) => {
+  vi.stubGlobal("process", {...process, versions: {...process.versions, node: "20.20.2"}});
+  const {pi, ctx, handler} = setup();
+  vi.mocked(runHandoffAction).mockResolvedValue("Full historical user, assistant and tool context");
+  await handler(args, ctx);
+  const resume = args.startsWith("resume");
+  expect(runHandoffAction).toHaveBeenCalledWith(expect.any(URL), resume ? "resume" : "list", "/tmp", resume ? "/tmp/shared task.json" : undefined);
+  expect(pi.sendMessage).toHaveBeenCalledWith({customType: "mem0-handoff", content: "Full historical user, assistant and tool context", display: true}, {triggerTurn: resume});
+  expect(buildSessionContext).not.toHaveBeenCalled();
+  expect(runHandoff).not.toHaveBeenCalled();
 });

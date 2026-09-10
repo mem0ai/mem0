@@ -103,7 +103,7 @@ Categories for `--category`: `project_knowledge`, `decisions_and_constraints`, `
 
 ## Session handoff
 
-Run `/mem0:handoff codex` to transfer the current Claude session into a new Codex task with its title, project, and active conversation. Requires Python 3.11+ and a locally installed, signed-in Codex CLI. See the [handoff guide](../agent-plugin-core/README.md#session-handoff) for transfer limits and recovery.
+Run `/mem0:handoff` to save the current Claude session as a shared local resource. Any Mem0 plugin can resume it; explicitly ask the agent to use `handoff_resource` to list or resume a saved path. Requires Python 3.11+. See the [shared handoff logic](../agent-plugin-core/README.md#session-handoff).
 
 ## Search scope
 

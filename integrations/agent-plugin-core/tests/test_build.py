@@ -129,9 +129,9 @@ def test_handoff_is_bundled_with_host_appropriate_invocation(host: str, tmp_path
     assert (root / "core" / "session_handoff.py").is_file()
     assert (root / "core" / "handoff-runtime.json").is_file()
     assert not (root / "core" / "handoff_sources.py").exists()
-    assert not (root / "core" / "claude_to_codex.py").exists()
+    assert not (root / "core" / "handoff_engine.py").exists()
     assert "Only run on an explicit user request" in skill
-    assert "--target codex --create --command-output" in skill
+    assert "--save --command-output" in skill
     if host == "claude-code":
         assert '!`python3 "${CLAUDE_PLUGIN_ROOT}/core/session_handoff.py"' in skill
         assert "${CLAUDE_SESSION_ID}" in skill

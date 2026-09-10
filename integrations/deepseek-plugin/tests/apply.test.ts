@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Offline mock of the Mem0 SDK so these tests never touch the network.
 vi.mock("../../agent-plugin-core/typescript/src/handoff.ts", async (original) => ({
-  ...await original<typeof import("../../agent-plugin-core/typescript/src/handoff.ts")>(), runHandoff: vi.fn(),
+  ...await original<typeof import("../../agent-plugin-core/typescript/src/handoff.ts")>(), runHandoff: vi.fn(), runHandoffAction: vi.fn(),
 }));
-import { runHandoff } from "../../agent-plugin-core/typescript/src/handoff.ts";
+import { runHandoff, runHandoffAction } from "../../agent-plugin-core/typescript/src/handoff.ts";
 
 const mockSearch = vi.fn();
 const mockAdd = vi.fn();
@@ -290,13 +290,23 @@ describe("mem0_handoff tool", () => {
     ],
   }}};
   it("exports the current native session, excluding only its own in-flight call", async () => {
-    vi.mocked(runHandoff).mockResolvedValue("Created Codex task");
+    vi.mocked(runHandoff).mockResolvedValue("Saved shared resource");
     const tools = applyAndCollect({apiKey: "k", userId: "u"});
-    expect(await tools.get("mem0_handoff")!.execute({}, exec)).toBe("Created Codex task");
+    expect(await tools.get("mem0_handoff")!.execute({}, exec)).toBe("Saved shared resource");
     expect(runHandoff).toHaveBeenCalledWith(expect.any(URL), expect.objectContaining({
       source: expect.objectContaining({host: "deepseek", session_id: "native-session", title: "Renamed native task"}),
       items: [{type: "message", role: "user", content: [{type: "input_text", text: "Readable current context"}]}],
     }));
+    expect(mockSearch).not.toHaveBeenCalled();
+    expect(mockAdd).not.toHaveBeenCalled();
+  });
+  it.each(["list", "resume"])("%s consumes shared resources in the active model without exporting its session", async (action) => {
+    delete process.env.MEM0_API_KEY;
+    vi.mocked(runHandoffAction).mockResolvedValue("Complete historical context and tool outcomes");
+    const tools = applyAndCollect({userId: "u"});
+    expect(await tools.get("mem0_handoff")!.execute({action, resource: "/tmp/shared task.json"}, exec)).toBe("Complete historical context and tool outcomes");
+    expect(runHandoffAction).toHaveBeenCalledWith(expect.any(URL), action, "/tmp", "/tmp/shared task.json");
+    expect(runHandoff).not.toHaveBeenCalled();
     expect(mockSearch).not.toHaveBeenCalled();
     expect(mockAdd).not.toHaveBeenCalled();
   });

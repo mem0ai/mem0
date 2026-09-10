@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { test } from "node:test";
-import { buildHandoffBundle, runNativeSession, runHandoff } from "../src/handoff.ts";
+import { buildHandoffBundle, runNativeSession, runHandoff, runHandoffAction, parseHandoffArgs } from "../src/handoff.ts";
 const source = {host: "test", session_id: "native", title: "Native title", cwd: "/tmp"};
 
 test("native context preserves summary, full tools/images, excludes only triggering call, rejects loss", async () => {
@@ -38,7 +38,7 @@ test("transport sends native bundle on stdin and native arguments literally", as
     await writeFile(script, "import json, sys\nprint(json.dumps(sys.argv[1:]))\n");
     const session = "--session with spaces; $(touch should-never-exist)";
     const args = JSON.parse(await runNativeSession(pathToFileURL(script), "openclaw", session));
-    assert.deepEqual(args, ["--source=openclaw", `--session=${session}`, "--create", "--command-output", "--target", "codex"]);
+    assert.deepEqual(args, ["--save", "--source=openclaw", `--session=${session}`, "--command-output"]);
     assert.throws(() => runNativeSession(pathToFileURL(script), "openclaw", " "), /session path/);
     await writeFile(script, "import json, sys\nprint(json.dumps(json.load(sys.stdin)))\n");
     const bundle = await buildHandoffBundle(source, [{role: "user", content: "private session"}]);
@@ -76,4 +76,24 @@ test("missing native tool IDs cannot match an absent invocation exclusion", asyn
   const call = {role: "assistant", content: [{type: "toolCall", name: "read", arguments: {}}]};
   await assert.rejects(buildHandoffBundle(source, [user, call]), /Tool call ID/);
   await assert.rejects(buildHandoffBundle(source, [user], {excludeCallId: ""}), /Excluded handoff call ID/);
+});
+
+test("shared resource actions preserve literal paths and deliver full historical data", async () => {
+  assert.deepEqual(parseHandoffArgs(), {action: "save"});
+  assert.deepEqual(parseHandoffArgs("resume /tmp/my resource.json"), {action: "resume", resource: "/tmp/my resource.json"});
+  assert.throws(() => parseHandoffArgs("resume"), /Usage/);
+  const dir = await mkdtemp(join(tmpdir(), "mem0-resume-"));
+  const script = join(dir, "resource.py");
+  try {
+    await writeFile(script, "import json, sys\nprint(json.dumps(sys.argv[1:]))\n");
+    assert.deepEqual(JSON.parse(await runHandoffAction(pathToFileURL(script), "list", "/tmp/native repo")), ["--list", "--cwd=/tmp/native repo", "--command-output"]);
+    await assert.rejects(runHandoffAction(pathToFileURL(script), "resume", "/tmp"), /resource path/);
+    await assert.rejects(runHandoffAction(pathToFileURL(script), "resume", "/tmp", "x"), /Invalid handoff/);
+    const history = {context_type: "historical_session", resource: "/tmp/shared.json", handoff: await buildHandoffBundle(source, [{role: "user", content: "x".repeat(100000)}])};
+    await writeFile(script, `import json, sys\nassert sys.argv[1:] == ["--resume=--file $(touch no) name.json", "--cwd=/tmp/native repo", "--command-output"]\nprint(${JSON.stringify(JSON.stringify(history))})\n`);
+    const output = await runHandoffAction(pathToFileURL(script), "resume", "/tmp/native repo", "--file $(touch no) name.json");
+    assert.match(output, /historical data/);
+    assert.match(output, /do not automatically re-execute/);
+    assert.ok(output.endsWith(JSON.stringify(history)));
+  } finally { await rm(dir, {recursive: true, force: true}); }
 });

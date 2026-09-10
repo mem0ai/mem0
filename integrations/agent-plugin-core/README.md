@@ -29,7 +29,7 @@ TypeScript integrations (`openclaw`, `opencode-plugin`, `pi-agent-plugin`, and `
 
 ## Shared memory behavior
 
-The six Python packages use the same `search_memories` MCP tool and six memory skill templates plus the handoff command. Native hooks collect conversations and flush them to Mem0 in the background. The portable package uses the Agent Plugins v1 layout so compatible hosts can load its MCP server and skills. It has no lifecycle hooks or flush worker; its bundled `remember` skill assumes automatic capture and cannot save a memory on its own.
+The six Python packages use the `search_memories` and `handoff_resource` MCP tools, six memory skill templates, and the handoff command. Native hooks collect conversations and flush them to Mem0 in the background. The portable package uses the Agent Plugins v1 layout so compatible hosts can load its MCP server and skills. It has no lifecycle hooks or flush worker; its bundled `remember` skill assumes automatic capture and cannot save a memory on its own.
 
 Search guidance follows Memo: use a focused question when earlier work could help, reuse available context, and search again only for a specific remaining gap. The TypeScript hosts import one shared guidance constant; conformance checks keep it aligned with the generated Python MCP description and reject strict before-answer or repeated-search prompts. Automatic recall schedules and retrieval limits are independent of this wording.
 
@@ -53,17 +53,21 @@ For installation, follow the host guides: [Claude Code](../../docs/integrations/
 
 ## Session handoff
 
-`python/session_handoff.py` is the small common launcher. `python/handoff_sources.py` reads native transcript formats; `python/claude_to_codex.py` retains the Claude parser and the single implementation of validation, private recovery, assets, context limits, and Codex import. It is adapted from [mem0ai/memo](https://github.com/mem0ai/memo/blob/aeeb1593284d1d2fca3b4bcf1e32ea10f71df549/docs/session-handoff.md).
+`python/session_handoff.py` is the common launcher. `python/handoff_sources.py` reads native transcripts; `python/handoff_engine.py` validates and stores the shared resource. The transcript conversion is adapted from [mem0ai/memo](https://github.com/mem0ai/memo/blob/aeeb1593284d1d2fca3b4bcf1e32ea10f71df549/docs/session-handoff.md).
 
-The TypeScript hosts read their native active context and use `typescript/src/handoff.ts` to normalize messages and pass a `mem0.session-handoff.v1` bundle to the same Python engine over stdin. OpenClaw supplies its trusted native transcript path. Native Python and portable plugins generate the shared `handoff` skill, with source-specific instructions.
+All ten plugins save to the same local resource directory, `~/.mem0/handoffs/`. Each resource preserves the source host, session title, project, active user/assistant context, paired tool calls/results, and supported images. Readable compaction context is retained; hidden reasoning and harness configuration are excluded. Unknown model-visible content, missing results, and opaque compaction fail explicitly. Saving never summarizes or truncates the context, runs recorded tools, or launches a destination application.
 
-The common bundle contains `source` (`host`, `session_id`, `title`, `cwd`, optional `path`), `items` (user/assistant messages, paired function calls/results, and supported images), and optional `warnings`. The engine derives counts and validates the bundle. Unknown model-visible content, missing tool results, and opaque compaction state fail rather than disappearing from the imported task. Handoff runs only on explicit user request, independently of memory hooks and the Mem0 API. Creation requires Python 3.11+ and a local Codex CLI with native session import support.
+TypeScript adapters supply native active context through `typescript/src/handoff.ts`; OpenClaw supplies its trusted transcript path. The six Python packages generate one shared `handoff` skill with source-specific instructions. Claude saves before model invocation to avoid capturing the handoff command itself; other Python hosts require an explicit completed transcript or neutral bundle.
 
-The importer source exists only here. Installable packages contain the small launcher and `build/handoff-runtime.json`, which pins a Git commit and SHA-256 digests. On the first explicit handoff, the launcher downloads those exact two source files from GitHub into `~/.mem0/handoff-runtime/<revision>`. All ten plugins reuse that cache. Every use verifies the files; a valid cache works offline. A missing or invalid cache requires GitHub access, and download or digest failures stop the handoff. No transcript is sent to GitHub.
+To continue in another plugin on the same machine, explicitly ask it to list the current project's handoffs and resume the selected resource. Python plugins expose `handoff_resource` with `action: "list"` or `action: "resume", resource: "/absolute/path.json"`. OpenCode, Pi, and OpenClaw expose `/mem0-handoff list` and `/mem0-handoff resume /absolute/path.json`; DeepSeek exposes the same actions on `mem0_handoff`. Resumed context is historical evidence, not instructions to replay old tools. Project-scoped listing uses the repository root; an explicit resource path also supports continuing in a relocated checkout. This is local storage, not cloud sync.
 
-Every TypeScript build uses `build/package_handoff.mjs`; the Python builder uses the same manifest. Builds reject a pin whose digests differ from the canonical source, and conformance checks reject missing or stale launchers/manifests. To update the importer, commit its shared source, update the manifest to that immutable commit and its file digests, then regenerate the Python bundles and rebuild the TypeScript packages. No per-plugin importer edits or duplicated engine files are needed.
+Handoff requires Python 3.11+ and runs independently of memory hooks and Mem0 credentials. Pi's save action additionally requires Node.js 22.19+ for its native SDK; list and resume remain available on Node.js 20. No destination CLI or model call is required.
 
-See the [0.3.2 changelog](CHANGELOG.md#032) and each plugin’s changelog for invocation details.
+The engine source exists only here. Installable packages contain the small launcher and `build/handoff-runtime.json`, which pins a Git commit and SHA-256 digests. On first explicit use, the launcher downloads the two source files from GitHub into `~/.mem0/handoff-runtime/<revision>`. All ten plugins verify and reuse that cache, including offline. A missing or invalid cache requires GitHub access; download or digest failures stop the operation. No transcript is sent to GitHub.
+
+Every TypeScript build uses `build/package_handoff.mjs`; the Python builder uses the same manifest. Builds reject source hashes that differ from the pin, and conformance checks reject stale launchers/manifests. To change the engine, commit its source, pin that immutable commit and its file digests, regenerate Python bundles, and rebuild TypeScript packages. No per-plugin engine edits are needed.
+
+See the [shared changelog](CHANGELOG.md#032) and each plugin's changelog for invocation details.
 
 ## Build and verify
 

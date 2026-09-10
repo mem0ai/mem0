@@ -10,19 +10,19 @@ It gives a Harness agent automatic long-term memory plus two explicit memory too
 | Auto-capture | Stores the human/assistant messages from each completed turn |
 | `search_memory` | Recall facts from Mem0 relevant to a query |
 | `add_memory` | Store a fact in Mem0 for future sessions |
-| `mem0_handoff` | Continue the current DeepSeek session in Codex |
+| `mem0_handoff` | Save, list, or resume shared session context |
 
 Unlike the local/file-based memory plugins in the ecosystem, Mem0 is a managed backend: server-side extraction, semantic dedup and conflict resolution, and memories that other agents can retrieve when their user and entity filters match.
 
-Current package version: `0.3.2`.
+Current package version: `0.3.1`.
 
 ## Session handoff
 
-Explicitly request the `mem0_handoff` tool to continue the current DeepSeek session in Codex. The tool uses the native session context and completed tool outcomes. Invoke it directly; nested code-mode calls are rejected when the enclosing program is still running.
+Use `mem0_handoff` with action `save`, `list`, or `resume` (with a resource path). Save reads the current DeepSeek session; invoke save directly, outside a running nested code-mode call.
 
-Requires **Python 3.11+** available as `python3` and an installed, signed-in Codex CLI with native session import support. Handoff works independently of Mem0 credentials and never sends the transcript through the Mem0 API. Unsupported content, missing results, and unrelated unfinished calls fail explicitly.
+All plugins share local resources in `~/.mem0/handoffs/`, preserving supported active context, images, and completed tool outcomes. Resume reads that context as historical evidence. Requires **Python 3.11+** as `python3`; no destination CLI or Mem0 credentials are required.
 
-The shared launcher and pinned runtime manifest are packaged in `dist/` by [agent-plugin-core](../agent-plugin-core/README.md); the importer is fetched once from its pinned GitHub commit, verified, and cached for all plugins. A valid cache works offline. Failed imports save a private recovery bundle under `~/.mem0/handoffs/`. See the [session handoff guide](../agent-plugin-core/README.md#session-handoff) for supported formats, privacy, and recovery.
+The shared engine is fetched from a pinned GitHub commit on first use, verified, and cached across all plugins. Cached use works offline; no transcript is sent to GitHub. See the [shared handoff logic](../agent-plugin-core/README.md#session-handoff) for source formats and validation.
 
 ## How it works
 
@@ -61,7 +61,7 @@ Cordis owns listener and tool cleanup when the plugin unmounts. Every automatic 
 3. Install it into a disposable Harness profile:
    ```sh
    DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
-     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.3.2.tgz
+     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.3.1.tgz
    ```
 4. Copy `cordis.example.yml`, set its installed package path and your `userId`, then run Harness with the same profile:
    ```sh

@@ -1,4 +1,4 @@
-"""Native transcript readers; all destinations use the shared handoff importer.
+"""Native transcript readers producing complete, host-neutral handoff resources.
 
 Formats: openai/codex rollout payloads; MoonshotAI/kimi-code contextMemory;
 Pi's session-manager.buildSessionContext; native Cursor/Antigravity transcripts.
@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import claude_to_codex as engine
+import handoff_engine as engine
 
 
 def _message(role: str, text: str) -> dict:

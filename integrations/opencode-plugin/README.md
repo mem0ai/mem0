@@ -2,7 +2,7 @@
 
 Persistent memory for [OpenCode](https://opencode.ai). Your agent remembers decisions, preferences, and learnings across sessions automatically.
 
-Current package version: `0.3.2`. This native TypeScript integration keeps its own tools and scopes while sharing redaction and lifecycle utilities with [agent-plugin-core](../agent-plugin-core/README.md).
+Current package version: `0.3.1`. This native TypeScript integration keeps its own tools and scopes while sharing redaction and lifecycle utilities with [agent-plugin-core](../agent-plugin-core/README.md).
 
 ## Install
 
@@ -31,21 +31,21 @@ Restart OpenCode.
 | Component | Description |
 |-----------|-------------|
 | **10 Native Memory Tools** | `add_memory`, `search_memories`, `get_memories`, `update_memory`, `delete_memory`, and more — registered as OpenCode tools, backed by the `mem0ai` SDK (no MCP server required) |
-| **Session handoff** | `/mem0-handoff codex` continues the current session in Codex |
+| **Session handoff** | `/mem0-handoff` saves shared context for another plugin |
 | **Lifecycle Hooks** | Auto-search on session start and every prompt, error memory lookup, compaction context, secret redaction |
 | **7 Skills** | `/mem0-remember`, `/mem0-tour`, `/mem0-search`, `/mem0-status`, `/mem0-scope`, `/mem0-forget`, `/mem0-context-loader` — discovered in place from the plugin via OpenCode's `skills.paths` |
 
 ## Session handoff
 
-Run `/mem0-handoff codex` to continue the current OpenCode session in Codex. The plugin reads native session context, including readable compaction summaries and completed tool outcomes.
+Run `/mem0-handoff` to save the current session, `/mem0-handoff list` to find this project’s resources, or `/mem0-handoff resume /absolute/path.json` to continue from one.
 
-Requires **Python 3.11+** available as `python3` and an installed, signed-in Codex CLI with native session import support. Handoff works independently of Mem0 credentials and never sends the transcript through the Mem0 API. Unsupported content, missing results, and unrelated unfinished calls fail explicitly.
+All plugins share local resources in `~/.mem0/handoffs/`, preserving supported active context, images, and completed tool outcomes. Resume reads that context as historical evidence. Requires **Python 3.11+** as `python3`; no destination CLI or Mem0 credentials are required.
 
-The shared launcher and pinned runtime manifest are packaged in `dist/` by [agent-plugin-core](../agent-plugin-core/README.md); the importer is fetched once from its pinned GitHub commit, verified, and cached for all plugins. A valid cache works offline. Failed imports save a private recovery bundle under `~/.mem0/handoffs/`. See the [session handoff guide](../agent-plugin-core/README.md#session-handoff) for supported formats, privacy, and recovery.
+The shared engine is fetched from a pinned GitHub commit on first use, verified, and cached across all plugins. Cached use works offline; no transcript is sent to GitHub. See the [shared handoff logic](../agent-plugin-core/README.md#session-handoff) for source formats and validation.
 
 ## Hooks
 
-Memory hooks use TypeScript. Session handoff uses the shared cached Python importer. Memory operations are native OpenCode tools backed by the [mem0ai](https://www.npmjs.com/package/mem0ai) SDK directly.
+Memory hooks use TypeScript. Session handoff uses the shared cached Python engine. Memory operations are native OpenCode tools backed by the [mem0ai](https://www.npmjs.com/package/mem0ai) SDK directly.
 
 | Hook | Event | What it does |
 |------|-------|-------------|

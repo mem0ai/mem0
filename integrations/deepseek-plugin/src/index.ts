@@ -21,7 +21,7 @@ import { formatMemoryList, formatAddResult } from "./formatting.ts";
 import { truncateOutput } from "./output.ts";
 import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 import { captureEvent, errorKind } from "./telemetry.ts";
-import { buildHandoffBundle, runHandoff } from "../../agent-plugin-core/typescript/src/handoff.ts";
+import { buildHandoffBundle, runHandoff, runHandoffAction } from "../../agent-plugin-core/typescript/src/handoff.ts";
 import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
 
 export const name = "mem0";
@@ -95,15 +95,20 @@ export function apply(ctx: Context, config: Config): void {
   ctx.tools.register(
     defineTool({
       name: "mem0_handoff",
-      description: "Continue the current DeepSeek session in Codex, only when the user explicitly requests a handoff. Preserves the full active conversation and completed tool outcomes. Requires Python 3.11+ and a signed-in Codex CLI.",
-      parameters: {},
+      description: "On explicit user request, save the current session as a shared handoff resource, list resources for this project, or resume one resource into the current conversation as historical context. Requires Python 3.11+.",
+      parameters: {
+        action: {type: "string", enum: ["save", "list", "resume"], description: "Defaults to save; resume loads a shared resource into this conversation."},
+        resource: {type: "string", description: "Resource path returned by save or list; required for resume."},
+      },
       output: textOutput,
-      async execute(_args, exec) {
+      async execute({action = "save", resource}, exec) {
         try {
           if (exec.rootCallId && exec.rootCallId !== exec.callId) throw new Error("Invoke handoff directly, outside a nested code-mode tool call.");
           const session = exec.agent?.session;
           if (!session) throw new Error("The active DeepSeek session is unavailable.");
           if (!session.header.cwd) throw new Error("The native session project directory is unavailable.");
+          if (action === "list" || action === "resume") return await runHandoffAction(new URL("./session_handoff.py", import.meta.url), action, session.header.cwd, resource);
+          if (action !== "save") throw new Error("Handoff action must be save, list, or resume.");
           const attachments = (ctx as unknown as { attachments?: { readImage(ref: unknown): Promise<{ref: {mediaType: string}; data: Uint8Array}> } }).attachments;
           // dsh-session-title persists user renames and generated titles as last-wins log events.
           const titleEvent = [...session.events].reverse().find(event => String(event.type) === "session/title");

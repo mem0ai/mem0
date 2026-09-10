@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 from urllib.request import urlopen
 
-ENGINE_FILES = {"claude_to_codex.py", "handoff_sources.py"}
+ENGINE_FILES = {"handoff_engine.py", "handoff_sources.py"}
 SOURCE_URL = "https://raw.githubusercontent.com/mem0ai/mem0"
 
 
@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"handoff runtime unavailable: {exc}", file=sys.stderr)
         return 1
     sys.path.insert(0, str(root))
-    from claude_to_codex import main as engine_main
+    from handoff_engine import main as engine_main
 
     return engine_main(argv, default_source=None)
 

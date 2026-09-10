@@ -5,7 +5,9 @@ description: "Add persistent memory to Pi Agent with the Mem0 plugin, semantic s
 
 Add persistent memory to [**Pi Agent**](https://pi.dev) with `@mem0/pi-agent-plugin`. Your agent forgets everything between sessions. This plugin fixes that by automatically capturing knowledge from conversations, storing it in Mem0's cloud memory layer, and retrieving relevant context before every response.
 
-<Info>Current package version: `0.3.2`.</Info>
+<Info>Current package version: `0.3.1`.</Info>
+
+For explicit session handoff, use `/mem0-handoff`, `/mem0-handoff list`, or `/mem0-handoff resume /absolute/path.json`. All plugins share local resources in `~/.mem0/handoffs/`. Requires Python 3.11+; first use downloads and verifies the shared engine, then cached use works offline.
 
 ## Overview
 
@@ -108,7 +110,7 @@ Tool output is truncated to 200 lines / 50KB to prevent context overflow.
 | `/mem0-search <query>` | Semantic search across memories |
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
 | `/mem0-scope <scope>` | Change default scope for this session (project, session, global) |
-| `/mem0-handoff codex` | Continue the current Pi session in Codex |
+| `/mem0-handoff [save|list|resume <path>]` | Save or resume shared session context |
 | `/mem0-status` | Connection health, identity, and memory count |
 
 ## Memory Scopes

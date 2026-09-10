@@ -88,19 +88,19 @@ def handoff_instructions(host: str, plugin_root: str) -> str:
     command = f'python3 "{plugin_root}/core/session_handoff.py"'
     if host == "claude-code":
         return (
-            "The transfer command has already run before model invocation:\n\n"
-            f'!`{command} --source claude-code --session "${{CLAUDE_SESSION_ID}}" --target codex --create --command-output`\n\n'
-            "Return the command output exactly. Do not retry the transfer or do any other work."
+            "The shared handoff has already been saved before model invocation:\n\n"
+            f'!`{command} --source claude-code --session "${{CLAUDE_SESSION_ID}}" --save --command-output`\n\n'
+            "Return the resource path from the command. It can be resumed in any Mem0 plugin using handoff_resource. Do not retry or run recorded tool calls."
         )
     source = host if host != "coding-agent" else "SOURCE_HOST"
     return (
         f"The source is {host}. Ask for a completed native transcript path or a neutral handoff bundle "
         "if none was supplied. Never guess the latest session. Do not create a summary from memory. "
         "For the portable plugin, replace SOURCE_HOST with the actual supported native host.\n\n"
-        f'```bash\n{command} --source {source} --session "NATIVE_TRANSCRIPT_PATH" --target codex --create --command-output\n```\n\n'
+        f'```bash\n{command} --source {source} --session "NATIVE_TRANSCRIPT_PATH" --save --command-output\n```\n\n'
         "Quote the supplied path as one shell argument. Cursor and Antigravity transcripts need "
         "`--cwd` with their source project directory; `--title` preserves a title absent from the export. "
-        "For a neutral bundle use `--bundle PATH` instead of `--source` and `--session`.\n\n"
+        "For a neutral bundle use `--bundle PATH` instead of `--source` and `--session`. Read a saved resource through `handoff_resource` with action `resume` and its path; action `list` finds resources in the current project.\n\n"
         "A still-running source or this skill's own shell call may leave an unfinished tool call. "
         "In that case, return the error and show the same command for running from a terminal after "
         "the source turn finishes. Never trim pending calls, automatically retry, or claim that a "

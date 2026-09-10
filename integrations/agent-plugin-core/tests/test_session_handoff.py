@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import io
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -10,7 +10,7 @@ import pytest
 CORE = Path(__file__).resolve().parents[1] / "python"
 sys.path.insert(0, str(CORE))
 
-import claude_to_codex as engine  # noqa: E402
+import handoff_engine as engine  # noqa: E402
 from handoff_sources import _messages_items, read_source  # noqa: E402
 
 
@@ -36,16 +36,11 @@ def transcript(tmp_path, records):
     return path
 
 
-def test_neutral_stdin_export_round_trip_without_models(tmp_path):
-    destination = tmp_path / "saved.json"
-    process = subprocess.run(
-        [sys.executable, str(CORE / "session_handoff.py"), "--bundle", "-", "--export", str(destination)],
-        input=json.dumps(envelope(tmp_path)),
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    assert process.returncode == 0, process.stderr
+def test_neutral_stdin_save_round_trip_without_models(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(engine, "DEFAULT_BUNDLE_DIR", tmp_path / "handoffs")
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(envelope(tmp_path))))
+    assert engine.main(["--save", "--bundle", "-"]) == 0
+    destination = Path(json.loads(capsys.readouterr().out)["resource"])
     plan = engine.load_bundle(destination)
     assert plan.source.host == "pi-agent"
     assert plan.source.title == "Continue the task"
@@ -94,14 +89,14 @@ def test_neutral_missing_tool_name_is_restored_and_host_path_is_validated(tmp_pa
         engine.plan_from_bundle(payload)
 
 
-def test_neutral_project_resolves_git_root_unless_explicit_cwd(tmp_path, monkeypatch):
+def test_neutral_project_resolves_git_root_for_nested_cwd(tmp_path, monkeypatch):
     nested = tmp_path / "nested"
     nested.mkdir()
     payload = envelope(nested)
     plan = engine.plan_from_bundle(payload)
     monkeypatch.setattr(engine, "_git_root", lambda cwd: str(tmp_path))
-    assert engine._with_cwd(plan, None).source.codex_cwd == str(tmp_path)
-    assert engine._with_cwd(plan, nested).source.codex_cwd == str(nested)
+    assert engine._with_cwd(plan, None).source.project_cwd == str(tmp_path)
+    assert engine._with_cwd(plan, nested).source.project_cwd == str(tmp_path)
 
 
 def test_codex_native_rollout_keeps_response_items_and_excludes_harness(tmp_path):
@@ -307,10 +302,11 @@ def test_generic_cli_requires_source_and_accepts_native_openclaw(tmp_path, monke
             {"type": "message", "id": "u1", "parentId": None, "message": {"role": "user", "content": "Task"}},
         ],
     )
-    assert engine.main(["--session", str(path)], default_source=None) == 1
+    monkeypatch.setattr(engine, "DEFAULT_BUNDLE_DIR", tmp_path / "handoffs")
+    assert engine.main(["--save", "--session", str(path)], default_source=None) == 1
     assert "--source is required" in capsys.readouterr().err
-    assert engine.main(["--source", "openclaw", "--session", str(path)], default_source=None) == 0
-    assert json.loads(capsys.readouterr().out)["plan"]["source_host"] == "openclaw"
+    assert engine.main(["--save", "--source", "openclaw", "--session", str(path)], default_source=None) == 0
+    assert json.loads(capsys.readouterr().out)["source_host"] == "openclaw"
 
 
 @pytest.mark.parametrize(

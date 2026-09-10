@@ -7,6 +7,8 @@ Kimi Code forgets project decisions between sessions. The Mem0 plugin captures c
 
 <Info>Current plugin version: `0.3.2`.</Info>
 
+The explicit `handoff` skill saves session context as a shared local resource in `~/.mem0/handoffs/`. Ask the agent to use `handoff_resource` to list the current project’s resources or resume a saved path from any Mem0 plugin. Requires Python 3.11+; the shared engine is downloaded and verified on first use, then cached.
+
 ## Prerequisites
 
 1. A Mem0 Platform account and API key:
