@@ -23,7 +23,7 @@ integrations/
 
 Each native directory owns only its manifest, native hooks or adapter, tests, and `plugin-build.json`. Its `core/` and `skills/` directories are generated from this module. They are committed because clients install a self-contained plugin directory and the Agent Plugins specification forbids package files from resolving outside the plugin root.
 
-Claude Code remains the behavioral source of truth. Its sidekick stays at `claude-code-plugin/agents/sidekick.md` and is not generated or copied to hosts without a compatible native subagent interface.
+Sidekick belongs only to Claude Code. Its agent definition is in `claude-code-plugin/agents/sidekick.md`; its hooks are in `claude-code-plugin/adapters/claude/hook.py`. Other plugins must not register Sidekick. The shared core handles memory and native subagent tracking for Claude Code and Codex.
 
 TypeScript integrations (`openclaw`, `opencode-plugin`, `pi-agent-plugin`, and `deepseek-plugin`) import `typescript/src/` at build time. Their package builders include the shared implementation in their normal output; they do not carry checked-in copies.
 
@@ -106,18 +106,20 @@ For another native Python host:
 
 Keep capture, recall, memory scoping, redaction, skill text, and telemetry in this shared module. Host directories should contain only behavior required by their native SDK.
 
-For a TypeScript host, import the shared lifecycle modules directly and keep only native SDK registration in the integration. Do not advertise capture, compaction, or sidekick behavior unless the host exposes the necessary lifecycle seam.
+For a TypeScript host, import the shared lifecycle modules directly and keep only native SDK registration in the integration. Do not advertise capture or compaction behavior unless the host exposes the necessary lifecycle seam. Sidekick is limited to Claude Code.
 
 ## Host capture capabilities
 
 | Host | Conversation capture | Tool outcomes | Subagent context and correlation |
 | --- | --- | --- | --- |
 | Claude Code | Incremental active transcript branch | Native success/failure hooks | Parent context; native agent ID |
-| Cursor | Prompt and response hooks; duplicate responses suppressed | Native success/failure hooks | Sidekick searches itself; no parent-injection claim |
+| Cursor | Prompt and response hooks; duplicate responses suppressed | Native success/failure hooks | No plugin subagent hooks or agent declaration |
 | Codex | Native prompt and final-response fields | Structured failure indicators when present; otherwise unknown | Parent context; native agent ID |
-| Kimi | Prompt hooks and completed v2 wire output | Native success/failure hooks | Parent context; without an ID, a stop matches only one unambiguous active run |
-| Antigravity | Incremental completed transcript messages, including later prompts | Native tool errors | Sidekick searches itself; no worktree-isolation claim |
+| Kimi | Prompt hooks and completed v2 wire output | Native success/failure hooks | No plugin subagent hooks or agent declaration |
+| Antigravity | Incremental completed transcript messages, including later prompts | Native tool errors | No plugin subagent hooks or agent declaration |
 | Portable v1 | Explicit memory skills | No native lifecycle hooks | No native subagent declaration |
+
+Python status uses `subagent_runs` and `last_subagent`. Legacy SQLite names and event handling keep existing records and running workers compatible.
 
 An uncorrelated subagent completion is kept as its own record; the plugin never guesses which overlapping run completed. Codex's documented hook fields already match the shared input contract, so no speculative field aliases or unsupported failure event are registered.
 

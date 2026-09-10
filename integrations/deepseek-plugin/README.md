@@ -15,6 +15,8 @@ Unlike the local/file-based memory plugins in the ecosystem, Mem0 is a managed b
 
 Current package version: `0.3.0`.
 
+Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent).
+
 ## How it works
 
 A Cordis plugin is a module exporting `apply(ctx, config)`. This one waits for the Harness tool and system-prompt services, then uses the native extension points:
@@ -61,7 +63,7 @@ Cordis owns listener and tool cleanup when the plugin unmounts. Every automatic 
    ```
 5. Open http://127.0.0.1:3080 and ask the agent to remember something, then recall it in a later turn.
 
-For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that base URL (defaults to `api.mem0.ai`). `host` is a Platform base-URL override — it is not a switch to self-hosted Mem0 OSS, whose server exposes a different API surface.
+For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that base URL (defaults to `api.mem0.ai`). `host` overrides the Platform base URL. It does not support the self-hosted Mem0 OSS API.
 
 ## Configuration
 

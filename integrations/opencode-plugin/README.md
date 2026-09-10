@@ -4,15 +4,17 @@ Persistent memory for [OpenCode](https://opencode.ai). Your agent remembers deci
 
 Current package version: `0.3.0`. This native TypeScript integration keeps its own tools and scopes while sharing redaction and lifecycle utilities with [agent-plugin-core](../agent-plugin-core/README.md).
 
+Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent).
+
 ## Install
 
 ```bash
 opencode plugin @mem0/opencode-plugin
 ```
 
-This adds the plugin to your `~/.config/opencode/opencode.json`. The plugin registers its memory tools and skills itself — there is no MCP server to configure.
+This adds the plugin to your `~/.config/opencode/opencode.json`. The plugin registers its memory tools and skills. No MCP server configuration is needed.
 
-**Or let your agent do it** — paste this into OpenCode:
+**Or let your agent do it**: paste this into OpenCode:
 
 ```
 Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/integrations/opencode-plugin/README.md
@@ -30,17 +32,17 @@ Restart OpenCode.
 
 | Component | Description |
 |-----------|-------------|
-| **10 Native Memory Tools** | `add_memory`, `search_memories`, `get_memories`, `update_memory`, `delete_memory`, and more — registered as OpenCode tools, backed by the `mem0ai` SDK (no MCP server required) |
+| **10 Native Memory Tools** | `add_memory`, `search_memories`, `get_memories`, `update_memory`, `delete_memory`, and more, backed by the `mem0ai` SDK |
 | **Lifecycle Hooks** | Auto-search on session start and every prompt, error memory lookup, compaction context, secret redaction |
-| **7 Skills** | `/mem0-remember`, `/mem0-tour`, `/mem0-search`, `/mem0-status`, `/mem0-scope`, `/mem0-forget`, `/mem0-context-loader` — discovered in place from the plugin via OpenCode's `skills.paths` |
+| **7 Skills** | `/mem0-remember`, `/mem0-tour`, `/mem0-search`, `/mem0-status`, `/mem0-scope`, `/mem0-forget`, `/mem0-context-loader`. Discovered through OpenCode's `skills.paths` |
 
 ## Hooks
 
-Pure TypeScript — no Python, no shell scripts. Memory operations are native OpenCode tools backed by the [mem0ai](https://www.npmjs.com/package/mem0ai) SDK directly.
+Written in TypeScript. Memory operations are native OpenCode tools backed by the [mem0ai](https://www.npmjs.com/package/mem0ai) SDK directly.
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| **Config** | `config` | Registers the `/mem0-*` slash commands (via `config.command`) and adds the plugin's own `opencode-skills/` dir to OpenCode's `skills.paths` for in-place skill discovery — no copying into `~/.config/opencode/skills` |
+| **Config** | `config` | Registers the `/mem0-*` slash commands (via `config.command`) and adds the plugin's own `opencode-skills/` dir to OpenCode's `skills.paths` for skill discovery without copying files |
 | **Chat message** | `chat.message` | Loads prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
 | **Pre-tool** | `tool.execute.before` | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
 | **Post-tool** | `tool.execute.after` | Scans bash errors and pre-fetches related memories |
@@ -81,7 +83,7 @@ scope (used when none is passed) with the `/mem0-scope` skill:
 ```
 
 The default persists in `~/.mem0/settings.json` (`default_scope`) and is read
-fresh on each memory operation, so a change applies immediately — no restart.
+fresh on each memory operation, so changes apply without a restart.
 `delete_all_memories` always requires an explicit `scope="global"` to delete
 user-wide, so changing the default can't trigger a cross-project wipe.
 
