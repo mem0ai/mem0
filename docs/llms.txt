@@ -418,13 +418,13 @@ Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load 
 
 Source: https://github.com/mem0ai/mem0/tree/main/integrations/claude-code-plugin
 
-The self-contained Claude Code plugin lives in `integrations/claude-code-plugin/` (v0.3.1, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes a single local MCP tool, `search_memories`, plus six `/mem0:*` skills and the Claude Code-exclusive `mem0:sidekick` agent. Pure-stdlib Python, nothing to install.
+The self-contained Claude Code plugin lives in `integrations/claude-code-plugin/` (v0.3.1, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes a single local MCP tool, `search_memories`, plus six `/mem0:*` skills and `mem0:sidekick`, available only in Claude Code. Pure-stdlib Python, nothing to install.
 
 ### Coding-Agent Plugin Sources
 
 Source: https://github.com/mem0ai/mem0/tree/main/integrations/agent-plugin-core
 
-The `integrations/agent-plugin-core/` directory is the single source for shared Python and TypeScript memory behavior. Native plugins live in their own sibling directories, while `integrations/mem0-agent-plugin/` is the single portable Agent Plugins v1 package. Sidekick belongs only to the Claude Code plugin; other packages do not bundle it. The portable package provides search and skills but no automatic capture; its remember skill cannot save a new memory on its own. Shared Python search accepts optional `run_id` for session-specific recall in every scope. TypeScript integrations reuse the core's lifecycle, formatting, identity, scoping, and telemetry utilities while keeping their public packages and native host APIs unchanged.
+The `integrations/agent-plugin-core/` directory is the single source for shared Python and TypeScript memory behavior. Native plugins live in their own sibling directories, while `integrations/mem0-agent-plugin/` is the single portable Agent Plugins v1 package. Sidekick is available only in Claude Code. The portable package provides search and skills but no automatic capture; its remember skill cannot save a new memory on its own. Shared Python search accepts optional `run_id` for session-specific recall in every scope. TypeScript integrations reuse the core's lifecycle, formatting, identity, scoping, and telemetry utilities while keeping their public packages and native host APIs unchanged.
 
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 

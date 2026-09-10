@@ -2,13 +2,13 @@
 
 Long-term memory for [OpenClaw](https://github.com/openclaw/openclaw) agents, powered by [Mem0](https://mem0.ai).
 
-Your agent forgets everything between sessions. This plugin fixes that — it stores conversations, extracts what matters, and brings it back when relevant.
+Your agent forgets everything between sessions. This plugin stores conversations and recalls relevant memories.
 
 By default, the plugin runs in **skills mode**: the agent controls what to remember (triage) and how to recall (recall). Skills mode, `autoRecall`, and `autoCapture` are all enabled by default during `openclaw mem0 init`.
 
 Current package version: `1.1.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); OpenClaw keeps its own tools, skills, and memory scopes.
 
-Sidekick is exclusive to the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent). This package does not bundle a Sidekick agent.
+Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent).
 
 ## Requirements
 
@@ -31,7 +31,7 @@ If you're an AI agent setting up Mem0 autonomously (no human dashboard signup), 
 mem0 init --agent --json
 ```
 
-No email, no OTP, no browser. The key is written to your Mem0 CLI config and exported as `MEM0_API_KEY` — pass it to `openclaw mem0 init --api-key $MEM0_API_KEY --user-id <id>` to wire OpenClaw up immediately. The human owner can later run `mem0 init --email <their-email>` to claim ownership: memories transfer, same API key keeps working, no agent disruption.
+No email, no OTP, no browser. The key is written to your Mem0 CLI config and exported as `MEM0_API_KEY`. Pass it to `openclaw mem0 init --api-key $MEM0_API_KEY --user-id <id>` to wire OpenClaw up immediately. The human owner can later run `mem0 init --email <their-email>` to claim ownership: memories transfer, same API key keeps working, no agent disruption.
 
 Humans should follow the Quick Start below.
 
@@ -97,9 +97,9 @@ openclaw plugins update openclaw-mem0
 
 ### Open-Source (Self-hosted)
 
-No Mem0 key needed. Vectors are stored locally in SQLite at `~/.mem0/vector_store.db` — no external database required.
+No Mem0 key needed. Vectors are stored locally in SQLite at `~/.mem0/vector_store.db`. No external database is required.
 
-Defaults: `text-embedding-3-small` (OpenAI) for embeddings, `gpt-5-mini` (OpenAI) for fact extraction — requires `OPENAI_API_KEY`. For a fully local setup, use Ollama for both LLM and embeddings.
+Defaults: `text-embedding-3-small` (OpenAI) for embeddings, `gpt-5-mini` (OpenAI) for fact extraction. Both require `OPENAI_API_KEY`. For a fully local setup, use Ollama for both LLM and embeddings.
 
 #### Interactive Setup (Recommended)
 
@@ -110,16 +110,16 @@ openclaw mem0 init --mode open-source
 ```
 
 The wizard walks you through:
-1. **LLM provider** — OpenAI (`gpt-5-mini`), Ollama (`llama3.1:8b`, local), or Anthropic (`claude-sonnet-4-5-20250514`)
-2. **Embedding provider** — OpenAI (`text-embedding-3-small`) or Ollama (`nomic-embed-text`, local)
-3. **Vector store** — Qdrant (`http://localhost:6333`) or PGVector (PostgreSQL)
-4. **User ID** — your memory namespace identifier
+1. **LLM provider**: OpenAI (`gpt-5-mini`), Ollama (`llama3.1:8b`, local), or Anthropic (`claude-sonnet-4-5-20250514`)
+2. **Embedding provider**: OpenAI (`text-embedding-3-small`) or Ollama (`nomic-embed-text`, local)
+3. **Vector store**: Qdrant (`http://localhost:6333`) or PGVector (PostgreSQL)
+4. **User ID**: your memory namespace identifier
 
 Each step tests connectivity (Ollama, Qdrant, PGVector) before proceeding.
 
 #### Non-Interactive Setup
 
-For CI/CD, scripts, or agent-driven setup — pass all options as flags:
+For automated setup, pass all options as flags:
 
 ```bash
 # Fully local with Ollama + Qdrant
@@ -168,7 +168,7 @@ openclaw mem0 init --mode open-source --oss-llm ollama --oss-embedder ollama --o
 
 #### Manual Config
 
-Minimal config — uses OpenAI defaults:
+Minimal config using OpenAI defaults:
 
 ```json5
 {
@@ -215,8 +215,8 @@ All `oss` fields are optional. See the [Mem0 OSS docs](https://docs.mem0.ai/open
 
 Enabled automatically during `openclaw mem0 init`. The agent controls memory through two skills:
 
-- **Triage** — Extracts durable facts from conversations using a structured protocol. Categories, importance gates, and domain overlays control what gets stored.
-- **Recall** — Before each turn, rewrites the user message into search queries, retrieves relevant memories with reranking, and injects them into context.
+- **Triage**: Extracts durable facts from conversations using a structured protocol. Categories, importance gates, and domain overlays control what gets stored.
+- **Recall**: Before each turn, rewrites the user message into search queries, retrieves relevant memories with reranking, and injects them into context.
 
 When skills mode is active, the skills handle memory operations. `autoRecall` and `autoCapture` remain `true` by default alongside skills mode. The built-in `session-memory` hook is disabled to avoid conflicts.
 
@@ -224,8 +224,8 @@ When skills mode is active, the skills handle memory operations. `autoRecall` an
 
 The plugin also registers `autoRecall` and `autoCapture` when their flags are enabled (both default to `true`), including alongside skills mode:
 
-- **Auto-Recall** — Before the agent responds, the plugin searches Mem0 for relevant memories and injects them into context.
-- **Auto-Capture** — After the agent responds, the conversation is filtered through a noise-removal pipeline and sent to Mem0. New facts get stored, stale ones updated, duplicates merged.
+- **Auto-Recall**: Before the agent responds, the plugin searches Mem0 for relevant memories and injects them into context.
+- **Auto-Capture**: After the agent responds, the conversation is filtered through a noise-removal pipeline and sent to Mem0. New facts get stored, stale ones updated, duplicates merged.
 
 Automatic capture selects a recent-message window and earlier assistant summaries, removes injected context and noise, and redacts secrets. Selected message text is no longer cut off at 2,000 characters. This preserves full redacted text for selected messages, not every message in the session. Capture skips non-interactive triggers, subagent sessions, and turns that already used memory mutation tools.
 
@@ -233,8 +233,8 @@ Set `autoRecall: false` or `autoCapture: false` to disable these automatic hooks
 
 ### Memory Scopes
 
-- **Session (short-term)** — Scoped to the current conversation via `run_id`. Recalled alongside long-term memories.
-- **User (long-term)** — Persistent across all sessions. Default for `memory_add`.
+- **Session (short-term)**: Scoped to the current conversation via `run_id`. Recalled alongside long-term memories.
+- **User (long-term)**: Persistent across all sessions. Default for `memory_add`.
 
 ### Multi-Agent Isolation
 
@@ -322,7 +322,7 @@ Enabled by default during `openclaw mem0 init`. `autoRecall` and `autoCapture` a
 
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
-| `apiKey` | `string` | — | **Required.** Mem0 API key (supports `${MEM0_API_KEY}`) |
+| `apiKey` | `string` | Not set | **Required.** Mem0 API key (supports `${MEM0_API_KEY}`) |
 | `customInstructions` | `string` | *(built-in)* | Custom extraction rules |
 | `customCategories` | `object` | *(12 defaults)* | Category name to description map |
 
@@ -334,12 +334,12 @@ All fields optional. Defaults: `text-embedding-3-small` embeddings, local SQLite
 | --- | ---- | ------- | ----------- |
 | `customPrompt` | `string` | *(built-in)* | Extraction prompt |
 | `oss.embedder.provider` | `string` | `"openai"` | Embedding provider |
-| `oss.embedder.config` | `object` | — | Provider config (`apiKey`, `model`, `baseURL`) |
+| `oss.embedder.config` | `object` | Not set | Provider config (`apiKey`, `model`, `baseURL`) |
 | `oss.vectorStore.provider` | `string` | `"memory"` | Vector store provider (see list above) |
-| `oss.vectorStore.config` | `object` | — | Provider config (`host`, `port`, `collectionName`, `dbPath`) |
+| `oss.vectorStore.config` | `object` | Not set | Provider config (`host`, `port`, `collectionName`, `dbPath`) |
 | `oss.llm.provider` | `string` | `"openai"` | LLM provider |
-| `oss.llm.config` | `object` | — | Provider config (`apiKey`, `model`, `baseURL`) |
-| `oss.historyDbPath` | `string` | — | SQLite path for edit history |
+| `oss.llm.config` | `object` | Not set | Provider config (`apiKey`, `model`, `baseURL`) |
+| `oss.historyDbPath` | `string` | Not set | SQLite path for edit history |
 
 ## Privacy & Security
 
@@ -349,7 +349,7 @@ All fields optional. Defaults: `text-embedding-3-small` embeddings, local SQLite
 |------|----------------|-------------------|
 | **Platform** | Conversations sent to `api.mem0.ai` for memory extraction and retrieval | `MEM0_API_KEY` |
 | **Open-Source (OpenAI)** | LLM/embedding calls to OpenAI API; vectors stored locally at `~/.mem0/vector_store.db` | `OPENAI_API_KEY` |
-| **Open-Source (Ollama)** | Fully local — LLM, embeddings, and vectors all on your machine | None |
+| **Open-Source (Ollama)** | LLM, embeddings, and vectors run locally | None |
 
 ### Credential Storage
 

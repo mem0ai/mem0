@@ -23,7 +23,7 @@ integrations/
 
 Each native directory owns only its manifest, native hooks or adapter, tests, and `plugin-build.json`. Its `core/` and `skills/` directories are generated from this module. They are committed because clients install a self-contained plugin directory and the Agent Plugins specification forbids package files from resolving outside the plugin root.
 
-Sidekick is a Claude Code-only product. Its agent definition lives at `claude-code-plugin/agents/sidekick.md`, and its dedicated start/stop handlers live in `claude-code-plugin/adapters/claude/hook.py`. Other plugins must not bundle or register Sidekick. The shared core provides generic subagent memory tracking for Claude Code and Codex; it does not select an agent model, create a worktree, or define a Sidekick agent.
+Sidekick belongs only to Claude Code. Its agent definition is in `claude-code-plugin/agents/sidekick.md`; its hooks are in `claude-code-plugin/adapters/claude/hook.py`. Other plugins must not register Sidekick. The shared core handles memory and native subagent tracking for Claude Code and Codex.
 
 TypeScript integrations (`openclaw`, `opencode-plugin`, `pi-agent-plugin`, and `deepseek-plugin`) import `typescript/src/` at build time. Their package builders include the shared implementation in their normal output; they do not carry checked-in copies.
 
@@ -106,7 +106,7 @@ For another native Python host:
 
 Keep capture, recall, memory scoping, redaction, skill text, and telemetry in this shared module. Host directories should contain only behavior required by their native SDK.
 
-For a TypeScript host, import the shared lifecycle modules directly and keep only native SDK registration in the integration. Do not advertise capture or compaction behavior unless the host exposes the necessary lifecycle seam. Sidekick remains exclusive to Claude Code regardless of host subagent capabilities.
+For a TypeScript host, import the shared lifecycle modules directly and keep only native SDK registration in the integration. Do not advertise capture or compaction behavior unless the host exposes the necessary lifecycle seam. Sidekick is limited to Claude Code.
 
 ## Host capture capabilities
 
@@ -119,7 +119,7 @@ For a TypeScript host, import the shared lifecycle modules directly and keep onl
 | Antigravity | Incremental completed transcript messages, including later prompts | Native tool errors | No plugin subagent hooks or agent declaration |
 | Portable v1 | Explicit memory skills | No native lifecycle hooks | No native subagent declaration |
 
-Python status diagnostics now report `subagent_runs` and `last_subagent` instead of the old Sidekick-specific keys. The legacy SQLite table name is retained for compatibility with existing databases and in-flight workers; historical completion events remain readable. Sidekick-specific names in storage compatibility code do not register an agent.
+Python status uses `subagent_runs` and `last_subagent`. Legacy SQLite names and event handling keep existing records and running workers compatible.
 
 An uncorrelated subagent completion is kept as its own record; the plugin never guesses which overlapping run completed. Codex's documented hook fields already match the shared input contract, so no speculative field aliases or unsupported failure event are registered.
 

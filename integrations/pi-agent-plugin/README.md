@@ -6,17 +6,17 @@ This extension gives Pi Agent long-term memory that persists across sessions, pr
 
 Current package version: `0.3.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); Pi keeps its own tools and scopes.
 
-Sidekick is exclusive to the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent). This package does not bundle a Sidekick agent.
+Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent).
 
 ## Features
 
-- **Automatic memory capture** — learns from every conversation (both user and assistant messages)
-- **Semantic search** — find memories by meaning, not just keywords
-- **Scoped memory** — project, session, or global scope
-- **Monorepo-aware** — uses git root for project detection, consistent app_id across subdirectories
-- **Confirmation dialogs** — destructive commands ask before acting
-- **6 slash commands** — essential memory management from the command line
-- **Agent tool** — `mem0_memory` tool lets the agent search and store memories autonomously
+- **Automatic memory capture**: learns from every conversation (both user and assistant messages)
+- **Semantic search**: find memories by meaning, not just keywords
+- **Scoped memory**: project, session, or global scope
+- **Monorepo-aware**: uses git root for project detection, consistent app_id across subdirectories
+- **Confirmation dialogs**: destructive commands ask before acting
+- **6 slash commands**: essential memory management from the command line
+- **Agent tool**: `mem0_memory` tool lets the agent search and store memories autonomously
 
 ## Setup
 
