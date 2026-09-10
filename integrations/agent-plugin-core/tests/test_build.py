@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import sys
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,7 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = ROOT.parents[1]
 sys.path.insert(0, str(ROOT))
 
-from build.build import build, bundle_drift, render_template, replace_output  # noqa: E402
+from build.build import (  # noqa: E402
+    build,
+    bundle_drift,
+    render_template,
+    replace_output,
+)
 from build.validate import validate_bundle  # noqa: E402
 
 
@@ -114,3 +119,21 @@ def test_marketplaces_keep_public_names_and_reference_real_plugins() -> None:
     assert [plugin["name"] for plugin in codex_marketplace["plugins"]] == ["mem0"]
     codex = codex_marketplace["plugins"][0]
     assert codex["source"]["path"] == "./integrations/codex-plugin"
+
+
+@pytest.mark.parametrize("host", ["claude-code", "cursor", "codex", "kimi", "antigravity", "mem0-agent-plugin"])
+def test_handoff_is_bundled_with_host_appropriate_invocation(host: str, tmp_path: Path) -> None:
+    kind = "portable" if host == "mem0-agent-plugin" else "native"
+    root = build(host, kind, tmp_path / host)
+    skill = (root / "skills" / "handoff" / "SKILL.md").read_text()
+    assert (root / "core" / "session_handoff.py").is_file()
+    assert (root / "core" / "handoff_sources.py").is_file()
+    assert "Only run on an explicit user request" in skill
+    assert "--target codex --create --command-output" in skill
+    if host == "claude-code":
+        assert '!`python3 "${CLAUDE_PLUGIN_ROOT}/core/session_handoff.py"' in skill
+        assert "${CLAUDE_SESSION_ID}" in skill
+    else:
+        assert "!`" not in skill
+        assert "NATIVE_TRANSCRIPT_PATH" in skill
+        assert "Never guess the latest session" in skill

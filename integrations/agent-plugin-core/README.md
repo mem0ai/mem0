@@ -9,7 +9,7 @@ integrations/
 ├── agent-plugin-core/       # Shared source; never installed as a plugin
 │   ├── python/              # Claude-derived capture, recall, MCP, scoping, and telemetry
 │   ├── typescript/          # Shared lifecycle, formatting, identity, scoping, and telemetry
-│   ├── skills/              # The only source for the six generated memory skills
+│   ├── skills/              # The source for six memory skills and the handoff command
 │   ├── build/               # Bundle builder, schemas, and validation
 │   ├── conformance/         # One offline/live verification entry point
 │   └── tests/
@@ -29,7 +29,9 @@ TypeScript integrations (`openclaw`, `opencode-plugin`, `pi-agent-plugin`, and `
 
 ## Shared memory behavior
 
-The six Python packages use the same `search_memories` MCP tool and six skill templates. Native hooks collect conversations and flush them to Mem0 in the background. The portable package uses the Agent Plugins v1 layout so compatible hosts can load its MCP server and skills. It has no lifecycle hooks or flush worker; its bundled `remember` skill assumes automatic capture and cannot save a memory on its own.
+The six Python packages use the same `search_memories` MCP tool and six memory skill templates plus the handoff command. Native hooks collect conversations and flush them to Mem0 in the background. The portable package uses the Agent Plugins v1 layout so compatible hosts can load its MCP server and skills. It has no lifecycle hooks or flush worker; its bundled `remember` skill assumes automatic capture and cannot save a memory on its own.
+
+Search guidance follows Memo: use a focused question when earlier work could help, reuse available context, and search again only for a specific remaining gap. The TypeScript hosts import one shared guidance constant; conformance checks keep it aligned with the generated Python MCP description and reject strict before-answer or repeated-search prompts. Automatic recall schedules and retrieval limits are independent of this wording.
 
 Python search accepts `query`, `top_k`, `category`, `scope`, and optional `run_id`:
 
@@ -48,6 +50,18 @@ Captured prompts and responses preserve their full text after secret redaction. 
 TypeScript hosts reuse redaction and lifecycle utilities but retain their own tools, scopes, and capture events. They do not inherit the Python `repo`/`dir`/`mine` contract or its background batching. OpenCode captures selected user prompts; Pi and DeepSeek capture completed conversation turns; OpenClaw selects recent messages and earlier summaries, then filters noise. Removing message-length truncation does not turn these integrations into complete transcript archives.
 
 For installation, follow the host guides: [Claude Code](../../docs/integrations/claude-code.mdx), [Cursor](../../docs/integrations/cursor.mdx), [Codex](../../docs/integrations/codex.mdx), [Kimi](../../docs/integrations/kimi.mdx), and [Antigravity](../../docs/integrations/antigravity.mdx).
+
+## Session handoff
+
+`python/session_handoff.py` is the common entry point. `python/handoff_sources.py` reads native transcript formats; `python/claude_to_codex.py` retains the Claude parser and the single implementation of validation, private recovery, assets, context limits, and Codex import. It is adapted from [mem0ai/memo](https://github.com/mem0ai/memo/blob/aeeb1593284d1d2fca3b4bcf1e32ea10f71df549/docs/session-handoff.md).
+
+The TypeScript hosts read their native active context and use `typescript/src/handoff.ts` to normalize messages and pass a `mem0.session-handoff.v1` bundle to the same Python engine over stdin. OpenClaw supplies its trusted native transcript path. Native Python and portable plugins generate the shared `handoff` skill, with source-specific instructions.
+
+The common bundle contains `source` (`host`, `session_id`, `title`, `cwd`, optional `path`), `items` (user/assistant messages, paired function calls/results, and supported images), and optional `warnings`. The engine derives counts and validates the bundle. Unknown model-visible content, missing tool results, and opaque compaction state fail rather than disappearing from the imported task. Handoff runs only on explicit user request, independently of memory hooks and the Mem0 API. Creation requires Python 3.11+ and a local Codex CLI with native session import support.
+
+`build/handoff-runtime.json` declares the runtime files once. Every TypeScript build uses `build/package_handoff.mjs` to package them. Conformance checks reject missing or stale copies, as well as generated Python bundle drift. When the importer changes, regenerate the Python bundles and rebuild the TypeScript packages; no per-plugin importer edits are needed. A new host needs only a native context reader or adapter producing the common bundle.
+
+See the [handoff guide](../../docs/integrations/session-handoff.mdx) for host commands, verified formats, current-session limits, and recovery.
 
 ## Build and verify
 

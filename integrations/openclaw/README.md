@@ -6,7 +6,15 @@ Your agent forgets everything between sessions. This plugin fixes that — it st
 
 By default, the plugin runs in **skills mode**: the agent controls what to remember (triage) and how to recall (recall). Skills mode, `autoRecall`, and `autoCapture` are all enabled by default during `openclaw mem0 init`.
 
-Current package version: `1.1.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); OpenClaw keeps its own tools, skills, and memory scopes.
+Current package version: `1.2.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); OpenClaw keeps its own tools, skills, and memory scopes.
+
+## Session handoff
+
+Run `/mem0-handoff codex` to continue the current OpenClaw session in Codex. The plugin reads native session context, including readable compaction summaries and completed tool outcomes.
+
+Requires **Python 3.11+** available as `python3` and an installed, signed-in Codex CLI with native session import support. Handoff works independently of Mem0 credentials and never sends the transcript through the Mem0 API. Unsupported content, missing results, and unrelated unfinished calls fail explicitly.
+
+The shared engine is packaged in `dist/` by [agent-plugin-core](../agent-plugin-core/README.md); it is not maintained separately in this plugin. Failed imports save a private recovery bundle under `~/.mem0/handoffs/`. See the [session handoff guide](../../docs/integrations/session-handoff.mdx) for supported formats, privacy, and recovery.
 
 ## Requirements
 

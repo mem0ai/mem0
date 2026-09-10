@@ -42,6 +42,14 @@ function createPluginApi(registrationMode?: string) {
 }
 
 describe("plugin registration modes", () => {
+  it("registers the explicit native handoff command", () => {
+    const api = createPluginApi();
+    memoryPlugin.register(api as any);
+    expect(api.registerCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "mem0-handoff" }),
+    );
+  });
+
   it("keeps cli-metadata registration free of runtime side effects", () => {
     const api = createPluginApi("cli-metadata");
 

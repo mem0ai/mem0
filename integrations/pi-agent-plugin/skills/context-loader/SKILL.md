@@ -1,6 +1,6 @@
 ---
 name: context-loader
-description: Searches and injects relevant memories into context before starting work on a task or topic. Use when beginning a new task, switching context, or when past decisions, preferences, or knowledge need to be loaded.
+description: Search earlier context when project history, decisions, or preferences could help with a specific question.
 ---
 
 # Context Loader
@@ -9,22 +9,14 @@ Pre-fetches relevant memories to prime context before working on a task or topic
 
 ## When to use
 
-- Session start (auto-triggered by the extension's `before_agent_start` event)
-- User starts work on a specific topic or area
-- User says "what do we know about X" or "context for X"
+Use when earlier work could explain a decision, fix, command, or preference you
+need. Skip this skill when the context already answers the question.
 
 ## Steps
 
 1. **Extract topics** from current message/task. Identify: subject areas, people mentioned, project names, goal references.
 
-2. **Run 2-4 parallel searches** using `mem0_memory` tool with `action="search"` and different query angles:
-
-   | Query angle | Purpose |
-   |---|---|
-   | Topic/subject name | Relevant decisions and preferences |
-   | People mentioned | Relationship context |
-   | Project/goal references | Progress and background |
-   | Broad context | Catch-all for anything relevant |
+2. **Search one focused question** using `mem0_memory` with `action="search"`. Keep the default project scope. Search again only if a specific gap remains.
 
 3. **Deduplicate** results by memory ID across all search responses.
 

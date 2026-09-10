@@ -370,6 +370,7 @@
                     "icon": "terminal",
                     "pages": [
                       "integrations/claude-code",
+                      "integrations/session-handoff",
                       "integrations/claude-ai",
                       "integrations/cursor",
                       "integrations/codex",

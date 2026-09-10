@@ -1,0 +1,82 @@
+---
+title: Session handoff
+description: "Continue a coding-agent session in Codex using Mem0's shared handoff runtime."
+icon: arrow-right-arrow-left
+---
+
+Session handoff creates a normal Codex task from a coding agent's saved conversation. It preserves the title, project, and supported active context, including readable compaction summaries and completed tool history. It runs only when you request it.
+
+All ten Mem0 plugin packages use the same handoff engine. Host adapters read native session state and pass it to a common converter, validator, and Codex importer. The transfer does not reconstruct the session from memories or ask a model to write a new handoff summary.
+
+## Requirements
+
+- Python 3.11 or newer available as `python3`.
+- Codex CLI installed, signed in, and available as `codex` on the same machine. Its app-server must support native external-session import and thread compaction. Open Codex once so its configuration and model metadata exist.
+- The source conversation and its project directory available locally.
+
+The handoff runtime does not call Mem0 or use its API key. Memory features and host installation may still require their normal configuration. Handoff is separate from automatic memory capture.
+
+## Commands
+
+| Plugin | Entry point | Source |
+| --- | --- | --- |
+| Claude Code | `/mem0:handoff codex` | Current Claude session, read before the command's model invocation |
+| OpenCode | `/mem0-handoff codex` | Current session through the native session API |
+| Pi Agent | `/mem0-handoff codex` | Current session's active branch and native compaction context |
+| OpenClaw | `/mem0-handoff codex` | Current session's native transcript |
+| DeepSeek Harness | Explicitly request `mem0_handoff` | Current session's native derived messages |
+| Cursor, Codex, Kimi, Antigravity | Invoke the `handoff` skill with a completed native transcript path | The explicitly selected native conversation |
+| Portable Agent Plugins | Invoke the `handoff` skill with a source host and completed transcript, or a handoff bundle | Any supported source format |
+
+The result includes the new task ID, title, and project. Open Codex and select that task. Handoff does not submit a new prompt or continue the task automatically.
+
+Native tools exclude their own handoff invocation when its ID is available. Other unfinished calls still cause an error. For skills that run through a shell tool, use a completed transcript or exported bundle: reading that host's live transcript from its own tool loop can include the still-running shell call. Do not retry repeatedly or remove unrelated unfinished calls to force an import.
+
+## Source formats and limits
+
+- **Claude Code:** local JSONL, active parent chain, readable compaction summary, supported attachments and images. Session IDs are resolved under `~/.claude/projects/`.
+- **Codex:** readable rollout response items and replacement compaction history. Opaque compaction state cannot be transferred and causes an error.
+- **Cursor:** JSONL records with user/assistant roles and structured `message.content` (text, tool calls, and results). Missing tool results or unsupported records cause an error.
+- **Kimi:** native v2 wire events replayed into the active readable context.
+- **Antigravity:** completed `USER_INPUT` and `PLANNER_RESPONSE` text steps. Other trajectory step types require a supported context export and cause an error.
+- **Pi and OpenClaw:** active message branch and readable compaction context. Pi uses the native session manager's selected leaf, including branch navigation.
+- **OpenCode and DeepSeek:** the host's active session context, normalized by the shared TypeScript adapter.
+
+Source formats evolve with their hosts. A format the plugin cannot represent safely fails explicitly; the importer does not silently shorten the conversation or fall back to a memory search. The portable bundle also accepts the common handoff format for hosts that can export their own context.
+
+## What transfers
+
+- User and assistant text, completed tool calls and results, and supported images.
+- The source's readable compaction summary and supported active history after it.
+- The session title and project. Git projects open at their repository root; an explicit directory override selects that directory.
+
+Hidden reasoning and host-only control records do not transfer. Tool calls and results become visible tagged text because Codex's external importer cannot recreate every host's native tool events. Images are saved as private local assets under the selected Codex home.
+
+If the imported state exceeds Codex's automatic-compaction limit, Codex compacts it before reporting success. That step invokes Codex's configured model. Smaller imports do not ask a model to summarize the conversation. Transcripts are transferred without the memory pipeline's secret redaction, so review the source before handing it off; the imported context is available to Codex and its model when compacting or continuing.
+
+## Recovery and manual use
+
+Incomplete JSONL, unmatched tool calls or results, unsupported model-visible records, and missing project directories cause a failure instead of silent data loss. For context too large for Codex to compact, compact in the source host and retry if it provides a readable summary.
+
+If task creation fails after conversion, a private reusable bundle is saved under `~/.mem0/handoffs/`. The error reports its path. Check Codex for an already-created task before retrying an import that failed during naming or compaction.
+
+Native Python and portable plugins ship `core/session_handoff.py`. TypeScript packages ship `dist/session_handoff.py`. From the installed plugin directory, use the relevant path:
+
+```bash
+# Preview a native transcript without creating a task.
+python3 core/session_handoff.py --source codex --session /absolute/path/to/rollout.jsonl
+
+# Create a task from an explicit completed native transcript.
+python3 core/session_handoff.py --source kimi --session /absolute/path/to/wire.jsonl --create --command-output
+
+# Retry a saved bundle.
+python3 core/session_handoff.py --bundle /absolute/path/to/handoff.json --create --command-output
+```
+
+Use `--title "Session title"` when the transcript does not include a title, and `--cwd /existing/project` when it does not include a directory (such as Cursor and Antigravity exports). DeepSeek handoff must run as a direct tool call; a nested code-mode call still has an unfinished enclosing program.
+
+The importer also accepts `--export /path/to/bundle.json`, `--cwd /existing/project`, `--codex-home /path/to/codex-home`, and `--codex-bin /path/to/codex`. Exported bundles contain the transferred conversation; keep them private. The original `claude_to_codex.py` entry point remains available for explicit Claude imports.
+
+Codex currently requires a temporary import file under `~/.claude/projects/`, even for normalized context from another host. The plugin removes that staging file after the import attempt. `--claude-projects-dir` changes Claude source lookup, not this native staging location.
+
+The destination is Codex. Importing into other hosts, round trips between existing sessions, and background synchronization are not implemented.

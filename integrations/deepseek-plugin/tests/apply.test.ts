@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Offline mock of the Mem0 SDK so these tests never touch the network.
+vi.mock("../../agent-plugin-core/typescript/src/handoff.ts", async (original) => ({
+  ...await original<typeof import("../../agent-plugin-core/typescript/src/handoff.ts")>(), runHandoff: vi.fn(),
+}));
+import { runHandoff } from "../../agent-plugin-core/typescript/src/handoff.ts";
+
 const mockSearch = vi.fn();
 const mockAdd = vi.fn();
 vi.mock("mem0ai", () => ({
@@ -54,6 +59,7 @@ beforeEach(() => {
   savedKey = process.env.MEM0_API_KEY;
   savedTelemetry = process.env.MEM0_TELEMETRY;
   process.env.MEM0_TELEMETRY = "false";
+  vi.mocked(runHandoff).mockReset();
   mockSearch.mockReset();
   mockAdd.mockReset();
 });
@@ -66,18 +72,18 @@ afterEach(() => {
 });
 
 describe("apply() config validation", () => {
-  it("throws when no apiKey is set and MEM0_API_KEY is absent", () => {
+  it("keeps local handoff available without a Mem0 key", () => {
     delete process.env.MEM0_API_KEY;
-    expect(() => applyAndCollect({ userId: "u" } as Config)).toThrow(/apiKey|MEM0_API_KEY/);
+    expect([...applyAndCollect({ userId: "u" }).keys()]).toEqual(["mem0_handoff"]);
   });
 
   it("throws when userId is missing", () => {
     expect(() => applyAndCollect({ apiKey: "k", userId: "" } as Config)).toThrow(/userId/);
   });
 
-  it("registers both memory tools", () => {
+  it("registers memory and handoff tools", () => {
     const tools = applyAndCollect({ apiKey: "k", userId: "u" });
-    expect([...tools.keys()].sort()).toEqual(["add_memory", "search_memory"]);
+    expect([...tools.keys()].sort()).toEqual(["add_memory", "mem0_handoff", "search_memory"]);
   });
 });
 
@@ -270,5 +276,44 @@ describe("tool user ownership", () => {
     await expect(tools.get("add_memory")!.execute({ text: "x", userId: "other" }, {})).rejects.toThrow(/allowUserOverride/);
     expect(mockSearch).not.toHaveBeenCalled();
     expect(mockAdd).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("mem0_handoff tool", () => {
+  const exec = {callId: "handoff", agent: {session: {
+    id: "native-session", header: {cwd: "/tmp"},
+    events: [{type: "session/title", data: {title: "Old title"}}, {type: "session/title", data: {title: "Renamed native task"}}],
+    deriveMessages: () => [
+      {role: "user", content: [{type: "text", text: "Readable current context"}]},
+      {role: "assistant", content: [{type: "tool-call", id: "handoff", name: "mem0_handoff", arguments: "{}"}]},
+    ],
+  }}};
+  it("exports the current native session, excluding only its own in-flight call", async () => {
+    vi.mocked(runHandoff).mockResolvedValue("Created Codex task");
+    const tools = applyAndCollect({apiKey: "k", userId: "u"});
+    expect(await tools.get("mem0_handoff")!.execute({}, exec)).toBe("Created Codex task");
+    expect(runHandoff).toHaveBeenCalledWith(expect.any(URL), expect.objectContaining({
+      source: expect.objectContaining({host: "deepseek", session_id: "native-session", title: "Renamed native task"}),
+      items: [{type: "message", role: "user", content: [{type: "input_text", text: "Readable current context"}]}],
+    }));
+    expect(mockSearch).not.toHaveBeenCalled();
+    expect(mockAdd).not.toHaveBeenCalled();
+  });
+  it("refuses unfinished sibling tools rather than hiding them with its own invocation", async () => {
+    const tools = applyAndCollect({apiKey: "k", userId: "u"});
+    const siblingExec = {...exec, agent: {session: {...exec.agent.session, deriveMessages: () => [
+      ...exec.agent.session.deriveMessages(),
+      {role: "assistant", content: [{type: "tool-call", id: "other", name: "read", arguments: "{}"}]},
+    ]}}};
+    expect(await tools.get("mem0_handoff")!.execute({}, siblingExec)).toContain("unfinished");
+    expect(runHandoff).not.toHaveBeenCalled();
+  });
+  it("reports unavailable native state and importer failures", async () => {
+    const tools = applyAndCollect({apiKey: "k", userId: "u"});
+    expect(await tools.get("mem0_handoff")!.execute({}, {})).toContain("unavailable");
+    expect(runHandoff).not.toHaveBeenCalled();
+    vi.mocked(runHandoff).mockRejectedValue(new Error("saved at /tmp/retry.json"));
+    expect(await tools.get("mem0_handoff")!.execute({}, exec)).toContain("saved at /tmp/retry.json");
   });
 });

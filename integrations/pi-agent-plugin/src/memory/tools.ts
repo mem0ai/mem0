@@ -1,3 +1,4 @@
+import { SEARCH_GUIDANCE } from "../../../agent-plugin-core/typescript/src/search_guidance.ts";
 import { resolveToolScope } from "../../../agent-plugin-core/typescript/src/scoping.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -144,11 +145,10 @@ export function registerMemoryTool(
     name: "mem0_memory",
     label: "Mem0 Memory",
     description:
-      "Search, add, update, and manage persistent semantic memories powered by Mem0. Memories persist across sessions and devices. Use action \"search\" proactively -- before answering anything that may depend on what the user told you earlier -- and run multiple searches with different phrasings for multi-part questions. Output is truncated to 200 lines / 50KB.",
+      "Search, add, update, and manage persistent semantic memories powered by Mem0. Memories persist across sessions and devices. Output is truncated to 200 lines / 50KB.",
     promptSnippet: "Semantic memory search and storage via Mem0",
     promptGuidelines: [
-      'Use mem0_memory with action "search" proactively whenever the request may depend on the user\'s past work, preferences, decisions, or environment -- not only when they explicitly mention the past',
-      'For multi-part or comparative questions, run several searches with different phrasings and combine the results before answering -- one search is rarely enough',
+      SEARCH_GUIDANCE,
       'Use mem0_memory with action "add" to save important facts, preferences, goals, decisions, or lessons the user shares',
       'Use mem0_memory with action "update" to modify an existing memory — requires memory_id and content. Preserves the memory ID',
       "Always use the default project scope unless the user EXPLICITLY asks to search across all projects — only after the user selects /mem0-scope global use scope \"global\"",
@@ -166,13 +166,13 @@ export function registerMemoryTool(
         ] as const,
         {
           description:
-            "Memory operation to run: \"search\" (semantic recall -- use proactively before answering; run several with different phrasings for multi-part questions), \"add\" (save a new fact/preference/decision), \"get_all\" (list everything in scope, no query needed), \"update\" (replace an existing memory's text by id), \"delete\" (remove one memory by id), \"delete_all\" (wipe every memory in the scope -- destructive, only on explicit request).",
+            "Memory operation to run: \"search\" (semantic recall for a focused question), \"add\" (save a new fact/preference/decision), \"get_all\" (list everything in scope, no query needed), \"update\" (replace an existing memory's text by id), \"delete\" (remove one memory by id), \"delete_all\" (wipe every memory in the scope -- destructive, only on explicit request).",
         },
       ),
       query: Type.Optional(
         Type.String({
           description:
-            "Search text -- required for action \"search\". Use a focused noun-phrase; for multi-part questions run several searches with different phrasings.",
+            "Search text -- required for action \"search\". Use a focused question about the missing context.",
         }),
       ),
       content: Type.Optional(

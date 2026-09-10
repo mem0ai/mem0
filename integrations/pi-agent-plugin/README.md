@@ -4,7 +4,7 @@ Persistent semantic memory for [Pi Agent](https://pi.dev), powered by [Mem0](htt
 
 This extension gives Pi Agent long-term memory that persists across sessions, projects, and devices. Memories are automatically captured from conversations and can be searched and managed through slash commands and an agent-accessible tool.
 
-Current package version: `0.3.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); Pi keeps its own tools and scopes.
+Current package version: `0.4.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); Pi keeps its own tools and scopes.
 
 ## Features
 
@@ -13,7 +13,7 @@ Current package version: `0.3.0`. Shared redaction and lifecycle utilities come 
 - **Scoped memory** — project, session, or global scope
 - **Monorepo-aware** — uses git root for project detection, consistent app_id across subdirectories
 - **Confirmation dialogs** — destructive commands ask before acting
-- **6 slash commands** — essential memory management from the command line
+- **7 slash commands** — essential memory management from the command line
 - **Agent tool** — `mem0_memory` tool lets the agent search and store memories autonomously
 
 ## Setup
@@ -52,6 +52,14 @@ Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 
 `searchThreshold` (default `0.3`) is the minimum similarity score (0–1) a memory must reach to count as a match for `/mem0-search` and `/mem0-forget`. It is passed to the mem0 search API (along with reranking for higher-precision ordering), so a query with no sufficiently similar memory reports no match instead of returning the closest unrelated memories. Raise it to be stricter; lower it if relevant results are missed.
 
+## Session handoff
+
+Run `/mem0-handoff codex` to continue the current Pi session in Codex. The plugin reads native session context, including readable compaction summaries and completed tool outcomes.
+
+Requires **Python 3.11+** available as `python3` and an installed, signed-in Codex CLI with native session import support. Handoff works independently of Mem0 credentials and never sends the transcript through the Mem0 API. Unsupported content, missing results, and unrelated unfinished calls fail explicitly.
+
+The shared engine is packaged in `dist/` by [agent-plugin-core](../agent-plugin-core/README.md); it is not maintained separately in this plugin. Failed imports save a private recovery bundle under `~/.mem0/handoffs/`. See the [session handoff guide](../../docs/integrations/session-handoff.mdx) for supported formats, privacy, and recovery.
+
 ## Commands
 
 | Command | Description |
@@ -62,6 +70,7 @@ Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
 | `/mem0-scope <scope>` | Change default scope for this session |
 | `/mem0-status` | Connection health, identity, and memory count |
+| `/mem0-handoff codex` | Continue the current Pi session in Codex |
 
 ## Skills
 

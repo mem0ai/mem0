@@ -36,9 +36,7 @@ If `--all-projects` is NOT present, use the standard single-project flow below.
 When `/mem0-tour` receives a search query argument (e.g., `/mem0-tour auth middleware`)
 WITHOUT `--all-projects`, run in **peek mode** — compact one-liner results:
 
-1. Run 2 parallel `search_memories` calls:
-   - Broad: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
-   - Targeted: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "decision"}}]}`, `top_k=5`, `rerank=true`
+1. Call `search_memories` with `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`. Search again only if a specific gap remains.
 2. Deduplicate by ID, display compact results:
    ```
    ## mem0 search: "<query>" (<N> results)
@@ -60,15 +58,10 @@ Call `get_memories` to fetch all memories for this project:
 
 `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `page_size=100`
 
-### Step 2: Run supplementary semantic searches
+### Step 2: Check coverage
 
-In parallel, run these `search_memories` calls to get relevance-ranked results for key topics:
-
-- `query="architecture decisions design choices"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
-- `query="bugs errors failures anti-patterns"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
-- `query="project setup tooling conventions preferences"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
-
-**Do NOT filter by `metadata.type` in these calls.** The platform auto-assigns `categories` — filtering on `metadata.type` misses memories that were auto-categorized but don't have an explicit `metadata.type`.
+Use the fetched memories for the tour. If the user asks about a specific topic
+that the results do not cover, search that question with the same project filters.
 
 ### Step 3: Merge and group
 
