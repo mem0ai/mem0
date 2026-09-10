@@ -27,7 +27,7 @@ class LLMReranker(BaseReranker):
             # Convert BaseRerankerConfig to LLMRerankerConfig with defaults
             config = LLMRerankerConfig(
                 provider=getattr(config, 'provider', 'openai'),
-                model=getattr(config, 'model', 'gpt-4o-mini'),
+                model=getattr(config, 'model', 'gpt-5-mini'),
                 api_key=getattr(config, 'api_key', None),
                 top_k=getattr(config, 'top_k', None),
                 temperature=0.0,  # Default for reranking

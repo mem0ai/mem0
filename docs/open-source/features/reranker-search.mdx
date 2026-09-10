@@ -53,7 +53,7 @@ const memory = new Memory({
 });
 
 const results = await memory.search("What are my food preferences?", {
-  filters: { userId: "alice" },
+  filters: { user_id: "alice" },
   rerank: true,
 });
 ```
@@ -86,7 +86,7 @@ const memory = new Memory({
 });
 
 const results = await memory.search("What movies do I like?", {
-  filters: { userId: "alice" },
+  filters: { user_id: "alice" },
   rerank: true,
 });
 ```
@@ -97,7 +97,7 @@ const results = await memory.search("What movies do I like?", {
 
 ### LLM reranker
 
-To score with an LLM instead of a dedicated reranker, use the `llm_reranker` provider. It builds its own LLM from the reranker's config (defaulting to `openai` / `gpt-4o-mini`) rather than reusing the Memory's main `llm`:
+To score with an LLM instead of a dedicated reranker, use the `llm_reranker` provider. It builds its own LLM from the reranker's config (defaulting to `openai` / `gpt-5-mini`) rather than reusing the Memory's main `llm`:
 
 ```typescript
 const memory = new Memory({
@@ -108,7 +108,7 @@ const memory = new Memory({
 });
 
 const results = await memory.search("What movies do I like?", {
-  filters: { userId: "alice" },
+  filters: { user_id: "alice" },
   rerank: true,
 });
 ```
@@ -137,7 +137,7 @@ const memory = new Memory({
 | `zero_entropy` | `zerank-1` | `apiKey`, `model`, `topK` |
 | `sentence_transformer` | `Xenova/ms-marco-MiniLM-L-6-v2` | `model`, `device`, `maxLength`, `normalize`, `topK` |
 | `huggingface` | `Xenova/bge-reranker-base` | `model`, `device`, `maxLength`, `normalize`, `topK` |
-| `llm_reranker` | `openai` / `gpt-4o-mini` | `provider`, `model`, `apiKey`, `llm` (nested override), `topK` |
+| `llm_reranker` | `openai` / `gpt-5-mini` | `provider`, `model`, `apiKey`, `llm` (nested override), `topK` |
 
 <Note>
   `rerank` is opt-in per search and a no-op when no `reranker` is configured. If the reranker call fails, Mem0 logs a warning and returns the original vector-ranked results.
@@ -155,10 +155,10 @@ const memory = new Memory({
 <AccordionGroup>
   <Accordion title="Supported providers">
     - **[Cohere](/components/rerankers/models/cohere)**: Multilingual hosted reranker with API-based scoring.  
-    - **[Sentence Transformer](/components/rerankers/models/sentence_transformer)**: Local Hugging Face cross-encoders for GPU or CPU.  
+    - **[Sentence Transformer](/components/rerankers/models/sentence-transformer)**: Local Hugging Face cross-encoders for GPU or CPU.  
     - **[Hugging Face](/components/rerankers/models/huggingface)**: Bring any hosted or on-prem reranker model ID.  
-    - **[LLM Reranker](/components/rerankers/models/llm_reranker)**: Use your preferred LLM (OpenAI, etc.) for prompt-driven scoring.  
-    - **[Zero Entropy](/components/rerankers/models/zero_entropy)**: High-quality neural reranking tuned for retrieval tasks.
+    - **[LLM Reranker](/components/rerankers/models/llm-reranker)**: Use your preferred LLM (OpenAI, etc.) for prompt-driven scoring.  
+    - **[Zero Entropy](/components/rerankers/models/zero-entropy)**: High-quality neural reranking tuned for retrieval tasks.
   </Accordion>
   <Accordion title="Provider comparison">
     | Provider | Latency | Quality | Cost | Local deploy |
@@ -548,7 +548,7 @@ results = m.search(
   <Card title="Configure Rerankers" icon="sliders" href="/components/rerankers/config">
     Review provider fields, defaults, and environment variables before going live.
   </Card>
-  <Card title="Build a Custom LLM Reranker" icon="sparkles" href="/components/rerankers/models/llm_reranker">
+  <Card title="Build a Custom LLM Reranker" icon="sparkles" href="/components/rerankers/models/llm-reranker">
     Extend scoring with prompt-tuned LLM rerankers for niche workflows.
   </Card>
 </CardGroup>

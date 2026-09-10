@@ -177,6 +177,7 @@ class BaseProject(ABC):
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Update project settings.
@@ -184,6 +185,7 @@ class BaseProject(ABC):
         Args:
             custom_instructions: New instructions for the project
             custom_categories: New categories for the project
+            agent_custom_instructions: New extraction instructions for agent-scoped memories
 
         Returns:
             Dictionary containing the API response.
@@ -396,6 +398,7 @@ class Project(BaseProject):
         custom_categories: Optional[List[str]] = None,
         multilingual: Optional[bool] = None,
         decay: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Update project settings.
@@ -407,6 +410,7 @@ class Project(BaseProject):
             decay: Toggle Memory Decay for this project. When True, search-time
                 ranking boosts recently-used memories and gently dampens stale ones; when
                 False, ranking is restored to the pre-decay behaviour. Off by default.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories
 
         Returns:
             Dictionary containing the API response.
@@ -418,10 +422,17 @@ class Project(BaseProject):
             NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
-        if custom_instructions is None and custom_categories is None and multilingual is None and decay is None:
+        if (
+            custom_instructions is None
+            and custom_categories is None
+            and multilingual is None
+            and decay is None
+            and agent_custom_instructions is None
+        ):
             raise ValueError(
                 "At least one parameter must be provided for update: "
-                "custom_instructions, custom_categories, multilingual, decay"
+                "custom_instructions, custom_categories, multilingual, decay, "
+                "agent_custom_instructions"
             )
 
         payload = self._prepare_params(
@@ -430,6 +441,7 @@ class Project(BaseProject):
                 "custom_categories": custom_categories,
                 "multilingual": multilingual,
                 "decay": decay,
+                "agent_custom_instructions": agent_custom_instructions,
             }
         )
         response = self._client.patch(
@@ -445,6 +457,7 @@ class Project(BaseProject):
                 "custom_categories": custom_categories,
                 "multilingual": multilingual,
                 "decay": decay,
+                "agent_custom_instructions": agent_custom_instructions,
                 "sync_type": "sync",
             },
         )
@@ -709,6 +722,7 @@ class AsyncProject(BaseProject):
         custom_categories: Optional[List[str]] = None,
         multilingual: Optional[bool] = None,
         decay: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Update project settings.
@@ -720,6 +734,7 @@ class AsyncProject(BaseProject):
             decay: Toggle Memory Decay for this project. When True, search-time
                 ranking boosts recently-used memories and gently dampens stale ones; when
                 False, ranking is restored to the pre-decay behaviour. Off by default.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories
 
         Returns:
             Dictionary containing the API response.
@@ -731,10 +746,17 @@ class AsyncProject(BaseProject):
             NetworkError: If network connectivity issues occur.
             ValueError: If org_id or project_id are not set.
         """
-        if custom_instructions is None and custom_categories is None and multilingual is None and decay is None:
+        if (
+            custom_instructions is None
+            and custom_categories is None
+            and multilingual is None
+            and decay is None
+            and agent_custom_instructions is None
+        ):
             raise ValueError(
                 "At least one parameter must be provided for update: "
-                "custom_instructions, custom_categories, multilingual, decay"
+                "custom_instructions, custom_categories, multilingual, decay, "
+                "agent_custom_instructions"
             )
 
         payload = self._prepare_params(
@@ -743,6 +765,7 @@ class AsyncProject(BaseProject):
                 "custom_categories": custom_categories,
                 "multilingual": multilingual,
                 "decay": decay,
+                "agent_custom_instructions": agent_custom_instructions,
             }
         )
         response = await self._client.patch(
@@ -758,6 +781,7 @@ class AsyncProject(BaseProject):
                 "custom_categories": custom_categories,
                 "multilingual": multilingual,
                 "decay": decay,
+                "agent_custom_instructions": agent_custom_instructions,
                 "sync_type": "async",
             },
         )

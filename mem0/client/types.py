@@ -28,6 +28,9 @@ class AddMemoryOptions(BaseModel):
         default=None, description="Custom categories for memory classification"
     )
     custom_instructions: Optional[str] = Field(default=None, description="Custom instructions for fact extraction")
+    agent_custom_instructions: Optional[str] = Field(
+        default=None, description="Custom instructions for fact extraction from agent-scoped memories"
+    )
     timestamp: Optional[int] = Field(default=None, description="Unix timestamp for the memory")
     expiration_date: Optional[str] = Field(default=None, description="Expiration date in YYYY-MM-DD format")
     structured_data_schema: Optional[Dict[str, Any]] = Field(
@@ -52,6 +55,11 @@ class SearchMemoryOptions(BaseModel):
     fields: Optional[List[str]] = Field(default=None, description="Fields to include in the response")
     categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
     show_expired: Optional[bool] = Field(default=None, description="Whether to include expired memories")
+    reference_date: Optional[Union[str, int]] = Field(
+        default=None, description="Reference date for relative time queries (YYYY-MM-DD or Unix timestamp)"
+    )
+    latest_only: Optional[bool] = Field(default=None, description="Whether to only return the latest memory version")
+    keyword_search: Optional[bool] = Field(default=None, description="Whether to use keyword search")
 
 
 class GetAllMemoryOptions(BaseModel):
@@ -74,6 +82,7 @@ class GetAllMemoryOptions(BaseModel):
     )
     categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
     show_expired: Optional[bool] = Field(default=None, description="Whether to include expired memories")
+    latest_only: Optional[bool] = Field(default=None, description="Whether to only return the latest memory version")
 
 
 class DeleteAllMemoryOptions(BaseModel):
@@ -101,6 +110,9 @@ class ProjectUpdateOptions(BaseModel):
     """Options for project update operations."""
 
     custom_instructions: Optional[str] = Field(default=None, description="Custom instructions for fact extraction")
+    agent_custom_instructions: Optional[str] = Field(
+        default=None, description="Custom instructions for fact extraction from agent-scoped memories"
+    )
     custom_categories: Optional[List[Dict[str, Any]]] = Field(
         default=None, description="Custom categories for classification"
     )

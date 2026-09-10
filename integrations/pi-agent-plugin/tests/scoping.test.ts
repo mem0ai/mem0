@@ -21,9 +21,9 @@ describe("resolveSearchFilters", () => {
     });
   });
 
-  it("global scope returns user_id with app_id wildcard", () => {
+  it("global scope returns user_id only", () => {
     expect(resolveSearchFilters("global", ctx)).toEqual({
-      user_id: "kartik", app_id: "*",
+      user_id: "kartik",
     });
   });
 });

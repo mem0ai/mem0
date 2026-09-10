@@ -2,11 +2,11 @@
  * Tests for CLI commands using mock backend.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Command } from "commander";
-import { createMockBackend } from "./setup.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Backend } from "../src/backend/base.js";
 import { setAgentMode } from "../src/state.js";
+import { createMockBackend } from "./setup.js";
 
 let mockBackend: Backend;
 
@@ -17,450 +17,657 @@ const originalLog = console.log;
 const originalError = console.error;
 
 beforeEach(() => {
-  mockBackend = createMockBackend();
-  output = "";
-  errOutput = "";
-  console.log = (...args: unknown[]) => {
-    output += args.map(String).join(" ") + "\n";
-  };
-  console.error = (...args: unknown[]) => {
-    errOutput += args.map(String).join(" ") + "\n";
-  };
+	mockBackend = createMockBackend();
+	output = "";
+	errOutput = "";
+	console.log = (...args: unknown[]) => {
+		output += args.map(String).join(" ") + "\n";
+	};
+	console.error = (...args: unknown[]) => {
+		errOutput += args.map(String).join(" ") + "\n";
+	};
 });
 
 // Restore after each test
 import { afterEach } from "vitest";
 afterEach(() => {
-  console.log = originalLog;
-  console.error = originalError;
-  setAgentMode(false);
+	console.log = originalLog;
+	console.error = originalError;
+	setAgentMode(false);
 });
 
 describe("cmdAdd", () => {
-  it("adds text memory", async () => {
-    const { cmdAdd } = await import("../src/commands/memory.js");
-    await cmdAdd(mockBackend, "I prefer dark mode", {
-      userId: "alice",
-      immutable: false,
-      output: "text",
-    });
-    expect(mockBackend.add).toHaveBeenCalledOnce();
-  });
+	it("adds text memory", async () => {
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, "I prefer dark mode", {
+			userId: "alice",
+			immutable: false,
+			output: "text",
+		});
+		expect(mockBackend.add).toHaveBeenCalledOnce();
+	});
 
-  it("adds from messages JSON", async () => {
-    const { cmdAdd } = await import("../src/commands/memory.js");
-    await cmdAdd(mockBackend, undefined, {
-      userId: "alice",
-      messages: JSON.stringify([{ role: "user", content: "I love Python" }]),
-      immutable: false,
-      output: "text",
-    });
-    expect(mockBackend.add).toHaveBeenCalledOnce();
-  });
+	it("adds from messages JSON", async () => {
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, undefined, {
+			userId: "alice",
+			messages: JSON.stringify([{ role: "user", content: "I love Python" }]),
+			immutable: false,
+			output: "text",
+		});
+		expect(mockBackend.add).toHaveBeenCalledOnce();
+	});
 
-  it("outputs json format", async () => {
-    const { cmdAdd } = await import("../src/commands/memory.js");
-    await cmdAdd(mockBackend, "test", {
-      userId: "alice",
-      immutable: false,
-      output: "json",
-    });
-    expect(output).toContain("results");
-  });
+	it("outputs json format", async () => {
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, "test", {
+			userId: "alice",
+			immutable: false,
+			output: "json",
+		});
+		expect(output).toContain("results");
+	});
 
-  it("quiet mode produces no memory content", async () => {
-    const { cmdAdd } = await import("../src/commands/memory.js");
-    await cmdAdd(mockBackend, "test", {
-      userId: "alice",
-      immutable: false,
-      output: "quiet",
-    });
-    expect(output).not.toContain("dark mode");
-  });
+	it("quiet mode produces no memory content", async () => {
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, "test", {
+			userId: "alice",
+			immutable: false,
+			output: "quiet",
+		});
+		expect(output).not.toContain("dark mode");
+	});
 });
 
 describe("cmdAdd forwards --no-infer (regression for #5261)", () => {
-  it("forwards infer: false when --no-infer is set", async () => {
-    const { cmdAdd } = await import("../src/commands/memory.js");
-    // `infer: false` is the shape Commander produces for `--no-infer`.
-    await cmdAdd(mockBackend, "store me verbatim", {
-      userId: "alice",
-      immutable: false,
-      infer: false,
-      output: "text",
-    });
-    expect(mockBackend.add).toHaveBeenCalledWith(
-      "store me verbatim",
-      undefined,
-      expect.objectContaining({ infer: false }),
-    );
-  });
+	it("forwards infer: false when --no-infer is set", async () => {
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, "store me verbatim", {
+			userId: "alice",
+			immutable: false,
+			infer: false,
+			output: "text",
+		});
+		expect(mockBackend.add).toHaveBeenCalledWith(
+			"store me verbatim",
+			undefined,
+			expect.objectContaining({ infer: false }),
+		);
+	});
 
-  it("forwards infer: true by default (flag absent)", async () => {
-    const { cmdAdd } = await import("../src/commands/memory.js");
-    await cmdAdd(mockBackend, "infer me", {
-      userId: "alice",
-      immutable: false,
-      output: "text",
-    });
-    expect(mockBackend.add).toHaveBeenCalledWith(
-      "infer me",
-      undefined,
-      expect.objectContaining({ infer: true }),
-    );
-  });
+	it("forwards infer: true by default (flag absent)", async () => {
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, "infer me", {
+			userId: "alice",
+			immutable: false,
+			output: "text",
+		});
+		expect(mockBackend.add).toHaveBeenCalledWith(
+			"infer me",
+			undefined,
+			expect.objectContaining({ infer: true }),
+		);
+	});
 
-  it("Commander stores --no-infer as opts.infer, not opts.noInfer", () => {
-    // Pins the assumption the fix relies on: Commander's `--no-X` option
-    // populates the positive camelCase key (`infer`), never `noInfer`.
-    const withFlag = new Command();
-    withFlag.option("--no-infer", "Skip inference, store raw.").action(() => {});
-    withFlag.parse(["--no-infer"], { from: "user" });
-    expect(withFlag.opts().infer).toBe(false);
-    expect(withFlag.opts().noInfer).toBeUndefined();
+	it("Commander stores --no-infer as opts.infer, not opts.noInfer", () => {
+		const withFlag = new Command();
+		withFlag
+			.option("--no-infer", "Skip inference, store raw.")
+			.action(() => {});
+		withFlag.parse(["--no-infer"], { from: "user" });
+		expect(withFlag.opts().infer).toBe(false);
+		expect(withFlag.opts().noInfer).toBeUndefined();
 
-    const withoutFlag = new Command();
-    withoutFlag.option("--no-infer", "Skip inference, store raw.").action(() => {});
-    withoutFlag.parse([], { from: "user" });
-    expect(withoutFlag.opts().infer).toBe(true);
-  });
+		const withoutFlag = new Command();
+		withoutFlag
+			.option("--no-infer", "Skip inference, store raw.")
+			.action(() => {});
+		withoutFlag.parse([], { from: "user" });
+		expect(withoutFlag.opts().infer).toBe(true);
+	});
+});
+
+describe("cmdAdd forwards MEM-5893 option-parity flags", () => {
+	it("forwards customInstructions, customCategories, structuredDataSchema, timestamp", async () => {
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, "test", {
+			userId: "alice",
+			immutable: false,
+			customInstructions: "Extract only preferences.",
+			customCategories: JSON.stringify([{ prefs: "user preferences" }]),
+			structuredDataSchema: JSON.stringify({ type: "object" }),
+			timestamp: 1700000000,
+			output: "text",
+		});
+		expect(mockBackend.add).toHaveBeenCalledWith(
+			"test",
+			undefined,
+			expect.objectContaining({
+				customInstructions: "Extract only preferences.",
+				customCategories: [{ prefs: "user preferences" }],
+				structuredDataSchema: { type: "object" },
+				timestamp: 1700000000,
+			}),
+		);
+	});
+
+	it("regression: metadata, expires, and customCategories reach the backend together", async () => {
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, "test", {
+			userId: "alice",
+			immutable: false,
+			metadata: JSON.stringify({ source: "test" }),
+			expires: "2099-01-01",
+			customCategories: JSON.stringify([{ prefs: "user preferences" }]),
+			output: "text",
+		});
+		expect(mockBackend.add).toHaveBeenCalledWith(
+			"test",
+			undefined,
+			expect.objectContaining({
+				metadata: { source: "test" },
+				expires: "2099-01-01",
+				customCategories: [{ prefs: "user preferences" }],
+			}),
+		);
+	});
+});
+
+describe("cmdAdd rejects invalid input before calling the backend (MEM-5893)", () => {
+	function mockProcessExit() {
+		return vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+			throw new Error(`process.exit:${code}`);
+		}) as never);
+	}
+
+	it("rejects --categories with a message pointing to --custom-categories", async () => {
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		const exitSpy = mockProcessExit();
+
+		await expect(
+			cmdAdd(mockBackend, "test", {
+				userId: "alice",
+				immutable: false,
+				categories: "prefs",
+				output: "text",
+			}),
+		).rejects.toThrow("process.exit:1");
+
+		expect(errOutput).toContain("--custom-categories");
+		expect(mockBackend.add).not.toHaveBeenCalled();
+		exitSpy.mockRestore();
+	});
+
+	it("rejects invalid JSON in --custom-categories", async () => {
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		const exitSpy = mockProcessExit();
+
+		await expect(
+			cmdAdd(mockBackend, "test", {
+				userId: "alice",
+				immutable: false,
+				customCategories: "not-json",
+				output: "text",
+			}),
+		).rejects.toThrow("process.exit:1");
+
+		expect(errOutput).toContain("--custom-categories");
+		expect(mockBackend.add).not.toHaveBeenCalled();
+		exitSpy.mockRestore();
+	});
+
+	it("rejects invalid JSON in --structured-data-schema", async () => {
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		const exitSpy = mockProcessExit();
+
+		await expect(
+			cmdAdd(mockBackend, "test", {
+				userId: "alice",
+				immutable: false,
+				structuredDataSchema: "not-json",
+				output: "text",
+			}),
+		).rejects.toThrow("process.exit:1");
+
+		expect(errOutput).toContain("--structured-data-schema");
+		expect(mockBackend.add).not.toHaveBeenCalled();
+		exitSpy.mockRestore();
+	});
 });
 
 describe("cmdAdd deduplicates PENDING", () => {
-  const DUPLICATE_PENDING = {
-    results: [
-      { status: "PENDING", event_id: "evt-dup" },
-      { status: "PENDING", event_id: "evt-dup" },
-    ],
-  };
+	const DUPLICATE_PENDING = {
+		results: [
+			{ status: "PENDING", event_id: "evt-dup" },
+			{ status: "PENDING", event_id: "evt-dup" },
+		],
+	};
 
-  it("text shows one pending block", async () => {
-    (mockBackend.add as ReturnType<typeof vi.fn>).mockResolvedValue(DUPLICATE_PENDING);
-    const { cmdAdd } = await import("../src/commands/memory.js");
-    await cmdAdd(mockBackend, "test", {
-      userId: "alice",
-      immutable: false,
-      output: "text",
-    });
-    expect(output.match(/Queued/g)?.length).toBe(1);
-  });
+	it("text shows one pending block", async () => {
+		(mockBackend.add as ReturnType<typeof vi.fn>).mockResolvedValue(
+			DUPLICATE_PENDING,
+		);
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, "test", {
+			userId: "alice",
+			immutable: false,
+			output: "text",
+		});
+		expect(output.match(/Queued/g)?.length).toBe(1);
+	});
 
-  it("json shows one pending entry", async () => {
-    (mockBackend.add as ReturnType<typeof vi.fn>).mockResolvedValue(DUPLICATE_PENDING);
-    const { cmdAdd } = await import("../src/commands/memory.js");
-    await cmdAdd(mockBackend, "test", {
-      userId: "alice",
-      immutable: false,
-      output: "json",
-    });
-    const data = JSON.parse(output);
-    const pending = data.results.filter((r: Record<string, unknown>) => r.status === "PENDING");
-    expect(pending).toHaveLength(1);
-  });
+	it("json shows one pending entry", async () => {
+		(mockBackend.add as ReturnType<typeof vi.fn>).mockResolvedValue(
+			DUPLICATE_PENDING,
+		);
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, "test", {
+			userId: "alice",
+			immutable: false,
+			output: "json",
+		});
+		const data = JSON.parse(output);
+		const pending = data.results.filter(
+			(r: Record<string, unknown>) => r.status === "PENDING",
+		);
+		expect(pending).toHaveLength(1);
+	});
 
-  it("agent shows one pending entry", async () => {
-    (mockBackend.add as ReturnType<typeof vi.fn>).mockResolvedValue(DUPLICATE_PENDING);
-    setAgentMode(true);
-    const { cmdAdd } = await import("../src/commands/memory.js");
-    await cmdAdd(mockBackend, "test", {
-      userId: "alice",
-      immutable: false,
-      output: "agent",
-    });
-    const data = JSON.parse(output);
-    expect(data.count).toBe(1);
-    expect(data.data).toHaveLength(1);
-  });
+	it("agent shows one pending entry", async () => {
+		(mockBackend.add as ReturnType<typeof vi.fn>).mockResolvedValue(
+			DUPLICATE_PENDING,
+		);
+		setAgentMode(true);
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, "test", {
+			userId: "alice",
+			immutable: false,
+			output: "agent",
+		});
+		const data = JSON.parse(output);
+		expect(data.count).toBe(1);
+		expect(data.data).toHaveLength(1);
+	});
 });
 
 describe("cmdSearch", () => {
-  it("searches and shows results in text mode", async () => {
-    const { cmdSearch } = await import("../src/commands/memory.js");
-    await cmdSearch(mockBackend, "preferences", {
-      userId: "alice",
-      topK: 10,
-      threshold: 0.3,
-      rerank: false,
-      keyword: false,
+	it("searches and shows results in text mode", async () => {
+		const { cmdSearch } = await import("../src/commands/memory.js");
+		await cmdSearch(mockBackend, "preferences", {
+			userId: "alice",
+			topK: 10,
+			threshold: 0.3,
+			rerank: false,
+			keyword: false,
 
-      output: "text",
-    });
-    expect(output).toContain("Found 2");
-  });
+			output: "text",
+		});
+		expect(output).toContain("Found 2");
+	});
 
-  it("outputs json format", async () => {
-    const { cmdSearch } = await import("../src/commands/memory.js");
-    await cmdSearch(mockBackend, "preferences", {
-      userId: "alice",
-      topK: 10,
-      threshold: 0.3,
-      rerank: false,
-      keyword: false,
+	it("outputs json format", async () => {
+		const { cmdSearch } = await import("../src/commands/memory.js");
+		await cmdSearch(mockBackend, "preferences", {
+			userId: "alice",
+			topK: 10,
+			threshold: 0.3,
+			rerank: false,
+			keyword: false,
 
-      output: "json",
-    });
-    expect(output).toContain("memory");
-  });
+			output: "json",
+		});
+		expect(output).toContain("memory");
+	});
 
-  it("shows no results message", async () => {
-    (mockBackend.search as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    const { cmdSearch } = await import("../src/commands/memory.js");
-    await cmdSearch(mockBackend, "nonexistent", {
-      userId: "alice",
-      topK: 10,
-      threshold: 0.3,
-      rerank: false,
-      keyword: false,
+	it("shows no results message", async () => {
+		(mockBackend.search as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+		const { cmdSearch } = await import("../src/commands/memory.js");
+		await cmdSearch(mockBackend, "nonexistent", {
+			userId: "alice",
+			topK: 10,
+			threshold: 0.3,
+			rerank: false,
+			keyword: false,
 
-      output: "text",
-    });
-    expect(errOutput).toContain("No memories found");
-  });
+			output: "text",
+		});
+		expect(errOutput).toContain("No memories found");
+	});
+
+	it("forwards showExpired, referenceDate, latestOnly (MEM-5893)", async () => {
+		const { cmdSearch } = await import("../src/commands/memory.js");
+		await cmdSearch(mockBackend, "preferences", {
+			userId: "alice",
+			topK: 10,
+			threshold: 0.3,
+			rerank: false,
+			keyword: false,
+			showExpired: true,
+			referenceDate: "2024-01-01",
+			latestOnly: true,
+			output: "text",
+		});
+		expect(mockBackend.search).toHaveBeenCalledWith(
+			"preferences",
+			expect.objectContaining({
+				showExpired: true,
+				referenceDate: "2024-01-01",
+				latestOnly: true,
+			}),
+		);
+	});
 });
 
 describe("cmdGet", () => {
-  it("gets memory in text mode", async () => {
-    const { cmdGet } = await import("../src/commands/memory.js");
-    await cmdGet(mockBackend, "abc-123-def-456", { output: "text" });
-    expect(output).toContain("dark mode");
-  });
+	it("gets memory in text mode", async () => {
+		const { cmdGet } = await import("../src/commands/memory.js");
+		await cmdGet(mockBackend, "abc-123-def-456", { output: "text" });
+		expect(output).toContain("dark mode");
+	});
 
-  it("gets memory in json mode", async () => {
-    const { cmdGet } = await import("../src/commands/memory.js");
-    await cmdGet(mockBackend, "abc-123-def-456", { output: "json" });
-    expect(output).toContain("memory");
-  });
+	it("gets memory in json mode", async () => {
+		const { cmdGet } = await import("../src/commands/memory.js");
+		await cmdGet(mockBackend, "abc-123-def-456", { output: "json" });
+		expect(output).toContain("memory");
+	});
 });
 
 describe("cmdList", () => {
-  it("lists in table mode", async () => {
-    const { cmdList } = await import("../src/commands/memory.js");
-    await cmdList(mockBackend, {
-      userId: "alice",
-      page: 1,
-      pageSize: 100,
+	it("lists in table mode", async () => {
+		const { cmdList } = await import("../src/commands/memory.js");
+		await cmdList(mockBackend, {
+			userId: "alice",
+			page: 1,
+			pageSize: 100,
 
-      output: "table",
-    });
-    expect(output).toContain("dark mode");
-  });
+			output: "table",
+		});
+		expect(output).toContain("dark mode");
+	});
 
-  it("shows empty message", async () => {
-    (mockBackend.listMemories as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    const { cmdList } = await import("../src/commands/memory.js");
-    await cmdList(mockBackend, {
-      userId: "alice",
-      page: 1,
-      pageSize: 100,
+	it("shows empty message", async () => {
+		(mockBackend.listMemories as ReturnType<typeof vi.fn>).mockResolvedValue(
+			[],
+		);
+		const { cmdList } = await import("../src/commands/memory.js");
+		await cmdList(mockBackend, {
+			userId: "alice",
+			page: 1,
+			pageSize: 100,
 
-      output: "text",
-    });
-    expect(errOutput).toContain("No memories found");
-  });
+			output: "text",
+		});
+		expect(errOutput).toContain("No memories found");
+	});
+
+	it("forwards showExpired and latestOnly (MEM-5893)", async () => {
+		const { cmdList } = await import("../src/commands/memory.js");
+		await cmdList(mockBackend, {
+			userId: "alice",
+			page: 1,
+			pageSize: 100,
+			showExpired: true,
+			latestOnly: true,
+			output: "text",
+		});
+		expect(mockBackend.listMemories).toHaveBeenCalledWith(
+			expect.objectContaining({ showExpired: true, latestOnly: true }),
+		);
+	});
 });
 
 describe("cmdUpdate", () => {
-  it("updates memory", async () => {
-    const { cmdUpdate } = await import("../src/commands/memory.js");
-    await cmdUpdate(mockBackend, "abc-123", "New text", { output: "text" });
-    expect(output.toLowerCase()).toContain("updated");
-  });
+	it("updates memory", async () => {
+		const { cmdUpdate } = await import("../src/commands/memory.js");
+		await cmdUpdate(mockBackend, "abc-123", "New text", { output: "text" });
+		expect(output.toLowerCase()).toContain("updated");
+	});
+
+	it("forwards expires and timestamp (MEM-5893)", async () => {
+		const { cmdUpdate } = await import("../src/commands/memory.js");
+		await cmdUpdate(mockBackend, "abc-123", "New text", {
+			expires: "2099-01-01",
+			timestamp: 1700000000,
+			output: "text",
+		});
+		expect(mockBackend.update).toHaveBeenCalledWith(
+			"abc-123",
+			"New text",
+			undefined,
+			expect.objectContaining({
+				expirationDate: "2099-01-01",
+				timestamp: 1700000000,
+			}),
+		);
+	});
 });
 
 describe("cmdDelete", () => {
-  it("deletes memory", async () => {
-    const { cmdDelete } = await import("../src/commands/memory.js");
-    await cmdDelete(mockBackend, "abc-123", { output: "text" });
-    expect(output.toLowerCase()).toContain("deleted");
-  });
+	it("deletes memory", async () => {
+		const { cmdDelete } = await import("../src/commands/memory.js");
+		await cmdDelete(mockBackend, "abc-123", { output: "text" });
+		expect(output.toLowerCase()).toContain("deleted");
+	});
+
+	it("forwards deleteLinked (MEM-5893)", async () => {
+		const { cmdDelete } = await import("../src/commands/memory.js");
+		await cmdDelete(mockBackend, "abc-123", {
+			deleteLinked: true,
+			output: "text",
+		});
+		expect(mockBackend.delete).toHaveBeenCalledWith(
+			"abc-123",
+			expect.objectContaining({ deleteLinked: true }),
+		);
+	});
 });
 
 describe("cmdDeleteAll", () => {
-  it("deletes all with force", async () => {
-    const { cmdDeleteAll } = await import("../src/commands/memory.js");
-    await cmdDeleteAll(mockBackend, {
-      force: true,
-      userId: "alice",
-      output: "text",
-    });
-    expect(output.toLowerCase()).toContain("deleted");
-  });
+	it("deletes all with force", async () => {
+		const { cmdDeleteAll } = await import("../src/commands/memory.js");
+		await cmdDeleteAll(mockBackend, {
+			force: true,
+			userId: "alice",
+			output: "text",
+		});
+		expect(output.toLowerCase()).toContain("deleted");
+	});
 });
 
-
 describe("cmdEntitiesList", () => {
-  it("lists users in table mode", async () => {
-    const { cmdEntitiesList } = await import("../src/commands/entities.js");
-    await cmdEntitiesList(mockBackend, "users", { output: "table" });
-    expect(output).toContain("alice");
-  });
+	it("lists users in table mode", async () => {
+		const { cmdEntitiesList } = await import("../src/commands/entities.js");
+		await cmdEntitiesList(mockBackend, "users", { output: "table" });
+		expect(output).toContain("alice");
+	});
 
-  it("lists in json mode", async () => {
-    const { cmdEntitiesList } = await import("../src/commands/entities.js");
-    await cmdEntitiesList(mockBackend, "users", { output: "json" });
-    expect(output).toContain("alice");
-  });
+	it("lists in json mode", async () => {
+		const { cmdEntitiesList } = await import("../src/commands/entities.js");
+		await cmdEntitiesList(mockBackend, "users", { output: "json" });
+		expect(output).toContain("alice");
+	});
 });
 
 describe("cmdEventList", () => {
-  it("lists events in table mode", async () => {
-    const { cmdEventList } = await import("../src/commands/events.js");
-    await cmdEventList(mockBackend, { output: "table" });
-    expect(output).toContain("evt-abc-");
-    expect(output).toContain("ADD");
-    expect(output).toContain("SUCCEEDED");
-  });
+	it("lists events in table mode", async () => {
+		const { cmdEventList } = await import("../src/commands/events.js");
+		await cmdEventList(mockBackend, { output: "table" });
+		expect(output).toContain("evt-abc-");
+		expect(output).toContain("ADD");
+		expect(output).toContain("SUCCEEDED");
+	});
 
-  it("lists events in json mode", async () => {
-    const { cmdEventList } = await import("../src/commands/events.js");
-    await cmdEventList(mockBackend, { output: "json" });
-    expect(output).toContain("evt-abc-123-def-456");
-    expect(output).toContain("evt-def-456-ghi-789");
-  });
+	it("lists events in json mode", async () => {
+		const { cmdEventList } = await import("../src/commands/events.js");
+		await cmdEventList(mockBackend, { output: "json" });
+		expect(output).toContain("evt-abc-123-def-456");
+		expect(output).toContain("evt-def-456-ghi-789");
+	});
 
-  it("shows empty message when no events", async () => {
-    (mockBackend.listEvents as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
-    const { cmdEventList } = await import("../src/commands/events.js");
-    await cmdEventList(mockBackend, { output: "table" });
-    expect((output + errOutput).toLowerCase()).toContain("no events");
-  });
+	it("shows empty message when no events", async () => {
+		(mockBackend.listEvents as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+			[],
+		);
+		const { cmdEventList } = await import("../src/commands/events.js");
+		await cmdEventList(mockBackend, { output: "table" });
+		expect((output + errOutput).toLowerCase()).toContain("no events");
+	});
 });
 
 describe("cmdEventStatus", () => {
-  it("shows event details in text mode", async () => {
-    const { cmdEventStatus } = await import("../src/commands/events.js");
-    await cmdEventStatus(mockBackend, "evt-abc-123-def-456", { output: "text" });
-    expect(output).toContain("evt-abc-123-def-456");
-    expect(output).toContain("SUCCEEDED");
-  });
+	it("shows event details in text mode", async () => {
+		const { cmdEventStatus } = await import("../src/commands/events.js");
+		await cmdEventStatus(mockBackend, "evt-abc-123-def-456", {
+			output: "text",
+		});
+		expect(output).toContain("evt-abc-123-def-456");
+		expect(output).toContain("SUCCEEDED");
+	});
 
-  it("shows event details in json mode", async () => {
-    const { cmdEventStatus } = await import("../src/commands/events.js");
-    await cmdEventStatus(mockBackend, "evt-abc-123-def-456", { output: "json" });
-    expect(output).toContain("evt-abc-123-def-456");
-    expect(output).toContain("ADD");
-  });
+	it("shows event details in json mode", async () => {
+		const { cmdEventStatus } = await import("../src/commands/events.js");
+		await cmdEventStatus(mockBackend, "evt-abc-123-def-456", {
+			output: "json",
+		});
+		expect(output).toContain("evt-abc-123-def-456");
+		expect(output).toContain("ADD");
+	});
 });
 
 describe("agent mode", () => {
-  it("cmdAdd outputs JSON envelope", async () => {
-    setAgentMode(true);
-    const { cmdAdd } = await import("../src/commands/memory.js");
-    await cmdAdd(mockBackend, "test preference", {
-      userId: "alice",
-      immutable: false,
-      output: "agent",
-    });
-    const parsed = JSON.parse(output.trim());
-    expect(parsed.status).toBe("success");
-    expect(parsed.command).toBe("add");
-    expect(parsed.data).toBeDefined();
-    expect(parsed.scope).toMatchObject({ user_id: "alice" });
-    expect(Object.keys(parsed.data[0]).sort()).toEqual(["event", "id", "memory"].sort());
-  });
+	it("cmdAdd outputs JSON envelope", async () => {
+		setAgentMode(true);
+		const { cmdAdd } = await import("../src/commands/memory.js");
+		await cmdAdd(mockBackend, "test preference", {
+			userId: "alice",
+			immutable: false,
+			output: "agent",
+		});
+		const parsed = JSON.parse(output.trim());
+		expect(parsed.status).toBe("success");
+		expect(parsed.command).toBe("add");
+		expect(parsed.data).toBeDefined();
+		expect(parsed.scope).toMatchObject({ user_id: "alice" });
+		expect(Object.keys(parsed.data[0]).sort()).toEqual(
+			["event", "id", "memory"].sort(),
+		);
+	});
 
-  it("cmdSearch outputs JSON envelope", async () => {
-    setAgentMode(true);
-    const { cmdSearch } = await import("../src/commands/memory.js");
-    await cmdSearch(mockBackend, "preferences", {
-      userId: "alice",
-      topK: 10,
-      threshold: 0.3,
-      rerank: false,
-      keyword: false,
+	it("cmdSearch outputs JSON envelope", async () => {
+		setAgentMode(true);
+		const { cmdSearch } = await import("../src/commands/memory.js");
+		await cmdSearch(mockBackend, "preferences", {
+			userId: "alice",
+			topK: 10,
+			threshold: 0.3,
+			rerank: false,
+			keyword: false,
 
-      output: "agent",
-    });
-    const parsed = JSON.parse(output.trim());
-    expect(parsed.status).toBe("success");
-    expect(parsed.command).toBe("search");
-    expect(Array.isArray(parsed.data)).toBe(true);
-    expect(parsed.count).toBe(2);
-    const keys = Object.keys(parsed.data[0]);
-    expect(keys).toContain("id");
-    expect(keys).toContain("memory");
-    expect(keys).toContain("score");
-    expect(keys).toContain("created_at");
-    expect(keys).toContain("categories");
-    expect(keys).not.toContain("user_id");
-    expect(keys).not.toContain("agent_id");
-  });
+			output: "agent",
+		});
+		const parsed = JSON.parse(output.trim());
+		expect(parsed.status).toBe("success");
+		expect(parsed.command).toBe("search");
+		expect(Array.isArray(parsed.data)).toBe(true);
+		expect(parsed.count).toBe(2);
+		const keys = Object.keys(parsed.data[0]);
+		expect(keys).toContain("id");
+		expect(keys).toContain("memory");
+		expect(keys).toContain("score");
+		expect(keys).toContain("created_at");
+		expect(keys).toContain("categories");
+		expect(keys).not.toContain("user_id");
+		expect(keys).not.toContain("agent_id");
+	});
 
-  it("cmdList outputs JSON envelope", async () => {
-    setAgentMode(true);
-    const { cmdList } = await import("../src/commands/memory.js");
-    await cmdList(mockBackend, {
-      userId: "alice",
-      page: 1,
-      pageSize: 100,
+	it("cmdList outputs JSON envelope", async () => {
+		setAgentMode(true);
+		const { cmdList } = await import("../src/commands/memory.js");
+		await cmdList(mockBackend, {
+			userId: "alice",
+			page: 1,
+			pageSize: 100,
 
-      output: "agent",
-    });
-    const parsed = JSON.parse(output.trim());
-    expect(parsed.status).toBe("success");
-    expect(parsed.command).toBe("list");
-    expect(Array.isArray(parsed.data)).toBe(true);
-    expect(parsed.count).toBe(2);
-    expect(Object.keys(parsed.data[0]).sort()).toEqual(["categories", "created_at", "id", "memory"]);
-  });
+			output: "agent",
+		});
+		const parsed = JSON.parse(output.trim());
+		expect(parsed.status).toBe("success");
+		expect(parsed.command).toBe("list");
+		expect(Array.isArray(parsed.data)).toBe(true);
+		expect(parsed.count).toBe(2);
+		expect(Object.keys(parsed.data[0]).sort()).toEqual([
+			"categories",
+			"created_at",
+			"id",
+			"memory",
+		]);
+	});
 
-  it("cmdGet outputs JSON envelope", async () => {
-    setAgentMode(true);
-    const { cmdGet } = await import("../src/commands/memory.js");
-    await cmdGet(mockBackend, "abc-123-def-456", { output: "agent" });
-    const parsed = JSON.parse(output.trim());
-    expect(parsed.status).toBe("success");
-    expect(parsed.command).toBe("get");
-    expect(parsed.data).toBeDefined();
-    expect(parsed.data).toMatchObject({ id: "abc-123-def-456" });
-    expect(Object.keys(parsed.data)).not.toContain("user_id");
-  });
+	it("cmdGet outputs JSON envelope", async () => {
+		setAgentMode(true);
+		const { cmdGet } = await import("../src/commands/memory.js");
+		await cmdGet(mockBackend, "abc-123-def-456", { output: "agent" });
+		const parsed = JSON.parse(output.trim());
+		expect(parsed.status).toBe("success");
+		expect(parsed.command).toBe("get");
+		expect(parsed.data).toBeDefined();
+		expect(parsed.data).toMatchObject({ id: "abc-123-def-456" });
+		expect(Object.keys(parsed.data)).not.toContain("user_id");
+	});
 
-  it("cmdUpdate outputs JSON envelope", async () => {
-    setAgentMode(true);
-    const { cmdUpdate } = await import("../src/commands/memory.js");
-    await cmdUpdate(mockBackend, "abc-123", "Updated text", { output: "agent" });
-    const parsed = JSON.parse(output.trim());
-    expect(parsed.status).toBe("success");
-    expect(parsed.command).toBe("update");
-    expect(parsed.data).toBeDefined();
-  });
+	it("cmdUpdate outputs JSON envelope", async () => {
+		setAgentMode(true);
+		const { cmdUpdate } = await import("../src/commands/memory.js");
+		await cmdUpdate(mockBackend, "abc-123", "Updated text", {
+			output: "agent",
+		});
+		const parsed = JSON.parse(output.trim());
+		expect(parsed.status).toBe("success");
+		expect(parsed.command).toBe("update");
+		expect(parsed.data).toBeDefined();
+	});
 
-  it("cmdDelete outputs JSON envelope", async () => {
-    setAgentMode(true);
-    const { cmdDelete } = await import("../src/commands/memory.js");
-    await cmdDelete(mockBackend, "abc-123", { output: "agent" });
-    const parsed = JSON.parse(output.trim());
-    expect(parsed.status).toBe("success");
-    expect(parsed.command).toBe("delete");
-    expect(parsed.data).toBeDefined();
-  });
+	it("cmdDelete outputs JSON envelope", async () => {
+		setAgentMode(true);
+		const { cmdDelete } = await import("../src/commands/memory.js");
+		await cmdDelete(mockBackend, "abc-123", { output: "agent" });
+		const parsed = JSON.parse(output.trim());
+		expect(parsed.status).toBe("success");
+		expect(parsed.command).toBe("delete");
+		expect(parsed.data).toBeDefined();
+	});
 
-  it("cmdEventList outputs JSON envelope", async () => {
-    setAgentMode(true);
-    const { cmdEventList } = await import("../src/commands/events.js");
-    await cmdEventList(mockBackend, { output: "agent" });
-    const parsed = JSON.parse(output.trim());
-    expect(parsed.status).toBe("success");
-    expect(parsed.command).toBe("event list");
-    expect(Array.isArray(parsed.data)).toBe(true);
-    expect(parsed.count).toBe(2);
-    expect(Object.keys(parsed.data[0]).sort()).toEqual(
-      ["created_at", "event_type", "id", "latency", "status"],
-    );
-    expect(Object.keys(parsed.data[0])).not.toContain("updated_at");
-  });
+	it("cmdEventList outputs JSON envelope", async () => {
+		setAgentMode(true);
+		const { cmdEventList } = await import("../src/commands/events.js");
+		await cmdEventList(mockBackend, { output: "agent" });
+		const parsed = JSON.parse(output.trim());
+		expect(parsed.status).toBe("success");
+		expect(parsed.command).toBe("event list");
+		expect(Array.isArray(parsed.data)).toBe(true);
+		expect(parsed.count).toBe(2);
+		expect(Object.keys(parsed.data[0]).sort()).toEqual([
+			"created_at",
+			"event_type",
+			"id",
+			"latency",
+			"status",
+		]);
+		expect(Object.keys(parsed.data[0])).not.toContain("updated_at");
+	});
 
-  it("cmdEventStatus outputs JSON envelope", async () => {
-    setAgentMode(true);
-    const { cmdEventStatus } = await import("../src/commands/events.js");
-    await cmdEventStatus(mockBackend, "evt-abc-123-def-456", { output: "agent" });
-    const parsed = JSON.parse(output.trim());
-    expect(parsed.status).toBe("success");
-    expect(parsed.command).toBe("event status");
-    expect(parsed.data).toBeDefined();
-    expect(parsed.data).toMatchObject({ id: "evt-abc-123-def-456" });
-    expect(parsed.data.results[0]).toHaveProperty("memory");
-    expect(parsed.data.results[0]).not.toHaveProperty("data");
-  });
+	it("cmdEventStatus outputs JSON envelope", async () => {
+		setAgentMode(true);
+		const { cmdEventStatus } = await import("../src/commands/events.js");
+		await cmdEventStatus(mockBackend, "evt-abc-123-def-456", {
+			output: "agent",
+		});
+		const parsed = JSON.parse(output.trim());
+		expect(parsed.status).toBe("success");
+		expect(parsed.command).toBe("event status");
+		expect(parsed.data).toBeDefined();
+		expect(parsed.data).toMatchObject({ id: "evt-abc-123-def-456" });
+		expect(parsed.data.results[0]).toHaveProperty("memory");
+		expect(parsed.data.results[0]).not.toHaveProperty("data");
+	});
 });

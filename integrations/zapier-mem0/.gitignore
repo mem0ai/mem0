@@ -1,0 +1,9 @@
+node_modules/
+package-lock.json
+.env
+.zapierapprc
+build/
+dist/
+coverage/
+*.log
+.DS_Store

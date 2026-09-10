@@ -141,7 +141,7 @@ console.log(responseWithInstructions);
 ```
 
 ```bash cURL
-curl -X POST "https://api.mem0.ai/v1/memories/export/" \
+curl -X POST "https://api.mem0.ai/v1/exports/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -183,6 +183,13 @@ const response = await client.getMemoryExport({
 });
 
 console.log(response);
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/exports/get/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{"memory_export_id": "550e8400-e29b-41d4-a716-446655440000"}'
 ```
 
 ```json Output
@@ -229,6 +236,20 @@ const response = await client.getMemoryExport({
 });
 
 console.log(response);
+```
+
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/exports/get/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "filters": {
+             "AND": [
+                 {"created_at": {"gte": "2024-07-10", "lte": "2024-07-20"}},
+                 {"user_id": "alex"}
+             ]
+         }
+     }'
 ```
 
 ```json Output

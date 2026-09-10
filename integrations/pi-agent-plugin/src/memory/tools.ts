@@ -1,3 +1,4 @@
+import { resolveToolScope } from "../../../agent-plugin-core/typescript/src/scoping.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { StringEnum } from "@earendil-works/pi-ai";
@@ -16,6 +17,10 @@ interface MemoryResult {
 
 const MAX_OUTPUT_LINES = 200;
 const MAX_OUTPUT_BYTES = 50_000;
+
+function normalizeMemoryId(id: string): string {
+  return id.replace(/^\[?mem0:([0-9a-f-]{36})\]?$/i, "$1");
+}
 
 function truncateOutput(text: string): string {
   const lines = text.split("\n");
@@ -50,7 +55,7 @@ export function buildToolExecute(
   defaultScope: Scope,
 ) {
   return async (params: ToolParams, signal?: AbortSignal) => {
-    const scope = params.scope ?? defaultScope;
+    const scope = resolveToolScope(params.scope, defaultScope);
 
     switch (params.action) {
       case "search": {
@@ -96,18 +101,19 @@ export function buildToolExecute(
         if (signal?.aborted) throw new Error("Cancelled");
         if (!params.memory_id) throw new Error("memory_id is required for update");
         if (!params.content) throw new Error("content is required for update");
-        const updateResult = await mem0.update(params.memory_id, { text: params.content });
+        const memoryId = normalizeMemoryId(params.memory_id);
+        const updateResult = await mem0.update(memoryId, { text: params.content });
         const res = updateResult as MemoryResult;
         return {
           content: [{ type: "text" as const, text: res.status ?? "Memory updated." }],
-          details: { memoryId: params.memory_id },
+          details: { memoryId },
         };
       }
 
       case "delete": {
         if (signal?.aborted) throw new Error("Cancelled");
         if (!params.memory_id) throw new Error("memory_id is required for delete");
-        const result = await mem0.delete(params.memory_id);
+        const result = await mem0.delete(normalizeMemoryId(params.memory_id));
         return {
           content: [{ type: "text" as const, text: result.message ?? "Memory deleted." }],
           details: {},
@@ -145,7 +151,7 @@ export function registerMemoryTool(
       'For multi-part or comparative questions, run several searches with different phrasings and combine the results before answering -- one search is rarely enough',
       'Use mem0_memory with action "add" to save important facts, preferences, goals, decisions, or lessons the user shares',
       'Use mem0_memory with action "update" to modify an existing memory — requires memory_id and content. Preserves the memory ID',
-      "Always use the default project scope unless the user EXPLICITLY asks to search across all projects — only then use scope \"global\"",
+      "Always use the default project scope unless the user EXPLICITLY asks to search across all projects — only after the user selects /mem0-scope global use scope \"global\"",
       "Do NOT pass scope at all for normal queries — omitting it uses the project default automatically",
     ],
     parameters: Type.Object({

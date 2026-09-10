@@ -22,17 +22,35 @@ messages = [
 client.add(messages, user_id="alice", infer=False)
 ```
 
-```markdown Output
-[]
+```json Output
+{
+  "message": "Memories stored successfully",
+  "status": "SUCCEEDED",
+  "event_id": "8c1f5e2b-3d47-4a9e-b6c1-5f2a7d3e9b04",
+  "results": [
+    {
+      "id": "19d6d7aa-2454-4e58-96fc-e74d9e9f8dd1",
+      "data": { "memory": "Alice loves playing badminton" },
+      "event": "ADD"
+    },
+    {
+      "id": "8557f05d-7b3c-47e5-b409-9886f9e314fc",
+      "data": { "memory": "Alice mostly cooks at home because of her gym plan" },
+      "event": "ADD"
+    }
+  ]
+}
 ```
 </CodeGroup>
 
-You can see that the output of the add call is an empty list.
-
-<Note>Only messages with the role "user" will be used for storage. Messages with roles such as "assistant" or "system" will be ignored during the storage process.</Note>
+<Note>
+Direct import stores `"user"` and `"assistant"` messages alike, regardless of which entity ids you pass. Only `"system"` messages are dropped. Each surviving message becomes one memory, with its content stored verbatim.
+</Note>
 
 <Warning>
-Direct import skips the inference pipeline, so it also skips duplicate detection. If you later send the same fact with `infer=True`, Mem0 will store a second copy. Pick one mode per memory source unless you truly want both versions.
+Direct import skips semantic duplicate detection: two different phrasings of the same fact will be stored as two separate memories. Exact repeats in the same scope are deduplicated by an exact hash of the text, so resending identical text is safe. Mixing `infer=False` and `infer=True` for the same fact can still produce two memories, since neither path checks the other for duplicates.
+
+Direct import also does not support multimodal content (`image_url`, `pdf_url`, `txt_url`, `mdx_url`). Those messages are skipped without raising an error, so they are missing from `results` rather than reported as a failure. Pass plain string content only when `infer=False`.
 </Warning>
 
 ## How to Retrieve Memories

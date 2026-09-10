@@ -1,7 +1,6 @@
 export type {
   Scope,
   Mem0Config,
-  DreamConfig,
   ScopeContext,
   CustomCategory,
 } from "./types.ts";
@@ -14,16 +13,6 @@ export { detectAppId, detectRunId, resolveSearchFilters, resolveAddParams } from
 export { formatAge, formatMemoryCompact, formatMemoryList, groupByCategory } from "./memory/formatting.ts";
 
 export { setupAutoCapture, extractConversation } from "./capture/index.ts";
-
-export {
-  incrementSessionCount,
-  checkCheapGates,
-  checkMemoryGate,
-  acquireDreamLock,
-  releaseDreamLock,
-  recordDreamCompletion,
-} from "./dream/index.ts";
-export { DREAM_PROTOCOL } from "./dream/prompt.ts";
 
 export { MEMORY_POLICY } from "./prompt.ts";
 

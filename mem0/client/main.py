@@ -275,11 +275,8 @@ class MemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        query_params = {key: params.pop(key) for key in ("page", "page_size") if key in params}
+        if query_params:
             response = self.client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = self.client.post("/v3/memories/", json=params)
@@ -734,6 +731,7 @@ class MemoryClient:
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -744,6 +742,7 @@ class MemoryClient:
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories.
 
         Returns:
             Dictionary containing the API response.
@@ -768,6 +767,7 @@ class MemoryClient:
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
+                    "agent_custom_instructions": agent_custom_instructions,
                 }.items()
                 if v is not None
             },
@@ -1195,11 +1195,8 @@ class AsyncMemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        query_params = {key: params.pop(key) for key in ("page", "page_size") if key in params}
+        if query_params:
             response = await self.async_client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = await self.async_client.post("/v3/memories/", json=params)
@@ -1636,6 +1633,7 @@ class AsyncMemoryClient:
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -1646,6 +1644,7 @@ class AsyncMemoryClient:
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories.
 
         Returns:
             Dictionary containing the API response.
@@ -1670,6 +1669,7 @@ class AsyncMemoryClient:
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
+                    "agent_custom_instructions": agent_custom_instructions,
                 }.items()
                 if v is not None
             },

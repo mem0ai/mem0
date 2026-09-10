@@ -1,0 +1,5 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "mem0",
+  "description": "Cross-session memory and token savings for coding agents."
+}

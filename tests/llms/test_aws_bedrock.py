@@ -6,7 +6,6 @@ from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.llms.aws_bedrock import AWSBedrockLLM, extract_provider
 from mem0.utils.factory import LlmFactory
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -70,6 +69,23 @@ class TestExtractProvider:
         with pytest.raises(ValueError, match="Unknown provider"):
             extract_provider("unknown-vendor.some-model-v1:0")
 
+    def test_application_inference_profile_arn_without_override_raises(self):
+        arn = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz"
+        with pytest.raises(ValueError, match="Unknown provider"):
+            extract_provider(arn)
+
+    def test_application_inference_profile_arn_with_explicit_provider(self):
+        arn = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz"
+        assert extract_provider(arn, "anthropic") == "anthropic"
+
+    def test_explicit_provider_takes_precedence_over_regex(self):
+        assert extract_provider("anthropic.claude-3-5-sonnet-20240620-v1:0", "amazon") == "amazon"
+
+    def test_explicit_provider_typo_raises(self):
+        arn = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz"
+        with pytest.raises(ValueError, match="Unknown provider_override 'anthorpic'"):
+            extract_provider(arn, "anthorpic")
+
 
 # ---------------------------------------------------------------------------
 # AWSBedrockConfig
@@ -113,6 +129,44 @@ class TestAWSBedrockConfig:
             aws_region="us-east-2",
         )
         assert config.aws_region == "us-east-2"
+
+    def test_provider_override_defaults_to_none(self):
+        config = AWSBedrockConfig(model="anthropic.claude-3-5-sonnet-20240620-v1:0")
+        assert config.provider_override is None
+
+    def test_provider_override_stored(self):
+        arn = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz"
+        config = AWSBedrockConfig(model=arn, provider_override="anthropic")
+        assert config.provider_override == "anthropic"
+
+
+# ---------------------------------------------------------------------------
+# AWSBedrockLLM with application inference profile ARNs
+# ---------------------------------------------------------------------------
+
+class TestApplicationInferenceProfileArn:
+    ARN = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz"
+
+    def test_arn_without_provider_override_raises(self, mock_boto3):
+        with pytest.raises(ValueError, match="Unknown provider"):
+            _make_llm(self.ARN, mock_boto3)
+
+    def test_arn_with_provider_override_resolves(self, mock_boto3):
+        llm = _make_llm(self.ARN, mock_boto3, provider_override="anthropic")
+        assert llm.provider == "anthropic"
+        assert llm.supports_tools is True
+
+    def test_plain_model_id_unaffected(self, mock_boto3):
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+        assert llm.provider == "anthropic"
+
+    def test_cross_region_inference_profile_unaffected(self, mock_boto3):
+        llm = _make_llm("us.anthropic.claude-haiku-4-5-20251001-v1:0", mock_boto3)
+        assert llm.provider == "anthropic"
+
+    def test_arn_with_misspelled_provider_override_raises(self, mock_boto3):
+        with pytest.raises(ValueError, match="Unknown provider_override 'anthorpic'"):
+            _make_llm(self.ARN, mock_boto3, provider_override="anthorpic")
 
 
 # ---------------------------------------------------------------------------

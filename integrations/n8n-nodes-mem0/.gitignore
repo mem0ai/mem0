@@ -1,0 +1,8 @@
+node_modules/
+dist/
+package-lock.json
+*.tsbuildinfo
+.env
+coverage/
+*.log
+.DS_Store
