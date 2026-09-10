@@ -109,7 +109,6 @@ export function apply(ctx: Context, config: Config): void {
           if (!session.header.cwd) throw new Error("The native session project directory is unavailable.");
           if (action === "list" || action === "resume") return await runHandoffAction(new URL("./session_handoff.py", import.meta.url), action, session.header.cwd, resource);
           if (action !== "save") throw new Error("Handoff action must be save, list, or resume.");
-          const attachments = (ctx as unknown as { attachments?: { readImage(ref: unknown): Promise<{ref: {mediaType: string}; data: Uint8Array}> } }).attachments;
           // dsh-session-title persists user renames and generated titles as last-wins log events.
           const titleEvent = [...session.events].reverse().find(event => String(event.type) === "session/title");
           const nativeTitle = (titleEvent?.data as {title?: unknown} | undefined)?.title;
@@ -120,6 +119,8 @@ export function apply(ctx: Context, config: Config): void {
           }, session.deriveMessages(), {
             excludeCallId: exec.callId,
             readImage: async (ref) => {
+              // Optional services must use Cordis lookup; direct access requires inject.
+              const attachments = ctx.get("attachments") as { readImage(ref: unknown): Promise<{ref: {mediaType: string}; data: Uint8Array}> } | undefined;
               if (!attachments) throw new Error("DeepSeek image attachment storage is unavailable.");
               const image = await attachments.readImage(ref);
               return { data: image.data, mediaType: image.ref.mediaType };

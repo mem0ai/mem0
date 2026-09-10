@@ -2,7 +2,7 @@
   "revision": "2ac8f2f9a9927f1d88e745432a66d66deab1e8d4",
   "files": {
     "handoff_engine.py": "5786e4f24e1145ce26867d18c78fafc8e3de4097b5494815073a2e09df15ea11",
-    "handoff_sources.py": "0eeae1d92ebd8db58400531fba44e950eb5e3d4e7547375d14c1222041d6fe5f"
+    "handoff_sources.py": "23957113d048179ba014bab39e121818507d61f976eebb6cfb66558f17fde0d1"
   },
   "artifacts": [
     "session_handoff.py",

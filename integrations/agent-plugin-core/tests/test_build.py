@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 import pytest
@@ -139,3 +140,14 @@ def test_handoff_is_bundled_with_host_appropriate_invocation(host: str, tmp_path
         assert "!`" not in skill
         assert "NATIVE_TRANSCRIPT_PATH" in skill
         assert "Never guess the latest session" in skill
+
+
+def test_handoff_preprocessor_matches_its_declared_permission(tmp_path: Path) -> None:
+    root = build("claude-code", "native", tmp_path / "plugin with spaces")
+    skill = (root / "skills" / "handoff" / "SKILL.md").read_text()
+    rule = next(line for line in skill.splitlines() if line.startswith("allowed-tools: Bash("))
+    pattern = rule.removeprefix("allowed-tools: Bash(").removesuffix(")")
+    command = next(line for line in skill.splitlines() if line.startswith("!`")).removeprefix("!`").removesuffix("`")
+    assert fnmatchcase(command, pattern), (
+        "Claude's preprocessor command must match its permission rule, including quotes"
+    )

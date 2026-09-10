@@ -1,7 +1,7 @@
 ---
 name: handoff
 description: Save a native session as a shared Mem0 handoff resource that another plugin can resume. Run only on explicit user request.
-allowed-tools: Bash(python3 ${PLUGIN_ROOT}/core/session_handoff.py *)
+allowed-tools: Bash(python3 "${PLUGIN_ROOT}/core/session_handoff.py" *)
 ---
 
 # Save shared session context

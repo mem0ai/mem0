@@ -153,7 +153,9 @@ def _codex(records: list[dict], warnings: list[str]) -> tuple[list[dict], dict]:
         elif kind == "event_msg":
             if payload.get("type") == "thread_rolled_back":
                 raise engine.HandoffError("Codex rollback requires a native active-context export.")
-        elif kind != "turn_context":
+        # Codex 0.153+ persists harness snapshots and accounting beside response_items.
+        # These records are not conversation history and must not become user context.
+        elif kind not in {"turn_context", "world_state", "token_usage_record"}:
             raise engine.HandoffError(f"Unsupported Codex rollout record: {kind!r}.")
     result = []
     for item in items:

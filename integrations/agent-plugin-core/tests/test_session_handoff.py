@@ -103,6 +103,8 @@ def test_codex_native_rollout_keeps_response_items_and_excludes_harness(tmp_path
     # openai/codex: codex-rs/protocol/src/protocol.rs and persisted response_item payloads.
     records = [
         {"type": "session_meta", "payload": {"id": "codex-session", "cwd": str(tmp_path)}},
+        {"type": "world_state", "payload": {"full": True, "state": {"agents_md": {"text": "harness config"}}}},
+        {"type": "token_usage_record", "payload": {"input_tokens": 123, "output_tokens": 45}},
         {"type": "response_item", "payload": message("developer", "harness config")},
         {"type": "response_item", "payload": {"type": "reasoning", "encrypted_content": "opaque"}},
         {"type": "response_item", "payload": message("user", "Keep user")},

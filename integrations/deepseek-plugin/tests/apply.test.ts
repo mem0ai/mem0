@@ -32,10 +32,12 @@ interface RegisteredTool {
 
 type HarnessListener = (...args: any[]) => unknown;
 
-function applyAndCollect(config: Config): Map<string, RegisteredTool> {
+function applyAndCollect(config: Config, attachments?: unknown): Map<string, RegisteredTool> {
   const tools = new Map<string, RegisteredTool>();
   const ctx = {
     tools: { register: (t: RegisteredTool) => tools.set(t.name, t) },
+    get: (service: string) => service === "attachments" ? attachments : undefined,
+    get attachments() { throw new Error('cannot get property "attachments" without inject'); },
     on: vi.fn(),
   };
   apply(ctx as never, config);
@@ -309,6 +311,19 @@ describe("mem0_handoff tool", () => {
     expect(runHandoff).not.toHaveBeenCalled();
     expect(mockSearch).not.toHaveBeenCalled();
     expect(mockAdd).not.toHaveBeenCalled();
+  });
+  it("reads native image bytes through Cordis optional service lookup", async () => {
+    const readImage = vi.fn(async () => ({ref: {mediaType: "image/png"}, data: new Uint8Array([104,105])}));
+    const tools = applyAndCollect({apiKey: "k", userId: "u"}, {readImage});
+    const imageExec = {...exec, agent: {session: {...exec.agent.session, deriveMessages: () => [
+      {role: "user", content: [{type: "text", text: "Describe this image"}, {type: "image", attachment: {id: "native-image"}}]},
+    ]}}};
+    vi.mocked(runHandoff).mockResolvedValue("Saved image context");
+    expect(await tools.get("mem0_handoff")!.execute({}, imageExec)).toBe("Saved image context");
+    expect(readImage).toHaveBeenCalledWith({id: "native-image"});
+    expect(JSON.stringify(vi.mocked(runHandoff).mock.calls[0][1])).toContain("data:image/png;base64,aGk=");
+    const unavailable = applyAndCollect({apiKey: "k", userId: "u"});
+    expect(await unavailable.get("mem0_handoff")!.execute({}, imageExec)).toContain("attachment storage is unavailable");
   });
   it("refuses unfinished sibling tools rather than hiding them with its own invocation", async () => {
     const tools = applyAndCollect({apiKey: "k", userId: "u"});
