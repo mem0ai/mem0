@@ -1,4 +1,4 @@
-import { buildSessionContext, convertToLlm, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { buildHandoffBundle, runHandoff } from "../../agent-plugin-core/typescript/src/handoff.ts";
 
 export function registerHandoffCommand(pi: ExtensionAPI): void {
@@ -11,6 +11,11 @@ export function registerHandoffCommand(pi: ExtensionAPI): void {
       }
       try {
         if (!ctx.isIdle()) throw new Error("Finish the current response before handing off this session.");
+        const [major, minor] = process.versions.node.split(".").map(Number);
+        if (major < 22 || (major === 22 && minor < 19)) {
+          throw new Error("Pi session handoff requires Node.js 22.19+ (the native Pi SDK requirement). Memory features remain available.");
+        }
+        const { buildSessionContext, convertToLlm } = await import("@earendil-works/pi-coding-agent");
         const session = ctx.sessionManager;
         const context = buildSessionContext(session.getEntries(), session.getLeafId());
         const bundle = await buildHandoffBundle({

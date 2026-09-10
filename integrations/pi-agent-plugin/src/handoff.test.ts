@@ -1,10 +1,18 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import mem0Extension from "./entry.ts";
+import {buildSessionContext, convertToLlm} from "@earendil-works/pi-coding-agent";
 import {runHandoff} from "../../agent-plugin-core/typescript/src/handoff.ts";
 vi.mock("../../agent-plugin-core/typescript/src/handoff.ts", async (original) => ({...await original<typeof import("../../agent-plugin-core/typescript/src/handoff.ts")>(), runHandoff: vi.fn()}));
+vi.mock("@earendil-works/pi-coding-agent", () => ({
+  buildSessionContext: vi.fn(() => ({messages: [{role: "user", content: "Native summary and retained tail"}]})),
+  convertToLlm: vi.fn(messages => messages),
+}));
 vi.mock("./config/index.ts", () => ({loadConfig: () => ({apiKey: ""}), CONFIG_DIR: "/tmp/mem0-pi-handoff-tests"}));
-beforeEach(() => { vi.clearAllMocks(); });
-afterEach(() => vi.restoreAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.stubGlobal("process", {...process, versions: {...process.versions, node: "22.19.0"}});
+});
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 function setup() {
   const commands = new Map<string, any>();
   const pi = {registerCommand: vi.fn((name, command) => commands.set(name, command)), sendMessage: vi.fn()};
@@ -23,10 +31,20 @@ function setup() {
   return {pi, ctx, handler: commands.get("mem0-handoff").handler};
 }
 describe("native Pi handoff", () => {
+  it("keeps startup working on Node 20 and explains the native handoff runtime requirement", async () => {
+    vi.stubGlobal("process", {...process, versions: {...process.versions, node: "20.20.2"}});
+    const {ctx, handler} = setup();
+    await handler("codex", ctx);
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("Node.js 22.19+"), "error");
+    expect(buildSessionContext).not.toHaveBeenCalled();
+    expect(runHandoff).not.toHaveBeenCalled();
+  });
   it("uses host compaction/branch selection and the current session without a Mem0 key", async () => {
     const {pi, ctx, handler} = setup();
     vi.mocked(runHandoff).mockResolvedValue("Created Codex task");
     await handler("codex", ctx);
+    expect(buildSessionContext).toHaveBeenCalledWith(ctx.sessionManager.getEntries(), "new");
+    expect(convertToLlm).toHaveBeenCalledOnce();
     const bundle = vi.mocked(runHandoff).mock.calls[0][1];
     expect(bundle.source).toMatchObject({host: "pi-agent", session_id: "pi-native", title: "My Pi task"});
     expect(JSON.stringify(bundle.items)).toContain("Native summary");

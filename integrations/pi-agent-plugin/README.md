@@ -56,6 +56,8 @@ Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 
 Run `/mem0-handoff codex` to continue the current Pi session in Codex. The plugin reads native session context, including readable compaction summaries and completed tool outcomes.
 
+Handoff requires **Node.js 22.19+**, matching the native Pi SDK. The SDK loads only when handoff is invoked; existing memory features remain available on Node.js 20.
+
 Requires **Python 3.11+** available as `python3` and an installed, signed-in Codex CLI with native session import support. Handoff works independently of Mem0 credentials and never sends the transcript through the Mem0 API. Unsupported content, missing results, and unrelated unfinished calls fail explicitly.
 
 The shared engine is packaged in `dist/` by [agent-plugin-core](../agent-plugin-core/README.md); it is not maintained separately in this plugin. Failed imports save a private recovery bundle under `~/.mem0/handoffs/`. See the [session handoff guide](../../docs/integrations/session-handoff.mdx) for supported formats, privacy, and recovery.

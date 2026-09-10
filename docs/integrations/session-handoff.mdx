@@ -13,6 +13,7 @@ All ten Mem0 plugin packages use the same handoff engine. Host adapters read nat
 - Python 3.11 or newer available as `python3`.
 - Codex CLI installed, signed in, and available as `codex` on the same machine. Its app-server must support native external-session import and thread compaction. Open Codex once so its configuration and model metadata exist.
 - The source conversation and its project directory available locally.
+- Pi handoff requires Node.js 22.19 or newer, matching the native Pi SDK requirement.
 
 The handoff runtime does not call Mem0 or use its API key. Memory features and host installation may still require their normal configuration. Handoff is separate from automatic memory capture.
 
