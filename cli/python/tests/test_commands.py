@@ -252,12 +252,13 @@ class TestAddCommand:
             )
         mock_backend.add.assert_called_once()
 
-    def test_add_categories_csv(self, mock_backend):
+    def test_add_categories_rejected(self, mock_backend):
         console, _buf = _make_console()
-        err_console, _err_buf = _make_err_console()
+        err_console, err_buf = _make_err_console()
         with (
             patch("mem0_cli.commands.memory.console", console),
             patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_add(
                 mock_backend,
@@ -275,7 +276,93 @@ class TestAddCommand:
                 categories="health,prefs",
                 output="text",
             )
-        mock_backend.add.assert_called_once()
+        assert "--custom-categories" in err_buf.getvalue()
+        mock_backend.add.assert_not_called()
+
+    def test_add_invalid_custom_categories_json(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises((SystemExit, TyperExit)),
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
+                custom_categories="not-json",
+                output="text",
+            )
+        assert "--custom-categories" in err_buf.getvalue()
+        mock_backend.add.assert_not_called()
+
+    def test_add_invalid_structured_data_schema_json(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises((SystemExit, TyperExit)),
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
+                structured_data_schema="not-json",
+                output="text",
+            )
+        assert "--structured-data-schema" in err_buf.getvalue()
+        mock_backend.add.assert_not_called()
+
+    def test_add_regression_metadata_expiration_custom_categories_together(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata='{"source": "test"}',
+                immutable=False,
+                no_infer=False,
+                expires="2099-01-01",
+                categories=None,
+                custom_categories='[{"prefs": "user preferences"}]',
+                output="text",
+            )
+        call_kwargs = mock_backend.add.call_args.kwargs
+        assert call_kwargs["metadata"] == {"source": "test"}
+        assert call_kwargs["expires"] == "2099-01-01"
+        assert call_kwargs["custom_categories"] == [{"prefs": "user preferences"}]
 
 
 class TestAddDeduplicatesPending:
@@ -464,6 +551,36 @@ class TestSearchCommand:
             )
         mock_backend.search.assert_called_once()
 
+    def test_search_new_flags_reach_backend(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_search(
+                mock_backend,
+                "preferences",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                top_k=10,
+                threshold=0.3,
+                rerank=False,
+                keyword=False,
+                filter_json=None,
+                fields=None,
+                show_expired=True,
+                reference_date="2024-01-01",
+                latest_only=True,
+                output="text",
+            )
+        call_kwargs = mock_backend.search.call_args.kwargs
+        assert call_kwargs["show_expired"] is True
+        assert call_kwargs["reference_date"] == "2024-01-01"
+        assert call_kwargs["latest_only"] is True
+
 
 class TestGetCommand:
     def test_get_text(self, mock_backend):
@@ -561,6 +678,32 @@ class TestListCommand:
         output = buf.getvalue()
         assert "No memories found" in output
 
+    def test_list_new_flags_reach_backend(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_list(
+                mock_backend,
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                page=1,
+                page_size=100,
+                category=None,
+                after=None,
+                before=None,
+                show_expired=True,
+                latest_only=True,
+                output="table",
+            )
+        call_kwargs = mock_backend.list_memories.call_args.kwargs
+        assert call_kwargs["show_expired"] is True
+        assert call_kwargs["latest_only"] is True
+
 
 class TestUpdateCommand:
     def test_update(self, mock_backend):
@@ -584,6 +727,26 @@ class TestUpdateCommand:
             cmd_update(mock_backend, "abc-123", "New text", metadata=None, output="json")
         output = buf.getvalue()
         assert '"memory"' in output
+
+    def test_update_new_fields_reach_backend(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_update(
+                mock_backend,
+                "abc-123",
+                "New text",
+                metadata=None,
+                expires="2099-01-01",
+                timestamp=1700000000,
+                output="text",
+            )
+        call_kwargs = mock_backend.update.call_args.kwargs
+        assert call_kwargs["expiration_date"] == "2099-01-01"
+        assert call_kwargs["timestamp"] == 1700000000
 
 
 class TestDeleteCommand:
@@ -609,6 +772,17 @@ class TestDeleteCommand:
         output = buf.getvalue()
         assert "dry run" in output.lower()
         mock_backend.delete.assert_not_called()
+
+    def test_delete_linked_reaches_backend(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_delete(mock_backend, "abc-123", delete_linked=True, output="text")
+        call_kwargs = mock_backend.delete.call_args.kwargs
+        assert call_kwargs["delete_linked"] is True
 
 
 class TestDeleteAllCommand:

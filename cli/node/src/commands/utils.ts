@@ -1,5 +1,5 @@
 /**
- * Utility commands: status, version, import.
+ * Utility commands: status, import.
  */
 
 import fs from "node:fs";
@@ -8,7 +8,6 @@ import type { Backend } from "../backend/base.js";
 import { colors, printError, printSuccess, timedStatus } from "../branding.js";
 import { formatAgentEnvelope, formatJsonEnvelope } from "../output.js";
 import { setCurrentCommand } from "../state.js";
-import { CLI_VERSION } from "../version.js";
 
 const { brand, dim, success, error: errorColor } = colors;
 
@@ -80,10 +79,6 @@ export async function cmdStatus(
 		}),
 	);
 	console.log();
-}
-
-export function cmdVersion(): void {
-	console.log(`  ${brand("◆ Mem0")} CLI v${CLI_VERSION}`);
 }
 
 export async function cmdImport(

@@ -4,7 +4,7 @@ description: "Configure Mem0 OSS in Python or TypeScript with your own LLM, embe
 icon: "sliders"
 ---
 
-Mem0 OSS works out of the box with OpenAI defaults. Point it at your own LLM, embedder, and vector store by passing a config when you create `Memory`. The Python SDK also supports a reranker and graph memory.
+Mem0 OSS works out of the box with OpenAI defaults. Point it at your own LLM, embedder, vector store, and reranker by passing a config when you create `Memory`.
 
 <Info>
   **Prerequisites**
@@ -90,11 +90,11 @@ Set your provider keys as environment variables:
 
 ```bash
 export OPENAI_API_KEY="..."
-export COHERE_API_KEY="..."   # Python reranker only
+export COHERE_API_KEY="..."   # Cohere reranker only
 ```
 
 <Note>
-  The TypeScript OSS SDK configures the LLM, embedder, vector store, and history store. Reranker and graph memory are Python-only today.
+  The TypeScript OSS SDK configures the LLM, embedder, vector store, history store, and reranker. Graph memory is not part of OSS in either language: it is a built-in [Mem0 Platform feature](/platform/features/graph-memory).
 </Note>
 
 Prefer a config file? Load YAML into Python's `from_config`:

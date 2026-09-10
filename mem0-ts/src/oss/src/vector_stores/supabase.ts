@@ -31,6 +31,8 @@ interface SupabaseConfig extends VectorStoreConfig {
   metadataColumnName?: string;
 }
 
+const POSTGREST_MAX_ROWS = 1000;
+
 /*
 SQL Migration to run in Supabase SQL Editor:
 
@@ -123,34 +125,19 @@ export class SupabaseDB implements VectorStore {
   private async _doInitialize(): Promise<void> {
     await this.ensureClient();
     try {
-      // Verify table exists and vector operations work by attempting a test insert
-      const testVector = Array(1536).fill(0);
-
-      // First try to delete any existing test vector
-      try {
-        await this.client.from(this.tableName).delete().eq("id", "test_vector");
-      } catch {
-        // Ignore delete errors - table might not exist yet
-      }
-
-      // Try to insert the test vector
-      const { error: insertError } = await this.client
+      const { error: probeError } = await this.client
         .from(this.tableName)
-        .insert({
-          id: "test_vector",
-          [this.embeddingColumnName]: testVector,
-          [this.metadataColumnName]: {},
-        })
-        .select();
+        .select(this.embeddingColumnName)
+        .limit(1);
 
-      // If we get a duplicate key error, that's actually fine - it means the table exists
-      if (insertError && insertError.code !== "23505") {
-        console.error("Test insert error:", insertError);
+      if (probeError) {
+        console.error("Table probe error:", probeError);
         throw new Error(
           `Vector operations failed. Please ensure:
 1. The vector extension is enabled
 2. The table "${this.tableName}" exists with correct schema
 3. The match_vectors function is created
+4. Row Level Security policies allow the configured Supabase key to read the table
 
 RUN THE FOLLOWING SQL IN YOUR SUPABASE SQL EDITOR:
 
@@ -203,13 +190,6 @@ $$;
 
 See the SQL migration instructions in the code comments.`,
         );
-      }
-
-      // Clean up test vector - ignore errors here too
-      try {
-        await this.client.from(this.tableName).delete().eq("id", "test_vector");
-      } catch {
-        // Ignore delete errors
       }
 
       console.log("Connected to Supabase successfully");
@@ -270,6 +250,13 @@ See the SQL migration instructions in the code comments.`,
       if (!data) return [];
 
       const results = data as VectorSearchResult[];
+
+      if (topK > POSTGREST_MAX_ROWS && results.length === POSTGREST_MAX_ROWS) {
+        console.warn(
+          `Supabase search requested topK=${topK} but match_vectors returned exactly the PostgREST row cap of ${POSTGREST_MAX_ROWS}; results were likely truncated.`,
+        );
+      }
+
       return results.map((result) => ({
         id: result.id,
         payload: result.metadata,
@@ -364,27 +351,45 @@ See the SQL migration instructions in the code comments.`,
   ): Promise<[VectorStoreResult[], number]> {
     await this.initialize();
     try {
-      let query = this.client
-        .from(this.tableName)
-        .select("*", { count: "exact" })
-        .limit(topK);
+      const results: VectorStoreResult[] = [];
+      let totalCount = 0;
+      let offset = 0;
 
-      if (filters) {
-        Object.entries(filters).forEach(([key, value]) => {
-          query = query.eq(`${this.metadataColumnName}->>${key}`, value);
-        });
+      while (results.length < topK) {
+        const to = Math.min(offset + POSTGREST_MAX_ROWS, topK) - 1;
+
+        let query = this.client
+          .from(this.tableName)
+          .select("*", { count: "exact" })
+          .order("id", { ascending: true });
+
+        if (filters) {
+          Object.entries(filters).forEach(([key, value]) => {
+            query = query.eq(`${this.metadataColumnName}->>${key}`, value);
+          });
+        }
+
+        const { data, error, count } = await query.range(offset, to);
+
+        if (error) throw error;
+
+        totalCount = count ?? totalCount;
+
+        const page = (data ?? []).map((item: VectorData) => ({
+          id: item.id,
+          payload: item[this.metadataColumnName],
+        }));
+        results.push(...page);
+
+        const requestedPageSize = to - offset + 1;
+        if (page.length < requestedPageSize) break;
+
+        offset += page.length;
+
+        if (results.length >= totalCount) break;
       }
 
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-
-      const results = data.map((item: VectorData) => ({
-        id: item.id,
-        payload: item[this.metadataColumnName],
-      }));
-
-      return [results, count || 0];
+      return [results, totalCount];
     } catch (error) {
       console.error("Error listing vectors:", error);
       throw error;

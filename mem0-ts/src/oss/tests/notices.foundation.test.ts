@@ -138,16 +138,49 @@ describe("Node OSS notice foundation", () => {
     expect(fs.existsSync(notices.getMem0ConfigPath())).toBe(false);
   });
 
-  it("returns null when PostHog flag evaluation fails", async () => {
+  it("falls back to bundled config when remote fetch fails", async () => {
     const notices = await import("../src/utils/notices");
     const fetchMock = jest.fn().mockRejectedValue(new Error("network down"));
 
-    await expect(
-      notices.evaluateNoticeFlag("notice-test-user", { fetchImpl: fetchMock }),
-    ).resolves.toBeNull();
+    const firstResult = await notices.evaluateNoticeFlag("notice-test-user", {
+      fetchImpl: fetchMock,
+    });
+    const secondResult = await notices.evaluateNoticeFlag("notice-test-user", {
+      fetchImpl: fetchMock,
+    });
+
+    expect(firstResult).not.toBeNull();
+    expect(secondResult?.variant).toBe(firstResult?.variant);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("returns null when PostHog flag evaluation times out", async () => {
+  it("coalesces concurrent remote config fetches", async () => {
+    const notices = await import("../src/utils/notices");
+    const resolvers: Array<(response: any) => void> = [];
+    const fetchMock = jest.fn(
+      () => new Promise((resolve) => resolvers.push(resolve)),
+    );
+
+    const evaluations = [
+      notices.evaluateNoticeFlag("user-0", { fetchImpl: fetchMock as any }),
+      notices.evaluateNoticeFlag("user-1", { fetchImpl: fetchMock as any }),
+    ];
+    resolvers.forEach((resolve) =>
+      resolve({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          version: 1,
+          variant_split: 0.5,
+          notices: {},
+        }),
+      }),
+    );
+
+    await Promise.all(evaluations);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to bundled config when remote fetch times out", async () => {
     const notices = await import("../src/utils/notices");
     const fetchMock = jest.fn(
       (_url: string | URL | Request, init?: RequestInit) =>
@@ -158,34 +191,28 @@ describe("Node OSS notice foundation", () => {
         }),
     );
 
-    await expect(
-      notices.evaluateNoticeFlag("notice-test-user", {
-        fetchImpl: fetchMock as any,
-        timeoutMs: 1,
-      }),
-    ).resolves.toBeNull();
+    const startedAt = Date.now();
+    const result = await notices.evaluateNoticeFlag("notice-test-user", {
+      fetchImpl: fetchMock as any,
+      timeoutMs: 10,
+    });
+    expect(result).not.toBeNull();
+    expect(result?.variant).toMatch(/^(displayed|holdout)$/);
+    expect(Date.now() - startedAt).toBeLessThan(500);
   });
 
-  it("parses displayed variant and JSON payload from PostHog flags response", async () => {
+  it("parses variant and notices from static config response", async () => {
     const notices = await import("../src/utils/notices");
-    const payload = {
-      notices: {
-        foundation_notice: {
-          enabled: true,
-          notice_type: "log_line",
-          copy: "Foundation notice",
-        },
-      },
-    };
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({
-        flags: {
-          "mem0-oss-notices": {
-            key: "mem0-oss-notices",
+        version: 1,
+        variant_split: 1.0,
+        notices: {
+          foundation_notice: {
             enabled: true,
-            variant: "displayed",
-            metadata: { payload: JSON.stringify(payload) },
+            notice_type: "log_line",
+            copy: "Foundation notice",
           },
         },
       }),
@@ -201,6 +228,27 @@ describe("Node OSS notice foundation", () => {
     );
     expect(parsed.found).toBe(true);
     expect(parsed.config?.copy).toBe("Foundation notice");
+  });
+
+  it.each([
+    ["user-0", "holdout"],
+    ["user-1", "displayed"],
+  ])("preserves the PostHog cohort for %s", async (distinctId, expected) => {
+    const notices = await import("../src/utils/notices");
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        version: 1,
+        variant_split: 0.5,
+        notices: {},
+      }),
+    });
+
+    const result = await notices.evaluateNoticeFlag(distinctId, {
+      fetchImpl: fetchMock,
+    });
+
+    expect(result?.variant).toBe(expected);
   });
 
   it("emits mem0.notice_displayed with sample_rate=1", async () => {

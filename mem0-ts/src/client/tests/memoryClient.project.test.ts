@@ -96,6 +96,84 @@ describe("MemoryClient - updateProject()", () => {
       "Updated instructions",
     );
   });
+
+  test("camelCases agentCustomInstructions into agent_custom_instructions", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/api/v1/orgs/organizations/", {
+      status: 200,
+      body: { message: "Updated" },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.ping();
+    await client.updateProject({
+      agentCustomInstructions: "Remember tool failures",
+    });
+
+    const call = findFetchCall(mock, "/api/v1/orgs/organizations/", "PATCH");
+    expect(getFetchBody(call!).agent_custom_instructions).toBe(
+      "Remember tool failures",
+    );
+  });
+
+  test("sends both instruction sets in one PATCH", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/api/v1/orgs/organizations/", {
+      status: 200,
+      body: { message: "Updated" },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.ping();
+    await client.updateProject({
+      customInstructions: "Remember user preferences",
+      agentCustomInstructions: "Remember tool failures",
+    });
+
+    const body = getFetchBody(
+      findFetchCall(mock, "/api/v1/orgs/organizations/", "PATCH")!,
+    );
+    expect(body.custom_instructions).toBe("Remember user preferences");
+    expect(body.agent_custom_instructions).toBe("Remember tool failures");
+  });
+
+  test("an empty string round-trips, so the field can be cleared", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/api/v1/orgs/organizations/", {
+      status: 200,
+      body: { message: "Updated" },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.ping();
+    await client.updateProject({ agentCustomInstructions: "" });
+
+    const body = getFetchBody(
+      findFetchCall(mock, "/api/v1/orgs/organizations/", "PATCH")!,
+    );
+    expect(body).toHaveProperty("agent_custom_instructions", "");
+  });
+
+  test("omits agent_custom_instructions when it is not passed", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/api/v1/orgs/organizations/", {
+      status: 200,
+      body: { message: "Updated" },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.ping();
+    await client.updateProject({ customInstructions: "Be helpful" });
+
+    const body = getFetchBody(
+      findFetchCall(mock, "/api/v1/orgs/organizations/", "PATCH")!,
+    );
+    expect(body).not.toHaveProperty("agent_custom_instructions");
+  });
 });
 
 // ─── feedback() ─────────────────────────────────────────

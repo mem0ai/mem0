@@ -1,9 +1,10 @@
-from unittest.mock import Mock, patch
+import logging
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
 from mem0.configs.vector_stores.supabase import IndexMeasure, IndexMethod
-from mem0.vector_stores.supabase import Supabase
+from mem0.vector_stores.supabase import VECS_MAX_QUERY_LIMIT, Supabase
 
 
 @pytest.fixture
@@ -14,13 +15,12 @@ def mock_vecs_client():
 
 @pytest.fixture
 def mock_collection():
-    collection = Mock()
+    collection = MagicMock()
     collection.name = "test_collection"
-    collection.vectors = 100
     collection.dimension = 1536
-    collection.index_method = "hnsw"
-    collection.distance_metric = "cosine_distance"
-    collection.describe.return_value = collection
+    collection.index = "ix_vector_cosine_ops_hnsw_m16_efc64_abc1234"
+    collection.is_indexed_for_measure.return_value = True
+    collection.__len__.return_value = 100
     return collection
 
 
@@ -141,8 +141,55 @@ def test_col_info(supabase_instance, mock_collection):
         "name": "test_collection",
         "count": 100,
         "dimension": 1536,
-        "index": {"method": "hnsw", "metric": "cosine_distance"},
+        "index": {
+            "name": "ix_vector_cosine_ops_hnsw_m16_efc64_abc1234",
+            "measure": "cosine_distance",
+            "is_indexed": True,
+        },
     }
+
+
+def test_search_clamps_top_k_to_vecs_limit(supabase_instance, mock_collection, caplog):
+    mock_collection.query.return_value = []
+
+    with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.supabase"):
+        supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=5000)
+
+    mock_collection.query.assert_called_once_with(
+        data=[[0.1, 0.2, 0.3]], limit=VECS_MAX_QUERY_LIMIT, filters=None, include_metadata=True, include_value=True
+    )
+    assert "5000" in caplog.text
+    assert str(VECS_MAX_QUERY_LIMIT) in caplog.text
+
+
+def test_search_does_not_clamp_top_k_within_limit(supabase_instance, mock_collection):
+    mock_collection.query.return_value = []
+
+    supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=5)
+
+    mock_collection.query.assert_called_once_with(
+        data=[[0.1, 0.2, 0.3]], limit=5, filters=None, include_metadata=True, include_value=True
+    )
+
+
+def test_list_clamps_top_k_to_vecs_limit(supabase_instance, mock_collection, caplog):
+    mock_collection.query.return_value = []
+    mock_collection.fetch.return_value = []
+
+    with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.supabase"):
+        supabase_instance.list(top_k=5000)
+
+    _, kwargs = mock_collection.query.call_args
+    assert kwargs["limit"] == VECS_MAX_QUERY_LIMIT
+    assert "5000" in caplog.text
+    assert str(VECS_MAX_QUERY_LIMIT) in caplog.text
+
+
+def test_col_info_does_not_raise(supabase_instance):
+    info = supabase_instance.col_info()
+
+    assert isinstance(info, dict)
+    assert info["name"] == "test_collection"
 
 
 def test_preprocess_filters(supabase_instance):

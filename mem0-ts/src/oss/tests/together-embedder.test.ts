@@ -20,6 +20,7 @@ describe("TogetherEmbedder (unit)", () => {
     jest.resetModules();
     process.env = { ...originalEnv };
     delete process.env.TOGETHER_API_KEY;
+    delete process.env.TOGETHER_API_BASE;
     mockOpenAI.mockClear();
     mockEmbeddingsCreate.mockReset();
     mockEmbeddingsCreate.mockResolvedValue({
@@ -78,6 +79,35 @@ describe("TogetherEmbedder (unit)", () => {
       model: "custom-together-embed",
       input: "hello",
       encoding_format: "float",
+    });
+  });
+
+  it("honors TOGETHER_API_BASE when no baseURL is configured", async () => {
+    process.env.TOGETHER_API_BASE = "https://gateway.example/v1";
+
+    const embedder = new TogetherEmbedder({ apiKey: "test-key" });
+
+    await embedder.embed("hello");
+
+    expect(mockOpenAI).toHaveBeenCalledWith({
+      apiKey: "test-key",
+      baseURL: "https://gateway.example/v1",
+    });
+  });
+
+  it("prefers an explicit baseURL over TOGETHER_API_BASE", async () => {
+    process.env.TOGETHER_API_BASE = "https://gateway.example/v1";
+
+    const embedder = new TogetherEmbedder({
+      apiKey: "test-key",
+      baseURL: "https://explicit.example/v1",
+    });
+
+    await embedder.embed("hello");
+
+    expect(mockOpenAI).toHaveBeenCalledWith({
+      apiKey: "test-key",
+      baseURL: "https://explicit.example/v1",
     });
   });
 

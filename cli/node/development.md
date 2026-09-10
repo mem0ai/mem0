@@ -51,7 +51,7 @@ pnpm link --global
 
 # Now use it like a normal CLI
 mem0 --help
-mem0 version
+mem0 --version
 ```
 
 > **Warning:** If you also have the Python CLI installed, both register the `mem0` command. The last one linked/installed wins. Unlink with `pnpm unlink --global`.

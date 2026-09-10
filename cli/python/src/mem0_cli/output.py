@@ -262,16 +262,32 @@ def sanitize_agent_data(command: str, data: Any) -> Any:
         return result
 
     if command == "search":
-        return [pick(r, ["id", "memory", "score", "created_at", "categories"]) for r in data]
+        return [
+            pick(r, ["id", "memory", "score", "created_at", "categories", "expiration_date"])
+            for r in data
+        ]
 
     if command == "list":
-        return [pick(r, ["id", "memory", "created_at", "categories"]) for r in data]
+        return [
+            pick(r, ["id", "memory", "created_at", "categories", "expiration_date"]) for r in data
+        ]
 
     if command == "get":
-        return pick(data, ["id", "memory", "created_at", "updated_at", "categories", "metadata"])
+        return pick(
+            data,
+            [
+                "id",
+                "memory",
+                "created_at",
+                "updated_at",
+                "categories",
+                "metadata",
+                "expiration_date",
+            ],
+        )
 
     if command == "update":
-        return pick(data, ["id", "memory"])
+        return pick(data, ["id", "memory", "expiration_date"])
 
     if command in ("delete", "delete-all", "entity delete"):
         return data

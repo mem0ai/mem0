@@ -89,6 +89,10 @@ def _build_filter_conditions(filters):
                     raise ValueError(f"Unsupported filter operator: {op}")
                 template, is_numeric = OPERATOR_SQL_MAP[op]
                 if op in ("in", "nin"):
+                    if not isinstance(op_value, list):
+                        raise ValueError(
+                            f"Filter operator {op!r} for key {key!r} requires a list value, got {type(op_value).__name__}"
+                        )
                     str_list = [str(v) for v in op_value]
                     conditions.append(template)
                     params.extend([key, str_list])
