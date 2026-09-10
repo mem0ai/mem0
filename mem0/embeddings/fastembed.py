@@ -34,7 +34,7 @@ class FastEmbedEmbedding(EmbeddingBase):
         embeddings = list(self.dense_model.embed(text))
         return embeddings[0].tolist()
 
-    def embed_batch(self, texts, memory_action=None):
+    def embed_batch(self, texts, memory_action="add"):
         """Batch embed using FastEmbed's native list input."""
         if not texts:
             return []
@@ -42,10 +42,13 @@ class FastEmbedEmbedding(EmbeddingBase):
         try:
             embeddings = list(self.dense_model.embed(texts))
             if len(embeddings) != len(texts):
-                logger.warning(
-                    f"FastEmbed embed_batch() returned {len(embeddings)} embeddings for {len(texts)} texts"
+                raise ValueError(
+                    f"FastEmbed embed_batch() returned {len(embeddings)} embeddings "
+                    f"for {len(texts)} texts (model: {self.config.model})"
                 )
-                raise ValueError("count mismatch")
             return [emb.tolist() for emb in embeddings]
-        except Exception:
+        except Exception as e:
+            logger.warning(
+                f"FastEmbed native batch embed failed ({e!r}); falling back to per-text embedding"
+            )
             return super().embed_batch(texts, memory_action)

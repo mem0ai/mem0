@@ -1,5 +1,6 @@
 """Tests for FastEmbed embedding provider, including embed_batch."""
 
+import logging
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -138,6 +139,30 @@ def test_embed_batch_falls_back_on_count_mismatch_extra(mock_fastembed_client):
     result = embedder.embed_batch(["a", "b"])
 
     assert result == [[0.1, 0.2], [0.3, 0.4]]
+
+
+def test_embed_batch_fallback_logs_warning_with_context(mock_fastembed_client, caplog):
+    config = BaseEmbedderConfig(model="jinaai/jina-embeddings-v2-base-en", embedding_dims=768)
+    embedder = FastEmbedEmbedding(config)
+
+    # Batch call returns 1 embedding for 2 texts -> count mismatch -> fallback
+    mock_fastembed_client.embed.side_effect = [
+        iter([np.array([0.1, 0.2])]),  # batch call returns wrong count
+        iter([np.array([0.1, 0.2])]),  # fallback embed("a")
+        iter([np.array([0.3, 0.4])]),  # fallback embed("b")
+    ]
+    with caplog.at_level(logging.WARNING, logger="mem0.embeddings.fastembed"):
+        result = embedder.embed_batch(["a", "b"])
+
+    assert result == [[0.1, 0.2], [0.3, 0.4]]
+    # The fallback warning must carry the exception context: both counts and the model name
+    assert any(
+        "falling back to per-text embedding" in record.getMessage()
+        and "1 embeddings" in record.getMessage()
+        and "2 texts" in record.getMessage()
+        and "jinaai/jina-embeddings-v2-base-en" in record.getMessage()
+        for record in caplog.records
+    )
 
 
 def test_embed_batch_fallback_failure_propagates(mock_fastembed_client):
