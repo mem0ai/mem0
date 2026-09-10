@@ -67,14 +67,14 @@ The engine source exists only here. Installable packages contain the small launc
 
 Every TypeScript build uses `build/package_handoff.mjs`; the Python builder uses the same manifest. Builds reject source hashes that differ from the pin, and conformance checks reject stale launchers/manifests. To change the engine, commit its source, pin that immutable commit and its file digests, regenerate Python bundles, and rebuild TypeScript packages. No per-plugin engine edits are needed. Before distributing a new pin, retain its source commit with a `handoff-runtime-<full-commit-sha>` tag. Keep these tags after squash merges and branch deletion so fresh installs can still fetch every distributed runtime. These are retention tags, not package releases.
 
-See the [shared changelog](CHANGELOG.md#032) and each plugin's changelog for invocation details.
+See the [plugin changelog](../../docs/changelog/sdk.mdx) for invocation details.
 
 ## Build and verify
 
 From the repository root:
 
 ```bash
-python3.11 -m venv /tmp/mem0-agent-plugins
+python3 -m venv /tmp/mem0-agent-plugins
 /tmp/mem0-agent-plugins/bin/pip install \
   -r integrations/agent-plugin-core/requirements-dev.txt
 
