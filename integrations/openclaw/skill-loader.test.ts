@@ -131,6 +131,10 @@ describe("loadCompactTriagePrompt", () => {
     });
 
     expect(prompt).toContain("No automatic recall happens in manual mode.");
+    const fullPrompt = loadTriagePrompt({recall: {strategy: "manual"}});
+    expect(fullPrompt).toContain("No automatic recall happens in manual mode.");
+    expect(fullPrompt).toContain(SEARCH_GUIDANCE);
+    expect(fullPrompt).not.toContain("ALWAYS rewrite");
   });
 
   it("includes short config summaries and truncates oversized custom rules", () => {
