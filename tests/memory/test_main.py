@@ -1178,3 +1178,132 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+class TestEntityLookupFailureDoesNotDuplicate:
+    """A failed exact-match lookup must not be read as "no entity exists".
+
+    `_existing_entities_by_text` used to swallow a failing `entity_store.list()`
+    and return `{}`. `exact_match` was then None, control fell through to the
+    semantic search gated on `score >= 0.95`, and any existing row scoring below
+    that threshold was ignored — so `add()` inserted a second row for an entity
+    that was already stored and split `linked_memory_ids` across the two.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        return Memory()
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        return AsyncMemory()
+
+    @staticmethod
+    def _entity_store_with_failing_list(existing_score):
+        """Store whose exact index is down but whose semantic search answers."""
+        store = Mock()
+        store.list = Mock(side_effect=RuntimeError("entity index unavailable"))
+        store.search = Mock(
+            return_value=[
+                SimpleNamespace(
+                    id="entity-1",
+                    score=existing_score,
+                    payload={"data": "alice", "linked_memory_ids": ["mem-1"]},
+                )
+            ]
+        )
+        store.insert = Mock()
+        store.update = Mock()
+        return store
+
+    def test_sync_upsert_does_not_insert_when_exact_lookup_fails(self, mock_memory):
+        # 0.80 is below the 0.95 semantic gate, so the pre-fix code inserted.
+        store = self._entity_store_with_failing_list(existing_score=0.80)
+        mock_memory._entity_store = store
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        mock_memory._upsert_entity("alice", "person", "mem-2", {"user_id": "u1"})
+
+        store.insert.assert_not_called()
+
+    def test_sync_upsert_warns_when_exact_lookup_fails(self, mock_memory, caplog):
+        store = self._entity_store_with_failing_list(existing_score=0.80)
+        mock_memory._entity_store = store
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        with caplog.at_level(logging.WARNING):
+            mock_memory._upsert_entity("alice", "person", "mem-2", {"user_id": "u1"})
+
+        assert any("Exact entity lookup failed" in r.message for r in caplog.records), (
+            "a lookup outage that skips the write must not be silent"
+        )
+
+    def test_sync_upsert_still_links_when_lookup_succeeds(self, mock_memory):
+        """The healthy path is unchanged: an exact hit still links."""
+        store = Mock()
+        store.list = Mock(
+            return_value=[
+                SimpleNamespace(
+                    id="entity-1",
+                    score=1.0,
+                    payload={"data": "alice", "linked_memory_ids": ["mem-1"]},
+                )
+            ]
+        )
+        store.insert = Mock()
+        store.update = Mock()
+        mock_memory._entity_store = store
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        mock_memory._upsert_entity("alice", "person", "mem-2", {"user_id": "u1"})
+
+        store.insert.assert_not_called()
+        store.update.assert_called_once()
+        payload = store.update.call_args.kwargs["payload"]
+        assert payload["linked_memory_ids"] == ["mem-1", "mem-2"]
+
+    def test_sync_upsert_still_inserts_a_genuinely_new_entity(self, mock_memory):
+        """A readable but empty index must still create the entity."""
+        store = Mock()
+        store.list = Mock(return_value=[])
+        store.search = Mock(return_value=[])
+        store.insert = Mock()
+        store.update = Mock()
+        mock_memory._entity_store = store
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        mock_memory._upsert_entity("alice", "person", "mem-1", {"user_id": "u1"})
+
+        store.insert.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_async_upsert_does_not_insert_when_exact_lookup_fails(self, mock_async_memory):
+        store = self._entity_store_with_failing_list(existing_score=0.80)
+        mock_async_memory._entity_store = store
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        await mock_async_memory._upsert_entity_async("alice", "person", "mem-2", {"user_id": "u1"})
+
+        store.insert.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_upsert_still_inserts_a_genuinely_new_entity(self, mock_async_memory):
+        store = Mock()
+        store.list = Mock(return_value=[])
+        store.search = Mock(return_value=[])
+        store.insert = Mock()
+        store.update = Mock()
+        mock_async_memory._entity_store = store
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        await mock_async_memory._upsert_entity_async("alice", "person", "mem-1", {"user_id": "u1"})
+
+        store.insert.assert_called_once()
