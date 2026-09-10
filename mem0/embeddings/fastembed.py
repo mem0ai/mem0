@@ -1,8 +1,8 @@
 import logging
-from typing import Optional, Literal
+from typing import Literal, Optional
 
-from mem0.embeddings.base import EmbeddingBase
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.embeddings.base import EmbeddingBase
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class FastEmbedEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         embeddings = list(self.dense_model.embed(text))
-        return embeddings[0]
+        return embeddings[0].tolist()
 
     def embed_batch(self, texts, memory_action=None):
         """Batch embed using FastEmbed's native list input."""

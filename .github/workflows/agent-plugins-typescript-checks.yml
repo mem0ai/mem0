@@ -1,0 +1,42 @@
+name: Agent Plugins TypeScript Checks
+
+# Shared TypeScript runtime checks. Each consuming integration keeps its own
+# build workflow, which is also triggered when this shared core changes.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'integrations/agent-plugin-core/typescript/**'
+      - '.github/workflows/agent-plugins-typescript-checks.yml'
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: integrations/agent-plugin-core/typescript/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: integrations/agent-plugin-core/typescript
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: integrations/agent-plugin-core/typescript
+        run: pnpm typecheck
+
+      - name: Run tests
+        working-directory: integrations/agent-plugin-core/typescript
+        run: pnpm test

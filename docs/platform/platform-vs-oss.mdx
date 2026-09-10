@@ -6,7 +6,7 @@ icon: "code-compare"
 
 ## Which Mem0 is right for you?
 
-Mem0 offers two powerful ways to add memory to your AI applications. Choose based on your priorities:
+Mem0 offers two ways to add memory to your AI applications. Both run the same core extraction and retrieval logic; the Platform adds hosting, a small set of v3-only capabilities, and management surfaces that OSS does not have.
 
 <CardGroup cols={2}>
   <Card
@@ -16,7 +16,7 @@ Mem0 offers two powerful ways to add memory to your AI applications. Choose base
   >
     **Managed, hassle-free**
 
-    Get started in 5 minutes with our hosted solution. Perfect for fast iteration and production apps.
+    Get started in 5 minutes with our hosted solution. No vector store, LLM, or embedder to configure.
   </Card>
 
   <Card
@@ -32,89 +32,85 @@ Mem0 offers two powerful ways to add memory to your AI applications. Choose base
 
 ---
 
-## Feature Comparison
+## What's the same
+
+The core memory loop is identical on both: `add`, `search`, `get`, `get_all`, `update`, `delete`, `delete_all`, and per-memory `history` all exist on the self-hosted `Memory`/`AsyncMemory` classes and on the hosted `MemoryClient`/`AsyncMemoryClient`. Both support:
+
+- **Entity scoping** by `user_id`, `agent_id`, and `run_id`
+- **Filter grouping**: both accept `AND`/`OR`/`NOT` wrappers, both implicitly AND a flat multi-key filter like `{"user_id": "alice", "agent_id": "a1"}`, and both accept `*` as a wildcard value. Which fields you may filter on, and which operators each field accepts, differ (see below)
+- **Entity-aware ranking**: both extract entities from memory text and use shared entities to boost related results at search time
+- **Multimodal input**, **memory expiration** (`expiration_date`), **reranking**, **procedural memory** (Python), and **custom extraction instructions** (`custom_instructions`)
+- Python and JavaScript SDKs, plus a REST API (self-hosted via `server/`, or hosted)
+
+## What's actually different
 
 <AccordionGroup>
-  <Accordion title="Setup & Getting Started" icon="rocket">
+  <Accordion title="Hosting & infrastructure" icon="server">
     | Feature | Platform | Open Source |
     |---------|----------|-------------|
-    | **Time to first memory** | 5 minutes | 15-30 minutes |
-    | **Infrastructure needed** | None | Vector DB + Python/Node env |
-    | **API key setup** | One environment variable | Configure LLM + embedder + vector DB |
-    | **Maintenance** | Fully managed by Mem0 | Self-managed |
+    | **Vector store, LLM, embedder** | Run and tuned by Mem0 | You provision, configure, and pay for each |
+    | **Scaling & availability** | Managed | Your responsibility |
+    | **Web dashboard** | `app.mem0.ai` | Not included |
+    | **Time to first memory** | Minutes (API key only) | Depends on your vector DB / LLM setup |
   </Accordion>
 
-  <Accordion title="Core Memory Features" icon="brain">
+  <Accordion title="Entity scoping & workspace structure" icon="layer-group">
     | Feature | Platform | Open Source |
     |---------|----------|-------------|
-    | **User & agent memories** | ✅ | ✅ |
-    | **Smart deduplication** | ✅ | ✅ |
-    | **Semantic search** | ✅ | ✅ |
-    | **Memory updates** | ✅ | ✅ |
-    | **Multi-language SDKs** | Python, JavaScript | Python, JavaScript |
+    | **Scoping identifiers** | `user_id`, `agent_id`, `run_id`, plus `app_id` for app/tenant separation | `user_id`, `agent_id`, `run_id` only, no `app_id` |
+    | **Organizations & projects** | Multi-org, multi-project, with member roles ([API reference](/api-reference/organization/get-org)) | No org/project concept; a single local config |
+    | **Project-wide event feed** | `GET /v1/events/` lists recent add/search/delete events per org and project, usable for dashboards, alerting, or audit trails | Only per-memory `history(memory_id)`, no project-wide event log |
+
+    See [Entity-Scoped Memory](/platform/features/entity-scoped-memory) for the full `app_id` model.
   </Accordion>
 
-  <Accordion title="Advanced Capabilities" icon="sparkles">
+  <Accordion title="Search-time ranking (v3-only)" icon="sparkles">
     | Feature | Platform | Open Source |
     |---------|----------|-------------|
-    | **Multimodal support** | ✅ | ✅ |
-    | **Custom categories** | ✅ | Limited |
-    | **Advanced retrieval** | ✅ | ✅ |
-    | **Temporal reasoning** | ✅ (v3) | ❌ |
-    | **Memory decay** | ✅ (v3) | ❌ |
-    | **Graph memory** | ✅ Built-in | ✅ External graph store |
-    | **Memory filters v2** | ✅ | ⚠️ (via metadata) |
-    | **Webhooks** | ✅ | ❌ |
-    | **Memory export** | ✅ | ❌ |
+    | **Graph Memory** | Native, always-on graph over extracted entities; connections feed directly into the ranking `score` ([details](/platform/features/graph-memory)) | Removed. OSS previously connected external graph stores (Neo4j, Memgraph, Kuzu, Apache AGE); that integration was dropped when the v3 pipeline landed. OSS still extracts entities and uses them to boost ranking, but there is no queryable graph and no `relations` field |
+    | **Memory Decay** | Opt-in per project; reinforces recently-used memories and gently dampens stale ones at search time ([details](/platform/features/memory-decay)) | Not supported. Passing `decay` raises `"The decay parameter is not supported by the OSS Memory SDK."` |
+    | **Temporal Reasoning** | Boosts memories whose event dates match the time expressed in a query (`timestamp` / `reference_date`) ([details](/platform/features/temporal-reasoning)) | Not supported. Both parameters raise a "not supported by the OSS Memory SDK" error |
+    | **Dream (background consolidation)** | Continuously synthesizes patterns, supersedes outdated facts, and merges duplicates per user ([details](/platform/features/dream)) | Not available |
   </Accordion>
 
-  <Accordion title="Infrastructure & Scaling" icon="server">
+  <Accordion title="Configuration & data operations" icon="sliders">
     | Feature | Platform | Open Source |
     |---------|----------|-------------|
-    | **Hosting** | Managed by Mem0 | Self-hosted |
-    | **Auto-scaling** | ✅ | Manual |
-    | **High availability** | ✅ Built-in | DIY setup |
-    | **Vector DB choice** | Managed | 20+ stores: Qdrant, Pinecone, Chroma, Weaviate, Milvus, pgvector |
-    | **LLM choice** | Managed (optimized) | 15+ providers: OpenAI, Anthropic, Gemini, Groq, Ollama, Together |
-    | **Data residency** | US (expandable) | Your choice |
+    | **Custom categories** | Set per project or per `add` call ([details](/platform/features/custom-categories)) | Not supported. `Memory.add()` has no `custom_categories` parameter, and OSS project updates are rejected outright |
+    | **Webhooks** | Project-scoped HTTP callbacks on memory and ingest events ([details](/platform/features/webhooks)) | Not available |
+    | **Memory Export** | Schema-driven structured export jobs over filtered memories ([details](/platform/features/memory-export)) | Not available |
+    | **Batch operations** | `batch_update` and `batch_delete` apply up to 1000 memories per call | Not available. Loop over the single-memory `update`/`delete` calls |
+    | **Feedback** | `feedback(memory_id, ...)` records `POSITIVE`, `NEGATIVE`, or `VERY_NEGATIVE` signals against a retrieved memory ([details](/platform/features/feedback-mechanism)) | Not available |
+    | **Summaries** | `get_summary(filters)` returns a generated summary over the matching memories | Not available |
+    | **Filterable fields** | Top-level filter keys come from a fixed allowlist: `user_id`, `agent_id`, `app_id`, `run_id`, `created_at`, `updated_at`, `timestamp`, `expiration_date`, `categories`, `metadata`, `keywords`, `memory_ids`, plus the `AND`/`OR`/`NOT` operators and a few endpoint-specific extras. Any other key is rejected with a `400` ([details](/platform/features/v2-memory-filters)) | Any metadata key is filterable directly, with no allowlist |
+    | **Comparison operators** | Depends on the field: `metadata` accepts `eq`, `ne`, `contains`; `categories` accepts `contains`, `in`; the date fields accept the range operators | The filter layer accepts the full set on any key: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `icontains`. What actually runs depends on the vector store you configured, so confirm operator coverage for yours ([details](/open-source/features/metadata-filtering)) |
   </Accordion>
 
-  <Accordion title="Pricing & Cost" icon="dollar-sign">
-    | Aspect | Platform | Open Source |
-    |--------|----------|-------------|
-    | **License** | Usage-based pricing | Apache 2.0 (free) |
-    | **Infrastructure costs** | Included in pricing | You pay for VectorDB + LLM + hosting |
-    | **Support** | Included | Community + GitHub |
-    | **Best for** | Fast iteration, production apps | Cost-sensitive, custom requirements |
-  </Accordion>
-
-  <Accordion title="Development & Integration" icon="code">
-    | Feature | Platform | Open Source |
+  <Accordion title="Support" icon="life-ring">
+    | Channel | Platform | Open Source |
     |---------|----------|-------------|
-    | **REST API** | ✅ | ✅ (self-hosted server) |
-    | **Python SDK** | ✅ | ✅ |
-    | **JavaScript SDK** | ✅ | ✅ |
-    | **Framework integrations** | LangChain, CrewAI, LlamaIndex, and 20+ more | Same |
-    | **Dashboard** | ✅ Web-based | ❌ |
-    | **Analytics** | ✅ Built-in | DIY |
+    | **Community & maintainers** | Discord, GitHub Discussions, direct calls with the founders | Same: Discord, GitHub Discussions, direct calls with the founders |
+
+    Support channels are currently the same for both. If you need something contractual (a support SLA, for example), ask before assuming it exists: it is not documented as a Platform benefit today.
   </Accordion>
 </AccordionGroup>
+
+User Profiles are not listed above. The feature is still being finalized internally, so this page does not present it as an available Platform benefit.
 
 ---
 
 ## Decision Guide
 
 **Choose Platform if you want:**
-- Fast time to market: get your AI app with memory live in hours, not weeks.
-- Production-ready hosting: auto-scaling, high availability, and managed infrastructure.
-- Built-in analytics: track memory usage, query patterns, and user engagement through the dashboard.
-- Advanced features: webhooks, memory export, custom categories, and priority support.
+- Zero infrastructure: no vector store, LLM, or embedder to provision or tune.
+- The v3-only ranking features: Graph Memory, Memory Decay, Temporal Reasoning, and Dream.
+- App-level and org/project-level scoping, plus webhooks, memory export, and custom categories.
 
 **Choose Open Source if you need:**
-- Full data control: host everything on your infrastructure with complete data residency.
-- Custom configuration: choose your own vector DB, LLM provider, embedder, and deployment strategy.
-- Extensibility: modify the codebase, add custom features, and contribute back to the community.
-- Cost optimization: use local LLMs (Ollama), self-hosted vector DBs, and optimize for your use case.
+- Full data control: host everything on your own infrastructure.
+- Custom configuration: your own vector DB, LLM provider, and embedder ([25 vector stores](/components/vectordbs/overview), [18 LLM providers](/components/llms/overview), [11 embedders](/components/embedders/overview) at the time of writing).
+- Extensibility: modify the codebase, add custom providers, and contribute back.
+- Cost optimization: local LLMs (Ollama), self-hosted vector DBs, no usage-based billing.
 
 ---
 

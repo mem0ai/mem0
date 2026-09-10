@@ -249,9 +249,23 @@ REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 
 
+def _redis_search_available(host, port, timeout=2):
+    """RediSearch (the FT.* command family) is an optional module, not part of vanilla Redis."""
+    if not _tcp_reachable(host, port, timeout=timeout):
+        return False
+    try:
+        import redis
+
+        client = redis.Redis(host=host, port=port, socket_connect_timeout=timeout, socket_timeout=timeout)
+        modules = {m["name"].lower() for m in client.module_list()}
+        return "search" in modules
+    except Exception:
+        return False
+
+
 @pytest.mark.skipif(
-    not _tcp_reachable(REDIS_HOST, REDIS_PORT),
-    reason=f"Redis not reachable at {REDIS_HOST}:{REDIS_PORT}",
+    not _redis_search_available(REDIS_HOST, REDIS_PORT),
+    reason=f"RediSearch module not available at {REDIS_HOST}:{REDIS_PORT} (requires Redis Stack, not vanilla Redis)",
 )
 class TestRedisThreshold:
     def test_threshold_filtering(self):

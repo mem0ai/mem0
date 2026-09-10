@@ -6,7 +6,7 @@ from mem0.reranker.llm_reranker import LLMReranker
 class TestLLMRerankerConfig:
     def test_default_config(self):
         config = LLMRerankerConfig()
-        assert config.model == "gpt-4o-mini"
+        assert config.model == "gpt-5-mini"
         assert config.provider == "openai"
         assert config.temperature == 0.0
         assert config.max_tokens == 100

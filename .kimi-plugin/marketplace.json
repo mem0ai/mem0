@@ -1,0 +1,15 @@
+{
+  "name": "mem0-plugins",
+  "version": "1",
+  "plugins": [
+    {
+      "id": "mem0",
+      "displayName": "Mem0",
+      "version": "0.3.1",
+      "description": "Cross-session memory and token savings for coding agents.",
+      "homepage": "https://mem0.ai",
+      "keywords": ["memory", "personalization", "mcp", "semantic-search"],
+      "source": "https://github.com/mem0ai/mem0/tree/main/integrations/kimi-plugin"
+    }
+  ]
+}

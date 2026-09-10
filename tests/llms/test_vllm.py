@@ -4,6 +4,7 @@ import pytest
 
 from mem0 import AsyncMemory, Memory
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.vllm import VllmConfig
 from mem0.llms.vllm import VllmLLM
 
 
@@ -13,6 +14,59 @@ def mock_vllm_client():
         mock_client = Mock()
         mock_openai.return_value = mock_client
         yield mock_client
+
+
+def test_base_url_explicit_arg_wins_over_env(mock_vllm_client, monkeypatch):
+    monkeypatch.setenv("VLLM_BASE_URL", "http://from-env:8000/v1")
+    config = VllmConfig(vllm_base_url="http://from-arg:8000/v1")
+    VllmLLM(config)
+
+    assert config.vllm_base_url == "http://from-arg:8000/v1"
+
+
+def test_base_url_env_wins_over_default(mock_vllm_client, monkeypatch):
+    monkeypatch.setenv("VLLM_BASE_URL", "http://from-env:8000/v1")
+    config = VllmConfig()
+    VllmLLM(config)
+
+    assert config.vllm_base_url == "http://from-env:8000/v1"
+
+
+def test_base_url_default_when_neither_set(mock_vllm_client, monkeypatch):
+    monkeypatch.delenv("VLLM_BASE_URL", raising=False)
+    config = VllmConfig()
+    VllmLLM(config)
+
+    assert config.vllm_base_url == "http://localhost:8000/v1"
+
+
+def test_openai_client_receives_explicit_base_url(monkeypatch):
+    monkeypatch.delenv("VLLM_BASE_URL", raising=False)
+    with patch("mem0.llms.vllm.OpenAI") as mock_openai:
+        VllmLLM(VllmConfig(vllm_base_url="http://from-arg:8000/v1"))
+
+    assert mock_openai.call_args.kwargs["base_url"] == "http://from-arg:8000/v1"
+
+
+def test_openai_client_receives_base_url_from_env(monkeypatch):
+    monkeypatch.setenv("VLLM_BASE_URL", "http://from-env:8000/v1")
+    with patch("mem0.llms.vllm.OpenAI") as mock_openai:
+        VllmLLM(VllmConfig())
+
+    base_url = mock_openai.call_args.kwargs["base_url"]
+    assert base_url == "http://from-env:8000/v1"
+    assert base_url != "http://localhost:8000/v1"
+
+
+def test_openai_client_receives_base_url_from_env_via_base_llm_config(monkeypatch):
+    """Original #6256 repro: BaseLlmConfig (not VllmConfig) plus VLLM_BASE_URL only."""
+    monkeypatch.setenv("VLLM_BASE_URL", "http://remote-vllm:8000/v1")
+    with patch("mem0.llms.vllm.OpenAI") as mock_openai:
+        VllmLLM(BaseLlmConfig(model="Qwen/Qwen2.5-32B-Instruct"))
+
+    base_url = mock_openai.call_args.kwargs["base_url"]
+    assert base_url == "http://remote-vllm:8000/v1"
+    assert base_url != "http://localhost:8000/v1"
 
 
 def test_generate_response_without_tools(mock_vllm_client):

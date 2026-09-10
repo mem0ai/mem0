@@ -68,6 +68,29 @@ describe("extractProvider", () => {
       /Unknown provider/,
     );
   });
+
+  const ARN =
+    "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz";
+
+  it("throws for an application inference profile ARN without providerOverride", () => {
+    expect(() => extractProvider(ARN)).toThrow(/Unknown provider in model/);
+  });
+
+  it("resolves an application inference profile ARN via providerOverride", () => {
+    expect(extractProvider(ARN, "anthropic")).toBe("anthropic");
+  });
+
+  it("lets providerOverride take precedence over regex detection", () => {
+    expect(
+      extractProvider("anthropic.claude-3-5-sonnet-20240620-v1:0", "amazon"),
+    ).toBe("amazon");
+  });
+
+  it("throws on a misspelled providerOverride", () => {
+    expect(() => extractProvider(ARN, "anthorpic")).toThrow(
+      /Unknown providerOverride 'anthorpic'/,
+    );
+  });
 });
 
 describe("AWSBedrockLLM", () => {
@@ -174,6 +197,28 @@ describe("AWSBedrockLLM", () => {
     const llm = makeLLM(client);
     const res = await llm.generateChat([{ role: "user", content: "hi" }]);
     expect(res).toEqual({ content: "hello from bedrock", role: "assistant" });
+  });
+
+  it("uses providerOverride to resolve inference profile ARNs (topP omitted like anthropic)", async () => {
+    const arn =
+      "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz";
+    const client = new FakeBedrockClient(textResponse);
+    const llm = makeLLM(client, {
+      model: arn,
+      providerOverride: "anthropic",
+      topP: 0.9,
+    });
+    await llm.generateResponse([{ role: "user", content: "hi" }]);
+    expect(client.lastInput.modelId).toBe(arn);
+    expect(client.lastInput.inferenceConfig.topP).toBeUndefined();
+  });
+
+  it("throws when constructed with an inference profile ARN and no providerOverride", () => {
+    const arn =
+      "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz";
+    expect(() => new AWSBedrockLLM({ model: arn })).toThrow(
+      /Unknown provider in model/,
+    );
   });
 
   it("does not construct the Bedrock client until the first request", () => {

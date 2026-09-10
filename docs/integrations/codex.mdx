@@ -1,21 +1,25 @@
 ---
 title: Codex
-description: "Add persistent memory to OpenAI Codex with the Mem0 plugin: MCP server, lifecycle hooks, and SDK skill."
+description: "Add persistent memory to OpenAI Codex with automatic capture, automatic recall, a search tool, and six memory skills."
 ---
 
-Add persistent memory to [**OpenAI Codex**](https://openai.com/index/codex/) with the Mem0 plugin. Codex forgets everything between tasks. This plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context before every response.
+Add persistent memory to [**OpenAI Codex**](https://openai.com/index/codex/) with the Mem0 plugin. Codex forgets everything between tasks. This plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context on the first prompt of a session. Codex can use the search tool for recall later in the session.
+
+<Info>Current plugin version: `0.3.1`.</Info>
 
 ## Prerequisites
 
 Before setting up Mem0 with Codex, ensure you have:
 
 1. A Mem0 Platform account and API key:
-   - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-codex" rel="nofollow">Sign up at app.mem0.ai</a>
-   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-codex" rel="nofollow">Get your API key</a> (starts with `m0-`)
+   - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-codex">Sign up at app.mem0.ai</a>
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-codex">Get your API key</a> (starts with `m0-`)
 
 2. OpenAI Codex access
 
-3. Your API key added to your shell profile (persists across sessions):
+3. Python 3.10 or newer available as `python3`
+
+4. Your API key added to your shell profile (persists across sessions):
 
 <CodeGroup>
 ```bash zsh
@@ -33,7 +37,7 @@ source ~/.bashrc
 
 ### Option A: Plugin Marketplace (Recommended)
 
-Install the full plugin including MCP server, lifecycle hooks, and SDK skill.
+Install the full plugin, including automatic capture and recall, the `search_memories` tool, and six memory skills.
 
 1. Add the Mem0 marketplace:
 
@@ -75,7 +79,7 @@ bearer_token_env_var = "MEM0_API_KEY"
 
 Make sure `MEM0_API_KEY` is exported in the shell you launch Codex from, then restart Codex.
 
-This gives you the MCP tools but not the lifecycle hooks or SDK skill.
+This gives you the hosted MCP tools but not the plugin's lifecycle hooks or six memory skills.
 
 ### Managing the Plugin
 
@@ -88,20 +92,34 @@ codex plugin marketplace remove mem0-plugins   # unregister the marketplace enti
 To update, run `codex plugin marketplace upgrade` to pull the latest from the Mem0 repo.
 
 <Info icon="check">
-  After either option, start a new Codex task and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
+  After Option A, ask Codex to search memory for a recent project decision. After Option B, ask it to list your Mem0 entities. If the matching tool responds, the connection is ready.
 </Info>
+
+## Codex Cloud
+
+[Codex Cloud](https://developers.openai.com/codex/cloud/environments) tasks run setup scripts and the agent in separate phases with different variable scoping:
+
+- **Environment Variables** persist for the full duration of the task, through both the setup script and the agent phase.
+- **Secrets** are only available to the setup script; they are wiped before the agent phase starts, so the agent itself cannot read them.
+
+Because the `mem0` MCP server authenticates on every tool call the agent makes (not just during setup), set `MEM0_API_KEY` as an **Environment Variable** in your Codex Cloud environment configuration, not as a Secret. A Secret will let a setup script authenticate but the agent will lose access to `MEM0_API_KEY` once the task phase begins, breaking Mem0 MCP calls.
+
+Lifecycle hooks that shell out to local scripts (Option A) are not applicable in Codex Cloud's ephemeral containers; use Option B (Direct MCP) with `MEM0_API_KEY` set as above.
 
 ## What's Included
 
 | Component | Plugin Install | MCP Only |
 |-----------|:--------------:|:--------:|
-| MCP Server (9 memory tools) | Yes | Yes |
-| Lifecycle Hooks | Yes | No |
-| Mem0 SDK Skill | Yes | No |
+| Memory tools | `search_memories` | 9 CRUD tools |
+| Lifecycle hooks | Yes | No |
+| Native subagent memory lifecycle | Yes | No |
+| Memory skills | 6 | No |
 
-## Available MCP Tools
+Mem0's Codex package does not bundle a named custom agent. If you define project or user agents under `.codex/agents/` or `~/.codex/agents/`, the full Mem0 plugin gives every native subagent the parent turn's retrieved memory context and records its completed result.
 
-Once installed, the following tools are available in every Codex session:
+## Direct MCP tools
+
+Option B exposes the following hosted tools. The full plugin in Option A uses the focused `search_memories` tool and captures writes through lifecycle hooks.
 
 | Tool | Description |
 |------|-------------|
@@ -115,31 +133,33 @@ Once installed, the following tools are available in every Codex session:
 | `delete_entities` | Delete a user/agent/app/run entity and its memories |
 | `list_entities` | List users/agents/apps/runs stored in Mem0 |
 
-## Lifecycle Hooks
+## Lifecycle hooks
 
-When installed via the plugin marketplace, Mem0 hooks into Codex's lifecycle to automatically manage memory:
+Option A registers the hooks with the plugin. No separate hook installer or global `hooks.json` edit is required.
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| **Session start** | `SessionStart` | Loads prior memories and displays status banner |
-| **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message |
-| **Pre-tool (3 handlers)** | `PreToolUse` | Blocks MEMORY.md writes; enforces `user_id`/`app_id` on mem0 tool calls; scans files being read for relevant memory context |
-| **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
-| **Stop** | `Stop` | Stores a session summary at the end of every assistant turn (not just at session end) |
-| **Pre-compact** | `PreCompact` | Stores a summary before the context is compacted |
+| **Session start** | `SessionStart` | Initializes the project session and recovers pending capture |
+| **User prompt** | `UserPromptSubmit` | Records each prompt; searches on the first prompt when it has at least 20 characters |
+| **Post-tool** | `PostToolUse` | Records useful tool outcomes for the completed exchange |
+| **Subagent start** | `SubagentStart` | Reuses the parent turn's retrieved memory context in the child |
+| **Subagent stop** | `SubagentStop` | Records the child transcript path and completed result |
+| **Stop** | `Stop` | Captures completed work and starts a background flush when needed |
+| **Pre-compact** | `PreCompact` | Flushes pending capture before context compaction |
+| **Session end** | `SessionEnd` | Flushes any remaining capture in the background |
 
-What you type is stored as yours. What Codex produces — session summaries and compaction summaries — is stored as the assistant's, so its suggestions never become your stated preferences.
+What you type is stored as yours. Codex's captured responses are stored as the assistant's, so its suggestions never become your stated preferences.
 
 ## Example Workflow
 
 ```text
 # Task 1: Setting up a new service
-You: Create a REST API for the notifications service using Express and TypeScript.
+You: Create a REST API for the notifications service using Express and TypeScript. Prefer explicit error types over generic catch-all handlers.
 
 # Codex searches memories, finds your preferences from prior tasks.
 # Mem0 stores what you said as yours:
 #   - Your preference: "Prefers explicit error types over generic catch-all"
-# ...and what Codex did as the assistant's, in the session summary:
+# ...and completed work reported by Codex as the assistant's:
 #   - Decision: "Notifications service uses Express + TypeScript + Zod validation"
 #   - Convention: "All API routes follow /api/v1/{resource} pattern"
 
@@ -150,12 +170,18 @@ You: Add WebSocket support for real-time notification delivery.
 # Follows the same patterns established in the first task.
 ```
 
+## Search and capture
+
+The local `search_memories` tool accepts `query`, `top_k`, `category`, `scope` (`repo`, `dir`, or `mine`), and optional `run_id` with every scope. Use a known session ID to recall memories saved in that session; omit it to search across sessions. See [search scopes](/integrations/claude-code#search-scope) for the shared Python search contract, including legacy repository memory compatibility.
+
+Captured prompts and responses retain their full redacted text without a per-message character cutoff. Large extraction inputs are split across requests without dropping message text; recall output and tool-result previews have separate limits.
+
 ## Troubleshooting
 
 - **"Connection failed"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
 - **No tools appearing**: Restart your Codex session after installation
 - **Duplicate `mem0` MCP / "tool collision" errors**: You combined Option A with Option B. Remove the `[mcp_servers.mem0]` block from `~/.codex/config.toml`; the plugin registers it automatically
-- **Hooks not firing**: Ensure the plugin is installed via the marketplace (Option A). MCP-only installs do not include hooks
+- **Hooks not firing**: Confirm you installed Option A and restart Codex. MCP-only installs (Option B) do not include hooks.
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">

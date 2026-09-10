@@ -3,6 +3,9 @@ title: Healthcare Coach with ADK
 description: "Guide patients with an assistant that remembers history across ADK sessions."
 ---
 
+<Info icon="cloud">
+**Works with:** Mem0 Platform (`MemoryClient`)
+</Info>
 
 This example demonstrates how to build a healthcare assistant that remembers patient information across conversations using Google ADK and Mem0.
 
@@ -123,7 +126,7 @@ Now we'll create our main agent with all the tools:
 # Create the agent
 healthcare_agent = Agent(
     name="healthcare_assistant",
-    model="gemini-1.5-flash",  # Using Gemini for healthcare assistant
+    model="gemini-2.0-flash",  # Using Gemini for healthcare assistant
     description="Healthcare assistant that helps patients with health information and appointment scheduling.",
     instruction="""You are a helpful Healthcare Assistant with memory capabilities.
 
