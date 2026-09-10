@@ -2060,11 +2060,11 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Tabs>
 <Tab title="Mem0 Plugin">
 
-<Update label="Unreleased" description="Plugin patches: v0.3.2 / v0.3.1 / v1.1.1">
+<Update label="v0.3.2 / v0.3.1 / v1.1.1" description="Plugin updates">
 
 - Add explicit save, list, and resume of session context across all ten coding-agent plugins through one shared local handoff resource. Handoffs preserve supported active conversation and completed tool history; users choose when to save and resume.
 - Lighten retrieval prompts so agents search when earlier work could help and avoid repeated searches when the available context is sufficient.
-- Remove Sidekick from Cursor, Kimi, and Antigravity, including the Cursor and Kimi Sidekick lifecycle hooks. Sidekick remains available only in Claude Code; memory capture, recall, and skills remain available in the other native plugins.
+- Removed Sidekick from Cursor, Kimi, and Antigravity. Claude Code keeps Sidekick.
 - Patch versions: Claude Code, Cursor, Codex, Kimi, Antigravity, and the portable plugin `0.3.2`; OpenCode, Pi, and DeepSeek `0.3.1`; OpenClaw `1.1.1`.
 
 [#7279](https://github.com/mem0ai/mem0/pull/7279)
@@ -2382,12 +2382,6 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Claude Code">
 
-<Update label="Unreleased" description="Sidekick availability">
-
-Sidekick is now available only in Claude Code, with Sonnet, worktree isolation, and parent memories.
-
-</Update>
-
 <Update label="2026-09-08" description="Claude Code plugin v0.3.1">
 
 **Changed:**
@@ -2406,12 +2400,6 @@ Sidekick is now available only in Claude Code, with Sonnet, worktree isolation, 
 </Tab>
 
 <Tab title="Cursor">
-
-<Update label="Unreleased" description="Sidekick availability">
-
-Removes Sidekick and its start/stop hooks. Memory capture, search, and six skills remain available.
-
-</Update>
 
 <Update label="2026-09-08" description="Cursor plugin v0.3.1">
 
@@ -2432,12 +2420,6 @@ Removes Sidekick and its start/stop hooks. Memory capture, search, and six skill
 
 <Tab title="Codex">
 
-<Update label="Unreleased" description="Sidekick availability">
-
-Renames shared tracking to use subagent terminology. Native subagent memory support remains available.
-
-</Update>
-
 <Update label="2026-09-08" description="Codex plugin v0.3.1">
 
 **Changed:**
@@ -2455,12 +2437,6 @@ Renames shared tracking to use subagent terminology. Native subagent memory supp
 </Tab>
 
 <Tab title="Agent Plugins v1">
-
-<Update label="Unreleased" description="Sidekick availability">
-
-Sidekick is available only in Claude Code, not in the portable package.
-
-</Update>
 
 <Update label="2026-09-08" description="Portable Mem0 plugin v0.3.1">
 
@@ -2578,12 +2554,6 @@ Sidekick is available only in Claude Code, not in the portable package.
 
 <Tab title="Antigravity">
 
-<Update label="Unreleased" description="Sidekick availability">
-
-Removes Sidekick. Memory capture, search, and six skills remain available.
-
-</Update>
-
 <Update label="2026-09-08" description="Antigravity plugin v0.3.1">
 
 **Changed:**
@@ -2675,12 +2645,6 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="Kimi">
-
-<Update label="Unreleased" description="Sidekick availability">
-
-Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skills remain available.
-
-</Update>
 
 <Update label="2026-09-08" description="Kimi Code plugin v0.3.1">
 
