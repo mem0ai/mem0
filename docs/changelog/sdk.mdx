@@ -2060,17 +2060,6 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Tabs>
 <Tab title="Mem0 Plugin">
 
-<Update label="2026-09-10" description="Plugin patches: v0.3.2 / v0.3.1 / v1.1.1">
-
-- Add explicit save, list, and resume of session context across all ten coding-agent plugins through one shared local handoff resource. Handoffs preserve supported active conversation and completed tool history; users choose when to save and resume.
-- Lighten retrieval prompts so agents search when earlier work could help and avoid repeated searches when the available context is sufficient.
-- Removed Sidekick from Cursor, Kimi, and Antigravity. Claude Code keeps Sidekick.
-- Patch versions: Claude Code, Cursor, Codex, Kimi, Antigravity, and the portable plugin `0.3.2`; OpenCode, Pi, and DeepSeek `0.3.1`; OpenClaw `1.1.1`.
-
-[#7279](https://github.com/mem0ai/mem0/pull/7279)
-
-</Update>
-
 <Update label="2026-09-08" description="Shared agent plugin runtime">
 
 **Changed:**
@@ -2382,6 +2371,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Claude Code">
 
+<Update label="2026-09-10" description="Claude Code plugin v0.3.2">
+
+- Added session handoff: `/mem0:handoff` reads the current Claude session before model invocation and saves it as a shared resource under `~/.mem0/handoffs/`. Other plugins can list and resume these resources.
+- Lighter retrieval prompts: the search skill guides agents to search when earlier work is relevant and skip repeated searches when context is sufficient.
+- Sidekick remains available with Sonnet, worktree isolation, and parent memories. Sidekick search guidance updated to match the lighter retrieval prompts.
+
+[#7279](https://github.com/mem0ai/mem0/pull/7279), [#7278](https://github.com/mem0ai/mem0/pull/7278)
+
+</Update>
+
 <Update label="2026-09-08" description="Claude Code plugin v0.3.1">
 
 **Changed:**
@@ -2400,6 +2399,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 </Tab>
 
 <Tab title="Cursor">
+
+<Update label="2026-09-10" description="Cursor plugin v0.3.2">
+
+- Added session handoff: the `handoff` skill saves a completed Cursor JSONL transcript and its project directory as a shared resource. Other plugins can list and resume these resources via `handoff_resource`.
+- Lighter retrieval prompts for the search skill.
+- Removed Sidekick and its start/stop hooks. Memory capture, search, and six skills remain available.
+
+[#7279](https://github.com/mem0ai/mem0/pull/7279), [#7278](https://github.com/mem0ai/mem0/pull/7278)
+
+</Update>
 
 <Update label="2026-09-08" description="Cursor plugin v0.3.1">
 
@@ -2420,6 +2429,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Codex">
 
+<Update label="2026-09-10" description="Codex plugin v0.3.2">
+
+- Added session handoff: the `handoff` skill saves a completed Codex rollout with readable active context as a shared resource. Other plugins can list and resume these resources via `handoff_resource`.
+- Lighter retrieval prompts for the search skill.
+- Renames shared subagent tracking to use subagent terminology. Native subagent memory support remains available.
+
+[#7279](https://github.com/mem0ai/mem0/pull/7279), [#7278](https://github.com/mem0ai/mem0/pull/7278)
+
+</Update>
+
 <Update label="2026-09-08" description="Codex plugin v0.3.1">
 
 **Changed:**
@@ -2438,6 +2457,15 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Agent Plugins v1">
 
+<Update label="2026-09-10" description="Portable Mem0 plugin v0.3.2">
+
+- Added session handoff: the `handoff` skill and `handoff_resource` MCP tool support save, list, and resume of shared session resources. The portable plugin accepts neutral handoff bundles; source-specific parsing uses the host argument.
+- Lighter retrieval prompts for the search skill.
+
+[#7279](https://github.com/mem0ai/mem0/pull/7279)
+
+</Update>
+
 <Update label="2026-09-08" description="Portable Mem0 plugin v0.3.1">
 
 **Added:**
@@ -2455,6 +2483,15 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 </Tab>
 
 <Tab title="OpenCode">
+
+<Update label="2026-09-10" description="OpenCode plugin v0.3.1">
+
+- Added session handoff: the `mem0_handoff` tool and `/mem0-handoff` command support save, list, and resume. Save reads the active OpenCode session via the SDK, handles compaction boundaries, and pipes the bundle to the shared Python launcher. Resume prepends historical context to the next prompt.
+- Lighter retrieval prompts for the search and context-loader skills.
+
+[#7279](https://github.com/mem0ai/mem0/pull/7279)
+
+</Update>
 
 <Update label="2026-09-08" description="OpenCode plugin v0.3.0">
 
@@ -2554,6 +2591,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Antigravity">
 
+<Update label="2026-09-10" description="Antigravity plugin v0.3.2">
+
+- Added session handoff: the `handoff` skill saves completed Antigravity text steps and their project directory as a shared resource. Other plugins can list and resume these resources via `handoff_resource`.
+- Lighter retrieval prompts for the search skill.
+- Removed Sidekick. Memory capture, search, and six skills remain available.
+
+[#7279](https://github.com/mem0ai/mem0/pull/7279), [#7278](https://github.com/mem0ai/mem0/pull/7278)
+
+</Update>
+
 <Update label="2026-09-08" description="Antigravity plugin v0.3.1">
 
 **Changed:**
@@ -2646,6 +2693,16 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Kimi">
 
+<Update label="2026-09-10" description="Kimi Code plugin v0.3.2">
+
+- Added session handoff: the `handoff` skill saves a completed Kimi wire-stream transcript as a shared resource. Handles Kimi's indexed v2 transcript format and compaction boundaries. Other plugins can list and resume these resources via `handoff_resource`.
+- Lighter retrieval prompts for the search skill.
+- Removed Sidekick and its start/stop hooks. Memory capture, recall, and six skills remain available.
+
+[#7279](https://github.com/mem0ai/mem0/pull/7279), [#7278](https://github.com/mem0ai/mem0/pull/7278)
+
+</Update>
+
 <Update label="2026-09-08" description="Kimi Code plugin v0.3.1">
 
 **Changed:**
@@ -2679,6 +2736,15 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="OpenClaw">
+
+<Update label="2026-09-10" description="openclaw-mem0 v1.1.1">
+
+- Added session handoff: the `mem0_handoff` tool supports list and resume actions. The `/mem0-handoff` command supports save (reads the native JSONL transcript), list, and resume. Resume prepends historical context to the next prompt build.
+- Lighter retrieval prompts for the memory-search tool and recall protocol.
+
+[#7279](https://github.com/mem0ai/mem0/pull/7279)
+
+</Update>
 
 <Update label="2026-09-08" description="openclaw-mem0 v1.1.0">
 
@@ -2968,6 +3034,15 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Pi Agent">
 
+<Update label="2026-09-10" description="Pi Agent plugin v0.3.1">
+
+- Added session handoff: the `/mem0-handoff` command supports save, list, and resume. Save uses Pi's `buildSessionContext` and `convertToLlm` to read the native session. Resume injects historical context and triggers the next agent turn. Requires Node.js 22.19+ (the Pi SDK requirement).
+- Lighter retrieval prompts for the context-loader skill.
+
+[#7279](https://github.com/mem0ai/mem0/pull/7279)
+
+</Update>
+
 <Update label="2026-09-08" description="Pi Agent plugin v0.3.0">
 
 **Changed:**
@@ -3080,6 +3155,15 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="DeepSeek Harness">
+
+<Update label="2026-09-10" description="deepseek-plugin v0.3.1">
+
+- Added session handoff: the `mem0_handoff` tool supports save, list, and resume. Save reads the current DeepSeek session's derived messages; must be invoked outside nested code mode. Resume prepends historical context.
+- Lighter retrieval prompts for the search tool description.
+
+[#7279](https://github.com/mem0ai/mem0/pull/7279)
+
+</Update>
 
 <Update label="2026-09-08" description="deepseek-plugin v0.3.0">
 
