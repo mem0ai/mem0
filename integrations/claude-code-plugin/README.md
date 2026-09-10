@@ -63,6 +63,8 @@ After that first search, Claude can call `search_memories` with a specific quest
 
 ### Sonnet sidekick agent
 
+Sidekick is available only in this plugin. The shared core handles memory and subagent tracking.
+
 `mem0:sidekick` is a Sonnet coding agent that runs in a separate Git worktree. It can investigate, implement, test, debug, or review something instead of the main (Opus/Fable) session doing the same work, reducing cost when the main agent doesn't need to repeat it.
 
 The main agent reviews the result. Corrections go back to the same sidekick so it keeps what it learned. Changes stay in the sidekick's worktree until the main agent reviews and copies them over.

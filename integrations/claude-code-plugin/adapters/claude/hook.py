@@ -12,22 +12,22 @@ _core_dir = _bundled_core if (_bundled_core / "memory_core.py").is_file() else _
 sys.path.insert(0, str(_core_dir))
 sys.path.insert(0, str(_here.parent))
 
+import hook_runner  # noqa: E402
 import telemetry  # noqa: E402
 from memory_core import (  # noqa: E402
     configure_harness,
-    record_sidekick_start,
-    record_sidekick_stop,
+    record_subagent_start,
+    record_subagent_stop,
     record_tool,
 )
 from transcript import record_stop  # noqa: E402
-import hook_runner  # noqa: E402
 
 configure_harness("claude-code", data_dir_name="claude-code-plugin", source_tag="claude_code_plugin")
 telemetry.init(harness="claude-code", source_tag="CLAUDE_CODE_PLUGIN")
 
 
 def _sidekick_start(store, hook_input):
-    context = record_sidekick_start(store, hook_input)
+    context = record_subagent_start(store, {"agent_type": "mem0:sidekick", **hook_input})
     if context:
         return {
             "hookSpecificOutput": {
@@ -38,7 +38,7 @@ def _sidekick_start(store, hook_input):
 
 
 def _sidekick_stop(store, hook_input):
-    record_sidekick_stop(store, hook_input)
+    record_subagent_stop(store, {"agent_type": "mem0:sidekick", **hook_input})
 
 
 if __name__ == "__main__":

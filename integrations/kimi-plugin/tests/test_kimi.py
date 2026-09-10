@@ -118,73 +118,20 @@ def test_stop_reads_main_response_from_kimi_session_transcript(tmp_path: Path, m
     assert value["transcript_path"] == str(transcript)
 
 
-def test_repeated_sidekick_invocations_get_distinct_run_ids(tmp_path: Path) -> None:
-    store = adapter.hook_runner.EvidenceStore(tmp_path / "evidence.sqlite3")
-    payload = {
-        "hook_event_name": "SubagentStart",
-        "session_id": "session_abc",
-        "session_title": "Fix Kimi capture",
-        "client_type": "kimi_code_cli",
-        "cwd": str(tmp_path),
-        "agent_name": "sidekick",
-        "prompt": "Fix the adapter",
-    }
-
-    try:
-        adapter._sidekick_start(store, adapter.normalize({**payload, "agent_id": "first"}))
-        adapter._sidekick_start(store, adapter.normalize({**payload, "agent_id": "second"}))
-        adapter._sidekick_stop(
-            store,
-            adapter.normalize(
-                {
-                    **payload,
-                    "hook_event_name": "SubagentStop",
-                    "response": "First run complete.",
-                    "agent_id": "first",
-                }
-            ),
-        )
-        adapter._sidekick_stop(
-            store,
-            adapter.normalize(
-                {
-                    **payload,
-                    "hook_event_name": "SubagentStop",
-                    "response": "Second run complete.",
-                    "agent_id": "second",
-                }
-            ),
-        )
-
-        rows = store.conn.execute(
-            "SELECT agent_id, stopped_at, final_message FROM sidekick_runs ORDER BY started_at, agent_id"
-        ).fetchall()
-    finally:
-        store.close()
-
-    assert len(rows) == 2
-    assert rows[0]["agent_id"] != rows[1]["agent_id"]
-    assert all(row["stopped_at"] for row in rows)
-    assert {row["agent_id"]: row["final_message"] for row in rows} == {
-        "first": "First run complete.", "second": "Second run complete."
-    }
-
-
 def test_native_kimi_bundle_uses_inline_native_contract(tmp_path: Path) -> None:
     root = build("kimi", "native", tmp_path / "kimi")
 
     manifest = json.loads((root / "kimi.plugin.json").read_text(encoding="utf-8"))
     assert manifest["skills"] == "./skills/"
-    assert manifest["agents"] == "./agents/"
+    assert "agents" not in manifest
     assert manifest["mcpServers"]["mem0"]["args"] == ["./core/mcp_server.py"]
+    assert not {"SubagentStart", "SubagentStop"} & {hook["event"] for hook in manifest["hooks"]}
     assert {hook["event"] for hook in manifest["hooks"]} >= {
         "SessionStart",
         "UserPromptSubmit",
         "PostToolUse",
-        "SubagentStart",
-        "SubagentStop",
         "PreCompact",
         "SessionEnd",
     }
-    assert (root / "agents" / "sidekick.md").is_file()
+    assert not (root / "agents").exists()
     assert not any(path.is_symlink() for path in root.rglob("*"))

@@ -26,8 +26,6 @@ SPEC.loader.exec_module(adapter)
         ("postToolUse", "post-tool"),
         ("postToolUseFailure", "post-tool-failure"),
         ("afterAgentResponse", "assistant-stop"),
-        ("subagentStart", "sidekick-start"),
-        ("subagentStop", "sidekick-stop"),
         ("stop", "stop"),
         ("sessionEnd", "session-end"),
         ("preCompact", "pre-compact"),
@@ -57,48 +55,18 @@ def test_after_agent_response_does_not_return_internal_context(monkeypatch: pyte
     assert adapter._record_response(object(), {}) is None
 
 
-def test_normalizes_cursor_sidekick_fields() -> None:
-    started = adapter.normalize(
-        {
-            "subagent_id": "agent-1",
-            "subagent_type": "sidekick",
-            "parent_conversation_id": "parent-1",
-        },
-        "subagentStart",
-    )["payload"]
-    stopped = adapter.normalize({"summary": "done"}, "subagentStop")["payload"]
-
-    assert started["agent_id"] == "agent-1"
-    assert started["agent_type"] == "sidekick"
-    assert started["session_id"] == "parent-1"
-    assert stopped["last_assistant_message"] == "done"
-
-
-def test_cursor_sidekick_records_lifecycle_without_blocking(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(adapter, "record_sidekick_start", lambda store, payload, *, inject_context: "" if not inject_context else pytest.fail("cannot inject context"))
-    stopped = []
-    monkeypatch.setattr(adapter, "record_sidekick_stop", lambda store, payload: stopped.append(payload))
-
-    assert adapter._record_sidekick_start(object(), {}) == {"permission": "allow"}
-    assert adapter._record_sidekick_stop(object(), {"summary": "done"}) is None
-    assert stopped == [{"summary": "done"}]
-
-
 def test_cursor_hooks_use_native_flat_entries() -> None:
     hooks = json.loads((HOST / "hooks" / "hooks.json").read_text(encoding="utf-8"))
 
     assert hooks["version"] == 1
+    assert not {"subagentStart", "subagentStop"} & hooks["hooks"].keys()
     assert set(hooks["hooks"]) >= {
         "sessionStart",
         "beforeSubmitPrompt",
         "postToolUse",
-        "subagentStart",
-        "subagentStop",
         "stop",
         "sessionEnd",
     }
-    assert hooks["hooks"]["subagentStart"][0]["matcher"] == "^sidekick$"
-    assert hooks["hooks"]["subagentStop"][0]["matcher"] == "^sidekick$"
     assert all("hooks" not in entry for entries in hooks["hooks"].values() for entry in entries)
 
 
@@ -107,6 +75,7 @@ def test_native_cursor_bundle_is_self_contained(tmp_path: Path) -> None:
 
     manifest = json.loads((root / ".cursor-plugin" / "plugin.json").read_text(encoding="utf-8"))
     assert manifest["hooks"] == "./hooks/hooks.json"
+    assert "agents" not in manifest
     assert (root / "hooks" / "adapter.py").is_file()
-    assert (root / "agents" / "sidekick.md").is_file()
+    assert not (root / "agents").exists()
     assert not any(path.is_symlink() for path in root.rglob("*"))

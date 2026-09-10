@@ -269,11 +269,11 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 ### AI Coding Tools
 - [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Platform]: Use when wiring memory into Claude Code.
 - [Claude.ai](https://docs.mem0.ai/integrations/claude-ai) [Platform]: Use when connecting Mem0 to Claude.ai (the hosted web app) via a custom remote MCP connector, or when Claude's native memory seems to be crowding out mem0 tool calls.
-- [Cursor](https://docs.mem0.ai/integrations/cursor) [Platform]: Use when adding lifecycle capture, explicit memory recall, six skills, and a sidekick to Cursor.
+- [Cursor](https://docs.mem0.ai/integrations/cursor) [Platform]: Use when adding lifecycle capture, explicit memory recall, and six memory skills to Cursor.
 - [Codex](https://docs.mem0.ai/integrations/codex) [Platform]: Use when adding automatic capture and recall, six memory skills, and a search tool to OpenAI Codex.
 - [Kimi Code](https://docs.mem0.ai/integrations/kimi) [Platform]: Use when adding persistent project memory to Kimi Code through its native plugin lifecycle.
 - [OpenCode](https://docs.mem0.ai/integrations/opencode) [Platform]: Use when adding ten native SDK memory tools, automatic context, seven skills, and project scoping to OpenCode.
-- [Antigravity](https://docs.mem0.ai/integrations/antigravity) [Platform]: Use when adding lifecycle capture, explicit recall, six memory skills, and a native sidekick to Google Antigravity.
+- [Antigravity](https://docs.mem0.ai/integrations/antigravity) [Platform]: Use when adding lifecycle capture, explicit recall, and six memory skills to Google Antigravity.
 
 ### Voice & Real-time
 - [LiveKit](https://docs.mem0.ai/integrations/livekit) [Platform]: Use when building real-time voice/video with memory.
@@ -418,13 +418,13 @@ Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load 
 
 Source: https://github.com/mem0ai/mem0/tree/main/integrations/claude-code-plugin
 
-The self-contained Claude Code plugin lives in `integrations/claude-code-plugin/` (v0.3.2, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes local MCP tools `search_memories` and `handoff_resource`, plus six memory skills, the explicit `/mem0:handoff` command and the unchanged `mem0:sidekick` agent. Pure-stdlib Python, nothing to install.
+The self-contained Claude Code plugin lives in `integrations/claude-code-plugin/` (v0.3.2, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes local MCP tools `search_memories` and `handoff_resource`, plus six memory skills, the explicit `/mem0:handoff` command and `mem0:sidekick`, available only in Claude Code. Pure-stdlib Python, nothing to install.
 
 ### Coding-Agent Plugin Sources
 
 Source: https://github.com/mem0ai/mem0/tree/main/integrations/agent-plugin-core
 
-The `integrations/agent-plugin-core/` directory is the single source for shared Python and TypeScript memory behavior. Native plugins live in their own sibling directories, while `integrations/mem0-agent-plugin/` is the single portable Agent Plugins v1 package. The portable package provides search and skills but no automatic capture; its remember skill cannot save a new memory on its own. Shared Python search accepts optional `run_id` for session-specific recall in every scope. TypeScript integrations reuse the core's lifecycle, formatting, identity, scoping, and telemetry utilities while keeping their public packages and native host APIs unchanged.
+The `integrations/agent-plugin-core/` directory is the single source for shared Python and TypeScript memory behavior. Native plugins live in their own sibling directories, while `integrations/mem0-agent-plugin/` is the single portable Agent Plugins v1 package. Sidekick is available only in Claude Code. The portable package provides search and skills but no automatic capture; its remember skill cannot save a new memory on its own. Shared Python search accepts optional `run_id` for session-specific recall in every scope. TypeScript integrations reuse the core's lifecycle, formatting, identity, scoping, and telemetry utilities while keeping their public packages and native host APIs unchanged.
 
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 

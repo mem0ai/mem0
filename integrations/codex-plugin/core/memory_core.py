@@ -524,7 +524,7 @@ def _checkpoint_message(event: dict[str, Any]) -> str:
             if text:
                 return text
         return redact(payload.get("text", "")).strip()
-    if kind == "sidekick_stop":
+    if kind in {"subagent_stop", "sidekick_stop"}:
         return redact(payload.get("final_message", "")).strip()
     return ""
 
@@ -596,6 +596,7 @@ class EvidenceStore:
         self.conn.close()
 
     def _migrate(self) -> None:
+        # Keep the legacy table name so existing databases and in-flight workers remain compatible.
         self.conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS events (
@@ -688,8 +689,7 @@ class EvidenceStore:
 
             """
         )
-        # Remove the pre-0.1.1 no-tools snapshot implementation. The real coding
-        # sidekick is a native Claude Code agent and stores no state in this DB.
+        # Remove the pre-0.1.1 snapshot implementation.
         self.conn.executescript(
             """
             DROP TABLE IF EXISTS sidekick_calls;
@@ -1041,7 +1041,7 @@ class EvidenceStore:
             if row["memory_text"]
         ]
 
-    def start_sidekick(
+    def start_subagent(
         self,
         repo: RepoContext,
         session_id: str,
@@ -1049,7 +1049,7 @@ class EvidenceStore:
         agent_type: str,
         context_chars: int,
     ) -> bool:
-        """Record one native sidekick instance and whether context was first sent."""
+        """Record one native subagent instance and whether context was first sent."""
         with self.conn:
             cursor = self.conn.execute(
                 """INSERT OR IGNORE INTO sidekick_runs
@@ -1067,7 +1067,7 @@ class EvidenceStore:
             )
         return int(cursor.rowcount) > 0
 
-    def stop_sidekick(
+    def stop_subagent(
         self,
         repo: RepoContext,
         session_id: str,
@@ -1222,7 +1222,7 @@ class EvidenceStore:
                 cursor = self.conn.execute(
                     f"DELETE FROM {table} WHERE {column} = ?", (repo_id,)
                 )
-                removed[table] = max(int(cursor.rowcount), 0)
+                removed["subagent_runs" if table == "sidekick_runs" else table] = max(int(cursor.rowcount), 0)
         return removed
 
     def status(self, repo_id: str) -> dict[str, Any]:
@@ -1238,7 +1238,7 @@ class EvidenceStore:
                FROM operations WHERE repo_id = ? ORDER BY id DESC LIMIT 1""",
             (repo_id,),
         ).fetchone()
-        last_sidekick = self.conn.execute(
+        last_subagent = self.conn.execute(
             """SELECT session_id, agent_id, agent_type, started_at, stopped_at,
                       context_chars
                FROM sidekick_runs WHERE repo_id = ?
@@ -1250,9 +1250,9 @@ class EvidenceStore:
             "events": count("events"),
             "flushes": count("flushes"),
             "retrievals": count("retrievals"),
-            "sidekick_runs": count("sidekick_runs"),
+            "subagent_runs": count("sidekick_runs"),
             "last_operation": dict(last_operation) if last_operation else None,
-            "last_sidekick": dict(last_sidekick) if last_sidekick else None,
+            "last_subagent": dict(last_subagent) if last_subagent else None,
         }
 
 
@@ -1324,7 +1324,7 @@ def tool_payload(hook_input: dict[str, Any], *, failed: bool | None = False) -> 
         "tool": name,
         "failed": failed,
         "duration_ms": hook_input.get("duration_ms"),
-        "agent_role": "sidekick" if hook_input.get("agent_id") else "main",
+        "agent_role": "subagent" if hook_input.get("agent_id") else "main",
     }
     if hook_input.get("agent_id"):
         payload["agent_id"] = bounded(hook_input["agent_id"], 200)
@@ -1384,35 +1384,33 @@ def record_tool(
     )
 
 
-def record_sidekick_start(
-    store: EvidenceStore, hook_input: dict[str, Any], *, inject_context: bool = True
+def record_subagent_start(
+    store: EvidenceStore, hook_input: dict[str, Any]
 ) -> str:
-    """Record a native sidekick and reuse the main turn's retrieved memories."""
+    """Record a native subagent and reuse the main turn's retrieved memories."""
     session_id = _session_id(hook_input)
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
     agent_id = bounded(hook_input.get("agent_id", "unknown-agent"), 200)
-    agent_type = bounded(hook_input.get("agent_type", "mem0:sidekick"), 200)
+    agent_type = bounded(hook_input.get("agent_type", "unknown-agent"), 200)
     context = combine_context(
         format_context(store.injected_memories(session_id, repo.identity))
     )
-    if not inject_context:
-        context = ""
-    first_start = store.start_sidekick(
+    first_start = store.start_subagent(
         repo, session_id, agent_id, agent_type, len(context)
     )
     store.record_event(
         repo,
         session_id,
-        "sidekick_start",
+        "subagent_start",
         {
             "agent_id": agent_id,
             "agent_type": agent_type,
             "context_chars": len(context) if first_start else 0,
-            "worktree_root": bounded(repo.root, 2000),
+            "repo_root": bounded(repo.root, 2000),
         },
     )
     telemetry.record(
-        "sidekick",
+        "subagent",
         repo=repo,
         session_id=session_id,
         phase="start",
@@ -1422,14 +1420,14 @@ def record_sidekick_start(
     return context if first_start else ""
 
 
-def record_sidekick_stop(store: EvidenceStore, hook_input: dict[str, Any]) -> None:
+def record_subagent_stop(store: EvidenceStore, hook_input: dict[str, Any]) -> None:
     session_id = _session_id(hook_input)
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
-    agent_type = bounded(hook_input.get("agent_type", "mem0:sidekick"), 200)
+    agent_type = bounded(hook_input.get("agent_type", "unknown-agent"), 200)
     agent_id = bounded(hook_input.get("agent_id", ""), 200)
     final_message = redact(hook_input.get("last_assistant_message", "")).strip()
     transcript_path = bounded(hook_input.get("agent_transcript_path", ""), 2000)
-    agent_id = store.stop_sidekick(
+    agent_id = store.stop_subagent(
         repo,
         session_id,
         agent_id,
@@ -1440,7 +1438,7 @@ def record_sidekick_stop(store: EvidenceStore, hook_input: dict[str, Any]) -> No
     store.record_event(
         repo,
         session_id,
-        "sidekick_stop",
+        "subagent_stop",
         {
             "agent_id": agent_id,
             "agent_type": agent_type,
@@ -1449,7 +1447,7 @@ def record_sidekick_stop(store: EvidenceStore, hook_input: dict[str, Any]) -> No
         },
     )
     telemetry.record(
-        "sidekick",
+        "subagent",
         repo=repo,
         session_id=session_id,
         phase="stop",
@@ -1513,10 +1511,10 @@ def build_episode(
         for e in events
         if e["kind"] == "assistant_stop" and e["payload"].get("text")
     ]
-    sidekick_outcomes = [
+    subagent_outcomes = [
         redact(e["payload"].get("final_message", "")).strip()
         for e in events
-        if e["kind"] == "sidekick_stop" and e["payload"].get("final_message")
+        if e["kind"] in {"subagent_stop", "sidekick_stop"} and e["payload"].get("final_message")
     ]
     tools = [
         e["payload"] for e in events if e["kind"] in {"tool_result", "tool_failure"}
@@ -1597,7 +1595,7 @@ def build_episode(
                         }
                     )
             pending_user_messages = []
-        elif event["kind"] == "sidekick_stop":
+        elif event["kind"] in {"subagent_stop", "sidekick_stop"}:
             pass
     extraction_messages.extend(pending_user_messages)
 
@@ -1613,7 +1611,7 @@ def build_episode(
         "assistant_conclusion": conclusion,
         "user_messages": prompts,
         "assistant_outcomes": assistant_conclusions,
-        "sidekick_outcomes": sidekick_outcomes,
+        "subagent_outcomes": subagent_outcomes,
         "extraction_messages": extraction_messages,
         "files_read": read_paths[:50],
         "files_modified": modified_paths[:50],

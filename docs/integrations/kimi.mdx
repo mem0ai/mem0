@@ -9,6 +9,8 @@ Kimi Code forgets project decisions between sessions. The Mem0 plugin captures c
 
 The explicit `handoff` skill saves session context as a shared local resource in `~/.mem0/handoffs/`. Ask the agent to use `handoff_resource` to list the current project’s resources or resume a saved path from any Mem0 plugin. Requires Python 3.11+; the shared engine is downloaded and verified on first use, then cached.
 
+Sidekick is available only in the [Claude Code plugin](/integrations/claude-code#sidekick-agent).
+
 ## Prerequisites
 
 1. A Mem0 Platform account and API key:
@@ -35,7 +37,7 @@ Inside Kimi Code, install the native plugin bundle and reload the session:
 /reload
 ```
 
-Run `/plugins info mem0` to confirm that the plugin, MCP server, skills, hooks, and sidekick agent loaded.
+Run `/plugins info mem0` to confirm that the plugin, MCP server, skills, and hooks loaded.
 
 ## What you get
 
@@ -44,7 +46,6 @@ Run `/plugins info mem0` to confirm that the plugin, MCP server, skills, hooks, 
 - **Explicit search:** Kimi can call `search_memories` when it needs a more specific answer.
 - **Six memory skills:** Search, status, remember, forget, pause, and resume use the same memory behavior as the other Mem0 coding-agent plugins.
 - **Project scoping:** Memories stay attached to the repository, with separate personal and shared project lanes.
-- **Kimi sidekick:** A focused subagent can investigate or implement a bounded task in a separate context. Filesystem isolation depends on the environment Kimi provides.
 
 Credentials are redacted before memory capture. If Mem0 is unavailable, hooks fail open so Kimi can continue its normal work.
 
@@ -59,7 +60,8 @@ Kimi's native lifecycle events are translated into the shared Mem0 memory lifecy
 | `PostToolUse` / `PostToolUseFailure` | Records useful tool results and failures |
 | `Stop` | Captures the completed exchange |
 | `PreCompact` / `SessionEnd` | Flushes pending capture in the background |
-| `SubagentStart` / `SubagentStop` | Passes parent context to the Mem0 sidekick and records its lifecycle |
+
+The plugin does not register subagent start or stop hooks or supply parent memories to child agents.
 
 ## Verify the plugin
 

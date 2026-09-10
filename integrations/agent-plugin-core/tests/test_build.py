@@ -63,6 +63,7 @@ def test_portable_bundle_is_conformant_and_self_contained(tmp_path: Path) -> Non
     assert "env" not in server
     assert not (root / "core" / "hook_runner.py").exists()
     assert not (root / "core" / "flush_worker.py").exists()
+    assert not (root / "agents").exists()
     for skill in (root / "skills").glob("*/SKILL.md"):
         frontmatter = skill.read_text(encoding="utf-8").split("---", 2)[1]
         keys = {line.split(":", 1)[0] for line in frontmatter.splitlines() if ":" in line}
@@ -77,6 +78,19 @@ def test_native_bundle_is_self_contained(host: str, tmp_path: Path) -> None:
     assert (root / "core" / "memory_core.py").is_file()
     assert (root / "skills" / "remember" / "SKILL.md").is_file()
     assert not any(path.is_symlink() for path in root.rglob("*"))
+
+
+@pytest.mark.parametrize("host", ["claude-code", "cursor", "codex", "kimi", "antigravity"])
+def test_only_claude_bundles_sidekick(host: str, tmp_path: Path) -> None:
+    root = build(host, "native", tmp_path / host)
+    if host == "claude-code":
+        agent = (root / "agents" / "sidekick.md").read_text()
+        assert "model: sonnet" in agent
+        assert "isolation: worktree" in agent
+    else:
+        assert not (root / "agents").exists()
+        for path in root.rglob("*.json"):
+            assert "sidekick" not in path.read_text().lower()
 
 
 @pytest.mark.parametrize("host", ["claude-code", "cursor", "codex", "kimi", "antigravity"])

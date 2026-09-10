@@ -115,7 +115,7 @@ def test_native_antigravity_bundle_uses_supported_events(tmp_path: Path) -> None
     assert manifest["$schema"] == "https://antigravity.google/schemas/v1/plugin.json"
     assert set(hooks) == {"PreInvocation", "PostToolUse", "Stop"}
     assert (root / "mcp_config.json").is_file()
-    assert (root / "agents" / "sidekick" / "agent.md").is_file()
+    assert not (root / "agents").exists()
     assert not any(path.is_symlink() for path in root.rglob("*"))
 
 
