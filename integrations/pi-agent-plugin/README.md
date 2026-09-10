@@ -58,7 +58,7 @@ Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 
 Run `/mem0-handoff` to save the current session, `/mem0-handoff list` to find this project’s resources, or `/mem0-handoff resume /absolute/path.json` to continue from one.
 
-All plugins share local resources in `~/.mem0/handoffs/`, preserving supported active context, images, and completed tool outcomes. Resume reads that context as historical evidence. Requires **Python 3.11+** as `python3`; no destination CLI or Mem0 credentials are required. Pi save requires Node.js 22.19+ for its native SDK; list, resume, and memory features remain available on Node.js 20.
+All plugins share local resources in `~/.mem0/handoffs/`, preserving supported active context, images, and completed tool outcomes. Resume reads that context as historical evidence. Requires **Python 3.10+** as `python3`; no destination CLI or Mem0 credentials are required. Pi save requires Node.js 22.19+ for its native SDK; list, resume, and memory features remain available on Node.js 20.
 
 The shared engine is fetched from a pinned GitHub commit on first use, verified, and cached across all plugins. Cached use works offline; no transcript is sent to GitHub. See the [shared handoff logic](../agent-plugin-core/README.md#session-handoff) for source formats and validation.
 

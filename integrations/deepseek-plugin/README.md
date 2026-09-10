@@ -20,7 +20,7 @@ Current package version: `0.3.1`.
 
 Use `mem0_handoff` with action `save`, `list`, or `resume` (with a resource path). Save reads the current DeepSeek session; invoke save directly, outside a running nested code-mode call.
 
-All plugins share local resources in `~/.mem0/handoffs/`, preserving supported active context, images, and completed tool outcomes. Resume reads that context as historical evidence. Requires **Python 3.11+** as `python3`; no destination CLI or Mem0 credentials are required.
+All plugins share local resources in `~/.mem0/handoffs/`, preserving supported active context, images, and completed tool outcomes. Resume reads that context as historical evidence. Requires **Python 3.10+** as `python3`; no destination CLI or Mem0 credentials are required.
 
 The shared engine is fetched from a pinned GitHub commit on first use, verified, and cached across all plugins. Cached use works offline; no transcript is sent to GitHub. See the [shared handoff logic](../agent-plugin-core/README.md#session-handoff) for source formats and validation.
 

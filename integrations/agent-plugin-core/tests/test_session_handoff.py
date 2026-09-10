@@ -241,6 +241,55 @@ def test_kimi_native_tool_events_and_unfinished_turn(tmp_path):
         read_source("kimi", transcript(tmp_path, records[:-1]))
 
 
+@pytest.mark.parametrize("compactions", [2, 3])
+def test_kimi_repeated_compaction_replaces_previous_continuation(tmp_path, compactions):
+    records = [
+        {"type": "config.update", "cwd": str(tmp_path)},
+        {
+            "type": "context.append_message",
+            "message": {"role": "user", "content": [{"type": "text", "text": "Original user"}]},
+        },
+    ]
+    for index in range(compactions):
+        records.append({
+            "type": "context.apply_compaction",
+            "summary": f"Native summary {index + 1}",
+            "compactedCount": 1 if index == 0 else 3,
+            "keptUserMessageCount": 1,
+        })
+
+    plan = read_source("kimi", transcript(tmp_path, records))
+
+    # Native Kimi marks the continuation as an injection, excluded by the next compaction.
+    assert [item["content"][0]["text"] for item in plan.items] == [
+        "Original user",
+        f"Native summary {compactions}",
+        "<system-reminder>\nContext compaction is complete — continue the work that was in progress when it began.\n</system-reminder>",
+    ]
+
+
+@pytest.mark.parametrize("host", ["pi-agent", "openclaw"])
+@pytest.mark.parametrize("latest_title", ["Renamed title", ""])
+def test_pi_title_is_session_wide_after_branching(tmp_path, host, latest_title):
+    records = [
+        {"type": "session", "id": "native-session", "cwd": str(tmp_path)},
+        {"id": "old-title", "parentId": None, "type": "session_info", "name": "Original title"},
+        {"id": "new-title", "parentId": "old-title", "type": "session_info", "name": latest_title},
+        {
+            "id": "branch",
+            "parentId": "old-title",
+            "type": "message",
+            "message": {"role": "user", "content": "Continue on another branch"},
+        },
+    ]
+
+    plan = read_source(host, transcript(tmp_path, records))
+
+    # SessionManager.getSessionName scans all entries, including title clears on other branches.
+    assert plan.source.title == (latest_title or f"{host} session session")
+    assert plan.items == [message("user", "Continue on another branch")]
+
+
 def test_openclaw_active_branch_compaction_and_original_title(tmp_path):
     # Pi native session-manager.buildSessionContext and messages.convertToLlm, used by OpenClaw.
     records = [

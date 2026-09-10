@@ -2060,6 +2060,17 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Tabs>
 <Tab title="Mem0 Plugin">
 
+<Update label="Unreleased" description="Plugin patches: v0.3.2 / v0.3.1 / v1.1.1">
+
+- Add explicit save, list, and resume of session context across all ten coding-agent plugins through one shared local handoff resource. Handoffs preserve supported active conversation and completed tool history; users choose when to save and resume.
+- Lighten retrieval prompts so agents search when earlier work could help and avoid repeated searches when the available context is sufficient.
+- Remove Sidekick from Cursor, Kimi, and Antigravity, including the Cursor and Kimi Sidekick lifecycle hooks. Sidekick remains available only in Claude Code; memory capture, recall, and skills remain available in the other native plugins.
+- Patch versions: Claude Code, Cursor, Codex, Kimi, Antigravity, and the portable plugin `0.3.2`; OpenCode, Pi, and DeepSeek `0.3.1`; OpenClaw `1.1.1`.
+
+[#7279](https://github.com/mem0ai/mem0/pull/7279)
+
+</Update>
+
 <Update label="2026-09-08" description="Shared agent plugin runtime">
 
 **Changed:**

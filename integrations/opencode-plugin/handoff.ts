@@ -22,7 +22,7 @@ export function activeMessages(messages: NativeMessage[]): NativeMessage[] {
 
 export function createHandoffTool(client: PluginInput["client"]) {
   return tool({
-    description: "On explicit user request, save this session as a shared handoff resource, list resources for the current project, or resume one resource as historical context. Requires Python 3.11+.",
+    description: "On explicit user request, save this session as a shared handoff resource, list resources for the current project, or resume one resource as historical context. Requires Python 3.10+.",
     args: {
       action: tool.schema.enum(["save", "list", "resume"]).optional().describe("Defaults to save; resume loads a shared resource into this conversation"),
       resource: tool.schema.string().optional().describe("Resource path returned by save or list; required for resume"),

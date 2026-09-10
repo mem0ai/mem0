@@ -95,7 +95,7 @@ export function apply(ctx: Context, config: Config): void {
   ctx.tools.register(
     defineTool({
       name: "mem0_handoff",
-      description: "On explicit user request, save the current session as a shared handoff resource, list resources for this project, or resume one resource into the current conversation as historical context. Requires Python 3.11+.",
+      description: "On explicit user request, save the current session as a shared handoff resource, list resources for this project, or resume one resource into the current conversation as historical context. Requires Python 3.10+.",
       parameters: {
         action: {type: "string", enum: ["save", "list", "resume"], description: "Defaults to save; resume loads a shared resource into this conversation."},
         resource: {type: "string", description: "Resource path returned by save or list; required for resume."},

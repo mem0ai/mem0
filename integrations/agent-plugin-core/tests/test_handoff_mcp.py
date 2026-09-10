@@ -38,7 +38,12 @@ def test_resource_tool_exposes_full_context_without_replaying_tools(monkeypatch)
     monkeypatch.setattr(server.subprocess, "run", run)
     resource = "/saved handoff; $(do-not-execute).json"
     result = server.handle_request(request({"action": "resume", "resource": resource}))
-    assert result["result"]["content"][0]["text"] == context
+    text = result["result"]["content"][0]["text"]
+    guard, returned_context = text.split("\n\n", 1)
+    assert returned_context == context
+    assert "do not automatically re-execute recorded tools" in guard
+    ts = (CORE.parent / "typescript/src/handoff.ts").read_text()
+    assert json.dumps(guard + "\n\n") in ts
     command, kwargs = calls[0]
     assert command == [sys.executable, str(CORE / "session_handoff.py"), f"--resume={resource}",
                        "--cwd=/project root", "--command-output"]

@@ -262,6 +262,7 @@ def _kimi_compact(messages: list[dict], record: dict) -> list[dict]:
         "user",
         "<system-reminder>\nContext compaction is complete — continue the work that was in progress when it began.\n</system-reminder>",
     )
+    continuation["origin"] = {"kind": "injection", "variant": "compaction_continuation"}
     return [*users, summary_message, continuation]
 
 
@@ -358,7 +359,8 @@ def _pi(records: list[dict], warnings: list[str]) -> tuple[list[dict], dict]:
             raise engine.HandoffError("Pi/OpenClaw transcript has a missing parent.")
         current = index.get(parent)
     chain.reverse()
-    title = next((entry.get("name") for entry in reversed(chain) if entry.get("type") == "session_info"), None)
+    # Pi's getSessionName is session-wide, even when the latest rename is on another branch.
+    title = next((entry.get("name") for entry in reversed(entries) if entry.get("type") == "session_info"), None)
     messages = []
     boundary = next((i for i in range(len(chain) - 1, -1, -1) if chain[i].get("type") == "compaction"), None)
     if boundary is not None:
@@ -401,9 +403,7 @@ def _pi(records: list[dict], warnings: list[str]) -> tuple[list[dict], dict]:
             )
         elif kind == "custom_message":
             messages.append({"role": "user", "content": entry.get("content")})
-        elif kind == "session_info":
-            title = entry.get("name")
-        elif kind not in {"model_change", "thinking_level_change", "custom", "label"}:
+        elif kind not in {"model_change", "thinking_level_change", "custom", "label", "session_info"}:
             raise engine.HandoffError(f"Unsupported Pi/OpenClaw entry: {kind!r}.")
     return _messages_items(messages, warnings), {
         "session_id": header.get("id"),

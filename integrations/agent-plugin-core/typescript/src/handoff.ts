@@ -116,7 +116,7 @@ function requiredText(value: unknown): string {
 function run(scriptUrl: URL, args: string[], input?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = execFile("python3", [fileURLToPath(scriptUrl), ...args, "--command-output"], {encoding: "utf8", maxBuffer: 64 * 1024 * 1024}, (error, stdout, stderr) => {
-      if (error) reject(new Error(error.code === "ENOENT" ? "Session handoff requires Python 3.11+ (python3 on PATH)." : stderr.trim() || error.message));
+      if (error) reject(new Error(error.code === "ENOENT" ? "Session handoff requires Python 3.10+ (python3 on PATH)." : stderr.trim() || error.message));
       else resolve(stdout.trim());
     });
     child.stdin?.on("error", (error: NodeJS.ErrnoException) => { if (error.code !== "EPIPE") reject(error); });
