@@ -5,7 +5,7 @@ description: "Add persistent memory to OpenCode with the Mem0 plugin: native SDK
 
 Add persistent memory to [**OpenCode**](https://opencode.ai) with the Mem0 plugin. Your agent forgets everything between sessions. Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
 
-<Info>Current package version: `0.4.0`.</Info>
+<Info>Current package version: `0.3.2`.</Info>
 
 ## Prerequisites
 
@@ -121,10 +121,6 @@ The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SD
 | `shell.env` | **Shell env** | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to all shell executions |
 
 Automatic capture sends the selected user prompt with its full redacted text, without a per-message character cutoff. It does not capture every prompt or the full assistant transcript. These automatic writes use user and project scope, with the session ID in `metadata.session_id`; session-scoped tools use top-level `run_id`. A session-scoped search therefore does not include automatic writes that lack `run_id`.
-
-## Session handoff
-
-The plugin can hand off supported native session context into a new Codex task through the shared importer. Handoff requires Python 3.11+ and a locally installed, signed-in Codex CLI. See [session handoff](/integrations/session-handoff) for commands, transferred content, and recovery.
 
 ## Troubleshooting
 

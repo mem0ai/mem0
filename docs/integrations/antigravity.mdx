@@ -5,7 +5,7 @@ description: "Add persistent memory to Google Antigravity with the Mem0 plugin: 
 
 Add persistent memory to [**Google Antigravity**](https://antigravity.google) (`agy` CLI and Desktop IDE) with the Mem0 plugin. The plugin captures completed work, and Antigravity can search those memories in later sessions.
 
-<Info>Current plugin version: `0.4.0`.</Info>
+<Info>Current plugin version: `0.3.2`.</Info>
 
 ## Prerequisites
 
@@ -111,10 +111,6 @@ The adapter uses `MEM0_CWD` only when Antigravity omits the workspace. If neithe
 The local `search_memories` tool accepts `query`, `top_k`, `category`, `scope` (`repo`, `dir`, or `mine`), and optional `run_id` with every scope. Use a known session ID to recall memories saved in that session; omit it to search across sessions. See [search scopes](/integrations/claude-code#search-scope) for the shared Python search contract, including legacy repository memory compatibility.
 
 Captured prompts and responses retain their full redacted text without a per-message character cutoff. Large extraction inputs are split across requests without dropping message text; recall output and tool-result previews have separate limits.
-
-## Session handoff
-
-The plugin can hand off supported native session context into a new Codex task through the shared importer. Handoff requires Python 3.11+ and a locally installed, signed-in Codex CLI. See [session handoff](/integrations/session-handoff) for commands, transferred content, and recovery.
 
 ## Troubleshooting
 

@@ -2,7 +2,7 @@
 
 Persistent memory for [OpenCode](https://opencode.ai). Your agent remembers decisions, preferences, and learnings across sessions automatically.
 
-Current package version: `0.4.0`. This native TypeScript integration keeps its own tools and scopes while sharing redaction and lifecycle utilities with [agent-plugin-core](../agent-plugin-core/README.md).
+Current package version: `0.3.2`. This native TypeScript integration keeps its own tools and scopes while sharing redaction and lifecycle utilities with [agent-plugin-core](../agent-plugin-core/README.md).
 
 ## Install
 
@@ -41,11 +41,11 @@ Run `/mem0-handoff codex` to continue the current OpenCode session in Codex. The
 
 Requires **Python 3.11+** available as `python3` and an installed, signed-in Codex CLI with native session import support. Handoff works independently of Mem0 credentials and never sends the transcript through the Mem0 API. Unsupported content, missing results, and unrelated unfinished calls fail explicitly.
 
-The shared engine is packaged in `dist/` by [agent-plugin-core](../agent-plugin-core/README.md); it is not maintained separately in this plugin. Failed imports save a private recovery bundle under `~/.mem0/handoffs/`. See the [session handoff guide](../../docs/integrations/session-handoff.mdx) for supported formats, privacy, and recovery.
+The shared launcher and pinned runtime manifest are packaged in `dist/` by [agent-plugin-core](../agent-plugin-core/README.md); the importer is fetched once from its pinned GitHub commit, verified, and cached for all plugins. A valid cache works offline. Failed imports save a private recovery bundle under `~/.mem0/handoffs/`. See the [session handoff guide](../agent-plugin-core/README.md#session-handoff) for supported formats, privacy, and recovery.
 
 ## Hooks
 
-Memory hooks use TypeScript. Session handoff uses the bundled Python importer. Memory operations are native OpenCode tools backed by the [mem0ai](https://www.npmjs.com/package/mem0ai) SDK directly.
+Memory hooks use TypeScript. Session handoff uses the shared cached Python importer. Memory operations are native OpenCode tools backed by the [mem0ai](https://www.npmjs.com/package/mem0ai) SDK directly.
 
 | Hook | Event | What it does |
 |------|-------|-------------|

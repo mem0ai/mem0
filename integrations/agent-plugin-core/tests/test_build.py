@@ -127,7 +127,9 @@ def test_handoff_is_bundled_with_host_appropriate_invocation(host: str, tmp_path
     root = build(host, kind, tmp_path / host)
     skill = (root / "skills" / "handoff" / "SKILL.md").read_text()
     assert (root / "core" / "session_handoff.py").is_file()
-    assert (root / "core" / "handoff_sources.py").is_file()
+    assert (root / "core" / "handoff-runtime.json").is_file()
+    assert not (root / "core" / "handoff_sources.py").exists()
+    assert not (root / "core" / "claude_to_codex.py").exists()
     assert "Only run on an explicit user request" in skill
     assert "--target codex --create --command-output" in skill
     if host == "claude-code":

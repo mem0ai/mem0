@@ -3460,7 +3460,7 @@ def test_automatic_flush_can_be_disabled_for_external_harnesses(isolated_env):
 def test_version_is_single_sourced():
     manifest = json.loads((PLUGIN_ROOT / ".claude-plugin" / "plugin.json").read_text())
     assert manifest["name"] == "mem0"
-    assert manifest["version"] == memory_core.PLUGIN_VERSION == "0.4.0"
+    assert manifest["version"] == memory_core.PLUGIN_VERSION == "0.3.2"
     root = REPOSITORY_ROOT
     for mp in (root / "marketplace.json", root / ".claude-plugin" / "marketplace.json"):
         entry = next(p for p in json.loads(mp.read_text())["plugins"] if p["name"] == "mem0")

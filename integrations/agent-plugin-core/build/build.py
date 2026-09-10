@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -18,6 +19,7 @@ CORE_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = CORE_ROOT.parents[1]
 INTEGRATIONS_ROOT = REPOSITORY_ROOT / "integrations"
 SHARED_SKILLS = CORE_ROOT / "skills"
+HANDOFF_MANIFEST = CORE_ROOT / "build" / "handoff-runtime.json"
 PORTABLE_PLUGIN = "mem0-agent-plugin"
 NATIVE_PLUGINS = {
     "claude-code": INTEGRATIONS_ROOT / "claude-code-plugin",
@@ -116,7 +118,14 @@ def _bundle_python(
 ) -> None:
     core = staged / "core"
     core.mkdir()
+    handoff = json.loads(HANDOFF_MANIFEST.read_text(encoding="utf-8"))
+    for name, digest in handoff["files"].items():
+        if hashlib.sha256((CORE_ROOT / "python" / name).read_bytes()).hexdigest() != digest:
+            raise ValueError(f"Update the shared handoff runtime pin after changing {name}")
+    shutil.copy2(HANDOFF_MANIFEST, core / HANDOFF_MANIFEST.name)
     for source in sorted((CORE_ROOT / "python").glob("*.py")):
+        if source.name in handoff["files"]:
+            continue
         if portable and source.name in {"flush_worker.py", "hook_runner.py"}:
             continue
         shutil.copy2(source, core / source.name)

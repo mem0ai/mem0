@@ -9,7 +9,9 @@ allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/core/session_handoff.py *)
 
 All hosts share one local import engine. Native readers and SDK adapters supply
 complete conversation items; Mem0 memory capture is not a transcript source.
-Requires Python 3.11+ and a Codex CLI with native session import support. The
+Requires Python 3.11+ and a Codex CLI with native session import support.
+First use downloads a pinned, hash-verified runtime from GitHub; later uses share
+the verified local cache. No transcript is sent to GitHub. The
 supported destination is Codex. This does not transfer files or change branches.
 
 Visible conversation, tool history, and supported source compaction summaries

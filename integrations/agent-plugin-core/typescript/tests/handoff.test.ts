@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { test } from "node:test";
-import { buildHandoffBundle, runClaudeToCodex, runHandoff } from "../src/handoff.ts";
+import { buildHandoffBundle, runNativeSession, runHandoff } from "../src/handoff.ts";
 const source = {host: "test", session_id: "native", title: "Native title", cwd: "/tmp"};
 
 test("native context preserves summary, full tools/images, excludes only triggering call, rejects loss", async () => {
@@ -31,15 +31,15 @@ test("native context preserves summary, full tools/images, excludes only trigger
   assert.deepEqual((deepseek.items[2].output as any[])[0], {type: "text", text: "[Tool error]"});
 });
 
-test("transport sends native bundle on stdin and legacy arguments literally", async () => {
+test("transport sends native bundle on stdin and native arguments literally", async () => {
   const dir = await mkdtemp(join(tmpdir(), "mem0-handoff-"));
   const script = join(dir, "importer.py");
   try {
     await writeFile(script, "import json, sys\nprint(json.dumps(sys.argv[1:]))\n");
     const session = "--session with spaces; $(touch should-never-exist)";
-    const args = JSON.parse(await runClaudeToCodex(pathToFileURL(script), session, dir));
-    assert.deepEqual(args, [`--session=${session}`, `--cwd=${dir}`, "--create", "--command-output", "--target", "codex"]);
-    await assert.rejects(runClaudeToCodex(pathToFileURL(script), " "), /session ID/);
+    const args = JSON.parse(await runNativeSession(pathToFileURL(script), "openclaw", session));
+    assert.deepEqual(args, ["--source=openclaw", `--session=${session}`, "--create", "--command-output", "--target", "codex"]);
+    assert.throws(() => runNativeSession(pathToFileURL(script), "openclaw", " "), /session path/);
     await writeFile(script, "import json, sys\nprint(json.dumps(json.load(sys.stdin)))\n");
     const bundle = await buildHandoffBundle(source, [{role: "user", content: "private session"}]);
     assert.deepEqual(JSON.parse(await runHandoff(pathToFileURL(script), bundle)), bundle);

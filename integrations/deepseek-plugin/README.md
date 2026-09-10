@@ -14,7 +14,7 @@ It gives a Harness agent automatic long-term memory plus two explicit memory too
 
 Unlike the local/file-based memory plugins in the ecosystem, Mem0 is a managed backend: server-side extraction, semantic dedup and conflict resolution, and memories that other agents can retrieve when their user and entity filters match.
 
-Current package version: `0.4.0`.
+Current package version: `0.3.2`.
 
 ## Session handoff
 
@@ -22,7 +22,7 @@ Explicitly request the `mem0_handoff` tool to continue the current DeepSeek sess
 
 Requires **Python 3.11+** available as `python3` and an installed, signed-in Codex CLI with native session import support. Handoff works independently of Mem0 credentials and never sends the transcript through the Mem0 API. Unsupported content, missing results, and unrelated unfinished calls fail explicitly.
 
-The shared engine is packaged in `dist/` by [agent-plugin-core](../agent-plugin-core/README.md); it is not maintained separately in this plugin. Failed imports save a private recovery bundle under `~/.mem0/handoffs/`. See the [session handoff guide](../../docs/integrations/session-handoff.mdx) for supported formats, privacy, and recovery.
+The shared launcher and pinned runtime manifest are packaged in `dist/` by [agent-plugin-core](../agent-plugin-core/README.md); the importer is fetched once from its pinned GitHub commit, verified, and cached for all plugins. A valid cache works offline. Failed imports save a private recovery bundle under `~/.mem0/handoffs/`. See the [session handoff guide](../agent-plugin-core/README.md#session-handoff) for supported formats, privacy, and recovery.
 
 ## How it works
 
@@ -61,7 +61,7 @@ Cordis owns listener and tool cleanup when the plugin unmounts. Every automatic 
 3. Install it into a disposable Harness profile:
    ```sh
    DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
-     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.4.0.tgz
+     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.3.2.tgz
    ```
 4. Copy `cordis.example.yml`, set its installed package path and your `userId`, then run Harness with the same profile:
    ```sh

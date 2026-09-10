@@ -129,9 +129,3 @@ export function runHandoff(scriptUrl: URL, bundle: HandoffBundle): Promise<strin
 export function runNativeSession(scriptUrl: URL, host: string, session: string): Promise<string> {
   return run(scriptUrl, [`--source=${required(host, "Source host")}`, `--session=${required(session, "Native session path")}`]);
 }
-/** Explicit Claude transcript fallback for legacy callers. */
-export async function runClaudeToCodex(scriptUrl: URL, session: string, cwd?: string): Promise<string> {
-  const args = [`--session=${required(session, "A Claude session ID or JSONL path")}`];
-  if (cwd !== undefined) args.push(`--cwd=${required(cwd, "Existing project directory")}`);
-  return run(scriptUrl, args);
-}

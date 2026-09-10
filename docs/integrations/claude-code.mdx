@@ -5,7 +5,7 @@ description: "Persistent cross-session memory for Claude Code. Install once, mem
 
 Claude Code forgets everything between sessions. This plugin fixes that. Install it, work normally, and Claude remembers what happened across sessions.
 
-<Info>Current plugin version: `0.4.0`.</Info>
+<Info>Current plugin version: `0.3.2`.</Info>
 
 ## Prerequisites
 
@@ -159,10 +159,6 @@ Breaking update. Your memories carry over, most local config does not.
 claude plugin marketplace update mem0-plugins
 claude plugin update mem0@mem0-plugins --scope user
 ```
-
-## Session handoff
-
-Run `/mem0:handoff codex` to create a Codex task from the current Claude session, preserving its title, project, and active conversation. Handoff requires Python 3.11+ and a locally installed, signed-in Codex CLI. See [session handoff](/integrations/session-handoff) for commands, transferred content, and recovery.
 
 ## Troubleshooting
 
