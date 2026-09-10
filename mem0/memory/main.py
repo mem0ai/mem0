@@ -57,6 +57,7 @@ from mem0.memory.utils import (
     parse_vision_messages,
     process_telemetry_filters,
     remove_code_blocks,
+    salvage_memory_objects,
 )
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
 from mem0.utils.factory import (
@@ -976,9 +977,18 @@ class Memory(MemoryBase):
             else:
                 try:
                     extracted_memories = json.loads(response, strict=False).get("memory", [])
-                except json.JSONDecodeError:
-                    extracted_json = extract_json(response)
-                    extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
+                except (json.JSONDecodeError, AttributeError):
+                    try:
+                        extracted_json = extract_json(response)
+                        extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
+                    except (json.JSONDecodeError, AttributeError):
+                        extracted_memories = salvage_memory_objects(response)
+                        if extracted_memories:
+                            logger.warning(
+                                f"Extraction response was truncated; salvaged {len(extracted_memories)} memory objects"
+                            )
+                        else:
+                            raise
         except Exception as e:
             logger.error(f"Error parsing extraction response: {e}")
             extracted_memories = []
@@ -2637,9 +2647,18 @@ class AsyncMemory(MemoryBase):
             else:
                 try:
                     extracted_memories = json.loads(response, strict=False).get("memory", [])
-                except json.JSONDecodeError:
-                    extracted_json = extract_json(response)
-                    extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
+                except (json.JSONDecodeError, AttributeError):
+                    try:
+                        extracted_json = extract_json(response)
+                        extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
+                    except (json.JSONDecodeError, AttributeError):
+                        extracted_memories = salvage_memory_objects(response)
+                        if extracted_memories:
+                            logger.warning(
+                                f"Extraction response was truncated; salvaged {len(extracted_memories)} memory objects (async)"
+                            )
+                        else:
+                            raise
         except Exception as e:
             logger.error(f"Error parsing extraction response (async): {e}")
             extracted_memories = []

@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 from typing import Any, Dict, List
@@ -156,6 +157,83 @@ def extract_json(text):
         else:
             json_str = text
     return json_str
+
+
+def salvage_memory_objects(text: str) -> List[Dict[str, Any]]:
+    """
+    Salvages completed memory objects from a truncated or malformed LLM JSON response.
+
+    When max_tokens causes the LLM to cut off generation mid-JSON, standard json.loads()
+    and extract_json() fail on the incomplete syntax. This function locates the memory
+    array and uses incremental JSON decoding to extract all complete objects that preceded
+    the cutoff point, preventing silent data loss.
+
+    Args:
+        text: Raw response string from the LLM.
+
+    Returns:
+        List of decoded memory dictionaries that were fully formed before the cutoff.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return []
+
+    # Locate the start of the memory array.
+    # Matches keys: "memory", "memories", "facts", "data", "items", "results" followed by '['
+    match = re.search(r'"(?:memory|memories|facts|data|items|results)"\s*:\s*\[', text)
+    idx = -1
+    if match:
+        idx = match.end()
+    else:
+        # Check if text is a raw top-level JSON array: first '[' before any '{'
+        first_bracket = text.find("[")
+        first_brace = text.find("{")
+        if first_bracket != -1 and (first_brace == -1 or first_bracket < first_brace):
+            idx = first_bracket + 1
+
+    if idx == -1:
+        return []
+
+    decoder = json.JSONDecoder()
+    salvaged: List[Dict[str, Any]] = []
+
+    while idx < len(text):
+        # Skip whitespace and array element delimiters
+        while idx < len(text) and text[idx] in " \t\r\n,":
+            idx += 1
+        if idx >= len(text):
+            break
+        if text[idx] == "]":
+            break
+        if text[idx] != "{":
+            # If the item is a string literal (e.g. in facts lists), parse it as well
+            if text[idx] == '"':
+                try:
+                    str_val, end_idx = decoder.raw_decode(text, idx)
+                    if isinstance(str_val, str) and str_val.strip():
+                        salvaged.append({"text": str_val})
+                    idx = end_idx
+                    continue
+                except json.JSONDecodeError:
+                    break
+            # Any other character indicates malformed or truncated array content
+            break
+        try:
+            obj, end_idx = decoder.raw_decode(text, idx)
+            if isinstance(obj, dict):
+                # Ensure text field is populated if fact or statement was used
+                if "text" not in obj:
+                    for alt_key in ("fact", "memory", "statement", "content"):
+                        if alt_key in obj and isinstance(obj[alt_key], str):
+                            obj["text"] = obj[alt_key]
+                            break
+                if obj.get("text"):
+                    salvaged.append(obj)
+            idx = end_idx
+        except json.JSONDecodeError:
+            # Cutoff encountered mid-object; stop and return preceding items
+            break
+
+    return salvaged
 
 
 def get_image_description(image_obj, llm, vision_details):
