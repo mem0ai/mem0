@@ -137,6 +137,15 @@ The dashboard sets the following response headers on every path (see `server/das
 
 Together these prevent iframe embedding, sniffing of mislabelled MIME types, and cross-origin referrer leaks. Harden further behind your own reverse proxy if needed.
 
+## Alternative Vector Stores
+
+By default, Mem0 uses PostgreSQL with pgvector for storage. To use an alternative vector store like Qdrant, set `VECTOR_STORE_PROVIDER` and provide the connection details in `VECTOR_STORE_CONFIG` as JSON in your `.env` file:
+
+```bash
+VECTOR_STORE_PROVIDER=qdrant
+VECTOR_STORE_CONFIG={"host": "qdrant", "port": 6333}
+```
+
 ## Migrating from `ankane/pgvector` to `pgvector/pgvector`
 
 The `ankane/pgvector` Docker image is archived and no longer maintained. This release
