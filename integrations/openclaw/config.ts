@@ -158,6 +158,7 @@ const ALLOWED_KEYS = [
   "customPrompt",
   "searchThreshold",
   "topK",
+  "recallTimeoutMs",
   "oss",
   "skills",
 ];
@@ -247,9 +248,13 @@ export const mem0ConfigSchema = {
           ? (cfg.customCategories as Record<string, string>)
           : DEFAULT_CUSTOM_CATEGORIES,
       searchThreshold:
-        typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.1,
-      topK: typeof cfg.topK === "number" ? cfg.topK : 5,
-      needsSetup,
+  typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.1,
+topK: typeof cfg.topK === "number" ? cfg.topK : 5,
+recallTimeoutMs:
+  typeof cfg.recallTimeoutMs === "number"
+    ? cfg.recallTimeoutMs
+    : 8_000,
+needsSetup,
       oss: ossConfig,
       skills:
         cfg.skills &&
