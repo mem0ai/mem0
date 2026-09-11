@@ -72,6 +72,7 @@ import { Milvus } from "../vector_stores/milvus";
 import { MongoDB } from "../vector_stores/mongodb";
 import { WeaviateDB } from "../vector_stores/weaviate";
 import { OracleAIVectorSearch } from "../vector_stores/oracledb";
+import { ClickhouseDB } from "../vector_stores/clickhouse";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -208,6 +209,8 @@ export class VectorStoreFactory {
         return new WeaviateDB(config as any);
       case "oracledb":
         return new OracleAIVectorSearch(config as any);
+      case "clickhouse":
+        return new ClickhouseDB(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }

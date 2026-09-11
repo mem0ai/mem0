@@ -181,6 +181,7 @@ class VectorStoreFactory:
     provider_to_class = {
         "qdrant": "mem0.vector_stores.qdrant.Qdrant",
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
+        "clickhouse": "mem0.vector_stores.clickhouse.ClickhouseDB",
         "pgvector": "mem0.vector_stores.pgvector.PGVector",
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
         "upstash_vector": "mem0.vector_stores.upstash_vector.UpstashVector",
