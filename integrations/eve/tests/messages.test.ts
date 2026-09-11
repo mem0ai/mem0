@@ -27,6 +27,19 @@ describe("extractText", () => {
   it("ignores non-text parts", () => {
     expect(extractText([{ type: "image", url: "x" }])).toBe("");
   });
+
+  it("ignores reasoning parts and keeps only the final text", () => {
+    expect(
+      extractText([
+        { type: "reasoning", text: "speculation" },
+        { type: "text", text: "Noted." },
+      ]),
+    ).toBe("Noted.");
+  });
+
+  it("still reads an untyped text object", () => {
+    expect(extractText({ text: "  bare  " })).toBe("bare");
+  });
 });
 
 describe("lastUserText", () => {
@@ -86,5 +99,55 @@ describe("completedTurnMessages", () => {
         messages: [{ role: "assistant", content: "hello" }],
       }),
     ).toEqual([]);
+  });
+
+  it("does not attach a previous turn's answer to a tool-only turn", () => {
+    // Older Q&A, then a new user message whose only assistant output is a
+    // tool call (no text). The stale "older reply" must not be captured.
+    expect(
+      completedTurnMessages({
+        turnInput: [{ role: "user", content: "new question" }],
+        messages: [
+          { role: "user", content: "older question" },
+          { role: "assistant", content: "older reply" },
+          { role: "user", content: "new question" },
+          { role: "assistant", content: [{ type: "tool-call", id: "t1" }] },
+        ],
+      }),
+    ).toEqual([{ role: "user", content: "new question" }]);
+  });
+
+  it("captures all assistant text in a text/tool-call/text turn", () => {
+    expect(
+      completedTurnMessages({
+        turnInput: [{ role: "user", content: "Q" }],
+        messages: [
+          { role: "user", content: "Q" },
+          { role: "assistant", content: "part A" },
+          { role: "assistant", content: [{ type: "tool-call", id: "t1" }] },
+          { role: "assistant", content: "part B" },
+        ],
+      }),
+    ).toEqual([
+      { role: "user", content: "Q" },
+      { role: "assistant", content: "part A\npart B" },
+    ]);
+  });
+
+  it("captures this turn's assistant reply, not an earlier one", () => {
+    expect(
+      completedTurnMessages({
+        turnInput: [{ role: "user", content: "new question" }],
+        messages: [
+          { role: "user", content: "older question" },
+          { role: "assistant", content: "older reply" },
+          { role: "user", content: "new question" },
+          { role: "assistant", content: "new reply" },
+        ],
+      }),
+    ).toEqual([
+      { role: "user", content: "new question" },
+      { role: "assistant", content: "new reply" },
+    ]);
   });
 });

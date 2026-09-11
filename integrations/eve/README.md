@@ -36,12 +36,14 @@ The live MCP path today is `eve add connection/mem0`. That is a different integr
 |---|---|
 | `recall["turn.started"]` | Semantic search over memories for the locked scope |
 | `recall["compaction.completed"]` | Same search after Eve compacting history (`turn` may be null) |
-| `capture["turn.completed"]` | Add the completed user turn and, when present, the latest assistant reply |
+| `capture["turn.completed"]` | Add the completed user turn and, when present, this turn's assistant reply |
 | `tools()` | `search`, `remember`, `forget` |
 
 Search, capture, remember, and forget are partitioned by `memory.scope.key`. Forget loads the memory first and deletes only when `userId` matches that key.
 
-Capture uses `operationId` as an idempotency key: an in-process gate plus a durable `metadata.operation_id` lookup so Eve replays after restart do not write twice.
+Capture uses `operationId` for **best-effort** deduplication: an in-process gate plus a durable `metadata.operation_id` lookup. This is not atomic — with `infer: true` a prior write can be a PENDING event whose memory is not yet visible, so a restart during that window (or two concurrent workers) can capture the same turn twice. Eliminating that would require a backend-supported atomic idempotency key.
+
+`remember` returns `{ status: "saved" }` when the write resolves, or `{ status: "queued" }` when the platform accepts it for asynchronous extraction (it becomes searchable a moment later).
 
 If the slot file is named `mem0.ts`, Eve qualifies tools as `mem0__search`, `mem0__remember`, and `mem0__forget`.
 

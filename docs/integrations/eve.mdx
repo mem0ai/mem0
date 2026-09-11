@@ -36,8 +36,8 @@ export default defineMemory({
 ## How it works
 
 1. **Recall.** Before each turn and after compaction, Mem0 searches memories for the locked Eve scope and returns `{ id, content }` messages. Eve injects those as user-role messages attributed to the slot.
-2. **Capture.** After a successful turn, Mem0 adds the user messages from that turn and, when present, the latest assistant reply. By default (`infer: true`) Mem0 extracts durable facts.
-3. **Tools.** The model can call `search`, `remember`, and `forget`. Eve qualifies them as `mem0__search`, `mem0__remember`, and `mem0__forget` when the slot file is `mem0.ts`.
+2. **Capture.** After a successful turn, Mem0 adds the user messages from that turn and, when present, that turn's assistant reply. By default (`infer: true`) Mem0 extracts durable facts. Capture is deduplicated per `operationId` on a best-effort basis (an in-process gate plus a durable `metadata.operation_id` lookup); because that check and the write are not atomic and platform writes are asynchronous, a restart or concurrent worker can occasionally capture a turn twice.
+3. **Tools.** The model can call `search`, `remember`, and `forget`. Eve qualifies them as `mem0__search`, `mem0__remember`, and `mem0__forget` when the slot file is `mem0.ts`. `remember` returns `{ status: "saved" }` on a resolved write or `{ status: "queued" }` when the platform accepts it for asynchronous extraction.
 
 Eve owns namespace, scope, and when recall/capture run. Mem0 owns storage, ranking, and extraction. Search, capture, remember, and forget are partitioned by `memory.scope.key`. Forget deletes by id only after confirming the memory belongs to that key.
 

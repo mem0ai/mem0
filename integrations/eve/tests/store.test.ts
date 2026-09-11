@@ -25,10 +25,47 @@ vi.mock("mem0ai", () => ({
 import {
   createLazyStore,
   createMem0Store,
+  parseAddResult,
   parseMemoryRecord,
   parseSearchHit,
   resolveApiKey,
 } from "../src/store.js";
+
+describe("parseAddResult", () => {
+  it("reports a pending event as queued", () => {
+    expect(parseAddResult({ event_id: "evt_1", status: "PENDING" })).toEqual({
+      status: "queued",
+      eventId: "evt_1",
+    });
+  });
+
+  it("reports a succeeded event as completed", () => {
+    expect(parseAddResult({ event_id: "evt_1", status: "SUCCEEDED" })).toEqual({
+      status: "completed",
+      eventId: "evt_1",
+    });
+  });
+
+  it("treats a memory-results array as completed", () => {
+    expect(parseAddResult([{ id: "m1", memory: "tea" }])).toEqual({
+      status: "completed",
+    });
+  });
+
+  it("does not report a failed event as queued", () => {
+    expect(parseAddResult({ event_id: "evt_1", status: "FAILED" })).toEqual({
+      status: "completed",
+      eventId: "evt_1",
+    });
+  });
+
+  it("does not report an event with no status as queued", () => {
+    expect(parseAddResult({ event_id: "evt_1" })).toEqual({
+      status: "completed",
+      eventId: "evt_1",
+    });
+  });
+});
 
 describe("parseSearchHit", () => {
   it("accepts id, memory_id, nested text, and numeric ids", () => {
@@ -122,18 +159,19 @@ describe("createMem0Store", () => {
     getAll.mockResolvedValue({
       results: [{ id: "m9", userId: "scope_abc", metadata: { operation_id: "op_1" } }],
     });
-    add.mockResolvedValue({ eventId: "evt_1" });
+    add.mockResolvedValue({ event_id: "evt_1", status: "SUCCEEDED" });
 
     const store = await createMem0Store({
       apiKey: "m0-test",
       host: "https://api.mem0.ai",
     });
 
-    await store.add([{ role: "user", content: "I like tea" }], {
+    const addResult = await store.add([{ role: "user", content: "I like tea" }], {
       userId: "scope_abc",
       infer: false,
       metadata: { source: "eve", operation_id: "op_1" },
     });
+    expect(addResult).toEqual({ status: "completed", eventId: "evt_1" });
     const found = await store.search("tea", {
       userId: "scope_abc",
       topK: 3,
@@ -167,6 +205,21 @@ describe("createMem0Store", () => {
         metadata: { operation_id: "op_1" },
       },
     ]);
+  });
+
+  it("surfaces a pending platform write as queued", async () => {
+    const store = await createMem0Store({
+      apiKey: "m0-test",
+      host: "https://api.mem0.ai",
+    });
+    add.mockResolvedValueOnce({ event_id: "evt_9", status: "PENDING" });
+    await expect(
+      store.add([{ role: "user", content: "I like tea" }], {
+        userId: "scope_abc",
+        infer: true,
+        metadata: { source: "eve" },
+      }),
+    ).resolves.toEqual({ status: "queued", eventId: "evt_9" });
   });
 
   it("accepts a bare search array and rejects unknown envelopes", async () => {

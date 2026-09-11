@@ -10,6 +10,12 @@ export async function captureCompletedTurn(input: {
   messages: readonly ConversationMessage[];
   turnInput: readonly ConversationMessage[];
 }): Promise<boolean> {
+  // Best-effort deduplication, not a guarantee. This lookup + add is not atomic,
+  // and with infer:true the prior write can still be a PENDING event whose
+  // memory is not yet visible here. So a restart during that window, or two
+  // workers that both clear this check before either write, can capture the
+  // same operation twice. The in-process gate in provider.ts narrows the common
+  // case; eliminating it would need a backend-supported atomic idempotency key.
   const existing = await input.store.listByMetadata({
     userId: input.scopeKey,
     metadata: { operation_id: input.operationId },

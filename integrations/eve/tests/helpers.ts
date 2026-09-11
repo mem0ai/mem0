@@ -23,7 +23,10 @@ export type FakeSearch = SearchMemoryInput & {
   query: string;
 };
 
-export function createFakeStore(hits: FakeHit[] = []): MemoryStore & {
+export function createFakeStore(
+  hits: FakeHit[] = [],
+  options: { pendingWrites?: boolean } = {},
+): MemoryStore & {
   added: FakeAdd[];
   searched: FakeSearch[];
   deleted: string[];
@@ -50,11 +53,18 @@ export function createFakeStore(hits: FakeHit[] = []): MemoryStore & {
         infer: input.infer,
         metadata: input.metadata,
       });
+      // Model Mem0's async extraction: a pending write is accepted but its
+      // memory is not yet visible to listByMetadata/get, so it cannot dedupe a
+      // replay. A resolved write becomes immediately visible.
+      if (options.pendingWrites) {
+        return { status: "queued" as const, eventId: `evt_${added.length}` };
+      }
       records.push({
         id: `mem_added_${added.length}`,
         userId: input.userId,
         metadata: input.metadata,
       });
+      return { status: "completed" as const };
     },
     async search(query, input) {
       searched.push({ query, ...input });

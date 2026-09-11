@@ -247,7 +247,7 @@ describe("mem0Provider", () => {
     expect(search).toEqual({
       memories: [{ id: "mem_1", memory: "likes tea" }],
     });
-    expect(remember).toEqual({ saved: true });
+    expect(remember).toEqual({ status: "saved" });
     expect(forget).toEqual({ deleted: true });
     expect(store.searched[0]).toMatchObject({
       userId: "scope_abc",
@@ -262,6 +262,18 @@ describe("mem0Provider", () => {
       messages: [{ role: "user", content: "Allergic to peanuts" }],
     });
     expect(store.deleted).toEqual(["mem_1"]);
+  });
+
+  it("reports remember as queued when the write is still pending", async () => {
+    const store = createFakeStore([], { pendingWrites: true });
+    const provider = mem0Provider({ store, infer: true });
+    const tools = await provider.tools!(toolsContext());
+    const rememberTool = tools?.remember;
+    if (!rememberTool) {
+      throw new Error("expected remember tool");
+    }
+    const remember = await runTool(rememberTool, { text: "Allergic to peanuts" });
+    expect(remember).toEqual({ status: "queued", eventId: "evt_1" });
   });
 
   it("refuses to forget a memory from another scope", async () => {

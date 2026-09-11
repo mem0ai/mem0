@@ -27,6 +27,15 @@ export interface AddMemoryInput {
   readonly metadata: StoreMetadata;
 }
 
+// A hosted-platform write with `infer: true` is asynchronous: Mem0 accepts the
+// request and returns an `event_id` with a PENDING status before extraction has
+// produced (or rejected) any memory. `queued` reflects that accepted-not-yet-
+// stored state; `completed` means the write resolved synchronously.
+export interface AddResult {
+  readonly status: "queued" | "completed";
+  readonly eventId?: string;
+}
+
 export interface SearchMemoryInput {
   readonly userId: string;
   readonly topK: number;
@@ -35,7 +44,10 @@ export interface SearchMemoryInput {
 }
 
 export interface MemoryStore {
-  add(messages: readonly MemoryMessage[], input: AddMemoryInput): Promise<void>;
+  add(
+    messages: readonly MemoryMessage[],
+    input: AddMemoryInput,
+  ): Promise<AddResult>;
   search(query: string, input: SearchMemoryInput): Promise<{ results: readonly SearchHit[] }>;
   get(memoryId: string): Promise<MemoryRecord | null>;
   listByMetadata(input: {
@@ -68,6 +80,35 @@ export function parseSearchHit(item: unknown): SearchHit | null {
     return null;
   }
   return { id, memory };
+}
+
+// Event statuses that mean "accepted, extraction not finished". Only these map
+// to `queued`; a terminal status (SUCCEEDED/FAILED) or an unknown/absent status
+// falls through to `completed`, so a FAILED write is never reported as still
+// pending. (The hosted add path returns PENDING synchronously; FAILED only
+// appears later via event polling.)
+const PENDING_STATUSES = new Set(["PENDING", "RUNNING", "PROCESSING", "QUEUED"]);
+
+export function parseAddResult(response: unknown): AddResult {
+  if (response && typeof response === "object" && !Array.isArray(response)) {
+    const record = response as Record<string, unknown>;
+    const eventIdValue = record.event_id ?? record.eventId;
+    const eventId =
+      typeof eventIdValue === "string" && eventIdValue.length > 0
+        ? eventIdValue
+        : undefined;
+    const status =
+      typeof record.status === "string" ? record.status.toUpperCase() : "";
+    if (eventId && PENDING_STATUSES.has(status)) {
+      return { status: "queued", eventId };
+    }
+    if (eventId) {
+      return { status: "completed", eventId };
+    }
+  }
+  // A memory-results array (or any non-event payload) means the write already
+  // resolved; there is nothing left pending to report.
+  return { status: "completed" };
 }
 
 export function parseMemoryRecord(item: unknown): MemoryRecord | null {
@@ -138,11 +179,12 @@ export async function createMem0Store(input: {
 
   const store: MemoryStore = {
     async add(messages, options) {
-      await client.add([...messages], {
+      const response = await client.add([...messages], {
         userId: options.userId,
         infer: options.infer,
         metadata: { ...options.metadata },
       });
+      return parseAddResult(response);
     },
     async search(query, options) {
       const response = await client.search(query, {
