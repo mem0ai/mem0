@@ -1049,6 +1049,147 @@ class TestEntityBoostParallelism:
         assert len(boosts) == 4
 
 
+class TestEntityScopeGate:
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @staticmethod
+    def _match(scope):
+        return SimpleNamespace(
+            id="entity-1",
+            score=0.99,
+            payload={"data": "Alice", "linked_memory_ids": ["existing-memory"], **scope},
+        )
+
+    @staticmethod
+    def _prepare_batch_add(memory, mocker, *, exact_match=None, semantic_match=None):
+        memory.llm.generate_response.return_value = '{"memory": [{"text": "Alice works here"}]}'
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed_batch = Mock(return_value=[[0.1] * 10])
+        memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        memory._entity_store = Mock()
+        memory._entity_store.search_batch = Mock(return_value=[[semantic_match] if semantic_match else []])
+        memory._entity_store.insert = Mock()
+        memory._entity_store.update = Mock()
+        mocker.patch.object(
+            memory,
+            "_existing_entities_by_text",
+            return_value={"alice": exact_match} if exact_match else {},
+        )
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[("person", "Alice")]])
+        mocker.patch("mem0.memory.main.capture_event")
+
+    @pytest.mark.parametrize(
+        ("stored_scope", "request_scope", "should_merge"),
+        [
+            ({"user_id": "alice"}, {"user_id": "alice"}, True),
+            ({"user_id": "bob"}, {"user_id": "alice"}, False),
+            ({}, {"user_id": "alice"}, False),
+            ({"user_id": "alice"}, {}, False),
+            ({}, {}, True),
+        ],
+        ids=["same-scope", "cross-scope", "stored-scope-missing", "request-unscoped", "both-unscoped"],
+    )
+    def test_sync_exact_match_respects_scope(self, mock_memory, mocker, stored_scope, request_scope, should_merge):
+        match = self._match(stored_scope)
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mock_memory._entity_store = Mock()
+        mocker.patch.object(mock_memory, "_existing_entities_by_text", return_value={"alice": match})
+
+        mock_memory._upsert_entity("Alice", "person", "new-memory", request_scope)
+
+        if should_merge:
+            mock_memory._entity_store.update.assert_called_once()
+            mock_memory._entity_store.insert.assert_not_called()
+            assert match.payload["linked_memory_ids"] == ["existing-memory", "new-memory"]
+        else:
+            mock_memory._entity_store.update.assert_not_called()
+            mock_memory._entity_store.insert.assert_called_once()
+            payload = mock_memory._entity_store.insert.call_args.kwargs["payloads"][0]
+            assert payload["linked_memory_ids"] == ["new-memory"]
+            assert {key: payload[key] for key in request_scope} == request_scope
+            assert match.payload["linked_memory_ids"] == ["existing-memory"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("stored_scope", "should_merge"),
+        [
+            ({"user_id": "alice", "run_id": "run-1"}, True),
+            ({"user_id": "alice", "run_id": "run-2"}, False),
+        ],
+        ids=["same-scope", "cross-scope"],
+    )
+    async def test_async_semantic_match_respects_scope(self, mock_async_memory, mocker, stored_scope, should_merge):
+        match = self._match(stored_scope)
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(return_value=[match])
+        mocker.patch.object(mock_async_memory, "_existing_entities_by_text", return_value={})
+        request_scope = {"user_id": "alice", "run_id": "run-1"}
+
+        await mock_async_memory._upsert_entity_async("Alice", "person", "new-memory", request_scope)
+
+        if should_merge:
+            mock_async_memory._entity_store.update.assert_called_once()
+            mock_async_memory._entity_store.insert.assert_not_called()
+        else:
+            mock_async_memory._entity_store.update.assert_not_called()
+            payload = mock_async_memory._entity_store.insert.call_args.kwargs["payloads"][0]
+            assert payload["user_id"] == "alice"
+            assert payload["run_id"] == "run-1"
+            assert match.payload["linked_memory_ids"] == ["existing-memory"]
+
+    def test_sync_batch_exact_match_rejects_cross_scope(self, mock_memory, mocker):
+        match = self._match({"user_id": "bob"})
+        self._prepare_batch_add(mock_memory, mocker, exact_match=match)
+
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "Alice works here"}],
+            metadata={},
+            filters={"user_id": "alice"},
+            infer=True,
+        )
+
+        mock_memory._entity_store.update.assert_not_called()
+        payload = mock_memory._entity_store.insert.call_args.kwargs["payloads"][0]
+        assert payload["user_id"] == "alice"
+        assert match.payload["linked_memory_ids"] == ["existing-memory"]
+
+    @pytest.mark.asyncio
+    async def test_async_batch_semantic_match_rejects_cross_scope(self, mock_async_memory, mocker):
+        match = self._match({"user_id": "bob"})
+        self._prepare_batch_add(mock_async_memory, mocker, semantic_match=match)
+
+        await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "Alice works here"}],
+            metadata={},
+            effective_filters={"user_id": "alice"},
+            infer=True,
+        )
+
+        mock_async_memory._entity_store.update.assert_not_called()
+        payload = mock_async_memory._entity_store.insert.call_args.kwargs["payloads"][0]
+        assert payload["user_id"] == "alice"
+        assert match.payload["linked_memory_ids"] == ["existing-memory"]
+
+
 class TestAddPipelineEntityEmbeddingCountGuard:
     """A misbehaving embedder returning fewer (or more) vectors than entity
     texts must not silently drop ALL entity links via a swallowed IndexError.
