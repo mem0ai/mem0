@@ -34,6 +34,61 @@ def test_generate_response_without_tools(mock_ollama_client):
     assert response == "I'm doing well, thank you for asking!"
 
 
+def test_generate_response_forwards_configured_num_ctx(mock_ollama_client):
+    """A configured context window reaches Ollama as the num_ctx option."""
+    config = OllamaConfig(model="llama3.1:70b", temperature=0.7, max_tokens=100, top_p=1.0, num_ctx=8192)
+    llm = OllamaLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_ollama_client.chat.return_value = {"message": {"content": "hi"}}
+    llm.generate_response(messages)
+
+    mock_ollama_client.chat.assert_called_once_with(
+        model="llama3.1:70b",
+        messages=messages,
+        options={"temperature": 0.7, "num_predict": 100, "top_p": 1.0, "num_ctx": 8192},
+    )
+
+
+def test_generate_response_omits_num_ctx_when_unset(mock_ollama_client):
+    """Without an explicit context window, Ollama keeps the model's own default."""
+    config = OllamaConfig(model="llama3.1:70b", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OllamaLLM(config)
+
+    mock_ollama_client.chat.return_value = {"message": {"content": "hi"}}
+    llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    assert "num_ctx" not in mock_ollama_client.chat.call_args.kwargs["options"]
+
+
+def test_generate_response_merges_per_call_options(mock_ollama_client):
+    """Per-call options refine the config-derived ones instead of replacing them."""
+    config = OllamaConfig(model="llama3.1:70b", temperature=0.7, max_tokens=100, top_p=1.0, num_ctx=8192)
+    llm = OllamaLLM(config)
+
+    mock_ollama_client.chat.return_value = {"message": {"content": "hi"}}
+    llm.generate_response([{"role": "user", "content": "Hello"}], options={"num_ctx": 4096, "seed": 7})
+
+    assert mock_ollama_client.chat.call_args.kwargs["options"] == {
+        "temperature": 0.7,
+        "num_predict": 100,
+        "top_p": 1.0,
+        "num_ctx": 4096,
+        "seed": 7,
+    }
+
+
+def test_generate_response_forwards_extra_kwargs(mock_ollama_client):
+    """Documented Ollama-specific kwargs reach client.chat() instead of being dropped."""
+    config = OllamaConfig(model="llama3.1:70b", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OllamaLLM(config)
+
+    mock_ollama_client.chat.return_value = {"message": {"content": "hi"}}
+    llm.generate_response([{"role": "user", "content": "Hello"}], keep_alive="30m")
+
+    assert mock_ollama_client.chat.call_args.kwargs["keep_alive"] == "30m"
+
+
 def test_generate_response_with_tools_passes_tools_to_client(mock_ollama_client):
     """Tools should be forwarded to ollama client.chat()."""
     config = OllamaConfig(model="llama3.1:70b", temperature=0.1, max_tokens=100, top_p=1.0)
