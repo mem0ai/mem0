@@ -60,3 +60,21 @@ def test_uses_openai_base_url_environment_variable(monkeypatch):
         OpenAIStructuredLLM(OpenAIConfig(api_key="test-api-key"))
 
     mock_openai.assert_called_once_with(api_key="test-api-key", base_url=base_url)
+
+
+def test_extra_headers_forwarded_to_client():
+    """This provider is mapped to OpenAIConfig, so it must honour `extra_headers` too."""
+    headers = {"Helicone-Auth": "Bearer token-abc", "X-Gateway": "internal"}
+
+    with patch("mem0.llms.openai_structured.OpenAI") as mock_openai:
+        OpenAIStructuredLLM(OpenAIConfig(api_key="test-api-key", extra_headers=headers))
+
+    assert mock_openai.call_args.kwargs["default_headers"] == headers
+
+
+def test_extra_headers_absent_by_default():
+    """With `extra_headers` unset, no stray kwarg reaches the client."""
+    with patch("mem0.llms.openai_structured.OpenAI") as mock_openai:
+        OpenAIStructuredLLM(OpenAIConfig(api_key="test-api-key"))
+
+    assert "default_headers" not in mock_openai.call_args.kwargs
