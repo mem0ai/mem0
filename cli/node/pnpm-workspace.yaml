@@ -12,4 +12,3 @@ overrides:
   picomatch@<2.3.2: ^2.3.2
   "esbuild": ">=0.28.1"
   "postcss@<8.5.18": ">=8.5.18 <9.0.0"
-  "@vitest/mocker@<4.1.11": ">=4.1.11 <5.0.0"

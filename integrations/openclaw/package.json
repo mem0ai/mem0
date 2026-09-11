@@ -56,11 +56,11 @@
   "devDependencies": {
     "@qdrant/js-client-rest": "^1.18.0",
     "@types/node": "^22.15.0",
-    "@vitest/coverage-v8": "^4.1.7",
+    "@vitest/coverage-v8": "^4.1.11",
     "tsup": "^8.5.0",
     "typescript": "^5.8.3",
     "vite": "^8.0.5",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.11"
   },
   "pnpm": {
     "overrides": {
@@ -75,8 +75,7 @@
       "undici@<7.29.0": ">=7.29.0 <8.0.0",
       "axios@<1.18.0": ">=1.18.0 <2.0.0",
       "postcss@<8.5.18": ">=8.5.18 <9.0.0",
-      "mongoose@>=9.0.0 <9.7.2": ">=9.7.2 <10.0.0",
-      "@vitest/mocker@<4.1.11": ">=4.1.11 <5.0.0"
+      "mongoose@>=9.0.0 <9.7.2": ">=9.7.2 <10.0.0"
     }
   }
 }
