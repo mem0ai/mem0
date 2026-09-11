@@ -1,4 +1,5 @@
 import { defineConfig } from "tsup";
+import { packageHandoff } from "../agent-plugin-core/build/package_handoff.mjs";
 
 export default defineConfig({
   entry: ["src/index.ts", "src/entry.ts"],
@@ -7,6 +8,7 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
+  onSuccess: () => packageHandoff(),
   external: [
     /^node:/,
     /^@earendil-works\//,

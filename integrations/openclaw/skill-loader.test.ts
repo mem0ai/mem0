@@ -1,3 +1,4 @@
+import { SEARCH_GUIDANCE } from "../agent-plugin-core/typescript/src/search_guidance.ts";
 /**
  * Tests for path traversal prevention in skill-loader.
  */
@@ -107,7 +108,8 @@ describe("loadCompactTriagePrompt", () => {
 
     expect(prompt).toContain("Use `memory_add` tool for ALL user facts");
     expect(prompt).toContain("Batch facts by CATEGORY");
-    expect(prompt).toContain("ALWAYS rewrite the query");
+    expect(prompt).toContain(SEARCH_GUIDANCE);
+    expect(prompt).not.toContain("ALWAYS rewrite the query");
     expect(prompt).not.toContain("## Worked Examples");
     expect(prompt).not.toContain("### memory_search");
     expect(prompt).not.toContain("Conference requires at least 4 breakout rooms");
@@ -129,6 +131,10 @@ describe("loadCompactTriagePrompt", () => {
     });
 
     expect(prompt).toContain("No automatic recall happens in manual mode.");
+    const fullPrompt = loadTriagePrompt({recall: {strategy: "manual"}});
+    expect(fullPrompt).toContain("No automatic recall happens in manual mode.");
+    expect(fullPrompt).toContain(SEARCH_GUIDANCE);
+    expect(fullPrompt).not.toContain("ALWAYS rewrite");
   });
 
   it("includes short config summaries and truncates oversized custom rules", () => {

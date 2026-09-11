@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -18,6 +19,7 @@ CORE_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = CORE_ROOT.parents[1]
 INTEGRATIONS_ROOT = REPOSITORY_ROOT / "integrations"
 SHARED_SKILLS = CORE_ROOT / "skills"
+HANDOFF_MANIFEST = CORE_ROOT / "build" / "handoff-runtime.json"
 PORTABLE_PLUGIN = "mem0-agent-plugin"
 NATIVE_PLUGINS = {
     "claude-code": INTEGRATIONS_ROOT / "claude-code-plugin",
@@ -41,6 +43,7 @@ TEMPLATE_TOKENS = {
     "COMMAND_PREFIX",
     "HARNESS_ID",
     "HARNESS_NAME",
+    "HANDOFF_INSTRUCTIONS",
 }
 
 
@@ -81,6 +84,30 @@ def replace_output(staged: Path, output: Path) -> Path:
     return output
 
 
+def handoff_instructions(host: str, plugin_root: str) -> str:
+    command = f'python3 "{plugin_root}/core/session_handoff.py"'
+    if host == "claude-code":
+        return (
+            "The shared handoff has already been saved before model invocation:\n\n"
+            f'!`{command} --source claude-code --session "${{CLAUDE_SESSION_ID}}" --save --command-output`\n\n'
+            "Return the resource path from the command. It can be resumed in any Mem0 plugin using handoff_resource. Do not retry or run recorded tool calls."
+        )
+    source = host if host != "coding-agent" else "SOURCE_HOST"
+    return (
+        f"The source is {host}. Ask for a completed native transcript path or a neutral handoff bundle "
+        "if none was supplied. Never guess the latest session. Do not create a summary from memory. "
+        "For the portable plugin, replace SOURCE_HOST with the actual supported native host.\n\n"
+        f'```bash\n{command} --source {source} --session "NATIVE_TRANSCRIPT_PATH" --save --command-output\n```\n\n'
+        "Quote the supplied path as one shell argument. Cursor and Antigravity transcripts need "
+        "`--cwd` with their source project directory; `--title` preserves a title absent from the export. "
+        "For a neutral bundle use `--bundle PATH` instead of `--source` and `--session`. Read a saved resource through `handoff_resource` with action `resume` and its path; action `list` finds resources in the current project.\n\n"
+        "A still-running source or this skill's own shell call may leave an unfinished tool call. "
+        "In that case, return the error and show the same command for running from a terminal after "
+        "the source turn finishes. Never trim pending calls, automatically retry, or claim that a "
+        "partial memory capture is the complete conversation. Return the command output."
+    )
+
+
 def _bundle_python(
     staged: Path,
     host: str,
@@ -91,7 +118,14 @@ def _bundle_python(
 ) -> None:
     core = staged / "core"
     core.mkdir()
+    handoff = json.loads(HANDOFF_MANIFEST.read_text(encoding="utf-8"))
+    for name, digest in handoff["files"].items():
+        if hashlib.sha256((CORE_ROOT / "python" / name).read_bytes()).hexdigest() != digest:
+            raise ValueError(f"Update the shared handoff runtime pin after changing {name}")
+    shutil.copy2(HANDOFF_MANIFEST, core / HANDOFF_MANIFEST.name)
     for source in sorted((CORE_ROOT / "python").glob("*.py")):
+        if source.name in handoff["files"]:
+            continue
         if portable and source.name in {"flush_worker.py", "hook_runner.py"}:
             continue
         shutil.copy2(source, core / source.name)
@@ -103,17 +137,21 @@ def _bundle_python(
         "COMMAND_PREFIX": "mem0",
         "HARNESS_ID": host,
         "HARNESS_NAME": host.replace("-", " ").title(),
+        "HANDOFF_INSTRUCTIONS": handoff_instructions(host, plugin_root),
     }
     for source in sorted(SHARED_SKILLS.glob("*/SKILL.md.tmpl")):
         target = staged / "skills" / source.parent.name / "SKILL.md"
         target.parent.mkdir(parents=True)
         rendered = render_template(source.read_text(encoding="utf-8"), values)
         if portable:
-            rendered = "\n".join(
-                line
-                for line in rendered.splitlines()
-                if not line.startswith(("argument-hint:", "disable-model-invocation:"))
-            ) + "\n"
+            rendered = (
+                "\n".join(
+                    line
+                    for line in rendered.splitlines()
+                    if not line.startswith(("argument-hint:", "disable-model-invocation:"))
+                )
+                + "\n"
+            )
         target.write_text(rendered, encoding="utf-8")
 
 
@@ -196,11 +234,7 @@ def bundle_drift(host: str, kind: str) -> list[str]:
         generated = build(host, kind, Path(temporary) / "bundle")
         errors: list[str] = []
         for directory in ("core", "skills"):
-            expected = {
-                path.relative_to(generated)
-                for path in (generated / directory).rglob("*")
-                if path.is_file()
-            }
+            expected = {path.relative_to(generated) for path in (generated / directory).rglob("*") if path.is_file()}
             actual = {
                 path.relative_to(target)
                 for path in (target / directory).rglob("*")

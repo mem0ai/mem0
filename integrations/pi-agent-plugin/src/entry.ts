@@ -4,6 +4,7 @@ import { loadConfig } from "./config/index.ts";
 import { detectAppId, detectRunId, resolveSearchFilters } from "./memory/scoping.ts";
 import { registerMemoryTool } from "./memory/tools.ts";
 import { registerCommands } from "./commands.ts";
+import { registerHandoffCommand } from "./handoff.ts";
 import { setupAutoCapture } from "./capture/index.ts";
 import { MEMORY_POLICY } from "./prompt.ts";
 import { captureEvent } from "./telemetry.ts";
@@ -21,10 +22,11 @@ export function resolveUserId(configUserId: string): string {
 }
 
 export default function mem0Extension(pi: ExtensionAPI): void {
+  registerHandoffCommand(pi);
   const config = loadConfig();
 
   if (!config.apiKey) {
-    console.warn("[mem0] No API key found. Set MEM0_API_KEY or add apiKey to ~/.pi/agent/mem0-config.json. Extension disabled.");
+    console.warn("[mem0] No API key found. Set MEM0_API_KEY or add apiKey to ~/.pi/agent/mem0-config.json. Memory features disabled; /mem0-handoff remains available.");
     return;
   }
 

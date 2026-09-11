@@ -5,7 +5,9 @@ description: "Add long-term memory to OpenClaw agents using the Mem0 plugin with
 
 Add long-term memory to [OpenClaw](https://github.com/openclaw/openclaw) agents with the `@mem0/openclaw-mem0` plugin. Your agent forgets everything between sessions. This plugin fixes that by automatically watching conversations, extracting what matters, and bringing it back when relevant.
 
-<Info>Current package version: `1.1.0`.</Info>
+<Info>Current package version: `1.1.1`.</Info>
+
+For explicit session handoff, use `/mem0-handoff`, `/mem0-handoff list`, or `/mem0-handoff resume /absolute/path.json`. All plugins share local resources in `~/.mem0/handoffs/`. Requires Python 3.10+; first use downloads and verifies the shared engine, then cached use works offline.
 
 Sidekick is available only in the [Claude Code plugin](/integrations/claude-code#sidekick-agent). OpenClaw subagents can recall parent memories. Mem0 does not capture their sessions.
 

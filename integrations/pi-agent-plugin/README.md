@@ -4,7 +4,7 @@ Persistent semantic memory for [Pi Agent](https://pi.dev), powered by [Mem0](htt
 
 This extension gives Pi Agent long-term memory that persists across sessions, projects, and devices. Memories are automatically captured from conversations and can be searched and managed through slash commands and an agent-accessible tool.
 
-Current package version: `0.3.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); Pi keeps its own tools and scopes.
+Current package version: `0.3.1`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); Pi keeps its own tools and scopes.
 
 Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent).
 
@@ -15,7 +15,7 @@ Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/REA
 - **Scoped memory**: project, session, or global scope
 - **Monorepo-aware**: uses git root for project detection, consistent app_id across subdirectories
 - **Confirmation dialogs**: destructive commands ask before acting
-- **6 slash commands**: essential memory management from the command line
+- **7 slash commands**: essential memory management from the command line
 - **Agent tool**: `mem0_memory` tool lets the agent search and store memories autonomously
 
 ## Setup
@@ -54,6 +54,14 @@ Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 
 `searchThreshold` (default `0.3`) is the minimum similarity score (0–1) a memory must reach to count as a match for `/mem0-search` and `/mem0-forget`. It is passed to the mem0 search API (along with reranking for higher-precision ordering), so a query with no sufficiently similar memory reports no match instead of returning the closest unrelated memories. Raise it to be stricter; lower it if relevant results are missed.
 
+## Session handoff
+
+Run `/mem0-handoff` to save the current session, `/mem0-handoff list` to find this project’s resources, or `/mem0-handoff resume /absolute/path.json` to continue from one.
+
+All plugins share local resources in `~/.mem0/handoffs/`, preserving supported active context, images, and completed tool outcomes. Resume reads that context as historical evidence. Requires **Python 3.10+** as `python3`; no destination CLI or Mem0 credentials are required. Pi save requires Node.js 22.19+ for its native SDK; list, resume, and memory features remain available on Node.js 20.
+
+The shared engine is fetched from a pinned GitHub commit on first use, verified, and cached across all plugins. Cached use works offline; no transcript is sent to GitHub. See the [shared handoff logic](../agent-plugin-core/README.md#session-handoff) for source formats and validation.
+
 ## Commands
 
 | Command | Description |
@@ -64,6 +72,7 @@ Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
 | `/mem0-scope <scope>` | Change default scope for this session |
 | `/mem0-status` | Connection health, identity, and memory count |
+| `/mem0-handoff [save|list|resume <path>]` | Save or resume shared session context |
 
 ## Skills
 

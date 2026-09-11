@@ -5,7 +5,7 @@
     {
       "id": "mem0",
       "displayName": "Mem0",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "description": "Cross-session memory and token savings for coding agents.",
       "homepage": "https://mem0.ai",
       "keywords": ["memory", "personalization", "mcp", "semantic-search"],

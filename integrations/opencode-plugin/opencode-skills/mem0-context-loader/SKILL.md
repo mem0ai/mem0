@@ -1,6 +1,6 @@
 ---
 name: mem0-context-loader
-description: Searches and injects relevant memories into context before starting work on a task. Use when beginning a new task, switching context, or when project history, past decisions, or coding conventions need to be loaded.
+description: Search earlier context when project history, decisions, or preferences could help with a specific question.
 ---
 
 # Context Loader
@@ -9,23 +9,14 @@ Pre-fetches relevant memories to prime context before working on a task.
 
 ## When to use
 
-- Session start (invoke manually or auto-triggered by skill description matching)
-- User starts work on a specific feature or file set
-- Complex multi-step task begins
-- User says "what do we know about X" or "context for X"
+Use when earlier work could explain a decision, fix, command, or preference you
+need. Skip this skill when the context already answers the question.
 
 ## Steps
 
 1. **Extract topics** from current message/task. Identify: file paths, module names, feature areas, error patterns.
 
-2. **Run 2-4 parallel `search_memories` calls** with different angles:
-
-   | Query angle | Filter | Purpose |
-   |---|---|---|
-   | Feature/module name | `{"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "decision"}}]}` | Architecture decisions |
-   | File paths mentioned | `{"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "convention"}}]}` | Coding patterns |
-   | Error keywords (if any) | `{"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "anti_pattern"}}]}` | Known pitfalls |
-   | Broad project context | `{"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}` | Catch-all |
+2. **Search one focused question** using `search_memories`. Keep the default project scope. Search again only if a specific gap remains.
 
 3. **Deduplicate** results by memory ID across all search responses.
 

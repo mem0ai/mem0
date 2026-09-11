@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "mem0",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Cross-session memory and token savings for coding agents.",
   "author": {
     "name": "Mem0",

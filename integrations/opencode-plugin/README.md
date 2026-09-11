@@ -2,7 +2,7 @@
 
 Persistent memory for [OpenCode](https://opencode.ai). Your agent remembers decisions, preferences, and learnings across sessions automatically.
 
-Current package version: `0.3.0`. This native TypeScript integration keeps its own tools and scopes while sharing redaction and lifecycle utilities with [agent-plugin-core](../agent-plugin-core/README.md).
+Current package version: `0.3.1`. This native TypeScript integration keeps its own tools and scopes while sharing redaction and lifecycle utilities with [agent-plugin-core](../agent-plugin-core/README.md).
 
 Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent).
 
@@ -33,12 +33,21 @@ Restart OpenCode.
 | Component | Description |
 |-----------|-------------|
 | **10 Native Memory Tools** | `add_memory`, `search_memories`, `get_memories`, `update_memory`, `delete_memory`, and more, backed by the `mem0ai` SDK |
+| **Session handoff** | `/mem0-handoff` saves shared context for another plugin |
 | **Lifecycle Hooks** | Auto-search on session start and every prompt, error memory lookup, compaction context, secret redaction |
 | **7 Skills** | `/mem0-remember`, `/mem0-tour`, `/mem0-search`, `/mem0-status`, `/mem0-scope`, `/mem0-forget`, `/mem0-context-loader`. Discovered through OpenCode's `skills.paths` |
 
+## Session handoff
+
+Run `/mem0-handoff` to save the current session, `/mem0-handoff list` to find this project’s resources, or `/mem0-handoff resume /absolute/path.json` to continue from one.
+
+All plugins share local resources in `~/.mem0/handoffs/`, preserving supported active context, images, and completed tool outcomes. Resume reads that context as historical evidence. Requires **Python 3.10+** as `python3`; no destination CLI or Mem0 credentials are required.
+
+The shared engine is fetched from a pinned GitHub commit on first use, verified, and cached across all plugins. Cached use works offline; no transcript is sent to GitHub. See the [shared handoff logic](../agent-plugin-core/README.md#session-handoff) for source formats and validation.
+
 ## Hooks
 
-Written in TypeScript. Memory operations are native OpenCode tools backed by the [mem0ai](https://www.npmjs.com/package/mem0ai) SDK directly.
+Memory hooks use TypeScript. Session handoff uses the shared cached Python engine. Memory operations are native OpenCode tools backed by the [mem0ai](https://www.npmjs.com/package/mem0ai) SDK directly.
 
 | Hook | Event | What it does |
 |------|-------|-------------|

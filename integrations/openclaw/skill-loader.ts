@@ -1,3 +1,4 @@
+import { SEARCH_GUIDANCE } from "../agent-plugin-core/typescript/src/search_guidance.ts";
 /**
  * Skill Loader — reads skill markdown files, merges domain overlays,
  * injects user config, and produces the final injectable prompt string.
@@ -429,20 +430,7 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
 
       // In manual mode, the agent is fully responsible for all search
       if (strategy === "manual") {
-        parts.push(
-          "You control all memory search. No automatic recall happens. Use memory_search proactively:",
-        );
-        parts.push(
-          "- At the start of a new conversation, search for user identity and context.",
-        );
-        parts.push(
-          "- When the user references something you do not have context for.",
-        );
-        parts.push("- When the conversation topic shifts to a new domain.");
-        parts.push(
-          "- Before updating a memory, search to find the existing version.",
-        );
-        parts.push("");
+        parts.push("No automatic recall happens in manual mode.");
       } else if (strategy === "always") {
         parts.push(
           "Automatic recall runs for both long-term and session memory. Use manual searches only when you need more specific context.",
@@ -450,23 +438,7 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
         parts.push("");
       }
 
-      parts.push(
-        "When calling memory_search, ALWAYS rewrite the query. NEVER pass the user's raw message.",
-      );
-      parts.push(
-        "Stored memories are third-person factual statements. Write a query that matches storage language, not conversation language.",
-      );
-      parts.push(
-        "Process: (1) Name your target. (2) Extract signal: proper nouns, technical terms, domain concepts. (3) Bridge to storage language: add terms the stored memory contains (user, decided, prefers, rule, configured, based in). (4) Compose 3-6 keywords.",
-      );
-      parts.push(
-        'WRONG: memory_search("Who was that nutritionist my wife recommended?")',
-      );
-      parts.push(
-        'RIGHT: memory_search("nutritionist wife recommended relationship")',
-      );
-      parts.push('WRONG: memory_search("What timezone am I in?")');
-      parts.push('RIGHT: memory_search("user timezone location based")');
+      parts.push(SEARCH_GUIDANCE);
       parts.push("");
       parts.push(
         "ENTITY SCOPING: Memories are scoped by user_id, agent_id, and run_id. You do not need to pass these in most cases. The plugin handles scoping automatically based on the current session.",
@@ -619,7 +591,7 @@ export function loadCompactTriagePrompt(config: SkillsConfig = {}): string {
 
     if (strategy === "manual") {
       parts.push(
-        "No automatic recall happens in manual mode. Use memory_search proactively at conversation start, when context is missing, when topics shift, and before updating a memory.",
+        "No automatic recall happens in manual mode.",
       );
     } else if (strategy === "always") {
       parts.push(
@@ -631,20 +603,7 @@ export function loadCompactTriagePrompt(config: SkillsConfig = {}): string {
       );
     }
 
-    parts.push(
-      "When calling memory_search, ALWAYS rewrite the query. NEVER pass the user's raw message.",
-    );
-    parts.push(
-      "Convert the request into 3-6 factual keywords that match stored memory language: user, decided, prefers, rule, configured, based in, plus the concrete nouns and names from the request.",
-    );
-    parts.push(
-      'WRONG: memory_search("Who was that nutritionist my wife recommended?")',
-    );
-    parts.push(
-      'RIGHT: memory_search("nutritionist wife recommended relationship")',
-    );
-    parts.push('WRONG: memory_search("What timezone am I in?")');
-    parts.push('RIGHT: memory_search("user timezone location based")');
+    parts.push(SEARCH_GUIDANCE);
     // Intentionally omitted from the compact path: ENTITY SCOPING and SEARCH SCOPE.
     // loadTriagePrompt() keeps the full explanatory sections for the non-compact path.
     parts.push(

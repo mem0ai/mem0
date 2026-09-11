@@ -1,6 +1,6 @@
 ---
 name: memory-recall
-description: Protocol for searching and using recalled memories. Defines query rewriting for retrieval.
+description: Guidance for using recalled memories and focused searches when context is missing.
 applies_to: memory-triage
 ---
 
@@ -33,7 +33,7 @@ A memory is a claim about what was true when it was written. It may no longer be
 Use `memory_search` when:
 
 - The user references something not covered by your recalled memories
-- The conversation topic shifts to a new domain
+- A new topic needs earlier context that is not already available
 - The user asks "do you remember" or "what was" or references a past conversation
 - You need to find an existing memory before updating it
 
@@ -44,112 +44,13 @@ Do NOT search when:
 
 ## Constructing Search Queries
 
-This section defines exactly how to write a memory_search query. Follow this process for every call. Do not skip steps. Do not pass the user's raw message.
-
-### Why Rewriting Matters
-
-The search engine matches your query against stored memories using vector similarity and keyword overlap. Stored memories are factual third-person statements like "User is a data scientist based in Berlin" or "User decided to adopt weekly sprint reviews because biweekly was too slow." The user's conversational message contains noise words ("can you", "I was wondering", "help me") that dilute the signal and match nothing useful in the memory store.
-
-### The Process
-
-For every memory_search call, follow these four steps:
-
-**Step 1. Name your target.**
-Before writing the query, identify what category of stored memory you expect to find. This prevents aimless retrieval.
-
-**Step 2. Extract signal words.**
-Pull out every proper noun, technical term, domain concept, and specific detail from the user's message. Drop conversational framing, questions, pronouns, and filler.
-
-**Step 3. Bridge to storage language.**
-Think about how the memory was written when it was stored. Memories are third-person factual statements. They contain words like "User", "configured", "decided", "prefers", "rule", "team", "project", "based in", "works at". Add the relevant category term if it helps: "identity", "decision", "rule", "preference", "configuration", "relationship".
-
-**Step 4. Compose a keyword query.**
-Join the terms from steps 2 and 3 into a string of 3 to 6 keywords. No question marks. No pronouns. No sentence structure. The query should read like index terms, not natural language.
-
-### Worked Examples
-
-Each example shows the full reasoning chain. The examples deliberately span different domains to prevent anchoring on any single use case.
-
-**Example 1: Looking for a person**
-```
-User: "Who was that nutritionist my wife recommended?"
-Step 1: Target = a relationship or reference memory about a nutritionist
-Step 2: Signal = nutritionist, wife, recommended
-Step 3: Bridge = stored memory likely contains the name, "nutritionist", "wife recommended", "relationship"
-Step 4: memory_search("nutritionist wife recommended relationship")
-```
-
-**Example 2: Looking for a preference**
-```
-User: "How do I like my reports formatted again?"
-Step 1: Target = a preference about report formatting
-Step 2: Signal = reports, formatted
-Step 3: Bridge = stored memory likely says "User prefers", "reports", "format", a specific style
-Step 4: memory_search("report format preference style")
-```
-
-**Example 3: Looking for a technical decision**
-```
-User: "Remind me why we picked that message queue"
-Step 1: Target = a decision memory about message queue technology
-Step 2: Signal = message queue, picked, why
-Step 3: Bridge = stored memory likely says "decided", "chose", the queue name, "because", a rationale
-Step 4: memory_search("message queue decision chose rationale")
-```
-
-**Example 4: Looking for identity info**
-```
-User: "What timezone am I in?"
-Step 1: Target = identity memory with timezone
-Step 2: Signal = timezone
-Step 3: Bridge = stored memory likely says "User is based in", a city, a timezone abbreviation
-Step 4: memory_search("user timezone location based")
-```
-
-**Example 5: Looking for a rule**
-```
-User: "Is there anything I told you to always do before deploying?"
-Step 1: Target = a rule memory about deployment
-Step 2: Signal = deploy, always do, before
-Step 3: Bridge = stored memory likely says "User rule:", "always", "before deploying", a specific action
-Step 4: memory_search("rule deploy always before")
-```
-
-**Example 6: Looking for a project status**
-```
-User: "Where are we with the onboarding redesign?"
-Step 1: Target = a project memory about onboarding
-Step 2: Signal = onboarding, redesign
-Step 3: Bridge = stored memory likely says "As of", "onboarding", "redesign", "status", a milestone
-Step 4: memory_search("onboarding redesign project status")
-```
-
-**Example 7: Looking for a life event**
-```
-User: "When's my sister's birthday?"
-Step 1: Target = a relationship or life event memory about the user's sister
-Step 2: Signal = sister, birthday
-Step 3: Bridge = stored memory likely contains "sister", a name, "birthday", a date
-Step 4: memory_search("sister birthday date relationship")
-```
-
-### Failure Patterns
-
-These query patterns produce poor results. Recognize and avoid them.
-
-| Pattern | Why it fails | Fix |
-|---|---|---|
-| Raw user message as query | Noise words ("can you", "help me") dilute signal | Extract entities and concepts only |
-| Question words in query | "what", "how", "when", "who" are not in stored memories | Drop all question framing |
-| Pronouns in query | "we", "our", "my", "I" do not appear in third-person memories | Use "user" or the entity name |
-| Single keyword | Too narrow, misses related context | Use 3 to 6 terms |
-| More than 8 keywords | Too broad, ranks everything equally | Trim to strongest 4-5 terms |
-| Vague category words only | "user information stuff" matches everything | Include at least one specific entity or concept |
-| Repeating the same search | If a search returned nothing, a rephrased version of the same query will likely also return nothing | Try a different angle or accept the memory does not exist |
+Use a focused question about the missing context. The user's question is suitable
+when it already identifies what you need. Search again only if a specific gap
+remains; skip another search when the available context answers the question.
 
 ## Constructing Filters
 
-The `filters` parameter narrows search results by time, category, or metadata. Use it alongside your rewritten query. The query handles semantic relevance. Filters handle structural constraints.
+The `filters` parameter narrows search results by time, category, or metadata. Use it alongside your query. The query handles semantic relevance. Filters handle structural constraints.
 
 ### When to Add Filters
 
@@ -212,7 +113,7 @@ Call: memory_search("user context discussed", filters: {"created_at": {"gte": "2
 
 ### When NOT to Add Filters
 
-- The user's message has no time signal and no category signal. Just use the rewritten query.
+- The user's message has no time signal and no category signal. Use the question as your query.
 - You are unsure of the exact date. Do not guess dates. Omit the filter and let vector search handle it.
 - The query is already narrow enough. Adding filters to a very specific query risks filtering out the answer.
 

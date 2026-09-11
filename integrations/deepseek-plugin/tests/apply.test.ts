@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Offline mock of the Mem0 SDK so these tests never touch the network.
+vi.mock("../../agent-plugin-core/typescript/src/handoff.ts", async (original) => ({
+  ...await original<typeof import("../../agent-plugin-core/typescript/src/handoff.ts")>(), runHandoff: vi.fn(), runHandoffAction: vi.fn(),
+}));
+import { runHandoff, runHandoffAction } from "../../agent-plugin-core/typescript/src/handoff.ts";
+
 const mockSearch = vi.fn();
 const mockAdd = vi.fn();
 vi.mock("mem0ai", () => ({
@@ -27,10 +32,12 @@ interface RegisteredTool {
 
 type HarnessListener = (...args: any[]) => unknown;
 
-function applyAndCollect(config: Config): Map<string, RegisteredTool> {
+function applyAndCollect(config: Config, attachments?: unknown): Map<string, RegisteredTool> {
   const tools = new Map<string, RegisteredTool>();
   const ctx = {
     tools: { register: (t: RegisteredTool) => tools.set(t.name, t) },
+    get: (service: string) => service === "attachments" ? attachments : undefined,
+    get attachments() { throw new Error('cannot get property "attachments" without inject'); },
     on: vi.fn(),
   };
   apply(ctx as never, config);
@@ -54,6 +61,7 @@ beforeEach(() => {
   savedKey = process.env.MEM0_API_KEY;
   savedTelemetry = process.env.MEM0_TELEMETRY;
   process.env.MEM0_TELEMETRY = "false";
+  vi.mocked(runHandoff).mockReset();
   mockSearch.mockReset();
   mockAdd.mockReset();
 });
@@ -66,18 +74,18 @@ afterEach(() => {
 });
 
 describe("apply() config validation", () => {
-  it("throws when no apiKey is set and MEM0_API_KEY is absent", () => {
+  it("keeps local handoff available without a Mem0 key", () => {
     delete process.env.MEM0_API_KEY;
-    expect(() => applyAndCollect({ userId: "u" } as Config)).toThrow(/apiKey|MEM0_API_KEY/);
+    expect([...applyAndCollect({ userId: "u" }).keys()]).toEqual(["mem0_handoff"]);
   });
 
   it("throws when userId is missing", () => {
     expect(() => applyAndCollect({ apiKey: "k", userId: "" } as Config)).toThrow(/userId/);
   });
 
-  it("registers both memory tools", () => {
+  it("registers memory and handoff tools", () => {
     const tools = applyAndCollect({ apiKey: "k", userId: "u" });
-    expect([...tools.keys()].sort()).toEqual(["add_memory", "search_memory"]);
+    expect([...tools.keys()].sort()).toEqual(["add_memory", "mem0_handoff", "search_memory"]);
   });
 });
 
@@ -270,5 +278,67 @@ describe("tool user ownership", () => {
     await expect(tools.get("add_memory")!.execute({ text: "x", userId: "other" }, {})).rejects.toThrow(/allowUserOverride/);
     expect(mockSearch).not.toHaveBeenCalled();
     expect(mockAdd).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("mem0_handoff tool", () => {
+  const exec = {callId: "handoff", agent: {session: {
+    id: "native-session", header: {cwd: "/tmp"},
+    events: [{type: "session/title", data: {title: "Old title"}}, {type: "session/title", data: {title: "Renamed native task"}}],
+    deriveMessages: () => [
+      {role: "user", content: [{type: "text", text: "Readable current context"}]},
+      {role: "assistant", content: [{type: "tool-call", id: "handoff", name: "mem0_handoff", arguments: "{}"}]},
+    ],
+  }}};
+  it("exports the current native session, excluding only its own in-flight call", async () => {
+    vi.mocked(runHandoff).mockResolvedValue("Saved shared resource");
+    const tools = applyAndCollect({apiKey: "k", userId: "u"});
+    expect(await tools.get("mem0_handoff")!.execute({}, exec)).toBe("Saved shared resource");
+    expect(runHandoff).toHaveBeenCalledWith(expect.any(URL), expect.objectContaining({
+      source: expect.objectContaining({host: "deepseek", session_id: "native-session", title: "Renamed native task"}),
+      items: [{type: "message", role: "user", content: [{type: "input_text", text: "Readable current context"}]}],
+    }));
+    expect(mockSearch).not.toHaveBeenCalled();
+    expect(mockAdd).not.toHaveBeenCalled();
+  });
+  it.each(["list", "resume"])("%s consumes shared resources in the active model without exporting its session", async (action) => {
+    delete process.env.MEM0_API_KEY;
+    vi.mocked(runHandoffAction).mockResolvedValue("Complete historical context and tool outcomes");
+    const tools = applyAndCollect({userId: "u"});
+    expect(await tools.get("mem0_handoff")!.execute({action, resource: "/tmp/shared task.json"}, exec)).toBe("Complete historical context and tool outcomes");
+    expect(runHandoffAction).toHaveBeenCalledWith(expect.any(URL), action, "/tmp", "/tmp/shared task.json");
+    expect(runHandoff).not.toHaveBeenCalled();
+    expect(mockSearch).not.toHaveBeenCalled();
+    expect(mockAdd).not.toHaveBeenCalled();
+  });
+  it("reads native image bytes through Cordis optional service lookup", async () => {
+    const readImage = vi.fn(async () => ({ref: {mediaType: "image/png"}, data: new Uint8Array([104,105])}));
+    const tools = applyAndCollect({apiKey: "k", userId: "u"}, {readImage});
+    const imageExec = {...exec, agent: {session: {...exec.agent.session, deriveMessages: () => [
+      {role: "user", content: [{type: "text", text: "Describe this image"}, {type: "image", attachment: {id: "native-image"}}]},
+    ]}}};
+    vi.mocked(runHandoff).mockResolvedValue("Saved image context");
+    expect(await tools.get("mem0_handoff")!.execute({}, imageExec)).toBe("Saved image context");
+    expect(readImage).toHaveBeenCalledWith({id: "native-image"});
+    expect(JSON.stringify(vi.mocked(runHandoff).mock.calls[0][1])).toContain("data:image/png;base64,aGk=");
+    const unavailable = applyAndCollect({apiKey: "k", userId: "u"});
+    expect(await unavailable.get("mem0_handoff")!.execute({}, imageExec)).toContain("attachment storage is unavailable");
+  });
+  it("refuses unfinished sibling tools rather than hiding them with its own invocation", async () => {
+    const tools = applyAndCollect({apiKey: "k", userId: "u"});
+    const siblingExec = {...exec, agent: {session: {...exec.agent.session, deriveMessages: () => [
+      ...exec.agent.session.deriveMessages(),
+      {role: "assistant", content: [{type: "tool-call", id: "other", name: "read", arguments: "{}"}]},
+    ]}}};
+    expect(await tools.get("mem0_handoff")!.execute({}, siblingExec)).toContain("unfinished");
+    expect(runHandoff).not.toHaveBeenCalled();
+  });
+  it("reports unavailable native state and importer failures", async () => {
+    const tools = applyAndCollect({apiKey: "k", userId: "u"});
+    expect(await tools.get("mem0_handoff")!.execute({}, {})).toContain("unavailable");
+    expect(runHandoff).not.toHaveBeenCalled();
+    vi.mocked(runHandoff).mockRejectedValue(new Error("saved at /tmp/retry.json"));
+    expect(await tools.get("mem0_handoff")!.execute({}, exec)).toContain("saved at /tmp/retry.json");
   });
 });

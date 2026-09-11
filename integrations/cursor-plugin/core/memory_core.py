@@ -29,7 +29,7 @@ from typing import Any, Iterable
 import telemetry
 
 DEFAULT_API_URL = "https://api.mem0.ai"
-PLUGIN_VERSION = "0.3.1"
+PLUGIN_VERSION = "0.3.2"
 
 _harness_name: str = "generic"
 _harness_env_prefix: str = "MEM0_PLUGIN"

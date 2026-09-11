@@ -1,10 +1,9 @@
-export const MEMORY_POLICY = `<mem0-memory-policy>
-You have persistent semantic memory via the mem0_memory tool, powered by Mem0. Relevant memories may be auto-injected under <mem0-relevant-memories>, but that retrieval is shallow — treat it as a starting point, not the full picture.
+import { SEARCH_GUIDANCE } from "../../agent-plugin-core/typescript/src/search_guidance.ts";
 
-Be proactive about retrieval:
-- Search memory BEFORE answering whenever the request could depend on the user's past work, preferences, decisions, environment, or anything they told you earlier — don't wait to be asked.
-- Check memory before asking the user something they may have already told you.
-- For multi-part, comparative, or "how did we…" questions, run SEVERAL searches with different phrasings and combine the results. One search is rarely enough — keep going until you have what you need (multi-hop).
+export const MEMORY_POLICY = `<mem0-memory-policy>
+You have persistent semantic memory via the mem0_memory tool, powered by Mem0. Relevant memories may be auto-injected under <mem0-relevant-memories>.
+
+${SEARCH_GUIDANCE}
 
 Be proactive about saving:
 - Save important facts, preferences, goals, decisions, lessons learned, identity, relationships, and routines the user shares.

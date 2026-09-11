@@ -51,6 +51,7 @@ import type { Backend } from "./backend/base.ts";
 import { registerCliCommands } from "./cli/commands.ts";
 import { readPluginAuth } from "./cli/config-file.ts";
 import { registerAllTools } from "./tools/index.ts";
+import { registerHandoffCommand } from "./tools/handoff.ts";
 import type { ToolDeps } from "./tools/index.ts";
 import { captureEvent } from "./telemetry.ts";
 import { createMemoryLifecycle } from "../agent-plugin-core/typescript/src/lifecycle.ts";
@@ -133,6 +134,8 @@ const memoryPlugin = definePluginEntry({
       );
       return;
     }
+
+    registerHandoffCommand(api);
 
     if (cfg.needsSetup) {
       api.logger.warn(

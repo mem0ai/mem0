@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import time
 from pathlib import Path
 from typing import Any
-
 
 CORE_ROOT = Path(__file__).resolve().parents[1]
 INTEGRATIONS_ROOT = CORE_ROOT.parent
@@ -21,6 +21,12 @@ TYPESCRIPT_ARTIFACTS = {
     ),
     "deepseek": (INTEGRATIONS_ROOT / "deepseek-plugin", ("dist/index.js", "dist/index.d.ts")),
 }
+HANDOFF_MANIFEST = json.loads((CORE_ROOT / "build" / "handoff-runtime.json").read_text(encoding="utf-8"))
+HANDOFF_RUNTIME_FILES = HANDOFF_MANIFEST["artifacts"]
+TYPESCRIPT_ARTIFACTS = {
+    host: (package, (*required, *(f"dist/{name}" for name in HANDOFF_RUNTIME_FILES)))
+    for host, (package, required) in TYPESCRIPT_ARTIFACTS.items()
+}
 MONOREPO_IMPORT = re.compile(
     r"(?:from\s+|import\s*\(|require\s*\()\s*['\"][^'\"]*agent-plugin-core"
 )
@@ -30,6 +36,12 @@ def verify_artifact(group: str, package: Path, required: tuple[str, ...]) -> dic
     started = time.monotonic()
     errors = [f"missing package artifact: {name}" for name in required if not (package / name).is_file()]
     dist = package / "dist"
+    if group in TYPESCRIPT_ARTIFACTS:
+        errors.extend(f"duplicated handoff engine in package: dist/{name}" for name in HANDOFF_MANIFEST["files"] if (dist / name).exists())
+        for name in HANDOFF_RUNTIME_FILES:
+            artifact = dist / name
+            if artifact.is_file() and artifact.read_bytes() != (CORE_ROOT / ("python" if name.endswith(".py") else "build") / name).read_bytes():
+                errors.append(f"handoff runtime differs from shared source: dist/{name}")
     for pattern in ("*.js", "*.mjs", "*.cjs", "*.d.ts"):
         for artifact in dist.rglob(pattern) if dist.is_dir() else ():
             if MONOREPO_IMPORT.search(artifact.read_text(encoding="utf-8")):
