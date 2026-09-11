@@ -377,7 +377,7 @@ export class Memory {
           : (listed as any)
       ) as Array<{ id: string; payload: Record<string, any> }>;
     } catch (e) {
-      console.debug(
+      console.warn(
         `Exact entity lookup failed, falling back to semantic dedup: ${e}`,
       );
       return rowsByText;
@@ -410,7 +410,7 @@ export class Memory {
     try {
       entityStore = await this.getEntityStore();
     } catch (e) {
-      console.debug(`Entity store unavailable during cleanup: ${e}`);
+      console.warn(`Entity store unavailable during cleanup: ${e}`);
       return;
     }
 
@@ -423,7 +423,7 @@ export class Memory {
           : (listed as any)
       ) as Array<{ id: string; payload: Record<string, any> }>;
     } catch (e) {
-      console.debug(`Entity store list failed during cleanup: ${e}`);
+      console.warn(`Entity store list failed during cleanup: ${e}`);
       return;
     }
 
@@ -440,7 +440,7 @@ export class Memory {
           try {
             await entityStore.delete(row.id);
           } catch (e) {
-            console.debug(`Entity delete failed for id=${row.id}: ${e}`);
+            console.warn(`Entity delete failed for id=${row.id}: ${e}`);
           }
         } else {
           const newPayload = { ...payload, linkedMemoryIds: remaining };
@@ -449,7 +449,7 @@ export class Memory {
             typeof payload.data === "string" ? payload.data : "";
           if (!entityText) {
             // Can't re-embed without text; skip gracefully.
-            console.debug(
+            console.warn(
               `Entity id=${row.id} missing 'data'; skipping update during cleanup`,
             );
             continue;
@@ -458,17 +458,17 @@ export class Memory {
           try {
             vec = await this.embedder.embed(entityText, "update");
           } catch (e) {
-            console.debug(`Entity re-embed failed for '${entityText}': ${e}`);
+            console.warn(`Entity re-embed failed for '${entityText}': ${e}`);
             continue;
           }
           try {
             await entityStore.update(row.id, vec, newPayload);
           } catch (e) {
-            console.debug(`Entity update failed for id=${row.id}: ${e}`);
+            console.warn(`Entity update failed for id=${row.id}: ${e}`);
           }
         }
       } catch (e) {
-        console.debug(`Entity cleanup error for id=${row?.id}: ${e}`);
+        console.warn(`Entity cleanup error for id=${row?.id}: ${e}`);
       }
     }
   }
@@ -502,7 +502,7 @@ export class Memory {
           try {
             entityVec = await this.embedder.embed(entity.text, "add");
           } catch (e) {
-            console.debug(`Entity embed failed for '${entity.text}': ${e}`);
+            console.warn(`Entity embed failed for '${entity.text}': ${e}`);
             continue;
           }
 
@@ -537,7 +537,7 @@ export class Memory {
             try {
               await entityStore.update(match.id, entityVec, payload);
             } catch (e) {
-              console.debug(`Entity update failed for '${entity.text}': ${e}`);
+              console.warn(`Entity update failed for '${entity.text}': ${e}`);
             }
           } else {
             const entityPayload: Record<string, any> = {
@@ -556,11 +556,11 @@ export class Memory {
                 [entityPayload],
               );
             } catch (e) {
-              console.debug(`Entity insert failed for '${entity.text}': ${e}`);
+              console.warn(`Entity insert failed for '${entity.text}': ${e}`);
             }
           }
         } catch (e) {
-          console.debug(`Entity link error for '${entity.text}': ${e}`);
+          console.warn(`Entity link error for '${entity.text}': ${e}`);
         }
       }
     } catch (e) {
@@ -1174,7 +1174,8 @@ export class Memory {
           for (const t of entityTexts) {
             try {
               entityEmbeddings.push(await this.embedder.embed(t, "add"));
-            } catch {
+            } catch (e) {
+              console.warn(`Entity embed failed for '${t}': ${e}`);
               entityEmbeddings.push(null);
             }
           }
@@ -1230,7 +1231,7 @@ export class Memory {
               try {
                 await entityStore.update(match.id, entityVec, payload);
               } catch (e) {
-                console.debug(`Entity update failed for '${entityText}': ${e}`);
+                console.warn(`Entity update failed for '${entityText}': ${e}`);
               }
             } else {
               // New entity — collect for batch insert
