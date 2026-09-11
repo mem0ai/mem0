@@ -61,6 +61,11 @@ SKIPPED_REQUEST_LOG_PREFIXES = ("/requests",)
 
 BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini")
 BUNDLED_EMBEDDER_PROVIDERS = ("openai", "gemini")
+# llm_reranker reuses the LLM client already required for extraction — no new
+# dependency or API key. Other providers (cohere, sentence_transformer,
+# zero_entropy, huggingface) need their own package installed and the base
+# image rebuilt, same as any non-bundled LLM/embedder provider.
+BUNDLED_RERANKER_PROVIDERS = ("llm_reranker",)
 
 
 def _warn_if_unconfigured() -> None:
@@ -205,6 +210,9 @@ class SearchRequest(BaseModel):
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
     explain: Optional[bool] = Field(None, description="Include score details for each search result.")
     show_expired: Optional[bool] = Field(None, description="Include expired memories.")
+    rerank: Optional[bool] = Field(
+        None, description="Rerank results using the configured reranker. No-op if none is configured."
+    )
 
 
 class GenerateInstructionsRequest(BaseModel):
@@ -255,6 +263,22 @@ def _validate_bundled_providers(config: Dict[str, Any]) -> None:
                 f"Bundled providers: {', '.join(BUNDLED_EMBEDDER_PROVIDERS)}. "
                 "To use another provider, install its Python package, rebuild the container, "
                 "and extend BUNDLED_EMBEDDER_PROVIDERS in server/main.py."
+            ),
+        )
+
+    reranker = config.get("reranker")
+    if (
+        isinstance(reranker, dict)
+        and (provider := reranker.get("provider"))
+        and provider not in BUNDLED_RERANKER_PROVIDERS
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Reranker provider '{provider}' is not bundled in this image. "
+                f"Bundled providers: {', '.join(BUNDLED_RERANKER_PROVIDERS)}. "
+                "To use another provider, install its Python package, rebuild the container, "
+                "and extend BUNDLED_RERANKER_PROVIDERS in server/main.py."
             ),
         )
 
@@ -475,6 +499,8 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
             params["explain"] = search_req.explain
         if search_req.show_expired is not None:
             params["show_expired"] = search_req.show_expired
+        if search_req.rerank is not None:
+            params["rerank"] = search_req.rerank
         return get_memory_instance().search(query=search_req.query, filters=filters, **params)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
