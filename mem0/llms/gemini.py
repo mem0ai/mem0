@@ -106,9 +106,11 @@ class GeminiLLM(LLMBase):
             if message["role"] == "system":
                 system_instruction = message["content"]
             else:
+                # Gemini only accepts "user" and "model" roles
+                role = "model" if message["role"] == "assistant" else message["role"]
                 content = types.Content(
                     parts=[types.Part(text=message["content"])],
-                    role=message["role"],
+                    role=role,
                 )
                 contents.append(content)
 
