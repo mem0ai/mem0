@@ -101,6 +101,59 @@ def test_update_vector(pinecone_db):
     )
 
 
+def test_hybrid_insert_uses_data_field_for_sparse_vector(mock_pinecone_client):
+    """Hybrid search must index sparse vectors from Mem0's data/text_lemmatized fields."""
+    db = PineconeDB(
+        collection_name="test_index",
+        embedding_model_dims=128,
+        client=mock_pinecone_client,
+        api_key="fake_api_key",
+        environment="us-west1-gcp",
+        serverless_config=None,
+        pod_config=None,
+        hybrid_search=True,
+        metric="cosine",
+        batch_size=100,
+        extra_params=None,
+        namespace="test_namespace",
+    )
+    db.sparse_encoder = MagicMock()
+    db.sparse_encoder.encode_documents.return_value = {"indices": [1], "values": [0.5]}
+
+    payload = {"user_id": "alice", "data": "User loves hiking", "text_lemmatized": "user love hiking"}
+    db.insert([[0.1] * 128], [payload], ["id1"])
+
+    upserted = db.index.upsert.call_args.kwargs["vectors"][0]
+    db.sparse_encoder.encode_documents.assert_called_once_with("user love hiking")
+    assert upserted["sparse_values"] == {"indices": [1], "values": [0.5]}
+
+
+def test_hybrid_update_uses_data_field_for_sparse_vector(mock_pinecone_client):
+    db = PineconeDB(
+        collection_name="test_index",
+        embedding_model_dims=128,
+        client=mock_pinecone_client,
+        api_key="fake_api_key",
+        environment="us-west1-gcp",
+        serverless_config=None,
+        pod_config=None,
+        hybrid_search=True,
+        metric="cosine",
+        batch_size=100,
+        extra_params=None,
+        namespace="test_namespace",
+    )
+    db.sparse_encoder = MagicMock()
+    db.sparse_encoder.encode_documents.return_value = {"indices": [2], "values": [0.7]}
+
+    payload = {"user_id": "alice", "data": "Updated memory text"}
+    db.update("id1", vector=[0.5] * 128, payload=payload)
+
+    upserted = db.index.upsert.call_args.kwargs["vectors"][0]
+    db.sparse_encoder.encode_documents.assert_called_once_with("Updated memory text")
+    assert upserted["sparse_values"] == {"indices": [2], "values": [0.7]}
+
+
 def test_get_vector_found(pinecone_db):
     # Looking at the _parse_output method, it expects a Vector object
     # or a list of dictionaries, not a dictionary with an 'id' field

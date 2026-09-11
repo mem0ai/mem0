@@ -22,6 +22,13 @@ class OutputData(BaseModel):
     payload: Optional[Dict]  # metadata
 
 
+def _sparse_text_from_payload(payload: Optional[Dict]) -> str:
+    """Return memory text for BM25 sparse encoding (Mem0 stores text in data/text_lemmatized)."""
+    if not payload:
+        return ""
+    return payload.get("text_lemmatized") or payload.get("data") or payload.get("text") or ""
+
+
 class PineconeDB(VectorStoreBase):
     def __init__(
         self,
@@ -144,9 +151,11 @@ class PineconeDB(VectorStoreBase):
 
             vector_record = {"id": item_id, "values": vector, "metadata": payload}
 
-            if self.hybrid_search and self.sparse_encoder and "text" in payload:
-                sparse_vector = self.sparse_encoder.encode_documents(payload["text"])
-                vector_record["sparse_values"] = sparse_vector
+            if self.hybrid_search and self.sparse_encoder:
+                sparse_text = _sparse_text_from_payload(payload)
+                if sparse_text:
+                    sparse_vector = self.sparse_encoder.encode_documents(sparse_text)
+                    vector_record["sparse_values"] = sparse_vector
 
             items.append(vector_record)
 
@@ -323,9 +332,11 @@ class PineconeDB(VectorStoreBase):
         if payload is not None:
             item["metadata"] = payload
 
-            if self.hybrid_search and self.sparse_encoder and "text" in payload:
-                sparse_vector = self.sparse_encoder.encode_documents(payload["text"])
-                item["sparse_values"] = sparse_vector
+            if self.hybrid_search and self.sparse_encoder:
+                sparse_text = _sparse_text_from_payload(payload)
+                if sparse_text:
+                    sparse_vector = self.sparse_encoder.encode_documents(sparse_text)
+                    item["sparse_values"] = sparse_vector
 
         self.index.upsert(vectors=[item], namespace=self.namespace)
 

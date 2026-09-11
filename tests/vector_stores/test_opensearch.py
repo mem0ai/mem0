@@ -330,6 +330,20 @@ class TestOpenSearchDB(unittest.TestCase):
         self.os_db.delete(vector_id="id1")
         self.client_mock.delete.assert_called_once_with(index="test_collection", id="doc1")
 
+    def test_delete_not_found_raises(self):
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+        with self.assertRaises(ValueError) as ctx:
+            self.os_db.delete(vector_id="missing")
+        self.assertIn("not found", str(ctx.exception).lower())
+        self.client_mock.delete.assert_not_called()
+
+    def test_update_not_found_raises(self):
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+        with self.assertRaises(ValueError) as ctx:
+            self.os_db.update("missing", vector=[0.1] * 1536, payload={"key": "value"})
+        self.assertIn("not found", str(ctx.exception).lower())
+        self.client_mock.update.assert_not_called()
+
     def test_delete_col(self):
         self.os_db.delete_col()
         self.client_mock.indices.delete.assert_called_once_with(index="test_collection")
