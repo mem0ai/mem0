@@ -52,6 +52,8 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
+    NON_METADATA_PAYLOAD_KEYS,
+    PROMOTED_PAYLOAD_KEYS,
     extract_json,
     parse_messages,
     parse_vision_messages,
@@ -1221,18 +1223,6 @@ class Memory(MemoryBase):
             display_first_run_notice(self, "sync", "get")
             return None
 
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-            "attributed_to",
-            "expiration_date",
-        ]
-
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
         result_item = MemoryItem(
             id=memory.id,
             memory=memory.payload.get("data", ""),
@@ -1241,11 +1231,11 @@ class Memory(MemoryBase):
             updated_at=memory.payload.get("updated_at"),
         ).model_dump()
 
-        for key in promoted_payload_keys:
+        for key in PROMOTED_PAYLOAD_KEYS:
             if key in memory.payload:
                 result_item[key] = memory.payload[key]
 
-        additional_metadata = {k: v for k, v in memory.payload.items() if k not in core_and_promoted_keys}
+        additional_metadata = {k: v for k, v in memory.payload.items() if k not in NON_METADATA_PAYLOAD_KEYS}
         if additional_metadata:
             result_item["metadata"] = additional_metadata
 
@@ -1339,17 +1329,6 @@ class Memory(MemoryBase):
         else:
             actual_memories = memories_result
 
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-            "attributed_to",
-            "expiration_date",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
         formatted_memories = []
         for mem in actual_memories:
             if not show_expired and _payload_is_expired(mem.payload):
@@ -1362,11 +1341,11 @@ class Memory(MemoryBase):
                 updated_at=mem.payload.get("updated_at"),
             ).model_dump(exclude={"score"})
 
-            for key in promoted_payload_keys:
+            for key in PROMOTED_PAYLOAD_KEYS:
                 if key in mem.payload:
                     memory_item_dict[key] = mem.payload[key]
 
-            additional_metadata = {k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys}
+            additional_metadata = {k: v for k, v in mem.payload.items() if k not in NON_METADATA_PAYLOAD_KEYS}
             if additional_metadata:
                 memory_item_dict["metadata"] = additional_metadata
 
@@ -1687,17 +1666,6 @@ class Memory(MemoryBase):
         )
 
         # Step 9: Format results
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-            "attributed_to",
-            "expiration_date",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
         original_memories = []
         for scored in scored_results:
             payload = scored.get("payload") or {}
@@ -1714,11 +1682,11 @@ class Memory(MemoryBase):
                 score=scored["score"],
             ).model_dump()
 
-            for key in promoted_payload_keys:
+            for key in PROMOTED_PAYLOAD_KEYS:
                 if key in payload:
                     memory_item_dict[key] = payload[key]
 
-            additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
+            additional_metadata = {k: v for k, v in payload.items() if k not in NON_METADATA_PAYLOAD_KEYS}
             if additional_metadata:
                 if not memory_item_dict.get("metadata"):
                     memory_item_dict["metadata"] = {}
@@ -2879,18 +2847,6 @@ class AsyncMemory(MemoryBase):
             await display_first_run_notice_async(self, "async", "get")
             return None
 
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-            "attributed_to",
-            "expiration_date",
-        ]
-
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
         result_item = MemoryItem(
             id=memory.id,
             memory=memory.payload.get("data", ""),
@@ -2899,11 +2855,11 @@ class AsyncMemory(MemoryBase):
             updated_at=memory.payload.get("updated_at"),
         ).model_dump()
 
-        for key in promoted_payload_keys:
+        for key in PROMOTED_PAYLOAD_KEYS:
             if key in memory.payload:
                 result_item[key] = memory.payload[key]
 
-        additional_metadata = {k: v for k, v in memory.payload.items() if k not in core_and_promoted_keys}
+        additional_metadata = {k: v for k, v in memory.payload.items() if k not in NON_METADATA_PAYLOAD_KEYS}
         if additional_metadata:
             result_item["metadata"] = additional_metadata
 
@@ -2997,17 +2953,6 @@ class AsyncMemory(MemoryBase):
         else:
             actual_memories = memories_result
 
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-            "attributed_to",
-            "expiration_date",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
         formatted_memories = []
         for mem in actual_memories:
             if not show_expired and _payload_is_expired(mem.payload):
@@ -3020,11 +2965,11 @@ class AsyncMemory(MemoryBase):
                 updated_at=mem.payload.get("updated_at"),
             ).model_dump(exclude={"score"})
 
-            for key in promoted_payload_keys:
+            for key in PROMOTED_PAYLOAD_KEYS:
                 if key in mem.payload:
                     memory_item_dict[key] = mem.payload[key]
 
-            additional_metadata = {k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys}
+            additional_metadata = {k: v for k, v in mem.payload.items() if k not in NON_METADATA_PAYLOAD_KEYS}
             if additional_metadata:
                 memory_item_dict["metadata"] = additional_metadata
 
@@ -3351,17 +3296,6 @@ class AsyncMemory(MemoryBase):
         )
 
         # Step 9: Format results
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-            "attributed_to",
-            "expiration_date",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
         original_memories = []
         for scored in scored_results:
             payload = scored.get("payload") or {}
@@ -3377,11 +3311,11 @@ class AsyncMemory(MemoryBase):
                 score=scored["score"],
             ).model_dump()
 
-            for key in promoted_payload_keys:
+            for key in PROMOTED_PAYLOAD_KEYS:
                 if key in payload:
                     memory_item_dict[key] = payload[key]
 
-            additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
+            additional_metadata = {k: v for k, v in payload.items() if k not in NON_METADATA_PAYLOAD_KEYS}
             if additional_metadata:
                 if not memory_item_dict.get("metadata"):
                     memory_item_dict["metadata"] = {}

@@ -646,6 +646,38 @@ class TestGetMemories:
         _, kwargs = mock_memory.vector_store.list.call_args
         assert kwargs["top_k"] == 0
 
+    def test_get_memories_admin_list_all_hides_internal_payload_keys(self, client, mock_memory):
+        """Admin list-all must expose the same shape as the scoped get_all() path:
+        no internal `text_lemmatized`, and actor/role promoted out of metadata."""
+        row = MagicMock()
+        row.id = "mem-1"
+        row.payload = {
+            "data": "I love hiking on weekends",
+            "hash": "h1",
+            "user_id": "alice",
+            "actor_id": "a1",
+            "role": "user",
+            "text_lemmatized": "love hike weekend",
+            "category": "hobbies",
+            "created_at": "2026-01-01T00:00:00Z",
+        }
+        mock_memory.vector_store.list.return_value = [[row]]
+
+        result = client.get("/memories").json()["results"][0]
+
+        assert result["metadata"] == {"category": "hobbies"}
+        assert result["user_id"] == "alice"
+        assert result["actor_id"] == "a1"
+        assert result["role"] == "user"
+
+    def test_get_memories_admin_list_all_metadata_none_when_empty(self, client, mock_memory):
+        row = MagicMock()
+        row.id = "mem-1"
+        row.payload = {"data": "hi", "user_id": "alice", "text_lemmatized": "hi"}
+        mock_memory.vector_store.list.return_value = [[row]]
+
+        assert client.get("/memories").json()["results"][0]["metadata"] is None
+
     def test_get_memories_rejects_top_k_above_limit(self, client, mock_memory):
         response = client.get("/memories?user_id=test_routing_user&top_k=1001")
 

@@ -39,6 +39,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, select
 
 from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.memory.utils import NON_METADATA_PAYLOAD_KEYS, PROMOTED_PAYLOAD_KEYS
 
 load_dotenv()
 
@@ -383,23 +384,25 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
 
 
 ALL_MEMORIES_LIMIT = 1000
-_RESERVED_PAYLOAD_KEYS = {"data", "user_id", "agent_id", "run_id", "hash", "created_at", "updated_at", "expiration_date"}
 
 
 def _serialize_memory(row: Any) -> Dict[str, Any]:
+    """Shape a raw vector-store row like Memory.get_all() does, so the admin list-all
+    branch never leaks internal payload keys (e.g. the BM25 `text_lemmatized` index)."""
     payload = getattr(row, "payload", None) or {}
-    return {
+    metadata = {k: v for k, v in payload.items() if k not in NON_METADATA_PAYLOAD_KEYS}
+    item = {
         "id": getattr(row, "id", None),
         "memory": payload.get("data"),
-        "user_id": payload.get("user_id"),
-        "agent_id": payload.get("agent_id"),
-        "run_id": payload.get("run_id"),
         "hash": payload.get("hash"),
-        "expiration_date": payload.get("expiration_date"),
-        "metadata": {k: v for k, v in payload.items() if k not in _RESERVED_PAYLOAD_KEYS},
+        "metadata": metadata or None,
         "created_at": payload.get("created_at"),
         "updated_at": payload.get("updated_at"),
     }
+    for key in PROMOTED_PAYLOAD_KEYS:
+        if key in payload:
+            item[key] = payload[key]
+    return item
 
 
 def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
