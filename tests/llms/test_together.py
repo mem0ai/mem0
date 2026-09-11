@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.together import TogetherConfig
 from mem0.llms.together import TogetherLLM
 
 
@@ -12,6 +13,38 @@ def mock_together_client():
         mock_client = Mock()
         mock_together.return_value = mock_client
         yield mock_client
+
+
+def test_together_llm_base_url(monkeypatch):
+    # case1: default config uses Together's official base url
+    monkeypatch.delenv("TOGETHER_API_BASE", raising=False)
+    config = BaseLlmConfig(
+        model="mistralai/Mixtral-8x7B-Instruct-v0.1", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
+    )
+    llm = TogetherLLM(config)
+    assert str(llm.client.base_url) == "https://api.together.ai/v1/"
+
+    # case2: with env variable TOGETHER_API_BASE
+    provider_base_url = "https://api.provider.com/v1/"
+    monkeypatch.setenv("TOGETHER_API_BASE", provider_base_url)
+    config = TogetherConfig(
+        model="mistralai/Mixtral-8x7B-Instruct-v0.1", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
+    )
+    llm = TogetherLLM(config)
+    assert str(llm.client.base_url) == provider_base_url
+
+    # case3: with config.together_base_url (explicit config beats env var)
+    config_base_url = "https://api.config.com/v1/"
+    config = TogetherConfig(
+        model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        api_key="api_key",
+        together_base_url=config_base_url,
+    )
+    llm = TogetherLLM(config)
+    assert str(llm.client.base_url) == config_base_url
 
 
 def test_generate_response_without_tools(mock_together_client):
