@@ -139,6 +139,44 @@ def test_embed_batch_returns_all_embeddings(mock_openai_client):
     assert result == [[0.1, 0.2], [0.3, 0.4]]
 
 
+def test_embed_batch_respects_configured_batch_size(mock_openai_client):
+    config = BaseEmbedderConfig(batch_size=10)
+    embedder = OpenAIEmbedding(config)
+    texts = [f"text {index}" for index in range(11)]
+
+    def create_response(**kwargs):
+        return Mock(data=[Mock(index=index, embedding=[text]) for index, text in enumerate(kwargs["input"])])
+
+    mock_openai_client.embeddings.create.side_effect = create_response
+
+    result = embedder.embed_batch(texts)
+
+    batches = [call.kwargs["input"] for call in mock_openai_client.embeddings.create.call_args_list]
+    assert batches == [texts[:10], texts[10:]]
+    assert result == [[text] for text in texts]
+
+
+def test_embed_batch_defaults_to_100(mock_openai_client):
+    embedder = OpenAIEmbedding(BaseEmbedderConfig())
+    texts = [f"text {index}" for index in range(101)]
+
+    def create_response(**kwargs):
+        return Mock(data=[Mock(index=index, embedding=[text]) for index, text in enumerate(kwargs["input"])])
+
+    mock_openai_client.embeddings.create.side_effect = create_response
+
+    embedder.embed_batch(texts)
+
+    batch_sizes = [len(call.kwargs["input"]) for call in mock_openai_client.embeddings.create.call_args_list]
+    assert batch_sizes == [100, 1]
+
+
+@pytest.mark.parametrize("batch_size", [0, -1, 1.5, "10", True])
+def test_embed_batch_rejects_invalid_batch_size(batch_size):
+    with pytest.raises(ValueError, match="batch_size must be a positive integer"):
+        BaseEmbedderConfig(batch_size=batch_size)
+
+
 def test_embed_batch_count_mismatch_raises(mock_openai_client):
     config = BaseEmbedderConfig()
     embedder = OpenAIEmbedding(config)

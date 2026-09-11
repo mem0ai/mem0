@@ -17,6 +17,7 @@ class OpenAIEmbedding(EmbeddingBase):
         # OpenAI-compatible backends (vLLM, Voyage, etc.) reject the parameter
         self._pass_dimensions_to_api = self.config.embedding_dims is not None
         self.config.embedding_dims = self.config.embedding_dims or 1536
+        self.config.batch_size = self.config.batch_size or 100
 
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
         base_url = (
@@ -57,13 +58,12 @@ class OpenAIEmbedding(EmbeddingBase):
     def embed_batch(self, texts, memory_action="add"):
         """Embed multiple texts in a single OpenAI API call.
 
-        Automatically chunks into batches of 100 to stay within API limits.
+        Automatically chunks requests according to the configured batch size.
         """
-        MAX_BATCH = 100
         texts = [text.replace("\n", " ") for text in texts]
         all_embeddings = []
-        for i in range(0, len(texts), MAX_BATCH):
-            chunk = texts[i : i + MAX_BATCH]
+        for i in range(0, len(texts), self.config.batch_size):
+            chunk = texts[i : i + self.config.batch_size]
             kwargs = {
                 "input": chunk,
                 "model": self.config.model,
