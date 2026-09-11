@@ -175,12 +175,14 @@ class MilvusDB(VectorStoreBase):
 
         return " and ".join(operands)
 
-    def _parse_output(self, data: list):
+    def _parse_output(self, data: list, is_keyword: bool = False):
         """
         Parse the output data.
 
         Args:
             data (Dict): Output data.
+            is_keyword (bool): Whether this is a keyword (BM25) search result. BM25
+                scores are higher-is-better and must not be distance-converted.
 
         Returns:
             List[OutputData]: Parsed output data.
@@ -192,10 +194,23 @@ class MilvusDB(VectorStoreBase):
             raw_distance = value.get("distance")
             metadata = value.get("entity", {}).get("metadata")
 
-            if raw_distance is not None and self.metric_type in (MetricType.L2, "L2"):
-                score = 1.0 / (1.0 + raw_distance)
-            else:
+            if is_keyword:
+                # BM25 full-text hits: score is higher-is-better already.
                 score = raw_distance
+            elif raw_distance is not None:
+                # Dense vector hits: convert distance to similarity per the
+                # VectorStoreBase contract (base.py:19-23).
+                if self.metric_type in (MetricType.COSINE, "COSINE"):
+                    score = max(0.0, 1.0 - raw_distance)
+                elif self.metric_type in (MetricType.L2, "L2"):
+                    score = 1.0 / (1.0 + raw_distance)
+                else:
+                    # IP returns the inner product (higher = better); HAMMING/JACCARD
+                    # are distance-based but have no defined contract conversion here,
+                    # so pass the raw value through rather than inverting it.
+                    score = raw_distance
+            else:
+                score = None
 
             memory_obj = OutputData(id=uid, score=score, payload=metadata)
             memory.append(memory_obj)
@@ -263,7 +278,7 @@ class MilvusDB(VectorStoreBase):
                 filter=query_filter,
                 output_fields=["*"],
             )
-            result = self._parse_output(data=hits[0])
+            result = self._parse_output(data=hits[0], is_keyword=True)
             return result
         except Exception as e:
             logger.debug(f"Keyword search not available for collection {self.collection_name}: {e}")
