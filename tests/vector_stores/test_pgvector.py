@@ -2330,6 +2330,67 @@ class TestPGVector(unittest.TestCase):
             # Verify pool.closeall() was called
             mock_pool.closeall.assert_called()
 
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_psycopg2_cursor_logs_full_traceback_on_error(self, mock_connection_pool):
+        """_get_cursor psycopg2 path logs the full traceback via exc_info=True."""
+        mock_pool = MagicMock()
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_pool.getconn.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+        )
+        pgvector.connection_pool = mock_pool
+
+        with self.assertRaises(RuntimeError):
+            with pgvector._get_cursor() as _:
+                raise RuntimeError("db failure")
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_psycopg2_cursor_returns_connection_to_pool_on_error(self, mock_connection_pool):
+        """_get_cursor psycopg2 path returns the connection even when an error occurs."""
+        mock_pool = MagicMock()
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_pool.getconn.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cursor
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+        )
+        pgvector.connection_pool = mock_pool
+
+        with self.assertRaises(RuntimeError):
+            with pgvector._get_cursor() as _:
+                raise RuntimeError("db failure")
+
+        mock_conn.rollback.assert_called_once()
+        mock_pool.putconn.assert_called_once_with(mock_conn)
+
     def tearDown(self):
         """Clean up after each test."""
         pass
