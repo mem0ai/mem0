@@ -298,3 +298,162 @@ def test_update_wraps_vector_and_payload_in_lists(langchain_instance):
     langchain_instance.client.add_embeddings.assert_called_once_with(
         embeddings=[vector], metadatas=[payload], ids=[vector_id]
     )
+
+
+def test_insert_and_payload_only_update_work_against_real_faiss():
+    """End-to-end regression for the FAISS incompatibility reported in #3182.
+
+    FAISS names its parameter ``text_embeddings`` and takes (text, vector)
+    pairs, so mem0's ``add_embeddings(embeddings=...)`` call raised
+    "FAISS.add_embeddings() missing 1 required positional argument".
+    Memory.add() was unusable; update() additionally left the row deleted,
+    because delete() had already run.
+    """
+    faiss = pytest.importorskip("faiss")  # noqa: F841
+    from langchain_community.vectorstores import FAISS
+    from langchain_core.embeddings import DeterministicFakeEmbedding
+
+    embeddings = DeterministicFakeEmbedding(size=8)
+    store = FAISS.from_embeddings([("seed", embeddings.embed_query("seed"))], embeddings, ids=["seed"])
+    instance = Langchain(client=store, collection_name="test_collection")
+
+    vector = embeddings.embed_query("alice")
+    instance.insert([vector], [{"data": "alice"}], ["e1"])
+
+    doc = store.get_by_ids(["e1"])[0]
+    assert doc.page_content == "alice"
+    assert doc.metadata == {"data": "alice"}
+    # The vector mem0 computed is what got stored, not one FAISS re-derived.
+    position = next(k for k, v in store.index_to_docstore_id.items() if v == "e1")
+    assert store.index.reconstruct(position) == pytest.approx(vector, abs=1e-6)
+
+    # mem0 edits an entity's payload with vector=None; the row must survive.
+    instance.update("e1", vector=None, payload={"data": "alice", "linked_memory_ids": ["m1", "m2"]})
+
+    doc = store.get_by_ids(["e1"])[0]
+    assert doc.metadata["linked_memory_ids"] == ["m1", "m2"]
+
+
+def test_insert_passes_text_embedding_pairs_when_that_is_the_signature():
+    """FAISS/AzureSearch/Elasticsearch/OpenSearch/ScaNN take text_embeddings pairs."""
+
+    class TextEmbeddingsStore:
+        def add_embeddings(self, text_embeddings, metadatas=None, ids=None, **kwargs):
+            self.seen = dict(text_embeddings=list(text_embeddings), metadatas=metadatas, ids=ids)
+
+    client = TextEmbeddingsStore()
+    Langchain(client=client, collection_name="c").insert([[0.1, 0.2]], [{"data": "alice"}], ["e1"])
+
+    assert client.seen == {
+        "text_embeddings": [("alice", [0.1, 0.2])],
+        "metadatas": [{"data": "alice"}],
+        "ids": ["e1"],
+    }
+
+
+def test_insert_passes_texts_alongside_embeddings_when_that_is_the_signature():
+    """PGVector/Neo4jVector/Lantern/Hologres/Kinetica/PGEmbedding/TimescaleVector
+    accept ``embeddings`` but require ``texts`` positionally, so omitting it raised
+    TypeError too."""
+
+    class TextsAndEmbeddingsStore:
+        def add_embeddings(self, texts, embeddings, metadatas=None, ids=None, **kwargs):
+            self.seen = dict(texts=list(texts), embeddings=embeddings, metadatas=metadatas, ids=ids)
+
+    client = TextsAndEmbeddingsStore()
+    Langchain(client=client, collection_name="c").insert([[0.1, 0.2]], [{"data": "alice"}], ["e1"])
+
+    assert client.seen == {
+        "texts": ["alice"],
+        "embeddings": [[0.1, 0.2]],
+        "metadatas": [{"data": "alice"}],
+        "ids": ["e1"],
+    }
+
+
+def test_insert_uses_the_keys_kwarg_when_the_store_spells_it_that_way():
+    """AzureSearch is the one store whose id parameter is ``keys``, not ``ids``.
+
+    Its real signature is ``(text_embeddings, metadatas=None, *, keys=None)`` --
+    keyword-only ``keys``, and no ``**kwargs`` to absorb a wrong name, so passing
+    ``ids`` raised ``TypeError: unexpected keyword argument 'ids'``. The double
+    below is deliberately no more permissive than the real method: the earlier
+    ``text_embeddings`` double grants itself ``ids`` and ``**kwargs``, which is
+    what let this through.
+    """
+
+    class AzureSearchLikeStore:
+        def add_embeddings(self, text_embeddings, metadatas=None, *, keys=None):
+            self.seen = dict(text_embeddings=list(text_embeddings), metadatas=metadatas, keys=keys)
+
+    client = AzureSearchLikeStore()
+    Langchain(client=client, collection_name="c").insert([[0.1, 0.2]], [{"data": "alice"}], ["e1"])
+
+    assert client.seen == {
+        "text_embeddings": [("alice", [0.1, 0.2])],
+        "metadatas": [{"data": "alice"}],
+        "keys": ["e1"],
+    }
+
+
+def test_insert_omits_the_ids_when_add_embeddings_takes_no_id_parameter():
+    """A store that names neither ``ids`` nor ``keys`` must not be sent either."""
+
+    class NoIdParamStore:
+        def add_embeddings(self, text_embeddings, metadatas=None):
+            self.seen = dict(text_embeddings=list(text_embeddings), metadatas=metadatas)
+
+    client = NoIdParamStore()
+    Langchain(client=client, collection_name="c").insert([[0.1, 0.2]], [{"data": "alice"}], ["e1"])
+
+    assert client.seen == {
+        "text_embeddings": [("alice", [0.1, 0.2])],
+        "metadatas": [{"data": "alice"}],
+    }
+
+
+def test_insert_falls_back_to_add_texts_when_the_permissive_call_is_rejected():
+    """The permissive branch is a guess about a signature we could not read.
+
+    It is reached by any store exposing ``embeddings`` without ``texts``, and by
+    anything unintrospectable. Letting its TypeError escape would reproduce the
+    exact crash this dispatch exists to prevent, so a rejection there falls
+    through to ``add_texts`` rather than reaching the caller.
+    """
+
+    class PermissiveButRejectingStore:
+        def add_embeddings(self, embeddings, metadatas=None, ids=None):
+            raise TypeError("simulated store rejection")
+
+        def add_texts(self, texts, metadatas=None, ids=None, **kwargs):
+            self.seen = dict(texts=list(texts), metadatas=metadatas, ids=ids)
+
+    client = PermissiveButRejectingStore()
+    Langchain(client=client, collection_name="c").insert([[0.1, 0.2]], [{"data": "alice"}], ["e1"])
+
+    assert client.seen == {
+        "texts": ["alice"],
+        "metadatas": [{"data": "alice"}],
+        "ids": ["e1"],
+    }
+
+
+def test_update_without_vector_never_stores_none_as_the_embedding(langchain_instance):
+    """mem0 edits an entity's payload with update(vector=None) (Memory._upsert_entity).
+
+    That None used to be forwarded as the embedding -- ``embeddings=[None]`` on
+    stores with add_embeddings, which the backend then rejects or stores as a
+    null vector. Re-inserting from the payload text lets the store embed it.
+    """
+    langchain_instance.client.delete = Mock()
+    langchain_instance.client.add_embeddings = Mock()
+    langchain_instance.client.add_texts = Mock()
+
+    payload = {"data": "alice", "linked_memory_ids": ["m1", "m2"]}
+    langchain_instance.update("e1", vector=None, payload=payload)
+
+    langchain_instance.client.delete.assert_called_once_with(ids=["e1"])
+    langchain_instance.client.add_embeddings.assert_not_called()
+    langchain_instance.client.add_texts.assert_called_once_with(
+        texts=["alice"], metadatas=[payload], ids=["e1"]
+    )
