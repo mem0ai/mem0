@@ -10,6 +10,7 @@ Provides:
 from __future__ import annotations
 
 import math
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 
@@ -55,6 +56,40 @@ def normalize_bm25(raw_score: float, midpoint: float, steepness: float) -> float
 
 
 ENTITY_BOOST_WEIGHT = 0.5
+
+_MISSING_TIMESTAMP = float("-inf")
+
+
+def _parse_timestamp(value: Any) -> float | None:
+    """Parse a timestamp value into seconds since epoch.
+
+    Accepts numeric values and ISO-formatted strings. Returns ``None`` when the
+    value is missing or cannot be parsed so callers can treat malformed
+    timestamps as older than valid ones.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, datetime):
+        return value.timestamp()
+    try:
+        return datetime.fromisoformat(str(value)).timestamp()
+    except (ValueError, TypeError):
+        return None
+
+
+def _result_sort_key(result: Dict[str, Any]) -> tuple[float, float, float, str]:
+    """Stable sort key for scored results.
+
+    Primary: descending combined score. Ties: descending ``updated_at``, then
+    descending ``created_at``, then ascending memory ID for determinism.
+    Missing or malformed timestamps are treated as older than valid ones.
+    """
+    payload = result.get("payload") or {}
+    updated_at = _parse_timestamp(payload.get("updated_at")) or _MISSING_TIMESTAMP
+    created_at = _parse_timestamp(payload.get("created_at")) or _MISSING_TIMESTAMP
+    return (-result["score"], -updated_at, -created_at, result["id"])
 
 
 def score_and_rank(
@@ -135,5 +170,5 @@ def score_and_rank(
             }
         scored.append(scored_result)
 
-    scored.sort(key=lambda x: x["score"], reverse=True)
+    scored.sort(key=_result_sort_key)
     return scored[:top_k]
