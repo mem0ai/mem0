@@ -4,6 +4,7 @@ Agent and editor integrations. Most packages are self-contained; coding-agent pl
 
 | Directory | Package | Build | Lint | Test |
 |-----------|---------|-------|------|------|
+| `eve/` | `@mem0/eve` | tsup (ESM) | none | vitest |
 | `vercel-ai-sdk/` | `@mem0/vercel-ai-provider` | tsup (CJS+ESM) | ESLint + Prettier | jest + vitest (edge/node) |
 | `openclaw/` | `@mem0/openclaw-mem0` | tsup (ESM) | none | vitest |
 | `agent-plugin-core/` | Shared Python/TypeScript behavior, skill templates, builds, and conformance | Python build script | ruff + tsc | pytest + node:test |
@@ -21,6 +22,12 @@ pnpm for TypeScript packages except `opencode-plugin/` (Bun). `mem0-strands/` us
 ## Commands
 
 ```bash
+cd integrations/eve
+pnpm install
+pnpm run typecheck
+pnpm run test
+pnpm run build
+
 cd integrations/vercel-ai-sdk
 pnpm install
 pnpm run build           # tsup
@@ -41,6 +48,7 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 
 ## What each one is
 
+- **`eve/`** is the Eve memory provider (`mem0Provider`). Eve calls recall on `turn.started` and `compaction.completed`, capture on `turn.completed` when enabled, and exposes `search` / `remember` / `forget` tools. This is not the Mem0 MCP connection.
 - **`vercel-ai-sdk/`** wraps the Vercel AI SDK through a `createMem0` provider. Integrations for AI-SDK repos go through this wrapper, not raw `MemoryClient`.
 - **`agent-plugin-core/`** owns the shared Python memory runtime, TypeScript lifecycle utilities, skill templates, builds, and conformance runner. Claude Code is the behavioral source of truth. Native manifests and adapters live in sibling plugin directories; do not hand-edit their generated `core/` or `skills/` trees. Build and validation details are in [`agent-plugin-core/README.md`](agent-plugin-core/README.md).
 - **`opencode-plugin/`** is a Bun/TypeScript plugin for OpenCode (`@mem0/opencode-plugin` on npm). It registers Mem0 memory tools as an OpenCode plugin with its own skills and telemetry.
