@@ -4,6 +4,7 @@ import gc
 import hashlib
 import json
 import logging
+import math
 import os
 import time
 import uuid
@@ -223,7 +224,7 @@ def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[i
     if threshold is not None:
         if not isinstance(threshold, (int, float)):
             raise ValueError("threshold must be a valid number")
-        if threshold < 0 or threshold > 1:
+        if math.isnan(threshold) or threshold < 0 or threshold > 1:
             raise ValueError(
                 f"Invalid threshold: {threshold}. Must be between 0 and 1 (inclusive)."
             )
