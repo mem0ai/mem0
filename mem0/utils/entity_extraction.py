@@ -588,7 +588,16 @@ def _add_quoted_candidates(text: str, candidates: list[_EntityCandidate]) -> Non
 
 
 def _add_topic_phrase_candidates(doc, candidates: list[_EntityCandidate]) -> None:
-    for chunk in doc.noun_chunks:
+    # spaCy's ``noun_chunks`` syntax iterator is language-specific; zh/ja (and
+    # any language without a SentenceRecognizer) raise ``NotImplementedError``
+    # ([E894]). Materialising the iterator once and swallowing that error
+    # leaves the proper-noun, quoted-text, and verb-head strategies running
+    # instead of aborting the whole extraction pass. See #5285.
+    try:
+        noun_chunks = list(doc.noun_chunks)
+    except NotImplementedError:
+        return
+    for chunk in noun_chunks:
         chunk_tokens = list(chunk)
         split_indices: list[int] = []
         poss_splits: list[int] = []
