@@ -10,7 +10,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import ValidationError
 
@@ -19,6 +19,7 @@ from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     ADDITIVE_EXTRACTION_PROMPT,
     AGENT_CONTEXT_SUFFIX,
+    MEMORY_SUMMARY_PROMPT,
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
@@ -1322,6 +1323,57 @@ class Memory(MemoryBase):
         else:
             display_first_run_notice(self, "sync", "get_all")
         return {"results": all_memories_result}
+
+    def get_summary(self, *, filters: Optional[Dict[str, Any]] = None, limit: int = 100) -> Dict[str, Any]:
+        """
+        Summarize a scope's memories into a comprehensive context brief.
+
+        Fetches the scope's non-expired memories and runs a single LLM pass to produce a
+        thorough context brief an agent can load to continue with full context instead of
+        re-reading every memory. Read-only: nothing is stored.
+
+        Args:
+            filters (dict): Filter dict; must contain at least one of user_id, agent_id, run_id.
+                Example: filters={"user_id": "u1"}
+            limit (int, optional): Maximum number of memories to summarize. Defaults to 100.
+
+        Returns:
+            dict: {"summary": str, "memory_count": int}. summary is "" when the scope has no
+                  memories (no LLM call is made in that case).
+
+        Raises:
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
+                or if limit is invalid.
+            LLMError: If the summarization LLM call fails.
+        """
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
+            raise ValueError("limit must be a positive integer.")
+
+        memories = self.get_all(filters=filters, top_k=limit).get("results", [])
+
+        keys, encoded_ids = process_telemetry_filters(dict(filters) if filters else {})
+        capture_event(
+            "mem0.get_summary", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
+        )
+
+        if not memories:
+            return {"summary": "", "memory_count": 0}
+
+        return {"summary": self._summarize_memories(memories), "memory_count": len(memories)}
+
+    def _summarize_memories(self, memories: List[Dict[str, Any]]) -> str:
+        memory_lines = "\n".join(f"- {m['memory']}" for m in memories if m.get("memory"))
+        try:
+            summary = self.llm.generate_response(
+                messages=[
+                    {"role": "system", "content": MEMORY_SUMMARY_PROMPT},
+                    {"role": "user", "content": f"Memories:\n{memory_lines}"},
+                ]
+            )
+        except Exception as e:
+            logger.error(f"Memory summary generation failed: {e}")
+            raise LLMError(f"Memory summary generation failed: {e}") from e
+        return remove_code_blocks(summary).strip()
 
     def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
         memories_result = self.vector_store.list(filters=filters, top_k=limit)
@@ -2980,6 +3032,58 @@ class AsyncMemory(MemoryBase):
         else:
             await display_first_run_notice_async(self, "async", "get_all")
         return {"results": all_memories_result}
+
+    async def get_summary(self, *, filters: Optional[Dict[str, Any]] = None, limit: int = 100) -> Dict[str, Any]:
+        """
+        Summarize a scope's memories into a comprehensive context brief.
+
+        Fetches the scope's non-expired memories and runs a single LLM pass to produce a
+        thorough context brief an agent can load to continue with full context instead of
+        re-reading every memory. Read-only: nothing is stored.
+
+        Args:
+            filters (dict): Filter dict; must contain at least one of user_id, agent_id, run_id.
+                Example: filters={"user_id": "u1"}
+            limit (int, optional): Maximum number of memories to summarize. Defaults to 100.
+
+        Returns:
+            dict: {"summary": str, "memory_count": int}. summary is "" when the scope has no
+                  memories (no LLM call is made in that case).
+
+        Raises:
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
+                or if limit is invalid.
+            LLMError: If the summarization LLM call fails.
+        """
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
+            raise ValueError("limit must be a positive integer.")
+
+        memories = (await self.get_all(filters=filters, top_k=limit)).get("results", [])
+
+        keys, encoded_ids = process_telemetry_filters(dict(filters) if filters else {})
+        capture_event(
+            "mem0.get_summary", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
+        )
+
+        if not memories:
+            return {"summary": "", "memory_count": 0}
+
+        return {"summary": await self._summarize_memories(memories), "memory_count": len(memories)}
+
+    async def _summarize_memories(self, memories: List[Dict[str, Any]]) -> str:
+        memory_lines = "\n".join(f"- {m['memory']}" for m in memories if m.get("memory"))
+        try:
+            summary = await asyncio.to_thread(
+                self.llm.generate_response,
+                messages=[
+                    {"role": "system", "content": MEMORY_SUMMARY_PROMPT},
+                    {"role": "user", "content": f"Memories:\n{memory_lines}"},
+                ],
+            )
+        except Exception as e:
+            logger.error(f"Memory summary generation failed: {e}")
+            raise LLMError(f"Memory summary generation failed: {e}") from e
+        return remove_code_blocks(summary).strip()
 
     async def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=limit)
