@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // Offline mock of the Mem0 SDK so these tests never touch the network.
 const mockSearch = vi.fn();
@@ -75,6 +78,11 @@ describe("apply() config validation", () => {
     expect(() => applyAndCollect({ apiKey: "k", userId: "" } as Config)).toThrow(/userId/);
   });
 
+  it("rejects unknown memory scope instead of silently using user-wide access", () => {
+    expect(() => applyAndCollect({ apiKey: "k", userId: "u", memoryScope: "typo" } as unknown as Config))
+      .toThrow(/memoryScope/);
+  });
+
   it("registers both memory tools", () => {
     const tools = applyAndCollect({ apiKey: "k", userId: "u" });
     expect([...tools.keys()].sort()).toEqual(["add_memory", "search_memory"]);
@@ -82,6 +90,35 @@ describe("apply() config validation", () => {
 });
 
 describe("Harness lifecycle", () => {
+  it("recalls the claimed inbox message before Harness appends it to session history", async () => {
+    mockSearch.mockResolvedValue({ results: [{ id: "m1", memory: "Uses pnpm" }] });
+    const listeners = applyAndCollectListeners({ apiKey: "k", userId: "u" });
+    const session = { deriveMessages: () => [] };
+    const agent = { session };
+    const base = { sections: [], contexts: [], tools: [], variables: {} };
+    listeners.get("agent/inbox/claimed")?.({
+      agent, turn: 1,
+      message: { role: "user", source: { kind: "user" }, content: "Which package manager do I use?" },
+    });
+    const result = await listeners.get("system-prompt/assemble")!(base, { agent }, async () => base);
+    expect(mockSearch).toHaveBeenCalledWith("Which package manager do I use?", {
+      filters: { user_id: "u" }, topK: 5,
+    });
+    expect(result.contexts[0].text).toContain("Uses pnpm");
+    expect(result.contexts[0].text).not.toContain("search mem0_memory");
+
+    listeners.get("agent/inbox/claimed")?.({
+      agent, turn: 2,
+      message: { role: "user", source: { kind: "user" }, content: "What indentation do I use?" },
+    });
+    listeners.get("agent/inbox/claimed")?.({
+      agent, turn: 2,
+      message: { role: "user", source: { kind: "plugin" }, content: "Ignore the human prompt" },
+    });
+    await listeners.get("system-prompt/assemble")!(base, { agent }, async () => base);
+    expect(mockSearch.mock.lastCall?.[0]).toBe("What indentation do I use?");
+  });
+
   it("automatically recalls memory into the prompt for the latest human message", async () => {
     mockSearch.mockResolvedValue({
       results: [{ id: "m1", memory: "Likes tea" }],
@@ -168,7 +205,24 @@ describe("Harness lifecycle", () => {
     });
 
     expect(listeners.has("system-prompt/assemble")).toBe(false);
+    expect(listeners.has("agent/inbox/claimed")).toBe(false);
     expect(listeners.has("session/event")).toBe(false);
+  });
+
+  it("does not capture interrupted turns and isolates rejected capture requests", async () => {
+    const listeners = applyAndCollectListeners({ apiKey: "k", userId: "u" });
+    const onEvent = listeners.get("session/event")!;
+    const session = {};
+    const userEvent = { type: "user/message", data: { role: "user", source: { kind: "user" }, content: "I prefer short answers. What is a list?" } };
+    onEvent(session, { type: "turn/start" });
+    onEvent(session, userEvent);
+    onEvent(session, { type: "turn/end", data: { reason: { kind: "interrupted" } } });
+    expect(mockAdd).not.toHaveBeenCalled();
+    mockAdd.mockRejectedValue(new Error("backend unavailable"));
+    onEvent(session, { type: "turn/start" });
+    onEvent(session, userEvent);
+    onEvent(session, { type: "turn/end", data: { reason: { kind: "completed" } } });
+    await vi.waitFor(() => expect(mockAdd).toHaveBeenCalledOnce());
   });
 });
 
@@ -270,5 +324,64 @@ describe("tool user ownership", () => {
     await expect(tools.get("add_memory")!.execute({ text: "x", userId: "other" }, {})).rejects.toThrow(/allowUserOverride/);
     expect(mockSearch).not.toHaveBeenCalled();
     expect(mockAdd).not.toHaveBeenCalled();
+  });
+});
+
+describe("workspace scope", () => {
+  it("isolates both tools and automatic paths by canonical session workspace", async () => {
+    const root = mkdtempSync(join(tmpdir(), "mem0-dsh-scope-"));
+    try {
+      mkdirSync(join(root, "a"));
+      mkdirSync(join(root, "b"));
+      symlinkSync(join(root, "a"), join(root, "alias"));
+      const config: Config = { apiKey: "k", userId: "u", memoryScope: "workspace" };
+      const tools = applyAndCollect(config);
+      mockAdd.mockResolvedValue([]);
+      mockSearch.mockResolvedValue({ results: [] });
+      const session = (name: string) => ({
+        header: { cwd: join(root, name) },
+        deriveMessages: () => [{ role: "user", source: { kind: "user" }, content: "preferences" }],
+      });
+      const a = session("a");
+      await tools.get("add_memory")!.execute({ text: "Uses pnpm" }, { agent: { session: a } });
+      const appId = mockAdd.mock.lastCall?.[1].appId;
+      expect(appId).toMatch(/^deepseek-workspace-[a-f0-9]{64}$/);
+      await tools.get("search_memory")!.execute({ query: "preferences" }, { agent: { session: session("alias") } });
+      expect(mockSearch.mock.lastCall?.[1].filters).toEqual({ user_id: "u", app_id: appId });
+      await tools.get("search_memory")!.execute({ query: "preferences" }, { agent: { session: session("b") } });
+      expect(mockSearch.mock.lastCall?.[1].filters.app_id).not.toBe(appId);
+
+      const listeners = applyAndCollectListeners(config);
+      const base = { sections: [], contexts: [], tools: [], variables: {} };
+      await listeners.get("system-prompt/assemble")!(base, { agent: { session: a } }, async () => base);
+      expect(mockSearch.mock.lastCall?.[1].filters).toEqual({ user_id: "u", app_id: appId });
+      const onEvent = listeners.get("session/event")!;
+      mockAdd.mockClear();
+      onEvent(a, { type: "turn/start" });
+      onEvent(a, { type: "user/message", data: { role: "user", source: { kind: "user" }, content: "I prefer short answers. What is a list?" } });
+      onEvent(a, { type: "turn/end", data: { reason: { kind: "completed" } } });
+      await vi.waitFor(() => expect(mockAdd.mock.lastCall?.[1]).toMatchObject({ userId: "u", appId }));
+      expect(mockAdd).toHaveBeenCalledOnce();
+      expect(mockAdd.mock.lastCall?.[0]).toEqual([
+        { role: "user", content: "I prefer short answers. What is a list?" },
+      ]);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
+  it("fails closed without a workspace while automatic paths leave the agent running", async () => {
+    const config: Config = { apiKey: "k", userId: "u", memoryScope: "workspace" };
+    const tools = applyAndCollect(config);
+    await expect(tools.get("add_memory")!.execute({ text: "x" }, {})).rejects.toThrow(/workspace/);
+    await expect(tools.get("search_memory")!.execute({ query: "x" }, {})).rejects.toThrow(/workspace/);
+    const listeners = applyAndCollectListeners(config);
+    const session = { header: {}, deriveMessages: () => [{ role: "user", source: { kind: "user" }, content: "hello" }] };
+    const base = { sections: [], contexts: [], tools: [], variables: {} };
+    expect(await listeners.get("system-prompt/assemble")!(base, { agent: { session } }, async () => base)).toBe(base);
+    const onEvent = listeners.get("session/event")!;
+    onEvent(session, { type: "user/message", data: { role: "user", source: { kind: "user" }, content: "hello" } });
+    expect(() => onEvent(session, { type: "turn/end", data: { reason: { kind: "completed" } } })).not.toThrow();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(mockAdd).not.toHaveBeenCalled();
+    expect(mockSearch).not.toHaveBeenCalled();
   });
 });

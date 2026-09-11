@@ -18,7 +18,7 @@ import { defineTool } from "@deepseek-ai/dsh-tools";
 import { MemoryClient } from "mem0ai";
 import { formatMemoryList, formatAddResult } from "./formatting.ts";
 import { truncateOutput } from "./output.ts";
-import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
+import { resolveSearchFilters, resolveAddParams, resolveWorkspaceId } from "./scoping.ts";
 import { captureEvent, errorKind } from "./telemetry.ts";
 import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
 
@@ -44,6 +44,7 @@ interface HarnessMessage {
 interface SessionState {
   lifecycle: ReturnType<typeof createMemoryLifecycle>;
   messages: HarnessMessage[];
+  currentPrompt?: string;
 }
 
 export interface Config {
@@ -51,6 +52,8 @@ export interface Config {
   apiKey?: string;
   /** Default entity that owns the memories (Mem0 user scope). */
   userId: string;
+  /** Share user memory across workspaces (default), or isolate by session workspace. */
+  memoryScope?: "user" | "workspace";
   /** Explicitly allow model-selected cross-user access. Defaults to false. */
   allowUserOverride?: boolean;
   /** Optional Mem0 Platform base-URL override (on-prem / dedicated); defaults to api.mem0.ai. Not a switch to self-hosted OSS. */
@@ -98,6 +101,19 @@ export function apply(ctx: Context, config: Config): void {
   if (!userId || /^\*+$/.test(userId)) {
     throw new Error("deepseek-plugin: config.userId is required");
   }
+  if (config.memoryScope !== undefined && !["user", "workspace"].includes(config.memoryScope)) {
+    throw new Error("deepseek-plugin: config.memoryScope must be user or workspace");
+  }
+  const workspaceId = (session?: { header: { cwd?: string } }) =>
+    config.memoryScope === "workspace" ? resolveWorkspaceId(session?.header.cwd) : undefined;
+  const searchFilters = (params: Parameters<typeof resolveSearchFilters>[0], session?: { header: { cwd?: string } }) => {
+    const appId = workspaceId(session);
+    return { ...resolveSearchFilters(params, userId), ...(appId ? { app_id: appId } : {}) };
+  };
+  const addParams = (params: Parameters<typeof resolveAddParams>[0], session?: { header: { cwd?: string } }) => {
+    const appId = workspaceId(session);
+    return { ...resolveAddParams(params, userId), ...(appId ? { appId } : {}) };
+  };
 
   const client = new MemoryClient({
     apiKey,
@@ -123,13 +139,20 @@ export function apply(ctx: Context, config: Config): void {
   }, client);
 
   if (config.autoRecall !== false) {
+    // Harness assembles the prompt before appending claimed messages to history.
+    ctx.on("agent/inbox/claimed", ({ agent, message }) => {
+      if (message.source.kind !== "user") return;
+      const state = stateFor(agent.session);
+      state.currentPrompt = state.lifecycle.prepareConversation([message]).at(-1)?.content;
+    });
+
     ctx.on("system-prompt/assemble", async (_input, context, next): Promise<PromptAssembly> => {
       const assembly = await next();
       const { agent, signal } = context;
       if (!agent || signal?.aborted) return assembly;
 
       const state = stateFor(agent.session);
-      const prompt = state.lifecycle.prepareConversation(
+      const prompt = state.currentPrompt ?? state.lifecycle.prepareConversation(
         agent.session
           .deriveMessages()
           .filter((message) => message.role === "user" && message.source?.kind === "user"),
@@ -140,7 +163,7 @@ export function apply(ctx: Context, config: Config): void {
         const started = Date.now();
         try {
           const result = await client.search(query, {
-            filters: resolveSearchFilters({}, userId),
+            filters: searchFilters({}, agent.session),
             topK: AUTO_RECALL_LIMIT,
           });
           captureEvent("deepseek.recall.auto", {
@@ -179,8 +202,8 @@ export function apply(ctx: Context, config: Config): void {
         const conversation = state.lifecycle.prepareConversation(state.messages);
         state.messages = [];
         if (event.data.reason.kind !== "completed" || conversation.length === 0) return;
-        void client
-          .add(conversation, { userId, source: SOURCE })
+        void Promise.resolve()
+          .then(() => client.add(conversation, { ...addParams({}, session), source: SOURCE }))
           .then(() => captureEvent("deepseek.capture.auto", {
             success: true,
             message_count: conversation.length,
@@ -209,12 +232,12 @@ export function apply(ctx: Context, config: Config): void {
         ...scopeParams,
       },
       output: textOutput,
-      async execute({ query, limit, userId: u, agentId, runId }) {
+      async execute({ query, limit, userId: u, agentId, runId }, exec) {
         if (u?.trim() && u.trim() !== userId && config.allowUserOverride !== true) {
           throw new Error("Cross-user access requires allowUserOverride in plugin configuration.");
         }
         const safeQuery = toolLifecycle.prepareUserText(query);
-        const filters = resolveSearchFilters({ userId: u, agentId, runId }, userId);
+        const filters = searchFilters({ userId: u, agentId, runId }, exec.agent?.session);
         const topK = limit && limit > 0 ? limit : DEFAULT_SEARCH_LIMIT;
         const started = Date.now();
         try {
@@ -262,17 +285,17 @@ export function apply(ctx: Context, config: Config): void {
         ...scopeParams,
       },
       output: textOutput,
-      async execute({ text, userId: u, agentId, runId }) {
+      async execute({ text, userId: u, agentId, runId }, exec) {
         if (u?.trim() && u.trim() !== userId && config.allowUserOverride !== true) {
           throw new Error("Cross-user access requires allowUserOverride in plugin configuration.");
         }
-        const addParams = resolveAddParams({ userId: u, agentId, runId }, userId);
+        const params = addParams({ userId: u, agentId, runId }, exec.agent?.session);
         const started = Date.now();
         try {
           const result = await client.add(
             [{ role: "user", content: toolLifecycle.prepareUserText(text) }],
             {
-              ...addParams,
+              ...params,
               source: SOURCE,
             },
           );

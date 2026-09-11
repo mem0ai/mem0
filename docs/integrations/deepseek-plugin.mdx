@@ -5,7 +5,7 @@ description: "Add persistent memory to DeepSeek Harness with automatic recall, a
 
 Add persistent memory to the [**DeepSeek Harness**](https://github.com/deepseek-ai/deepseek-harness) with `@mem0/deepseek-plugin`. The plugin recalls relevant context before a model request, captures completed turns, and provides explicit Mem0 tools when the agent needs them.
 
-<Info>Current package version: `0.3.0`.</Info>
+<Info>Current package version: `0.3.1`.</Info>
 
 Sidekick is available only in the [Claude Code plugin](/integrations/claude-code#sidekick-agent).
 
@@ -32,7 +32,7 @@ A Cordis plugin is a module exporting `apply(ctx, config)`. This plugin waits fo
 
 Cordis removes the listeners and tools when the plugin unmounts. Memory failures are fail-open, so a Mem0 outage does not stop the agent from completing its normal work.
 
-DeepSeek Harness provides subagents through separate host-composition packages. This Mem0 package does not register a named Sidekick or claim child filesystem isolation. A Harness child uses Mem0 only when its own agent preset includes the Mem0 plugin.
+DeepSeek Harness provides subagents through separate host-composition packages. This Mem0 package does not register a named Sidekick or claim child filesystem isolation. Memory availability in children depends on the Harness composition and service scope.
 
 ## Prerequisites
 
@@ -40,25 +40,27 @@ DeepSeek Harness provides subagents through separate host-composition packages. 
    - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-deepseek-plugin">Sign up at app.mem0.ai</a>
    - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-deepseek-plugin">Get your API key</a> (starts with `m0-`)
 
-2. The DeepSeek Harness installed.
+2. The DeepSeek Harness installed and a funded model-provider credential (`DEEPSEEK_API_KEY` for the official DeepSeek provider). This is separate from your Mem0 key.
 
-3. Your API key exported in your shell:
+3. Your Mem0 key and a stable user identity exported in the shell that launches Harness:
 
 <CodeGroup>
 ```bash zsh
 echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc
+echo 'export MEM0_USER_ID="your-user-id"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
 ```bash bash
 echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
+echo 'export MEM0_USER_ID="your-user-id"' >> ~/.bashrc
 source ~/.bashrc
 ```
 </CodeGroup>
 
 ## Try it locally
 
-1. Build and pack the plugin:
+1. Build and pack the plugin from the full repository (the source imports the sibling shared core):
    ```sh
    cd integrations/deepseek-plugin
    pnpm install --frozen-lockfile
@@ -70,32 +72,31 @@ source ~/.bashrc
 2. Install it into a disposable Harness profile so Harness supplies its peer dependencies:
    ```sh
    DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
-     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.3.0.tgz
+     plugin --profile web add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.3.1.tgz
    ```
 
-3. Copy `cordis.example.yml`, set its installed package path and your `userId`, then load it with the same profile:
+3. Launch the same profile. The package's `dsh.bundle` activates Mem0 automatically:
    ```sh
    DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
-     web --patch ./integrations/deepseek-plugin/cordis.example.yml
+     web
    ```
 
-4. Open the web UI and ask the agent to remember something, then recall it in a later turn.
+4. Open the web UI, select a workspace, and state a synthetic preference without mentioning Mem0. Allow extraction to finish, start a fresh session, and ask for that preference without tools. Inspect the `mem0:recall` context to confirm automatic recall.
 
-The `cordis.yml` entry looks like this:
+`pnpm pack` builds the package automatically and ships its activation patch. To customize it, copy `cordis.example.yml` and launch with `web --patch /absolute/path/to/cordis.yml`. The override updates the existing bundle row:
 
 ```yaml
-- name: "@deepseek-ai/dsh-system-prompt"
-- name: "@deepseek-ai/dsh-tools"
-- insert:
-    - id: mem0
-      name: "/tmp/mem0-dsh-dev/profiles/headless/node_modules/@mem0/deepseek-plugin/dist/index.js"
-      config:
-        # apiKey is read from MEM0_API_KEY when omitted here.
-        userId: "your-user-id"
-        autoRecall: true
-        autoCapture: true
-        # host: "https://your-onprem.mem0.ai"   # optional: Platform on-prem / dedicated base URL
+- id: mem0
+  config:
+    # A config override replaces the whole config, so restate userId.
+    userId: !!js process.env.MEM0_USER_ID
+    memoryScope: workspace
+    autoRecall: true
+    autoCapture: true
+    # host: "https://your-onprem.mem0.ai"   # optional: Platform dedicated base URL
 ```
+
+When upgrading from a manual installation, remove the old patch that inserts a `mem0` row; the bundle now inserts it. Keep custom settings as an override by `id`.
 
 For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that base URL (defaults to `api.mem0.ai`). `host` is a Platform base-URL override, not a switch to self-hosted Mem0 OSS.
 
@@ -105,12 +106,27 @@ For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that
 |---|---|---|---|
 | `apiKey` | no | `$MEM0_API_KEY` | Mem0 platform API key |
 | `userId` | yes | | Default entity that owns the memories |
+| `memoryScope` | no | `user` | `user` shares memory across workspaces; `workspace` isolates automatic and explicit memory operations |
 | `allowUserOverride` | no | `false` | Permit model-selected access to a different user only in a trusted multi-user deployment |
 | `host` | no | `api.mem0.ai` | Platform base URL (on-prem / dedicated) |
 | `autoRecall` | no | `true` | Recall relevant memory before model requests |
 | `autoCapture` | no | `true` | Store completed human and assistant turns |
 
-Both tools also accept optional per-call `userId`, `agentId`, and `runId` params so a single install can partition memory by entity, agent, or session; `userId` defaults to the configured user, while `agentId` and `runId` are omitted unless supplied. Automatic recall and capture use the configured user without an agent, repository, or session filter. Automatic capture preserves full redacted user and assistant message text without a per-message character cutoff.
+Both tools also accept optional per-call `userId`, `agentId`, and `runId` params so a single install can partition memory by entity, agent, or session; `userId` defaults to the configured user, while `agentId` and `runId` are omitted unless supplied. Automatic capture preserves full redacted user and assistant message text without a per-message character cutoff.
+
+## Workspace scope
+
+By default, automatic capture and recall use the configured user across all workspaces. This is intentional compatibility behavior. To isolate workspaces, set `memoryScope: workspace` as shown above. All writes then attach an `appId` derived from the canonical absolute session workspace path; all searches require its matching `app_id`. The model cannot override that workspace filter.
+
+Symlink aliases share a scope. Different directories, clones, or worktrees have different scopes; moving a directory changes its scope. Missing or invalid workspace paths skip automatic memory operations and reject explicit tools without falling back to user-wide access. Existing user-only memories are not migrated into workspace scopes.
+
+User scope searches all memories belonging to the user, including workspace-tagged memories. Workspace isolation applies only when workspace scope is configured; it is application filtering, not a separate Mem0 account or credential.
+
+## Extraction and recall limits
+
+Capture sends the full redacted turn to Mem0 for asynchronous extraction. A queued write, or even an initially nonempty memory list, does not mean every extracted fact is ready. Allow processing to finish and inspect stored memories before diagnosing lost preferences or missing filenames and numeric constraints. Exact extraction remains model-dependent; a one-off request should not automatically become a standing preference.
+
+Automatic recall is a shallow first pass: up to five results, 4,000 context characters, and a two-second wait. The explicit `search_memory` tool can use a more focused query and returns up to ten results by default.
 
 ## Telemetry
 
@@ -124,6 +140,6 @@ Writes are tagged `source="DEEPSEEK_HARNESS"` so Mem0 can attribute usage to thi
 
 - **`MISSING_CREDENTIAL` for `deepseek-official`**: Configure `DEEPSEEK_API_KEY` through Harness's Models page or export it in the shell that launches Harness.
 - **`EMFILE: too many open files, watch` on macOS**: Launch Harness with `CHOKIDAR_USEPOLLING=1`.
-- **Mem0 tools do not appear**: Run Harness with `--dump-config` and confirm the final composition contains the `mem0` row and the installed `dist/index.js` path.
+- **Mem0 tools do not appear**: Run Harness with `--dump-config` for the same profile used at installation and confirm it contains a `mem0` row naming `@mem0/deepseek-plugin`. Export `MEM0_USER_ID` and `MEM0_API_KEY` before launching.
 
 Per-call `userId` overrides are rejected unless the operator enables `allowUserOverride: true`. Automatic recall and capture always use the configured user.

@@ -3106,6 +3106,23 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 
 <Tab title="DeepSeek Harness">
 
+<Update label="2026-09-11" description="deepseek-plugin v0.3.1">
+
+**Fixed:**
+- Automatic recall uses the claimed human inbox message before Harness appends it to session history, so the first request in a fresh session can recall memories and later turns use the current prompt.
+- Native `dsh.bundle` activation loads Mem0 when the package is installed into a Harness profile. `pnpm pack` builds the plugin and includes its activation patch.
+- Automatic recall guidance points to the available memory search tool for deeper searches.
+
+**Added:**
+- Optional `memoryScope: workspace` applies the same canonical workspace filter to automatic recall, capture, and both memory tools. Missing workspace paths skip automatic operations and reject explicit tools without falling back to shared memory.
+
+**Upgrade notes:**
+- `memoryScope: user` remains the default and shares memories across workspaces. Existing memories are not migrated into workspace scopes; separate clones and worktrees have separate scopes when workspace mode is enabled.
+- Export `MEM0_USER_ID` alongside `MEM0_API_KEY`. Remove the old manual `insert: mem0` overlay; customize the bundle's existing row with an `id: mem0` override. See [DeepSeek Harness setup](/integrations/deepseek-plugin).
+- Capture extraction remains asynchronous. This patch does not change extraction policy or guarantee that every preference or numeric constraint becomes a memory.
+
+</Update>
+
 <Update label="2026-09-08" description="deepseek-plugin v0.3.0">
 
 **Added:**
