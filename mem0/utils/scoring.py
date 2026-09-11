@@ -71,8 +71,8 @@ def score_and_rank(
         semantic_score is taken from the result's score field.
         combined = (semantic + bm25 + entity_boost) / max_possible
 
-    Threshold gates the semantic score BEFORE combining -- candidates
-    below the threshold are excluded even if BM25/entity would boost them.
+    Threshold gates semantic candidates BEFORE combining. Keyword-only
+    candidates have no semantic score to threshold and are ranked by BM25.
 
     The divisor adapts based on which signals are active:
         - Semantic only: max_possible = 1.0
@@ -84,7 +84,7 @@ def score_and_rank(
         semantic_results: Candidate memories from vector search.
         bm25_scores: Normalized keyword scores keyed by memory ID.
         entity_boosts: Entity-link boosts keyed by memory ID.
-        threshold: Minimum semantic score required before hybrid scoring.
+        threshold: Minimum score for candidates returned by semantic search.
         top_k: Maximum number of results to return.
         explain: Include score_details in each result when true.
 
@@ -108,7 +108,8 @@ def score_and_rank(
             continue
 
         semantic_score = result.get("score") or 0.0
-        if semantic_score < threshold:
+        keyword_only = result.get("_keyword_only", False)
+        if not keyword_only and semantic_score < threshold:
             continue
 
         mem_id_str = str(mem_id)
