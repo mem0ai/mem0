@@ -131,6 +131,14 @@ class TurbopufferDB(VectorStoreBase):
             ))
         return results
 
+    _SCALAR_TYPES = (str, int, float, bool)
+
+    def _validate_filter_value(self, key: str, op: str, value) -> None:
+        if not isinstance(value, self._SCALAR_TYPES):
+            raise ValueError(
+                f"Filter value for {key!r} ({op}) must be a string, int, float, or bool; got {type(value).__name__}"
+            )
+
     def _convert_filters(self, filters: Optional[Dict]):
         """
         Convert mem0 filters to Turbopuffer filter format.
@@ -144,10 +152,13 @@ class TurbopufferDB(VectorStoreBase):
         for key, value in filters.items():
             if isinstance(value, dict):
                 if "gte" in value:
+                    self._validate_filter_value(key, "gte", value["gte"])
                     conditions.append((key, "Gte", value["gte"]))
                 if "lte" in value:
+                    self._validate_filter_value(key, "lte", value["lte"])
                     conditions.append((key, "Lte", value["lte"]))
             else:
+                self._validate_filter_value(key, "eq", value)
                 conditions.append((key, "Eq", value))
 
         if not conditions:
