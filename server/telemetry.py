@@ -36,7 +36,7 @@ def _load_state() -> dict[str, Any]:
     if not STATE_PATH.exists():
         return {}
     try:
-        return json.loads(STATE_PATH.read_text())
+        return json.loads(STATE_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
 
@@ -44,7 +44,7 @@ def _load_state() -> dict[str, Any]:
 def _save_state(state: dict[str, Any]) -> None:
     try:
         STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        STATE_PATH.write_text(json.dumps(state))
+        STATE_PATH.write_text(json.dumps(state), encoding="utf-8")
     except OSError:
         logging.exception("telemetry: failed to persist state")
 
