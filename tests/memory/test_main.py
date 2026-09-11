@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from datetime import datetime, timezone
@@ -1178,3 +1179,105 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+class TestAsyncEmbeddedWriteSerialization:
+    """Concurrent AsyncMemory writes against an embedded vector store (#4892).
+
+    AsyncMemory dispatches every store write through `asyncio.to_thread`, so
+    concurrent callers write to the embedded database in genuine parallel.
+    Embedded Qdrant keeps its data in a process-local database that does not
+    tolerate that, and a share of the writes fail.
+    """
+
+    @staticmethod
+    def _async_memory_on_embedded_qdrant(mocker, path):
+        mock_embedder = mocker.MagicMock()
+        mock_embedder.return_value.embed.return_value = [0.1] * 8
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", mock_embedder)
+        mocker.patch("mem0.utils.factory.LlmFactory.create", mocker.MagicMock())
+        mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+
+        from mem0.configs.base import MemoryConfig
+
+        config = MemoryConfig()
+        config.vector_store.provider = "qdrant"
+        config.vector_store.config.collection_name = "concurrency_test"
+        config.vector_store.config.embedding_model_dims = 8
+        config.vector_store.config.path = str(path)
+        config.vector_store.config.on_disk = False
+        return AsyncMemory(config)
+
+    @pytest.mark.asyncio
+    async def test_concurrent_creates_against_embedded_qdrant_all_persist(self, mocker, tmp_path):
+        """Real embedded Qdrant, no mocked store: every concurrent write must land."""
+        memory = self._async_memory_on_embedded_qdrant(mocker, tmp_path / "qdrant")
+        assert memory._write_lock is not None, "embedded backend should serialize writes"
+
+        writers = 50
+        results = await asyncio.gather(
+            *[
+                memory._create_memory(f"memory {i}", {f"memory {i}": [0.1] * 8}, {"user_id": "u1"})
+                for i in range(writers)
+            ],
+            return_exceptions=True,
+        )
+
+        failures = [r for r in results if isinstance(r, BaseException)]
+        assert not failures, f"{len(failures)}/{writers} concurrent writes failed: {failures[:3]}"
+
+        stored = memory.vector_store.list(filters={"user_id": "u1"}, top_k=writers * 2)[0]
+        assert len(stored) == writers, f"expected {writers} memories persisted, found {len(stored)}"
+
+    @pytest.mark.asyncio
+    async def test_write_lock_serializes_insert_update_and_delete(self, mocker, tmp_path):
+        """The three write verbs must never overlap while the lock is engaged."""
+        memory = self._async_memory_on_embedded_qdrant(mocker, tmp_path / "qdrant")
+
+        in_flight = 0
+        max_in_flight = 0
+
+        def tracked(*args, **kwargs):
+            nonlocal in_flight, max_in_flight
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            time.sleep(0.01)
+            in_flight -= 1
+
+        store = mocker.MagicMock()
+        store.insert.side_effect = tracked
+        store.update.side_effect = tracked
+        store.delete.side_effect = tracked
+        store.get.return_value = SimpleNamespace(
+            id="m-1", payload={"data": "old", "user_id": "u1", "created_at": "2026-04-19T00:00:00+00:00"}
+        )
+        memory.vector_store = store
+        memory.db = MagicMock()
+
+        await asyncio.gather(
+            *[memory._create_memory(f"m{i}", {f"m{i}": [0.1] * 8}, {"user_id": "u1"}) for i in range(6)],
+            *[memory._update_memory(f"m{i}", "new", {"new": [0.1] * 8}, {"user_id": "u1"}) for i in range(6)],
+            *[memory._delete_memory(f"m{i}", skip_entity_cleanup=True) for i in range(6)],
+        )
+
+        assert max_in_flight == 1, f"writes overlapped: {max_in_flight} concurrent store calls"
+
+    @pytest.mark.parametrize(
+        "store, expect_lock",
+        [
+            (SimpleNamespace(is_local=True), True),
+            (SimpleNamespace(is_local=False), False),
+            (SimpleNamespace(), False),
+        ],
+        ids=["embedded", "server-mode", "backend-without-the-attribute"],
+    )
+    def test_lock_is_created_only_for_embedded_backends(self, mocker, store, expect_lock):
+        """Scoping check: server-backed stores keep writing in parallel."""
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", mocker.MagicMock())
+        mocker.patch("mem0.utils.factory.VectorStoreFactory.create", return_value=store)
+        mocker.patch("mem0.utils.factory.LlmFactory.create", mocker.MagicMock())
+        mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+
+        memory = AsyncMemory()
+
+        assert (memory._write_lock is not None) is expect_lock
