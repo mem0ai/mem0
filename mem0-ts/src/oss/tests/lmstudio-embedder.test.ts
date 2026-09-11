@@ -3,6 +3,7 @@
  * LM Studio Embedder — unit tests (mocked OpenAI).
  */
 
+import OpenAI from "openai";
 import { LMStudioEmbedder } from "../src/embeddings/lmstudio";
 
 const mockEmbedding = [0.1, 0.2, 0.3, 0.4, 0.5];
@@ -16,8 +17,45 @@ jest.mock("openai", () => {
   }));
 });
 
+const MockOpenAI = OpenAI as unknown as jest.Mock;
+
 describe("LMStudioEmbedder (unit)", () => {
-  beforeEach(() => mockCreate.mockClear());
+  beforeEach(() => {
+    mockCreate.mockClear();
+    MockOpenAI.mockClear();
+    delete process.env.LMSTUDIO_BASE_URL;
+  });
+
+  it("honors LMSTUDIO_BASE_URL when no baseURL is configured", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://lmstudio.example:9999/v1";
+
+    new LMStudioEmbedder({ model: "test-model" });
+
+    expect(MockOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: "http://lmstudio.example:9999/v1" }),
+    );
+  });
+
+  it("prefers an explicit baseURL over LMSTUDIO_BASE_URL", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://env.example/v1";
+
+    new LMStudioEmbedder({
+      model: "test-model",
+      baseURL: "http://explicit.example/v1",
+    });
+
+    expect(MockOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: "http://explicit.example/v1" }),
+    );
+  });
+
+  it("falls back to the localhost default when neither is set", () => {
+    new LMStudioEmbedder({ model: "test-model" });
+
+    expect(MockOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: "http://localhost:1234/v1" }),
+    );
+  });
 
   it("embed() calls OpenAI with encoding_format float and returns vector", async () => {
     const embedder = new LMStudioEmbedder({
