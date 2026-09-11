@@ -22,6 +22,7 @@ import {
 } from "./state.js";
 import { captureEvent } from "./telemetry.js";
 import { CLI_VERSION } from "./version.js";
+import { withTimeout } from "./with-timeout.js";
 
 const program = new Command();
 
@@ -52,12 +53,10 @@ async function getBackendAndConfig(
 
 	// Validate the API key upfront with a fast timeout
 	try {
-		const pingData = (await Promise.race([
-			backend.ping(),
-			new Promise<never>((_, reject) =>
-				setTimeout(() => reject(new Error("timeout")), 5000),
-			),
-		])) as Record<string, unknown>;
+		const pingData = (await withTimeout(backend.ping(), 5000)) as Record<
+			string,
+			unknown
+		>;
 
 		const email = pingData?.user_email as string | undefined;
 		if (email) {
