@@ -386,8 +386,16 @@ class AzureAISearch(VectorStoreBase):
 
     def __del__(self):
         """Close the search client when the object is deleted."""
-        self.search_client.close()
-        self.index_client.close()
+        try:
+            if hasattr(self, "search_client"):
+                self.search_client.close()
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "index_client"):
+                self.index_client.close()
+        except Exception:
+            pass
 
     def reset(self):
         """Reset the index by deleting and recreating it."""
