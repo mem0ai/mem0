@@ -30,7 +30,7 @@ openai_client = OpenAI()
 
 def chat(user_input: str, user_id: str) -> str:
     # 1. Retrieve relevant memories
-    memories = mem0.search(user_input, user_id=user_id)
+    memories = mem0.search(user_input, filters={"user_id": user_id})
     context = "\n".join([f"- {m['memory']}" for m in memories.get("results", [])])
 
     # 2. Generate response with memory context
@@ -226,7 +226,7 @@ def save_patient_info(user_id: str, information: str):
 
 def consult(user_id: str, question: str) -> str:
     # High threshold for medical accuracy
-    memories = mem0.search(question, user_id=user_id, top_k=5, threshold=0.7)
+    memories = mem0.search(question, filters={"user_id": user_id}, top_k=5, threshold=0.7)
     context = "\n".join([f"- {m['memory']}" for m in memories.get("results", [])])
 
     response = openai_client.chat.completions.create(
@@ -516,7 +516,7 @@ Extract dietary preferences, location, interests, and purchase history."""
 
 def personalized_search(user_id: str, query: str, search_results: list) -> str:
     # Get user context from memory
-    memories = mem0.search(query, user_id=user_id, top_k=5)
+    memories = mem0.search(query, filters={"user_id": user_id}, top_k=5)
     user_context = "\n".join([f"- {m['memory']}" for m in memories.get("results", [])])
 
     response = openai_client.chat.completions.create(
@@ -661,7 +661,7 @@ Every use case follows the same 3-step loop:
 
 ```python
 # 1. Retrieve relevant context
-memories = mem0.search(user_input, user_id=user_id)
+memories = mem0.search(user_input, filters={"user_id": user_id})
 context = "\n".join([m["memory"] for m in memories.get("results", [])])
 
 # 2. Generate with context
