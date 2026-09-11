@@ -226,6 +226,174 @@ describe("Entity boost parallelism (#5214)", () => {
     warnSpy.mockRestore();
   });
 
+  it("should rescue linked points outside the semantic pool and fail closed", async () => {
+    const m = memory as any;
+    await m._ensureInitialized();
+
+    m._entityStore = {
+      search: jest
+        .fn()
+        .mockResolvedValue([
+          makeMatch("e-alice", 0.9, [
+            "mem-primary",
+            "mem-rescued",
+            "mem-rescued",
+            "mem-wrong-scope",
+            "mem-wrong-filter",
+            "mem-expired",
+            "mem-malformed",
+            "mem-missing",
+            "mem-throws",
+          ]),
+        ]),
+      initialize: jest.fn().mockResolvedValue(undefined),
+    };
+    m.embedder = {
+      embed: jest.fn().mockResolvedValue(mockEmbedding),
+      embedBatch: jest
+        .fn()
+        .mockImplementation((texts: string[]) =>
+          Promise.resolve(texts.map(() => mockEmbedding)),
+        ),
+    };
+    m.vectorStore.search = jest.fn().mockResolvedValue([
+      {
+        id: "mem-primary",
+        score: 0.8,
+        payload: { data: "primary", user_id: "u1", topic: "keep" },
+      },
+      {
+        id: "mem-primary",
+        score: 0.8,
+        payload: { data: "primary", user_id: "u1", topic: "keep" },
+      },
+    ]);
+    m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
+    m.vectorStore.get = jest.fn().mockImplementation(async (id: string) => {
+      if (id === "mem-throws") throw new Error("point fetch failed");
+      const payloads: Record<string, Record<string, any> | null> = {
+        "mem-rescued": {
+          data: "rescued",
+          user_id: "u1",
+          topic: "keep",
+          memory_type: "procedural_memory",
+          not: "keep",
+          rank: true,
+        },
+        "mem-wrong-scope": { data: "wrong", user_id: "u2", topic: "keep" },
+        "mem-wrong-filter": { data: "wrong", user_id: "u1", topic: "drop" },
+        "mem-expired": {
+          data: "expired",
+          user_id: "u1",
+          topic: "keep",
+          expiration_date: "2000-01-01",
+        },
+        "mem-malformed": null,
+      };
+      const payload = payloads[id];
+      return payload === undefined ? null : { id, payload };
+    });
+
+    const result = await m.search("Alice Smith", {
+      filters: { user_id: "u1", topic: "keep" },
+    });
+    const resultIds = result.results.map((item: { id: string }) => item.id);
+
+    expect(resultIds.filter((id: string) => id === "mem-rescued")).toHaveLength(
+      1,
+    );
+    expect(resultIds.filter((id: string) => id === "mem-primary")).toHaveLength(
+      1,
+    );
+    const rescued = result.results.find(
+      (item: { id: string; metadata?: Record<string, any> }) =>
+        item.id === "mem-rescued",
+    );
+    expect(rescued?.metadata?.memory_type).toBe("procedural_memory");
+    expect(resultIds).not.toContain("mem-wrong-scope");
+    expect(resultIds).not.toContain("mem-wrong-filter");
+    expect(resultIds).not.toContain("mem-expired");
+    expect(resultIds).not.toContain("mem-malformed");
+    expect(resultIds).not.toContain("mem-missing");
+    expect(resultIds).not.toContain("mem-throws");
+    expect(m.vectorStore.get).not.toHaveBeenCalledWith("mem-primary");
+
+    for (const advancedValue of [
+      { eq: "keep" },
+      ["keep"],
+      { $or: [{ topic: "keep" }] },
+      "*",
+    ]) {
+      const advancedResult = await m.search("Alice Smith", {
+        filters: { user_id: "u1", topic: advancedValue },
+      });
+      expect(
+        advancedResult.results.map((item: { id: string }) => item.id),
+      ).not.toContain("mem-rescued");
+    }
+
+    const metadataKeyResult = await m.search("Alice Smith", {
+      filters: { user_id: "u1", not: "keep" },
+    });
+    expect(
+      metadataKeyResult.results.map((item: { id: string }) => item.id),
+    ).toContain("mem-rescued");
+    const typeMismatchResult = await m.search("Alice Smith", {
+      filters: { user_id: "u1", rank: 1 },
+    });
+    expect(
+      typeMismatchResult.results.map((item: { id: string }) => item.id),
+    ).not.toContain("mem-rescued");
+    const missingFieldResult = await m.search("Alice Smith", {
+      filters: { user_id: "u1", missing: "value" },
+    });
+    expect(
+      missingFieldResult.results.map((item: { id: string }) => item.id),
+    ).not.toContain("mem-rescued");
+  });
+
+  it("bounds rescue point fetches independently of topK", async () => {
+    const m = memory as any;
+    await m._ensureInitialized();
+    const linkedIds = Array.from(
+      { length: 75 },
+      (_, index) => `rescued-${index}`,
+    );
+    m._entityStore = {
+      search: jest
+        .fn()
+        .mockResolvedValue([makeMatch("e-alice", 0.9, linkedIds)]),
+      initialize: jest.fn().mockResolvedValue(undefined),
+    };
+    m.embedder = {
+      embed: jest.fn().mockResolvedValue(mockEmbedding),
+      embedBatch: jest
+        .fn()
+        .mockImplementation((texts: string[]) =>
+          Promise.resolve(texts.map(() => mockEmbedding)),
+        ),
+    };
+    m.vectorStore.search = jest.fn().mockResolvedValue([
+      {
+        id: "mem-primary",
+        score: 0.8,
+        payload: { data: "primary", user_id: "u1" },
+      },
+    ]);
+    m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
+    m.vectorStore.get = jest.fn().mockImplementation(async (id: string) => ({
+      id,
+      payload: { data: id, user_id: "u1" },
+    }));
+
+    await m.search("Alice Smith", { filters: { user_id: "u1" }, topK: 100 });
+
+    expect(m.vectorStore.get).toHaveBeenCalledTimes(60);
+    m.vectorStore.get.mockClear();
+    await m.search("Alice Smith", { filters: { user_id: "u1" }, topK: 1 });
+    expect(m.vectorStore.get).toHaveBeenCalledTimes(60);
+  });
+
   it("should call entity searches concurrently, not sequentially", async () => {
     const m = memory as any;
     await m._ensureInitialized();

@@ -71,8 +71,8 @@ def score_and_rank(
         semantic_score is taken from the result's score field.
         combined = (semantic + bm25 + entity_boost) / max_possible
 
-    Threshold gates the semantic score BEFORE combining -- candidates
-    below the threshold are excluded even if BM25/entity would boost them.
+    Threshold gates numeric semantic scores BEFORE combining. Candidates with
+    no semantic score require a positive entity boost to enter this scorer.
 
     The divisor adapts based on which signals are active:
         - Semantic only: max_possible = 1.0
@@ -107,13 +107,17 @@ def score_and_rank(
         if mem_id is None:
             continue
 
-        semantic_score = result.get("score") or 0.0
-        if semantic_score < threshold:
-            continue
-
+        raw_semantic_score = result.get("score")
         mem_id_str = str(mem_id)
         bm25_score = bm25_scores.get(mem_id_str, 0.0)
         entity_boost = entity_boosts.get(mem_id_str, 0.0)
+        is_entity_rescue = result.get("is_entity_rescue") is True
+        semantic_score = raw_semantic_score or 0.0
+        if is_entity_rescue:
+            if entity_boost <= 0 or (raw_semantic_score is not None and semantic_score < threshold):
+                continue
+        elif semantic_score < threshold:
+            continue
 
         raw_combined = semantic_score + bm25_score + entity_boost
         combined = min(raw_combined / max_possible, 1.0)
