@@ -1,6 +1,7 @@
 import asyncio
 import concurrent.futures
 import gc
+import gzip
 import hashlib
 import json
 import logging
@@ -10,7 +11,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import ValidationError
 
@@ -417,6 +418,143 @@ def _build_session_scope(filters):
         if val:
             parts.append(f"{key}={_escape_scope_value(val)}")
     return "&".join(parts)
+
+
+EXPORT_BUNDLE_VERSION = "1"
+EXPORT_MEMORY_FETCH_LIMIT = 10000  # kept at/below common backend list() ceilings (e.g. Pinecone 10k); truncation is logged
+
+
+def _validate_export_filters(filters):
+    effective_filters = dict(filters) if filters else {}
+    for key in ("user_id", "agent_id", "run_id"):
+        if key in effective_filters:
+            effective_filters[key] = _validate_and_trim_entity_id(effective_filters[key], key)
+    if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
+        raise ValueError(
+            "filters must contain at least one of: user_id, agent_id, run_id. "
+            "Example: filters={'run_id': 'sess-42'}"
+        )
+    return effective_filters
+
+
+def _validate_on_conflict(on_conflict):
+    if on_conflict not in ("skip", "overwrite", "new_ids"):
+        raise ValueError("on_conflict must be one of: 'skip', 'overwrite', 'new_ids'")
+
+
+def _memory_exists(vector_store, memory_id):
+    try:
+        return vector_store.get(vector_id=memory_id) is not None
+    except Exception:
+        return False
+
+
+def _export_session_bundle(vector_store, effective_filters):
+    """Build a round-trippable bundle for the given entity scope (shared by sync + async)."""
+    listed = vector_store.list(filters=effective_filters, top_k=EXPORT_MEMORY_FETCH_LIMIT)
+    rows = _vector_store_list_rows(listed)
+    memories = [
+        {"id": row.id, "payload": dict(row.payload) if getattr(row, "payload", None) else {}} for row in rows
+    ]
+    if len(memories) >= EXPORT_MEMORY_FETCH_LIMIT:
+        logger.warning(
+            "export_session reached the fetch limit of %s memories; the bundle may be truncated. "
+            "Export a narrower scope.",
+            EXPORT_MEMORY_FETCH_LIMIT,
+        )
+
+    return {
+        "mem0_export_version": EXPORT_BUNDLE_VERSION,
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "scope": {k: effective_filters[k] for k in ("user_id", "agent_id", "run_id") if k in effective_filters},
+        "memories": memories,
+    }
+
+
+def _import_session_bundle(vector_store, embedding_model, bundle, on_conflict, remap):
+    """Re-embed and upsert a bundle's memories into this instance (shared by sync + async).
+
+    Re-embeds with THIS instance's embedder and recomputes the content-derived fields (hash,
+    text_lemmatized) from ``data`` so dedup and BM25 keyword search stay correct regardless of which
+    backend produced the bundle. ``new_ids`` mints a fresh id per memory and is intentionally NOT
+    idempotent - do not run it repeatedly against the same target or it will duplicate memories.
+    """
+    imported_memories = 0
+    skipped_memories = 0
+    dropped_memories = 0
+
+    for record in bundle.get("memories", []):
+        old_id = record.get("id")
+        payload = dict(record.get("payload") or {})
+        for key in ("user_id", "agent_id", "run_id"):
+            if key in remap:
+                payload[key] = remap[key]
+        data = payload.get("data")
+        if not data:
+            dropped_memories += 1
+            continue
+
+        # A remapped import forks the session under a new identity, so it must land on fresh
+        # ids: reusing the source ids would be skipped (id already present) or overwrite the
+        # source memories in place, both of which break "continue under a new identity".
+        if on_conflict == "new_ids" or remap or not old_id:
+            new_id, do_insert = str(uuid.uuid4()), True
+        elif on_conflict == "skip" and _memory_exists(vector_store, old_id):
+            new_id, do_insert = old_id, False
+        else:
+            new_id, do_insert = old_id, True
+        if not do_insert:
+            skipped_memories += 1
+            continue
+
+        # Recompute content-derived fields from data (mirror the add path) so hash/text_lemmatized
+        # always agree with the stored content, independent of what the source backend persisted.
+        payload["hash"] = hashlib.md5(data.encode()).hexdigest()
+        payload["text_lemmatized"] = lemmatize_for_bm25(data)
+
+        embeddings = embedding_model.embed(data, memory_action="add")
+        if on_conflict == "overwrite":
+            try:
+                vector_store.delete(vector_id=new_id)
+            except Exception:
+                pass
+        vector_store.insert(vectors=[embeddings], ids=[new_id], payloads=[payload])
+        imported_memories += 1
+
+    return {
+        "imported": {"memories": imported_memories},
+        "skipped": {"memories": skipped_memories},
+        "dropped": {"memories": dropped_memories},
+    }
+
+
+def _write_bundle(bundle, path, compress):
+    path = str(path)
+    if compress and not path.lower().endswith(".gz"):
+        path = path + ".gz"
+    data = json.dumps(bundle, ensure_ascii=False, indent=2)
+    if path.lower().endswith(".gz"):
+        with gzip.open(path, "wt", encoding="utf-8") as f:
+            f.write(data)
+    else:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(data)
+    return path
+
+
+def _read_bundle(path):
+    path = str(path)
+    opener = gzip.open if path.lower().endswith(".gz") else open
+    with opener(path, "rt", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _load_bundle(bundle, path):
+    if bundle is None and path is None:
+        raise ValueError("Provide either 'bundle' or 'path' to import_session")
+    if bundle is not None and path is not None:
+        raise ValueError("Provide only one of 'bundle' or 'path' to import_session")
+    return _read_bundle(path) if path is not None else bundle
 
 
 def _entity_collection_name(provider: str, collection_name: str) -> str:
@@ -1957,6 +2095,93 @@ class Memory(MemoryBase):
         history = self.db.get_history(memory_id)
         display_first_run_notice(self, "sync", "history")
         return history
+
+    def export_session(
+        self,
+        *,
+        filters: Optional[Dict[str, Any]] = None,
+        path: Optional[str] = None,
+        compress: bool = False,
+    ):
+        """Export a session (or any entity scope) as a portable, round-trippable bundle.
+
+        The bundle holds the raw memories scoped by ``filters`` (at least one of ``user_id``,
+        ``agent_id``, ``run_id`` - the same rule as :meth:`get_all`). Import it into any other
+        self-hosted mem0 instance with :meth:`import_session`.
+
+        Args:
+            filters (dict): Entity scope, e.g. ``{"run_id": "sess-42"}``.
+            path (str, optional): If given, write the bundle to this file and return the path;
+                otherwise return the bundle dict. A ``.gz`` suffix (or ``compress=True``) gzips it.
+            compress (bool): Gzip the file when writing to ``path``. Defaults to False.
+
+        Returns:
+            dict | str: The bundle dict, or the written file path when ``path`` is given.
+        """
+        effective_filters = _validate_export_filters(filters)
+        bundle = _export_session_bundle(self.vector_store, effective_filters)
+        result = _write_bundle(bundle, path, compress) if path is not None else bundle
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
+        capture_event(
+            "mem0.export_session",
+            self,
+            {
+                "keys": keys,
+                "encoded_ids": encoded_ids,
+                "count": len(bundle["memories"]),
+                "sync_type": "sync",
+            },
+        )
+        return result
+
+    def import_session(
+        self,
+        bundle: Optional[Dict[str, Any]] = None,
+        *,
+        path: Optional[str] = None,
+        on_conflict: Literal["skip", "overwrite", "new_ids"] = "skip",
+        remap_scope: Optional[Dict[str, str]] = None,
+    ) -> dict:
+        """Import a bundle produced by :meth:`export_session` into this instance.
+
+        Memories are re-embedded with this instance's embedder and upserted. The LLM
+        fact-extraction pipeline is never invoked - this is a faithful round-trip, not a
+        re-derivation.
+
+        Args:
+            bundle (dict, optional): An in-memory bundle dict. Provide this or ``path``.
+            path (str, optional): Read the bundle from this ``.json`` / ``.json.gz`` file instead.
+            on_conflict (str): When a memory id already exists - ``"skip"`` (keep existing),
+                ``"overwrite"`` (replace), or ``"new_ids"`` (always mint a fresh id; NOT idempotent,
+                do not re-run against the same target). Defaults to ``"skip"``.
+            remap_scope (dict, optional): Rewrite ``user_id`` / ``agent_id`` / ``run_id`` on every
+                imported memory, so the session continues under a new identity, e.g.
+                ``{"run_id": "sess-42-cont"}``. When set, memories are always imported under fresh
+                ids (a fork), so ``on_conflict`` does not apply to them and the source session is
+                left intact even when importing back into the same instance.
+
+        Returns:
+            dict: Summary, e.g. ``{"imported": {"memories": 3}, "skipped": {"memories": 0},
+            "dropped": {"memories": 0}}``.
+        """
+        _validate_on_conflict(on_conflict)
+        bundle = _load_bundle(bundle, path)
+        summary = _import_session_bundle(
+            self.vector_store, self.embedding_model, bundle, on_conflict, remap_scope or {}
+        )
+        capture_event(
+            "mem0.import_session",
+            self,
+            {
+                "imported": summary["imported"]["memories"],
+                "skipped": summary["skipped"]["memories"],
+                "dropped": summary["dropped"]["memories"],
+                "on_conflict": on_conflict,
+                "remap": bool(remap_scope),
+                "sync_type": "sync",
+            },
+        )
+        return summary
 
     def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
@@ -3630,6 +3855,63 @@ class AsyncMemory(MemoryBase):
         history = await asyncio.to_thread(self.db.get_history, memory_id)
         await display_first_run_notice_async(self, "async", "history")
         return history
+
+    async def export_session(
+        self,
+        *,
+        filters: Optional[Dict[str, Any]] = None,
+        path: Optional[str] = None,
+        compress: bool = False,
+    ):
+        """Async version of :meth:`Memory.export_session`."""
+        effective_filters = _validate_export_filters(filters)
+        bundle = await asyncio.to_thread(_export_session_bundle, self.vector_store, effective_filters)
+        result = await asyncio.to_thread(_write_bundle, bundle, path, compress) if path is not None else bundle
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
+        capture_event(
+            "mem0.export_session",
+            self,
+            {
+                "keys": keys,
+                "encoded_ids": encoded_ids,
+                "count": len(bundle["memories"]),
+                "sync_type": "async",
+            },
+        )
+        return result
+
+    async def import_session(
+        self,
+        bundle: Optional[Dict[str, Any]] = None,
+        *,
+        path: Optional[str] = None,
+        on_conflict: Literal["skip", "overwrite", "new_ids"] = "skip",
+        remap_scope: Optional[Dict[str, str]] = None,
+    ) -> dict:
+        """Async version of :meth:`Memory.import_session`."""
+        _validate_on_conflict(on_conflict)
+        bundle = await asyncio.to_thread(_load_bundle, bundle, path)
+        summary = await asyncio.to_thread(
+            _import_session_bundle,
+            self.vector_store,
+            self.embedding_model,
+            bundle,
+            on_conflict,
+            remap_scope or {},
+        )
+        capture_event(
+            "mem0.import_session",
+            self,
+            {
+                "imported": summary["imported"]["memories"],
+                "skipped": summary["skipped"]["memories"],
+                "dropped": summary["dropped"]["memories"],
+                "on_conflict": on_conflict,
+                "remap": bool(remap_scope),
+                "sync_type": "async",
+            },
+        )
+        return summary
 
     async def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
