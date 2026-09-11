@@ -10,6 +10,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 import pytz
 
 
@@ -228,3 +229,85 @@ def test_update_entity_payload_without_hash_and_timestamps():
     assert data_dict["hash"] == ""
     assert data_dict["created_at"] == 0
     assert data_dict["updated_at"] == 0
+
+
+# ---------------------------------------------------------------------------
+# _build_filter_expression: mem0's universal filter format beyond scalar ==.
+#
+# Regression for advanced filters (operator dicts like {"age": {"gte": 18}},
+# list membership, and $or) that the old scalar-only builder turned into a
+# nonsense ``Tag(key) == {dict}`` match, so they returned empty/wrong results.
+# Assertions are on the redisvl FilterExpression string (RediSearch syntax),
+# so no live Redis is needed.
+# ---------------------------------------------------------------------------
+
+
+def _build(filters):
+    from mem0.vector_stores.redis import _build_filter_expression
+
+    return _build_filter_expression(filters)
+
+
+def test_build_filter_scalar_equality_unchanged():
+    """Scalar filters must still produce a plain Tag match (no behavior change)."""
+    assert str(_build({"user_id": "alice"})) == "@user_id:{alice}"
+    assert str(_build({"user_id": "alice", "agent_id": "a1"})) == "(@user_id:{alice} @agent_id:{a1})"
+
+
+def test_build_filter_empty_and_none_match_all():
+    """No filters, an empty dict, or all-None values yield no expression (match-all)."""
+    assert _build(None) is None
+    assert _build({}) is None
+    assert _build({"user_id": None}) is None
+
+
+def test_build_filter_list_is_membership():
+    """A list value becomes a Tag OR-of-values (``in``)."""
+    assert str(_build({"genre": ["comedy", "drama"]})) == "@genre:{comedy|drama}"
+
+
+@pytest.mark.parametrize(
+    "op_filter, expected",
+    [
+        ({"age": {"gt": 18}}, "@age:[(18 +inf]"),
+        ({"age": {"gte": 18}}, "@age:[18 +inf]"),
+        ({"age": {"lt": 65}}, "@age:[-inf (65]"),
+        ({"age": {"lte": 65}}, "@age:[-inf 65]"),
+        ({"user_id": {"eq": "alice"}}, "@user_id:{alice}"),
+        ({"user_id": {"ne": "alice"}}, "(-@user_id:{alice})"),
+        ({"cat": {"in": ["a", "b"]}}, "@cat:{a|b}"),
+        ({"cat": {"nin": ["a", "b"]}}, "(-@cat:{a|b})"),
+        ({"memory": {"contains": "hello"}}, "@memory:(hello)"),
+        ({"memory": {"icontains": "hello"}}, "@memory:(hello)"),
+    ],
+)
+def test_build_filter_operator_dicts(op_filter, expected):
+    """Each supported operator maps to the right redisvl field type/expression."""
+    assert str(_build(op_filter)) == expected
+
+
+def test_build_filter_multiple_operators_on_one_field_are_anded():
+    """A field with several operators (e.g. a range) ANDs the conditions."""
+    assert str(_build({"age": {"gte": 18, "lt": 65}})) == "(@age:[18 +inf] @age:[-inf (65])"
+
+
+def test_build_filter_or_combines_subfilters():
+    """$or combines its subfilters with a logical OR, including operator subfilters."""
+    assert str(_build({"$or": [{"user_id": "alice"}, {"user_id": "bob"}]})) == (
+        "(@user_id:{alice} | @user_id:{bob})"
+    )
+    assert str(_build({"$or": [{"age": {"gte": 18}}, {"user_id": "bob"}]})) == (
+        "(@age:[18 +inf] | @user_id:{bob})"
+    )
+
+
+def test_build_filter_unsupported_operator_raises():
+    """An unknown operator is rejected, not silently dropped."""
+    with pytest.raises(ValueError, match="Unsupported filter operator"):
+        _build({"age": {"foo": 1}})
+
+
+def test_build_filter_not_operator_raises():
+    """$not is unsupported for now and must raise rather than be silently ignored."""
+    with pytest.raises(ValueError, match=r"\$not"):
+        _build({"$not": [{"user_id": "alice"}]})
