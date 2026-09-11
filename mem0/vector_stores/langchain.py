@@ -1,3 +1,4 @@
+import inspect
 import logging
 from typing import Dict, List, Optional
 
@@ -92,13 +93,24 @@ class Langchain(VectorStoreBase):
         """
         Insert vectors into the LangChain vectorstore.
         """
-        # Check if client has add_embeddings method
+        texts = [payload.get("data", "") for payload in payloads] if payloads else [""] * len(vectors)
+
         if hasattr(self.client, "add_embeddings"):
-            # Some LangChain vectorstores have a direct add_embeddings method
-            self.client.add_embeddings(embeddings=vectors, metadatas=payloads, ids=ids)
+            try:
+                params = set(inspect.signature(self.client.add_embeddings).parameters)
+            except (ValueError, TypeError):
+                params = set()
+
+            if "text_embeddings" in params:
+                # FAISS, AzureSearch, ElasticsearchStore, OpenSearchVectorSearch, ScaNN
+                text_embeddings = list(zip(texts, vectors))
+                self.client.add_embeddings(text_embeddings=text_embeddings, metadatas=payloads, ids=ids)
+            elif "texts" in params and "embeddings" in params:
+                # PGVector, Neo4jVector, Lantern, Hologres, Kinetica, PGEmbedding, TimescaleVector
+                self.client.add_embeddings(texts=texts, embeddings=vectors, metadatas=payloads, ids=ids)
+            else:
+                self.client.add_texts(texts=texts, metadatas=payloads, ids=ids)
         else:
-            # Fallback to add_texts method
-            texts = [payload.get("data", "") for payload in payloads] if payloads else [""] * len(vectors)
             self.client.add_texts(texts=texts, metadatas=payloads, ids=ids)
 
     def search(self, query: str, vectors: List[List[float]], top_k: int = 5, filters: Optional[Dict] = None):
@@ -151,7 +163,11 @@ class Langchain(VectorStoreBase):
         Update a vector and its payload.
         """
         self.delete(vector_id)
-        self.insert([vector], [payload], [vector_id])
+        if vector is not None:
+            self.insert([vector], [payload], [vector_id])
+        else:
+            texts = [payload.get("data", "")] if payload else [""]
+            self.client.add_texts(texts=texts, metadatas=[payload] if payload else None, ids=[vector_id])
 
     def get(self, vector_id):
         """
