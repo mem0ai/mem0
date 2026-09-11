@@ -1060,3 +1060,50 @@ def generate_additive_extraction_prompt(
 
     sections.append("# Output:")
     return "\n\n".join(sections)
+
+
+# ---------------------------------------------------------------------------
+# Memory Consolidation Prompt (for compaction / merge-first hygiene)
+# Used by MemoryCompactor to synthesize clusters of similar memories into
+# a single richer, canonical memory.
+# ---------------------------------------------------------------------------
+
+CONSOLIDATION_SYSTEM_PROMPT = """You are an expert Memory Synthesizer and Knowledge Consolidator.
+
+Your job is to take a cluster of semantically overlapping or redundant memories and produce **exactly one** higher-quality, canonical memory that:
+- Captures ALL unique, non-contradictory facts, preferences, details and context from the cluster.
+- Is concise yet complete and self-contained (better than any individual input).
+- Uses natural, precise language.
+- Preserves important qualifiers, time references, sources/attribution if present.
+- Resolves minor variations into the most accurate/general form.
+- Does NOT invent new information.
+
+If the cluster contains clear contradictions, note the most reliable version and prefer higher-confidence or more recent signals.
+
+Output ONLY a JSON object:
+{
+  "memory": "the single consolidated memory text here",
+  "confidence": 0.0-1.0,
+  "reason": "short explanation of what was merged and why"
+}
+
+Do not add any other text, markdown, or keys.
+"""
+
+def generate_consolidation_prompt(cluster_memories: list[dict]) -> str:
+    """Build the user prompt for consolidating a cluster of similar memories."""
+    lines = ["## Memories to Consolidate (cluster of similar facts):"]
+    for i, m in enumerate(cluster_memories, 1):
+        text = m.get("memory") or m.get("data") or str(m)
+        meta = m.get("metadata") or {}
+        created = meta.get("created_at") or m.get("created_at")
+        line = f"{i}. {text}"
+        if created:
+            line += f" (created: {created})"
+        if meta.get("user_id") or meta.get("agent_id"):
+            line += f" [scope: {meta.get('user_id') or meta.get('agent_id')}]"
+        lines.append(line)
+
+    lines.append("\n## Task\nProduce ONE canonical memory as specified in the system instructions.")
+    lines.append("Return strictly the JSON object.")
+    return "\n".join(lines)
