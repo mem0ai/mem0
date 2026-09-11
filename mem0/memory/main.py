@@ -81,6 +81,8 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
 
+MAX_SEARCH_EMBEDDING_CHARS = 32000
+
 
 def _vector_store_list_rows(listed):
     if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list):
@@ -922,9 +924,18 @@ class Memory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = self.embedding_model.embed(parsed_messages, "search")
+        search_messages = parsed_messages
+        if len(search_messages) > MAX_SEARCH_EMBEDDING_CHARS:
+            logger.warning(
+                f"Search query text length ({len(search_messages)} characters) exceeds maximum safe embedding limit "
+                f"({MAX_SEARCH_EMBEDDING_CHARS} characters). Truncating to keep the most recent context while preserving word boundaries."
+            )
+            tail = search_messages[-MAX_SEARCH_EMBEDDING_CHARS:]
+            first_space = tail.find(" ")
+            search_messages = tail[first_space + 1:] if first_space != -1 else tail
+        query_embedding = self.embedding_model.embed(search_messages, "search")
         existing_results = self.vector_store.search(
-            query=parsed_messages,
+            query=search_messages,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
@@ -2583,10 +2594,19 @@ class AsyncMemory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+        search_messages = parsed_messages
+        if len(search_messages) > MAX_SEARCH_EMBEDDING_CHARS:
+            logger.warning(
+                f"Search query text length ({len(search_messages)} characters) exceeds maximum safe embedding limit "
+                f"({MAX_SEARCH_EMBEDDING_CHARS} characters). Truncating to keep the most recent context while preserving word boundaries."
+            )
+            tail = search_messages[-MAX_SEARCH_EMBEDDING_CHARS:]
+            first_space = tail.find(" ")
+            search_messages = tail[first_space + 1:] if first_space != -1 else tail
+        query_embedding = await asyncio.to_thread(self.embedding_model.embed, search_messages, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
-            query=parsed_messages,
+            query=search_messages,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,

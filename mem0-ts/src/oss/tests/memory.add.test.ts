@@ -340,4 +340,30 @@ describe("Memory - add()", () => {
       expect.objectContaining({ event: "ADD" }),
     );
   });
+
+  test("long conversation truncates search embedding while keeping full extraction", async () => {
+    const longChunk = "A".repeat(20000);
+    const messages = [
+      { role: "user" as const, content: `First part: ${longChunk}` },
+      { role: "assistant" as const, content: `Second part: ${longChunk}` },
+      { role: "user" as const, content: "Recent note: I live in New York." },
+    ];
+
+    const embedSpy = jest.spyOn(memory["embedder"], "embed");
+
+    await memory.add(messages, {
+      userId,
+      infer: true,
+    });
+
+    const searchCall = embedSpy.mock.calls.find((call) => call[1] === "search");
+    expect(searchCall).toBeDefined();
+    const embeddedQuery = searchCall![0] as string;
+    expect(embeddedQuery.length).toBeLessThanOrEqual(32000);
+    expect(embeddedQuery.endsWith("user: Recent note: I live in New York.")).toBe(true);
+    expect(embeddedQuery[0]).not.toBe(" ");
+
+    embedSpy.mockRestore();
+  });
 });
+
