@@ -7,6 +7,7 @@ import pytest
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig
+from mem0.exceptions import VectorStoreError
 from mem0.memory.main import _entity_collection_name
 from mem0.memory.utils import normalize_facts
 
@@ -477,6 +478,178 @@ def test_add_infer_with_malformed_llm_facts(mock_sqlite, mock_llm_factory, mock_
         filters={"user_id": "test_user"},
         infer=True,
     )
+
+
+def _reject_insert_of(rejected_text):
+    """Force the batch insert to fail, then reject one record on the per-record retry."""
+
+    def _insert(vectors, ids, payloads):
+        if len(ids) > 1:
+            raise RuntimeError("batch insert rejected")
+        if payloads[0].get("data") == rejected_text:
+            raise RuntimeError("record rejected by vector store")
+
+    return _insert
+
+
+def _build_memory_for_add(memory_cls, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, texts):
+    """Build a memory instance whose LLM extracts `texts`, with its stores mocked out."""
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.embed_batch.side_effect = lambda batch, action: [[0.1, 0.2, 0.3] for _ in batch]
+    embedder.config = MagicMock(embedding_dims=3)
+    mock_embedder_factory.return_value = embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_factory.return_value = mock_vector_store
+
+    mock_llm = MagicMock()
+    mock_llm.generate_response.return_value = json.dumps({"memory": [{"text": text} for text in texts]})
+    mock_llm_factory.return_value = mock_llm
+
+    mock_db = MagicMock()
+    mock_db.get_last_messages.return_value = []
+    mock_sqlite.return_value = mock_db
+
+    memory = memory_cls(MemoryConfig())
+    memory._entity_store = MagicMock(search_batch=MagicMock(return_value=[]))
+
+    return memory, mock_vector_store, mock_db
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_add_omits_memories_the_vector_store_rejected(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """A memory the vector store rejected must not be returned to the caller as an ADD.
+
+    The per-record fallback used to log the failure and continue, while the returned
+    payload was still built from every extracted record - handing callers ids that
+    were never persisted.
+    """
+    from mem0.memory.main import Memory as MemoryClass
+
+    rejected = "User is allergic to penicillin"
+    memory, mock_vector_store, _ = _build_memory_for_add(
+        MemoryClass,
+        mock_sqlite,
+        mock_llm_factory,
+        mock_vector_factory,
+        mock_embedder_factory,
+        ["User's name is Aryan", rejected, "User works as an engineer"],
+    )
+    mock_vector_store.insert.side_effect = _reject_insert_of(rejected)
+
+    results = memory._add_to_vector_store(
+        messages=[{"role": "user", "content": "some conversation"}],
+        metadata={"user_id": "test_user"},
+        filters={"user_id": "test_user"},
+        infer=True,
+    )
+
+    assert [result["memory"] for result in results] == ["User's name is Aryan", "User works as an engineer"]
+    assert all(result["event"] == "ADD" for result in results)
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_add_skips_history_for_memories_the_vector_store_rejected(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """History must not record an ADD for a memory that is not in the vector store."""
+    from mem0.memory.main import Memory as MemoryClass
+
+    rejected = "User is allergic to penicillin"
+    memory, mock_vector_store, mock_db = _build_memory_for_add(
+        MemoryClass,
+        mock_sqlite,
+        mock_llm_factory,
+        mock_vector_factory,
+        mock_embedder_factory,
+        ["User's name is Aryan", rejected],
+    )
+    mock_vector_store.insert.side_effect = _reject_insert_of(rejected)
+
+    memory._add_to_vector_store(
+        messages=[{"role": "user", "content": "some conversation"}],
+        metadata={"user_id": "test_user"},
+        filters={"user_id": "test_user"},
+        infer=True,
+    )
+
+    history_records = mock_db.batch_add_history.call_args.args[0]
+    assert [record["new_memory"] for record in history_records] == ["User's name is Aryan"]
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_add_raises_when_no_memory_could_be_persisted(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """A total persistence failure surfaces as VectorStoreError, not an empty result.
+
+    Returning [] here is indistinguishable from 'the LLM extracted nothing', which is
+    the ambiguity add() already avoids for LLM failures.
+    """
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory, mock_vector_store, _ = _build_memory_for_add(
+        MemoryClass,
+        mock_sqlite,
+        mock_llm_factory,
+        mock_vector_factory,
+        mock_embedder_factory,
+        ["User's name is Aryan"],
+    )
+    mock_vector_store.insert.side_effect = RuntimeError("vector store unreachable")
+
+    with pytest.raises(VectorStoreError, match="Failed to persist any extracted memories"):
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "some conversation"}],
+            metadata={"user_id": "test_user"},
+            filters={"user_id": "test_user"},
+            infer=True,
+        )
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_add_omits_memories_the_vector_store_rejected(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Async twin: rejected records are dropped from the returned payload."""
+    from mem0.memory.main import AsyncMemory
+
+    rejected = "User is allergic to penicillin"
+    memory, mock_vector_store, _ = _build_memory_for_add(
+        AsyncMemory,
+        mock_sqlite,
+        mock_llm_factory,
+        mock_vector_factory,
+        mock_embedder_factory,
+        ["User's name is Aryan", rejected],
+    )
+    mock_vector_store.insert.side_effect = _reject_insert_of(rejected)
+
+    results = await memory._add_to_vector_store(
+        messages=[{"role": "user", "content": "some conversation"}],
+        metadata={"user_id": "test_user"},
+        effective_filters={"user_id": "test_user"},
+        infer=True,
+    )
+
+    assert [result["memory"] for result in results] == ["User's name is Aryan"]
 
 
 def test_normalize_facts_plain_strings():
