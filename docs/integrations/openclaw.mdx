@@ -493,6 +493,24 @@ export MEM0_TELEMETRY=false
 
 The plugin injects memory-related instructions into the agent's system context via OpenClaw's `prependSystemContext` mechanism. This includes the memory triage protocol and recalled memories. This is the standard OpenClaw plugin SDK pattern for memory backends. No user-facing prompts are modified.
 
+### Optional Delivery Evidence with AtMem
+
+Mem0 search results show which memories were retrieved, but operators with audit
+requirements may also need evidence of which context reached the model-input
+boundary. [AtMem](https://github.com/aetna000/atmem) provides an optional Mem0
+adapter for that deployment model. Mem0 remains the context-selection authority;
+AtMem verifies a scoped inject or withhold decision, delivers the exact context
+once, and records the authorization separately from the host's delivery
+observation.
+
+This is an alternative OpenClaw memory integration, because OpenClaw has one
+memory-plugin slot. Do not enable the Mem0 and AtMem OpenClaw plugins in that
+slot at the same time. Follow AtMem's
+[Mem0 adapter setup](https://github.com/aetna000/atmem/blob/v2.2.6/docs/context-provider-adapters.md#mem0)
+for installation, identity and scope registration, explicit activation,
+verification, and rollback. Delivery evidence proves what context was presented;
+it does not prove that the model used or followed it.
+
 <CardGroup cols={2}>
   <Card title="OpenAI Agents SDK" icon="/images/provider-icons/openai.svg" href="/integrations/openai-agents-sdk">
     Build agents with OpenAI's SDK and Mem0
