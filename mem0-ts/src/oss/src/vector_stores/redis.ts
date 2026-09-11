@@ -424,6 +424,7 @@ export class RedisDB implements VectorStore {
         "memory",
         "metadata",
         "created_at",
+        "updated_at",
         "__vector_score",
       ],
       SORTBY: "__vector_score",
