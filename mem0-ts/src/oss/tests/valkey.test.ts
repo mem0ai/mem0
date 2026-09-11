@@ -358,4 +358,107 @@ describe("Valkey – mocked iovalkey client", () => {
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });
+
+  it("terminates the FT.CREATE PREFIX with ':' so it can't leak into a sibling _entities collection (#5680)", async () => {
+    const store = new ValkeyDB({
+      collectionName: "my-memories",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+    await store.initialize();
+
+    const iovalkey = require("iovalkey");
+    const mockClient = iovalkey.__mockClient;
+    const createCall = mockClient.call.mock.calls.find(
+      (call: any[]) => call[0] === "FT.CREATE",
+    );
+    expect(createCall).toBeDefined();
+
+    const prefixIdx = createCall.indexOf("PREFIX");
+    // The token after "PREFIX <count>" is the actual prefix string.
+    const actualPrefix = String(createCall[prefixIdx + 2]);
+    expect(actualPrefix).toBe("mem0:my-memories:");
+    // Without the trailing colon, "mem0:my-memories" is a string-prefix of
+    // "mem0:my-memories_entities:*", so the memories index would index entity docs.
+    expect("mem0:my-memories_entities:".startsWith(actualPrefix)).toBe(false);
+  });
+
+  it("warns when an existing index uses a legacy colon-less prefix (#5680)", async () => {
+    const iovalkey = require("iovalkey");
+    const mockClient = iovalkey.__mockClient;
+    // Existing index whose PREFIX predates the fix: bare "mem0:my-memories".
+    mockClient.call.mockImplementation(async (...args: any[]) => {
+      if (args[0] === "FT._LIST") return [];
+      if (args[0] === "FT.INFO") {
+        return [
+          "index_name",
+          "my-memories",
+          "index_definition",
+          [
+            "key_type",
+            "HASH",
+            "prefixes",
+            ["mem0:my-memories"],
+            "default_score",
+            "1",
+          ],
+        ];
+      }
+      return "OK";
+    });
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const store = new ValkeyDB({
+      collectionName: "my-memories",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+    await store.initialize();
+
+    const warned = warnSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(warned).toContain("legacy key prefix");
+    expect(warned).toContain("_entities");
+    // The index already exists -> we must NOT recreate it, only warn.
+    const createCall = mockClient.call.mock.calls.find(
+      (c: any[]) => c[0] === "FT.CREATE",
+    );
+    expect(createCall).toBeUndefined();
+    warnSpy.mockRestore();
+  });
+
+  it("does not warn when an existing index already uses the colon-terminated prefix", async () => {
+    const iovalkey = require("iovalkey");
+    const mockClient = iovalkey.__mockClient;
+    mockClient.call.mockImplementation(async (...args: any[]) => {
+      if (args[0] === "FT._LIST") return [];
+      if (args[0] === "FT.INFO") {
+        return [
+          "index_name",
+          "my-memories",
+          "index_definition",
+          [
+            "key_type",
+            "HASH",
+            "prefixes",
+            ["mem0:my-memories:"],
+            "default_score",
+            "1",
+          ],
+        ];
+      }
+      return "OK";
+    });
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const store = new ValkeyDB({
+      collectionName: "my-memories",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+    await store.initialize();
+
+    const warned = warnSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(warned).not.toContain("legacy key prefix");
+    warnSpy.mockRestore();
+  });
 });
