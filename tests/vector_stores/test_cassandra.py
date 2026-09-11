@@ -315,3 +315,101 @@ def test_insert_without_payloads(cassandra_instance):
     assert cassandra_instance.session.prepare.called
     assert cassandra_instance.session.execute.called
 
+
+
+# --- list() must filter before applying top_k -------------------------------
+#
+# The filters in list() are evaluated client side, so a server side LIMIT that
+# runs first caps the scan to top_k arbitrary rows and only then filters, which
+# returns a fraction of the caller's matching vectors. search() in the same file
+# already filters first and slices afterwards.
+
+
+def _table_rows(n_per_tenant=10, tenants=("alice", "bob", "carol")):
+    """Interleaved rows so a naive LIMIT slices across tenants."""
+    rows = []
+    for i in range(n_per_tenant):
+        for t in tenants:
+            r = Mock()
+            r.id = f"{t}-{i}"
+            r.vector = [0.1, 0.2]
+            r.payload = json.dumps({"user_id": t, "data": f"{t} memory {i}"})
+            rows.append(r)
+    return rows
+
+
+def _session_honouring_limit(rows):
+    """Fake execute() that applies a server side `LIMIT n` if the query has one."""
+    import re
+
+    def _execute(query, *args, **kwargs):
+        m = re.search(r"LIMIT\s+(\d+)", str(query))
+        return rows[: int(m.group(1))] if m else rows
+
+    return Mock(side_effect=_execute)
+
+
+def test_list_filters_before_applying_top_k(cassandra_instance):
+    """A tenant with 10 memories must get all 10 back, not a slice of the table."""
+    rows = _table_rows(n_per_tenant=10)  # 30 rows, 10 per tenant
+    cassandra_instance.session.execute = _session_honouring_limit(rows)
+
+    [results] = cassandra_instance.list(filters={"user_id": "alice"}, top_k=10)
+
+    assert len(results) == 10, f"expected alice's 10 memories, got {len(results)}"
+    assert all(r.payload["user_id"] == "alice" for r in results)
+
+
+def test_list_still_caps_at_top_k(cassandra_instance):
+    """The cap must still be honoured once filtering has been applied."""
+    rows = _table_rows(n_per_tenant=10)
+    cassandra_instance.session.execute = _session_honouring_limit(rows)
+
+    [results] = cassandra_instance.list(filters={"user_id": "alice"}, top_k=3)
+
+    assert len(results) == 3
+    assert all(r.payload["user_id"] == "alice" for r in results)
+
+
+def test_list_without_filters_is_bounded_by_top_k(cassandra_instance):
+    """No filters means no behaviour change: still at most top_k rows."""
+    rows = _table_rows(n_per_tenant=10)
+    cassandra_instance.session.execute = _session_honouring_limit(rows)
+
+    [results] = cassandra_instance.list(top_k=5)
+
+    assert len(results) == 5
+
+
+def test_list_stops_scanning_once_top_k_matches_are_found(cassandra_instance):
+    """Iteration breaks early, so the lazily paged driver stops fetching."""
+    consumed = []
+
+    class _CountingRows:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def __iter__(self):
+            for r in self._rows:
+                consumed.append(r.id)
+                yield r
+
+    rows = _table_rows(n_per_tenant=10)
+    cassandra_instance.session.execute = Mock(return_value=_CountingRows(rows))
+
+    [results] = cassandra_instance.list(filters={"user_id": "alice"}, top_k=2)
+
+    assert len(results) == 2
+    # alice's 2nd match is the 4th row of the interleaved table, so the scan must
+    # stop there rather than walking all 30 rows.
+    assert len(consumed) < len(rows)
+
+
+def test_list_top_k_zero_returns_nothing(cassandra_instance):
+    """top_k=0 must yield no rows, as the old server-side LIMIT 0 did."""
+    rows = _table_rows(n_per_tenant=10)
+    cassandra_instance.session.execute = _session_honouring_limit(rows)
+
+    [results] = cassandra_instance.list(filters={"user_id": "alice"}, top_k=0)
+
+    assert results == []
