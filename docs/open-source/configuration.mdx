@@ -125,6 +125,25 @@ Change the `provider` string to switch backends. The most common options:
 
 See the full catalog in <Link href="/components/llms/overview">Components</Link>.
 
+## Redact secrets from recalled memories
+
+`search()` returns stored memory text verbatim, and the LLM proxy splices that text into the next model turn. If a credential ever reaches storage, it rides back into fresh model context on every recall. Python's `redact_recalled_secrets` strips secret-shaped strings at that boundary and is **on by default**:
+
+```python
+from mem0 import Memory
+
+memory = Memory.from_config({
+    "vector_store": {"provider": "qdrant", "config": {"host": "localhost", "port": 6333}},
+    "redact_recalled_secrets": False,   # default: True
+})
+```
+
+Redacted shapes are high-confidence only: PEM private-key blocks, JWTs, `sk-` keys (OpenAI, Anthropic), AWS access key IDs, GitHub tokens, Stripe secret and restricted keys, Slack tokens, Google API keys, and the password inside a credentialed URI (`postgres://admin:[REDACTED]@host`). Bare 40-character hex strings are left alone on purpose, because they are indistinguishable from git SHAs.
+
+<Note>
+  This is defense-in-depth, not a PII or governance layer. It filters on read, so storage is untouched and setting `redact_recalled_secrets: False` recovers the original text. Turn it off if you deliberately store technical content or credentials you need back verbatim. `get()` and `get_all()` are management APIs and always return unredacted text.
+</Note>
+
 ## Tune component settings
 
 <AccordionGroup>

@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from mem0.configs.vector_stores.upstash_vector import UpstashVectorConfig
+from mem0.embeddings.mock import MockEmbeddings
+from mem0.utils.factory import EmbedderFactory
 from mem0.vector_stores.upstash_vector import UpstashVector, _validate_filter
 
 
@@ -469,3 +471,29 @@ def test_env_var_only_config_builds_provider(monkeypatch):
         UpstashVector(**dumped)
 
     mock_index.assert_called_once_with("https://example.upstash.io", "tok_123")
+
+
+def test_enable_embeddings_bypasses_the_external_embedder(monkeypatch):
+    """Regression: `enable_embeddings=True` must skip the external embedder.
+
+    EmbedderFactory.create() gated the MockEmbeddings bypass on
+    ``provider_name == "upstash_vector"``, but provider_name is the *embedder*
+    provider (default "openai") — never a vector store name — so the branch was
+    dead. The documented config (enable_embeddings on the vector store, no
+    embedder section) built an OpenAI embedder and failed on a missing
+    OPENAI_API_KEY, or silently billed OpenAI when one was present.
+    """
+    monkeypatch.setenv("UPSTASH_VECTOR_REST_URL", "https://example.upstash.io")
+    monkeypatch.setenv("UPSTASH_VECTOR_REST_TOKEN", "tok_123")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    # Mirrors Memory.__init__: EmbedderFactory.create(embedder.provider,
+    # embedder.config, vector_store.config), with the default embedder provider.
+    on = UpstashVectorConfig(enable_embeddings=True)
+    assert isinstance(EmbedderFactory.create("openai", {}, on), MockEmbeddings)
+
+    # Off (the default) still builds the configured embedder.
+    off = UpstashVectorConfig(enable_embeddings=False)
+    with patch("mem0.utils.factory.load_class") as load_class:
+        assert not isinstance(EmbedderFactory.create("openai", {}, off), MockEmbeddings)
+    load_class.assert_called_once()
