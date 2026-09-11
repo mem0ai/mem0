@@ -11,7 +11,7 @@ from mem0.llms.openai import OpenAILLM
 
 @pytest.fixture
 def mock_openai_client():
-    with patch("mem0.llms.openai.OpenAI") as mock_openai:
+    with patch("mem0.llms.openai.OpenAI") as mock_openai, patch("mem0.llms.openai.AsyncOpenAI"):
         mock_client = Mock()
         mock_openai.return_value = mock_client
         yield mock_client
