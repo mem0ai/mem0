@@ -4,6 +4,9 @@
  * Covers $identify firing, idempotency via pair markers, and the node/browser
  * gate. Mocks fs and fetch; never touches the real ~/.mem0/config.json.
  */
+// Must precede every import below: this suite asserts on the telemetry sender,
+// and ../telemetry reads MEM0_TELEMETRY at import time.
+import "./enable-telemetry";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
