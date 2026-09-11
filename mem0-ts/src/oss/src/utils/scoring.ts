@@ -79,8 +79,9 @@ export interface ScoredResult {
  * For each candidate:
  *   combined = (semantic + bm25 + entity_boost) / max_possible
  *
- * Threshold gates the semantic score BEFORE combining -- candidates
- * below the threshold are excluded even if BM25/entity would boost them.
+ * Threshold gates semantic candidates before combining. Keyword-only
+ * candidates, represented by a missing semantic score, are allowed through
+ * when they have a BM25 score.
  *
  * The divisor adapts based on which signals are active:
  *   - Semantic only: max_possible = 1.0
@@ -88,7 +89,8 @@ export interface ScoredResult {
  *   - Semantic + BM25 + entity: max_possible = 2.5
  *   - Semantic + entity (no BM25): max_possible = 1.5
  *
- * @param semanticResults - Candidate results with id, score, and payload.
+ * @param semanticResults - Candidate results from semantic and keyword search.
+ *   Keyword-only candidates omit score.
  * @param bm25Scores - Map of memory ID to normalized BM25 score.
  * @param entityBoosts - Map of memory ID to entity boost score.
  * @param threshold - Minimum semantic score to include a candidate.
@@ -99,7 +101,7 @@ export interface ScoredResult {
 export function scoreAndRank(
   semanticResults: Array<{
     id: string;
-    score: number;
+    score?: number;
     payload: Record<string, any>;
   }>,
   bm25Scores: Record<string, number>,
@@ -127,14 +129,15 @@ export function scoreAndRank(
       continue;
     }
 
-    const semanticScore = result.score ?? 0.0;
-    if (semanticScore < threshold) {
-      continue;
-    }
-
     const memIdStr = String(memId);
     const bm25Score = bm25Scores[memIdStr] ?? 0.0;
     const entityBoost = entityBoosts[memIdStr] ?? 0.0;
+
+    const semanticScore = result.score ?? 0.0;
+    const isKeywordOnly = result.score == null && bm25Score > 0;
+    if (!isKeywordOnly && semanticScore < threshold) {
+      continue;
+    }
 
     const rawCombined = semanticScore + bm25Score + entityBoost;
     const combined = Math.min(rawCombined / maxPossible, 1.0);
