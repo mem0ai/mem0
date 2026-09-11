@@ -23,6 +23,23 @@ function escapeRedisTagValue(value: unknown): string {
   );
 }
 
+/**
+ * Translate a single metadata filter into a RediSearch condition.
+ *
+ * The documented `*` filter value means "the field exists, regardless of
+ * value" (mem0ai/mem0#6539). Tag equality would escape the star into a
+ * literal `\*` tag that matches nothing, so build a tag wildcard query
+ * instead — it matches any record with a non-empty value for the field
+ * (RediSearch does not index missing or empty tag values). The w'...'
+ * wildcard syntax requires query DIALECT 2.
+ */
+function redisFilterCondition(key: string, value: unknown): string {
+  if (value === "*") {
+    return `@${key}:{w'*'}`;
+  }
+  return `@${key}:{${escapeRedisTagValue(value)}}`;
+}
+
 interface RedisConfig extends VectorStoreConfig {
   redisUrl: string;
   collectionName: string;
@@ -138,12 +155,30 @@ function toSnakeCase(obj: Record<string, any>): Record<string, any> {
 // all) when there are no usable conditions — including an empty filters object
 // or one whose values are all null/undefined — since an empty expression is an
 // invalid RediSearch query (e.g. ` =>[KNN ...]`).
-export function buildRedisFilterExpr(filters?: SearchFilters): string {
+//
+// Pass `group: true` for the vector-search pre-filter: RediSearch rejects a
+// space-joined multi-condition prefilter placed directly before `=>[KNN ...]`
+// with a syntax error, so any search with two or more filters failed outright.
+export function buildRedisFilterExpr(
+  filters?: SearchFilters,
+  options: { group?: boolean } = {},
+): string {
   if (!filters) return "*";
   const conditions = Object.entries(toSnakeCase(filters))
     .filter(([, value]) => value !== null && value !== undefined)
-    .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`);
-  return conditions.length > 0 ? conditions.join(" ") : "*";
+    .map(([key, value]) => redisFilterCondition(key, value));
+  if (conditions.length === 0) return "*";
+  const expr = conditions.join(" ");
+  return options.group ? `(${expr})` : expr;
+}
+
+/**
+ * Whether any filter uses the `*` wildcard, which is emitted as the `w'...'`
+ * tag syntax and therefore requires query DIALECT 2. Snake-casing rewrites
+ * keys only, so the raw values are enough to answer this.
+ */
+function hasWildcardFilter(filters?: SearchFilters): boolean {
+  return !!filters && Object.values(filters).includes("*");
 }
 
 export class RedisDB implements VectorStore {
@@ -407,7 +442,7 @@ export class RedisDB implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     await this.initialize();
-    const filterExpr = buildRedisFilterExpr(filters);
+    const filterExpr = buildRedisFilterExpr(filters, { group: true });
 
     const queryVector = new Float32Array(query).buffer;
 
@@ -659,6 +694,9 @@ export class RedisDB implements VectorStore {
         from: 0,
         size: topK,
       },
+      // The w'...' wildcard syntax needs query DIALECT 2; node-redis does
+      // not send DIALECT unless asked (search() above already passes it).
+      ...(hasWildcardFilter(filters) && { DIALECT: 2 }),
     };
 
     const results = (await this.client.ft.search(

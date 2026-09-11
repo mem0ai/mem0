@@ -210,3 +210,92 @@ describe("RedisDB – entity payload handling", () => {
     expect(items[0].payload).not.toHaveProperty("runId");
   });
 });
+
+describe("RedisDB – '*' wildcard filter means field-exists (mem0ai/mem0#6539)", () => {
+  let store: RedisDB;
+  let mockClient: any;
+
+  beforeAll(async () => {
+    store = createStore();
+    await store.initialize();
+    mockClient = (store as any).client;
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockClient.ft.search.mockResolvedValue({ documents: [], total: 0 });
+  });
+
+  test("search translates '*' into a tag wildcard, not a literal tag", async () => {
+    await store.search([0.1, 0.2, 0.3, 0.4], 5, { agentId: "*" });
+
+    const [, queryString] = mockClient.ft.search.mock.calls[0];
+    expect(queryString).toContain("@agent_id:{w'*'}");
+    expect(queryString).not.toContain("\\*");
+  });
+
+  test("search combines wildcard with tag equality", async () => {
+    await store.search([0.1, 0.2, 0.3, 0.4], 5, {
+      userId: "alice",
+      agentId: "*",
+    });
+
+    const [, queryString] = mockClient.ft.search.mock.calls[0];
+    expect(queryString).toContain("@user_id:{alice}");
+    expect(queryString).toContain("@agent_id:{w'*'}");
+  });
+
+  test("list translates '*' into a tag wildcard and sends DIALECT 2", async () => {
+    await store.list({ agentId: "*" });
+
+    const [, queryString, options] = mockClient.ft.search.mock.calls[0];
+    expect(queryString).toBe("@agent_id:{w'*'}");
+    // The w'...' syntax requires DIALECT 2 and node-redis does not send
+    // DIALECT unless asked.
+    expect(options.DIALECT).toBe(2);
+  });
+
+  test("list without wildcard keeps its previous query shape", async () => {
+    await store.list({ userId: "alice" });
+
+    const [, queryString, options] = mockClient.ft.search.mock.calls[0];
+    expect(queryString).toBe("@user_id:{alice}");
+    expect(options.DIALECT).toBeUndefined();
+  });
+});
+
+describe("RedisDB – KNN prefilter parenthesization", () => {
+  let store: RedisDB;
+  let mockClient: any;
+
+  beforeAll(async () => {
+    store = createStore();
+    await store.initialize();
+    mockClient = (store as any).client;
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockClient.ft.search.mockResolvedValue({ documents: [], total: 0 });
+  });
+
+  test("multi-filter search wraps the prefilter in parentheses", async () => {
+    // RediSearch rejects a space-joined multi-condition prefilter placed
+    // directly before =>[KNN ...] with a syntax error, so any search with
+    // two or more filters failed outright.
+    await store.search([0.1, 0.2, 0.3, 0.4], 5, {
+      userId: "alice",
+      agentId: "a1",
+    });
+
+    const [, queryString] = mockClient.ft.search.mock.calls[0];
+    expect(queryString).toMatch(/^\(.+\) =>\[KNN /);
+  });
+
+  test("unfiltered search keeps the match-all prefilter", async () => {
+    await store.search([0.1, 0.2, 0.3, 0.4], 5);
+
+    const [, queryString] = mockClient.ft.search.mock.calls[0];
+    expect(queryString).toMatch(/^\* =>\[KNN /);
+  });
+});
