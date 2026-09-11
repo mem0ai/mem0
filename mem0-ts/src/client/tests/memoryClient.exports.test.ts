@@ -1,5 +1,5 @@
 /**
- * MemoryClient unit tests — createMemoryExport.
+ * MemoryClient unit tests — memory exports.
  * Verifies request construction, not mock response echo.
  */
 import { MemoryClient } from "../mem0";
@@ -43,5 +43,23 @@ describe("MemoryClient - createMemoryExport()", () => {
     expect(body.filters).toEqual({ user_id: "u1" });
     // SDK param is still snake_cased.
     expect(body.export_instructions).toBe("export it");
+  });
+});
+
+describe("MemoryClient - getMemoryExport()", () => {
+  test("accepts OpenAPI snake_case memory_export_id", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/exports/get/", {
+      status: 200,
+      body: { message: "ok", id: "exp_1" },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getMemoryExport({ memory_export_id: "exp_1" });
+
+    const call = findFetchCall(mock, "/v1/exports/get/", "POST");
+    expect(call).toBeDefined();
+    expect(getFetchBody(call!)).toEqual({ memory_export_id: "exp_1" });
   });
 });
