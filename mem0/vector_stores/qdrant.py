@@ -8,10 +8,12 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    IsEmptyCondition,
     MatchAny,
     MatchExcept,
     MatchText,
     MatchValue,
+    PayloadField,
     PointIdsList,
     PointStruct,
     PointVectors,
@@ -262,7 +264,7 @@ class Qdrant(VectorStoreBase):
             for v in range_kwargs.values()
         )
 
-    def _build_field_condition(self, key: str, value) -> Optional[FieldCondition]:
+    def _build_field_condition(self, key: str, value):
         """
         Build a single FieldCondition from a key-value filter pair.
 
@@ -274,14 +276,17 @@ class Qdrant(VectorStoreBase):
             value: A scalar for simple equality, or a dict with one operator key.
 
         Returns:
-            Optional[FieldCondition]: The Qdrant field condition, or None if the
-            value is the wildcard '*' (match any / field exists — skip filter).
+            Optional[Condition]: The Qdrant condition (a FieldCondition, or a
+            nested Filter for the '*' wildcard), or None if the value builds
+            no condition.
         """
         if not isinstance(value, dict):
             if value == "*":
-                # Wildcard: match any value. Qdrant has no direct "field exists"
-                # condition via FieldCondition, so we skip this filter (match all).
-                return None
+                # "Any value" wildcard: the field must exist. Qdrant expresses
+                # this as must_not(IsEmpty), which excludes points where the
+                # field is missing, null, or an empty array — matching the
+                # exists semantics OpenSearch and the platform API use.
+                return Filter(must_not=[IsEmptyCondition(is_empty=PayloadField(key=key))])
             if isinstance(value, list):
                 # List shorthand: {"field": ["a", "b"]} treated as in-operator.
                 return FieldCondition(key=key, match=MatchAny(any=value))

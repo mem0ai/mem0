@@ -32,6 +32,21 @@ def _validate_identifier(name: str, label: str = "identifier") -> str:
     return name
 
 
+def _payload_matches(payload: Dict, filters: Dict) -> bool:
+    """Check a payload against filters, honoring the '*' any-value wildcard.
+
+    '*' means "the field must exist (and not be null)" rather than a literal
+    match on the string '*', consistent with the other vector stores.
+    """
+    for k, v in filters.items():
+        if v == "*":
+            if payload.get(k) is None:
+                return False
+        elif payload.get(k) != v:
+            return False
+    return True
+
+
 class OutputData(BaseModel):
     id: Optional[str]
     score: Optional[float]
@@ -265,8 +280,7 @@ class CassandraDB(VectorStoreBase):
                 if filters:
                     try:
                         payload = json.loads(row.payload) if row.payload else {}
-                        match = all(payload.get(k) == v for k, v in filters.items())
-                        if not match:
+                        if not _payload_matches(payload, filters):
                             continue
                     except json.JSONDecodeError:
                         continue
@@ -460,8 +474,7 @@ class CassandraDB(VectorStoreBase):
                 if filters:
                     try:
                         payload = json.loads(row.payload) if row.payload else {}
-                        match = all(payload.get(k) == v for k, v in filters.items())
-                        if not match:
+                        if not _payload_matches(payload, filters):
                             continue
                     except json.JSONDecodeError:
                         continue

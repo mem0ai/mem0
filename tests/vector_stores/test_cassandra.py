@@ -275,6 +275,54 @@ def test_search_with_filters(cassandra_instance):
         assert result.payload.get("category") == "A"
 
 
+def test_search_with_wildcard_filter(cassandra_instance):
+    """'*' should match any present value, not the literal string '*'."""
+    mock_row1 = Mock()
+    mock_row1.id = 'id1'
+    mock_row1.vector = [0.1, 0.2, 0.3]
+    mock_row1.payload = json.dumps({"text": "test1", "agent_id": "agent-a"})
+
+    mock_row2 = Mock()
+    mock_row2.id = 'id2'
+    mock_row2.vector = [0.4, 0.5, 0.6]
+    mock_row2.payload = json.dumps({"text": "test2"})
+
+    mock_row3 = Mock()
+    mock_row3.id = 'id3'
+    mock_row3.vector = [0.5, 0.6, 0.7]
+    mock_row3.payload = json.dumps({"text": "test3", "agent_id": None})
+
+    cassandra_instance.session.execute = Mock(return_value=[mock_row1, mock_row2, mock_row3])
+
+    results = cassandra_instance.search(
+        query="test",
+        vectors=[0.2, 0.3, 0.4],
+        top_k=5,
+        filters={"agent_id": "*"}
+    )
+
+    assert [r.id for r in results] == ['id1']
+
+
+def test_list_with_wildcard_filter(cassandra_instance):
+    """list() should honor the '*' wildcard the same way as search()."""
+    mock_row1 = Mock()
+    mock_row1.id = 'id1'
+    mock_row1.vector = [0.1, 0.2, 0.3]
+    mock_row1.payload = json.dumps({"text": "test1", "agent_id": "agent-a"})
+
+    mock_row2 = Mock()
+    mock_row2.id = 'id2'
+    mock_row2.vector = [0.4, 0.5, 0.6]
+    mock_row2.payload = json.dumps({"text": "test2"})
+
+    cassandra_instance.session.execute = Mock(return_value=[mock_row1, mock_row2])
+
+    results = cassandra_instance.list(filters={"agent_id": "*"}, top_k=10)
+
+    assert [r.id for r in results[0]] == ['id1']
+
+
 def test_output_data_model():
     """Test OutputData model."""
     data = OutputData(
