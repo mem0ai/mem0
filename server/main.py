@@ -1,7 +1,9 @@
+import ast
 import asyncio
 import logging
 import os
 import time
+from collections.abc import Mapping
 from typing import Any, Dict, List, Optional
 
 import telemetry
@@ -20,12 +22,13 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from models import RequestLog, User
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from rate_limit import limiter
 from routers import api_keys as api_keys_router
 from routers import auth as auth_router
 from routers import entities as entities_router
 from routers import requests as requests_router
+from routers.entities import EntityType, delete_entity, list_entities
 from schemas import MessageResponse
 from server_state import (
     get_current_config,
@@ -172,6 +175,30 @@ app.include_router(entities_router.router)
 app.include_router(requests_router.router)
 
 
+# Entity compatibility adapters: registered on app rather than router to avoid prefix collision
+
+
+class EntityListResponse(BaseModel):
+    count: int
+    next: Optional[str] = None
+    previous: Optional[str] = None
+    results: List[Dict[str, Any]]
+
+
+@app.get("/v1/entities/", response_model=EntityListResponse, include_in_schema=False)
+def v1_list_entities(_auth=Depends(verify_auth)):
+    """List entities in the envelope consumed by the Python client."""
+    entities = list_entities(_auth=_auth)
+    results = [entity.model_dump() | {"name": entity.id} for entity in entities]
+    return {"count": len(results), "next": None, "previous": None, "results": results}
+
+
+@app.delete("/v2/entities/{entity_type}/{entity_id}/", response_model=MessageResponse, include_in_schema=False)
+def v2_delete_entity(entity_type: EntityType, entity_id: str, _auth=Depends(require_admin)):
+    """Delete entity (SDK compatibility alias)."""
+    return delete_entity(entity_type=entity_type, entity_id=entity_id, _auth=_auth)
+
+
 class Message(BaseModel):
     role: str = Field(..., description="Role of the message (user or assistant).")
     content: str = Field(..., description="Message content.")
@@ -209,6 +236,122 @@ class SearchRequest(BaseModel):
 
 class GenerateInstructionsRequest(BaseModel):
     use_case: str = Field(..., description="Description of what the user will use Mem0 for.")
+
+
+ALL_MEMORIES_LIMIT = 1000
+IDENTITY_KEYS = ("user_id", "agent_id", "run_id")
+DELETE_ALL_FILTERS_MAX_LENGTH = 8192
+
+
+class CompatibilityModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class CompatibilityMessage(CompatibilityModel):
+    role: str
+    content: str
+
+
+class V3AddRequest(CompatibilityModel):
+    messages: List[CompatibilityMessage]
+    filters: Optional[Dict[str, Any]] = None
+    user_id: Optional[str] = None
+    agent_id: Optional[str] = None
+    run_id: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    infer: Optional[bool] = None
+    expiration_date: Optional[str] = None
+    custom_instructions: Optional[str] = None
+
+
+class V3GetAllRequest(CompatibilityModel):
+    filters: Optional[Dict[str, Any]] = None
+    user_id: Optional[str] = None
+    agent_id: Optional[str] = None
+    run_id: Optional[str] = None
+    top_k: Optional[int] = Field(None, ge=0, le=ALL_MEMORIES_LIMIT)
+    show_expired: Optional[bool] = None
+
+
+class V3SearchRequest(CompatibilityModel):
+    query: str
+    filters: Optional[Dict[str, Any]] = None
+    top_k: Optional[int] = Field(None, ge=0, le=ALL_MEMORIES_LIMIT)
+    threshold: Optional[float] = None
+    rerank: Optional[bool] = None
+    show_expired: Optional[bool] = None
+
+
+class V1UpdateRequest(CompatibilityModel):
+    text: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    expiration_date: Optional[str] = None
+
+
+def _validation_error(detail: str) -> HTTPException:
+    return HTTPException(status_code=422, detail=detail)
+
+
+def _normalize_identity(*sources: Mapping[str, Any] | None) -> Dict[str, str]:
+    normalized: Dict[str, str] = {}
+    for source in sources:
+        if source is None:
+            continue
+        if not isinstance(source, Mapping):
+            raise _validation_error("identity filters must be an object")
+        for key, value in source.items():
+            if key not in IDENTITY_KEYS:
+                raise _validation_error(f"Unsupported identity filter: {key}")
+            if not isinstance(value, str) or not value.strip():
+                raise _validation_error(f"{key} must be a non-empty string")
+            if key in normalized and normalized[key] != value:
+                raise _validation_error(f"Conflicting values for {key}")
+            normalized[key] = value
+    if not normalized:
+        raise _validation_error("At least one identifier (user_id, agent_id, or run_id) is required.")
+    return normalized
+
+
+def _normalize_filters(
+    filters: Optional[Dict[str, Any]],
+    *top_level_identity: Mapping[str, Any] | None,
+    identity_only: bool = False,
+    allow_no_identity: bool = False,
+) -> Dict[str, Any]:
+    if filters is not None and not isinstance(filters, Mapping):
+        raise _validation_error("filters must be an object")
+    filters = dict(filters or {})
+    filter_identity = {key: filters[key] for key in IDENTITY_KEYS if key in filters}
+    identity_sources = [
+        source for source in [filter_identity, *top_level_identity] if source
+    ]
+    extra_filters = {key: value for key, value in filters.items() if key not in IDENTITY_KEYS}
+    if "app_id" in extra_filters:
+        raise _validation_error("app_id is not supported by the OSS server")
+    if not identity_sources:
+        if allow_no_identity and not extra_filters:
+            return {}
+        raise _validation_error("At least one identifier (user_id, agent_id, or run_id) is required.")
+    normalized_identity = _normalize_identity(*identity_sources)
+    if identity_only and extra_filters:
+        unsupported = next(iter(extra_filters))
+        raise _validation_error(f"Unsupported filter: {unsupported}")
+    return extra_filters | normalized_identity
+
+
+def _parse_delete_all_filters(value: str) -> Mapping[str, Any]:
+    if len(value) > DELETE_ALL_FILTERS_MAX_LENGTH:
+        raise _validation_error("filters exceeds the 8192-character limit")
+    try:
+        parsed = __import__("json").loads(value)
+    except (TypeError, ValueError):
+        try:
+            parsed = ast.literal_eval(value)
+        except (SyntaxError, ValueError, TypeError):
+            raise _validation_error("filters must be a JSON or Python mapping")
+    if not isinstance(parsed, Mapping):
+        raise _validation_error("filters must be a mapping")
+    return parsed
 
 
 def _client_error(exc: Exception) -> HTTPException:
@@ -364,6 +507,30 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
         raise upstream_error()
 
 
+@app.get("/v1/ping/", include_in_schema=False)
+def ping(_auth=Depends(verify_auth)):
+    """Health check for SDK compatibility."""
+    return {"status": "ok"}
+
+
+@app.post("/v3/memories/add/", include_in_schema=False)
+def v3_add_memory(payload: V3AddRequest, _auth=Depends(verify_auth)):
+    identity = _normalize_filters(
+        payload.filters,
+        {key: getattr(payload, key) for key in IDENTITY_KEYS if key in payload.model_fields_set},
+        identity_only=True,
+    )
+    memory_create = MemoryCreate(
+        messages=[message.model_dump() for message in payload.messages],
+        metadata=payload.metadata,
+        infer=payload.infer,
+        expiration_date=payload.expiration_date,
+        prompt=payload.custom_instructions,
+        **identity,
+    )
+    return add_memory(memory_create, _auth=_auth)
+
+
 @app.post("/memories", summary="Create memories")
 def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     """Store new memories."""
@@ -382,8 +549,16 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
         raise upstream_error()
 
 
-ALL_MEMORIES_LIMIT = 1000
-_RESERVED_PAYLOAD_KEYS = {"data", "user_id", "agent_id", "run_id", "hash", "created_at", "updated_at", "expiration_date"}
+_RESERVED_PAYLOAD_KEYS = {
+    "data",
+    "user_id",
+    "agent_id",
+    "run_id",
+    "hash",
+    "created_at",
+    "updated_at",
+    "expiration_date",
+}
 
 
 def _serialize_memory(row: Any) -> Dict[str, Any]:
@@ -408,6 +583,55 @@ def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
     return {"results": [_serialize_memory(row) for row in rows]}
 
 
+def _get_all_memories(
+    request: Request,
+    user_id: Optional[str] = None,
+    run_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    filters: Optional[Dict[str, Any]] = None,
+    top_k: Optional[int] = None,
+    show_expired: bool = False,
+    _auth=None,
+):
+    try:
+        combined_filters = dict(filters or {})
+        combined_filters.update(
+            {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v}
+        )
+        if not combined_filters:
+            auth_type = getattr(request.state, "auth_type", "none")
+            if _auth is not None and _auth.role != "admin" and auth_type not in {"admin_api_key", "disabled"}:
+                raise HTTPException(status_code=403, detail="Admin role required to list all memories.")
+            return _list_all_memories(limit=top_k if top_k is not None else ALL_MEMORIES_LIMIT)
+        params = {"filters": combined_filters}
+        if top_k is not None:
+            params["top_k"] = top_k
+        params["show_expired"] = show_expired
+        return get_memory_instance().get_all(**params)
+    except HTTPException:
+        raise
+    except Exception:
+        raise upstream_error()
+
+
+@app.post("/v3/memories/", include_in_schema=False)
+def v3_get_all_memories(payload: V3GetAllRequest, request: Request, _auth=Depends(verify_auth)):
+    if request.query_params:
+        raise _validation_error("pagination and query parameters are not supported")
+    filters = _normalize_filters(
+        payload.filters,
+        {key: getattr(payload, key) for key in IDENTITY_KEYS if key in payload.model_fields_set},
+        allow_no_identity=True,
+    )
+    return _get_all_memories(
+        request,
+        filters=filters or None,
+        top_k=payload.top_k,
+        show_expired=payload.show_expired if payload.show_expired is not None else False,
+        _auth=_auth,
+    )
+
+
 @app.get("/memories", summary="Get memories")
 def get_all_memories(
     request: Request,
@@ -419,25 +643,15 @@ def get_all_memories(
     _auth=Depends(verify_auth),
 ):
     """Retrieve stored memories. Lists all memories when no identifier is provided (admin only)."""
-    try:
-        if not any([user_id, run_id, agent_id]):
-            auth_type = getattr(request.state, "auth_type", "none")
-            if _auth is not None and _auth.role != "admin" and auth_type not in {"admin_api_key", "disabled"}:
-                raise HTTPException(status_code=403, detail="Admin role required to list all memories.")
-            # Admin all-memory listing is intentionally raw; scoped get_all below applies expiry visibility.
-            return _list_all_memories(limit=top_k if top_k is not None else ALL_MEMORIES_LIMIT)
-        filters = {
-            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v
-        }
-        params = {"filters": filters}
-        if top_k is not None:
-            params["top_k"] = top_k
-        params["show_expired"] = show_expired
-        return get_memory_instance().get_all(**params)
-    except HTTPException:
-        raise
-    except Exception:
-        raise upstream_error()
+    return _get_all_memories(
+        request,
+        user_id=user_id,
+        run_id=run_id,
+        agent_id=agent_id,
+        top_k=top_k,
+        show_expired=show_expired,
+        _auth=_auth,
+    )
 
 
 @app.get("/memories/{memory_id}", summary="Get a memory")
@@ -449,33 +663,28 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
         raise upstream_error()
 
 
-@app.post("/search", summary="Search memories")
-def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
-    """Search for memories based on a query."""
+def _execute_search(
+    query: str,
+    filters: Dict[str, Any],
+    top_k: Optional[int] = None,
+    threshold: Optional[float] = None,
+    explain: Optional[bool] = None,
+    show_expired: Optional[bool] = None,
+    rerank: Optional[bool] = None,
+):
     try:
-        filters = search_req.filters or {}
-        deprecated_keys = []
-        for entity_key in ("user_id", "agent_id", "run_id"):
-            entity_val = getattr(search_req, entity_key, None)
-            if entity_val:
-                filters[entity_key] = entity_val
-                deprecated_keys.append(entity_key)
-        if deprecated_keys:
-            logging.warning(
-                "Top-level %s in /search is deprecated. Use filters={%s} instead.",
-                ", ".join(deprecated_keys),
-                ", ".join(f'"{k}": "..."' for k in deprecated_keys),
-            )
         params = {}
-        if search_req.top_k is not None:
-            params["top_k"] = search_req.top_k
-        if search_req.threshold is not None:
-            params["threshold"] = search_req.threshold
-        if search_req.explain is not None:
-            params["explain"] = search_req.explain
-        if search_req.show_expired is not None:
-            params["show_expired"] = search_req.show_expired
-        return get_memory_instance().search(query=search_req.query, filters=filters, **params)
+        if top_k is not None:
+            params["top_k"] = top_k
+        if threshold is not None:
+            params["threshold"] = threshold
+        if explain is not None:
+            params["explain"] = explain
+        if show_expired is not None:
+            params["show_expired"] = show_expired
+        if rerank is not None:
+            params["rerank"] = rerank
+        return get_memory_instance().search(query=query, filters=dict(filters), **params)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -484,11 +693,54 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
         raise upstream_error()
 
 
+@app.post("/v3/memories/search/", include_in_schema=False)
+def v3_search_memories(search_req: V3SearchRequest, _auth=Depends(verify_auth)):
+    filters = _normalize_filters(search_req.filters, allow_no_identity=True)
+    return _execute_search(
+        search_req.query,
+        filters,
+        top_k=search_req.top_k,
+        threshold=search_req.threshold,
+        rerank=search_req.rerank,
+        show_expired=search_req.show_expired,
+    )
+
+
+@app.post("/search", summary="Search memories")
+def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
+    """Search for memories based on a query."""
+    filters = dict(search_req.filters or {})
+    deprecated_keys = []
+    for entity_key in ("user_id", "agent_id", "run_id"):
+        entity_val = getattr(search_req, entity_key, None)
+        if entity_val:
+            filters[entity_key] = entity_val
+            deprecated_keys.append(entity_key)
+    if deprecated_keys:
+        logging.warning(
+            "Top-level %s in /search is deprecated. Use filters={%s} instead.",
+            ", ".join(deprecated_keys),
+            ", ".join(f'"{k}": "..."' for k in deprecated_keys),
+        )
+    return _execute_search(
+        search_req.query,
+        filters,
+        top_k=search_req.top_k,
+        threshold=search_req.threshold,
+        explain=search_req.explain,
+        show_expired=search_req.show_expired,
+    )
+
+
 @app.put("/memories/{memory_id}", summary="Update a memory")
 def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(verify_auth)):
     """Update an existing memory."""
     try:
-        fields_set = getattr(updated_memory, "model_fields_set", getattr(updated_memory, "__fields_set__", set()))
+        fields_set = (
+            updated_memory.model_fields_set
+            if hasattr(updated_memory, "model_fields_set")
+            else getattr(updated_memory, "__fields_set__", set())
+        )
         params = {"memory_id": memory_id}
         if "text" in fields_set:
             params["data"] = updated_memory.text
@@ -501,6 +753,14 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(ve
         raise _client_error(e)
     except Exception:
         raise upstream_error()
+
+
+@app.put("/v1/memories/{memory_id:path}/", include_in_schema=False)
+def v1_update_memory(memory_id: str, payload: V1UpdateRequest, _auth=Depends(verify_auth)):
+    if not payload.model_fields_set:
+        raise _validation_error("At least one update field is required")
+    updated_memory = MemoryUpdate.model_validate(payload.model_dump(exclude_unset=True))
+    return update_memory(memory_id, updated_memory, _auth=_auth)
 
 
 @app.get("/memories/{memory_id}/history", summary="Get memory history")
@@ -524,6 +784,27 @@ def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
         raise upstream_error()
 
 
+@app.get("/v1/memories/{memory_id:path}/history/", include_in_schema=False)
+def v1_memory_history(memory_id: str, _auth=Depends(verify_auth)):
+    return memory_history(memory_id, _auth=_auth)
+
+
+@app.get("/v1/memories/{memory_id:path}/", include_in_schema=False)
+def v1_get_memory(memory_id: str, _auth=Depends(verify_auth)):
+    return get_memory(memory_id, _auth=_auth)
+
+
+@app.delete("/v1/memories/{memory_id:path}/", include_in_schema=False, response_model=MessageResponse)
+def v1_delete_memory(
+    memory_id: str,
+    delete_linked: Optional[bool] = Query(None),
+    _auth=Depends(verify_auth),
+):
+    if delete_linked is True:
+        raise _validation_error("delete_linked=true is not supported by the OSS server")
+    return delete_memory(memory_id, _auth=_auth)
+
+
 @app.delete("/memories", summary="Delete all memories", response_model=MessageResponse)
 def delete_all_memories(
     user_id: Optional[str] = None,
@@ -535,13 +816,34 @@ def delete_all_memories(
     if not any([user_id, run_id, agent_id]):
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
-        params = {
-            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v
-        }
+        params = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v}
         get_memory_instance().delete_all(**params)
         return MessageResponse(message="All relevant memories deleted")
     except Exception:
         raise upstream_error()
+
+
+@app.delete("/v1/memories/", include_in_schema=False, response_model=MessageResponse)
+def v1_delete_all_memories(
+    request: Request,
+    filters: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+    agent_id: Optional[str] = Query(None),
+    run_id: Optional[str] = Query(None),
+    _auth=Depends(require_admin),
+):
+    allowed = {"filters", "user_id", "agent_id", "run_id"}
+    unsupported = [key for key in request.query_params if key not in allowed]
+    if unsupported:
+        raise _validation_error(f"Unsupported delete-all query parameter: {unsupported[0]}")
+    parsed_filters = _parse_delete_all_filters(filters) if filters is not None else None
+    top_level = {
+        key: value
+        for key, value in {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}.items()
+        if value is not None
+    }
+    identity = _normalize_identity(*(source for source in (parsed_filters, top_level) if source is not None))
+    return delete_all_memories(_auth=_auth, **identity)
 
 
 @app.post("/reset", summary="Reset all memories")
