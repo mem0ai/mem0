@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import threading
 from hashlib import sha256
@@ -10,8 +11,22 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+import pytest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "oss-to-platform-migrate.sh"
+# bash cannot open a native Windows path -- the backslashes reach it as escapes -- so
+# shell-outs use the POSIX form. BASH is resolved to an absolute path because one test
+# wipes PATH and would otherwise not find the interpreter either.
+SCRIPT_ARG = SCRIPT.as_posix()
+BASH = shutil.which("bash")
+# The script hard-requires python3. Ask the shell the tests actually use: on Windows what
+# Git Bash resolves is not what shutil.which() sees.
+HAS_PYTHON3 = bool(BASH) and subprocess.run([BASH, "-c", "command -v python3"], capture_output=True).returncode == 0
+
+pytestmark = pytest.mark.skipif(
+    not (BASH and HAS_PYTHON3),
+    reason="the migration script shells out to bash and python3; both must be on PATH",
+)
 
 
 class MigrationHTTPServer:
@@ -224,7 +239,7 @@ def run_migration_script(
     env.pop("MEM0_BASE_URL", None)
 
     result = subprocess.run(
-        ["bash", str(SCRIPT), "--auth-only", "--base-url", server.url, *args],
+        [BASH, SCRIPT_ARG, "--auth-only", "--base-url", server.url, *args],
         capture_output=True,
         text=True,
         env=env,
@@ -260,8 +275,8 @@ def run_export_script(
 
     result = subprocess.run(
         [
-            "bash",
-            str(SCRIPT),
+            BASH,
+            SCRIPT_ARG,
             "--export-only",
             "--qdrant-url",
             server.url,
@@ -305,8 +320,8 @@ def run_import_script(
 
     result = subprocess.run(
         [
-            "bash",
-            str(SCRIPT),
+            BASH,
+            SCRIPT_ARG,
             "--import-only",
             "--base-url",
             server.url,
@@ -349,8 +364,8 @@ def run_full_script(
 
     result = subprocess.run(
         [
-            "bash",
-            str(SCRIPT),
+            BASH,
+            SCRIPT_ARG,
             "--base-url",
             server.url,
             "--qdrant-url",
@@ -540,7 +555,7 @@ def test_missing_python3_prints_clear_shell_error(tmp_path: Path) -> None:
     env["PATH"] = str(tmp_path)
 
     result = subprocess.run(
-        ["/bin/bash", str(SCRIPT), "--help"],
+        [BASH, SCRIPT_ARG, "--help"],
         capture_output=True,
         text=True,
         env=env,
@@ -554,7 +569,7 @@ def test_missing_python3_prints_clear_shell_error(tmp_path: Path) -> None:
 
 def test_curl_piped_help_works() -> None:
     result = subprocess.run(
-        ["bash", "-c", f"curl -fsSL file://{SCRIPT} | bash -s -- --help"],
+        [BASH, "-c", f"curl -fsSL '{SCRIPT.as_uri()}' | bash -s -- --help"],
         capture_output=True,
         text=True,
         timeout=20,
