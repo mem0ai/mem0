@@ -198,7 +198,7 @@ class TestSQLiteManager:
             sqlite_manager.add_history(
                 memory_id=sample_data["memory_id"],
                 old_memory=f"Memory {i}",
-                new_memory=f"Memory {i+1}",
+                new_memory=f"Memory {i + 1}",
                 event="ADD" if i == 0 else "UPDATE",
                 created_at=ts,
                 updated_at=ts if i > 0 else None,
@@ -299,3 +299,19 @@ class TestSQLiteManager:
         assert msg_count == 0
         assert hist_count == 0
         mgr2.close()
+
+    def test_save_messages_keeps_latest_ten_when_batch_timestamps_match(self, memory_manager):
+        messages = [{"role": "user", "content": str(index)} for index in range(11)]
+
+        memory_manager.save_messages(messages, "session")
+
+        stored = memory_manager.get_last_messages("session")
+        assert [message["content"] for message in stored] == [str(index) for index in range(1, 11)]
+
+    def test_get_last_messages_uses_insertion_order_when_timestamps_match(self, memory_manager):
+        messages = [{"role": "user", "content": str(index)} for index in range(3)]
+        memory_manager.save_messages(messages, "session")
+
+        stored = memory_manager.get_last_messages("session", limit=2)
+
+        assert [message["content"] for message in stored] == ["1", "2"]
