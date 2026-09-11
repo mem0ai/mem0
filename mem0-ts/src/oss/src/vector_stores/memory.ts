@@ -111,46 +111,63 @@ export class MemoryVectorStore implements VectorStore {
       return value.includes(payloadValue);
     }
 
-    // Handle comparison operators
-    if ("eq" in value) {
-      return payloadValue === value.eq;
-    }
-    if ("ne" in value) {
-      return payloadValue !== value.ne;
-    }
-    if ("gt" in value) {
-      return payloadValue > value.gt;
-    }
-    if ("gte" in value) {
-      return payloadValue >= value.gte;
-    }
-    if ("lt" in value) {
-      return payloadValue < value.lt;
-    }
-    if ("lte" in value) {
-      return payloadValue <= value.lte;
-    }
-    if ("in" in value) {
-      return Array.isArray(value.in) && value.in.includes(payloadValue);
-    }
-    if ("nin" in value) {
-      return !Array.isArray(value.nin) || !value.nin.includes(payloadValue);
-    }
-    if ("contains" in value) {
-      return (
-        typeof payloadValue === "string" &&
-        payloadValue.includes(value.contains)
-      );
-    }
-    if ("icontains" in value) {
-      return (
-        typeof payloadValue === "string" &&
-        payloadValue.toLowerCase().includes(value.icontains.toLowerCase())
-      );
+    // Handle comparison operators. A condition may combine several operators on
+    // the same field (e.g. {gte:10, lte:20} for a range). ALL of them must hold,
+    // so every operator is evaluated instead of returning on the first match —
+    // otherwise the upper bound of a range is silently ignored. This matches how
+    // the other stores (pgvector, qdrant) AND multiple operators together.
+    const knownOperators = [
+      "eq",
+      "ne",
+      "gt",
+      "gte",
+      "lt",
+      "lte",
+      "in",
+      "nin",
+      "contains",
+      "icontains",
+    ];
+    if (!knownOperators.some((op) => op in value)) {
+      // Unknown operator - treat as nested object for equality (shouldn't happen normally)
+      return payloadValue === value;
     }
 
-    // Unknown operator - treat as nested object for equality (shouldn't happen normally)
-    return payloadValue === value;
+    if ("eq" in value && !(payloadValue === value.eq)) return false;
+    if ("ne" in value && !(payloadValue !== value.ne)) return false;
+    if ("gt" in value && !(payloadValue > value.gt)) return false;
+    if ("gte" in value && !(payloadValue >= value.gte)) return false;
+    if ("lt" in value && !(payloadValue < value.lt)) return false;
+    if ("lte" in value && !(payloadValue <= value.lte)) return false;
+    if (
+      "in" in value &&
+      !(Array.isArray(value.in) && value.in.includes(payloadValue))
+    )
+      return false;
+    if (
+      "nin" in value &&
+      Array.isArray(value.nin) &&
+      value.nin.includes(payloadValue)
+    )
+      return false;
+    if (
+      "contains" in value &&
+      !(
+        typeof payloadValue === "string" &&
+        payloadValue.includes(value.contains)
+      )
+    )
+      return false;
+    if (
+      "icontains" in value &&
+      !(
+        typeof payloadValue === "string" &&
+        payloadValue.toLowerCase().includes(value.icontains.toLowerCase())
+      )
+    )
+      return false;
+
+    return true;
   }
 
   /**
