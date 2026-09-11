@@ -1,6 +1,28 @@
 import { extractEntities } from "../src/utils/entity_extraction";
 
 describe("extractEntities", () => {
+  it("keeps distinct entities that only share a substring prefix", () => {
+    const entityTexts = new Set(
+      extractEntities("The team mentioned Sam and Samsung together.").map(
+        (entity) => entity.text,
+      ),
+    );
+
+    expect(entityTexts.has("Sam")).toBe(true);
+    expect(entityTexts.has("Samsung")).toBe(true);
+  });
+
+  it("still removes true whole-word subsets of longer entities", () => {
+    const entityTexts = new Set(
+      extractEntities(
+        '"machine learning" and "learning" were both mentioned.',
+      ).map((entity) => entity.text.toLowerCase()),
+    );
+
+    expect(entityTexts.has("machine learning")).toBe(true);
+    expect(entityTexts.has("learning")).toBe(false);
+  });
+
   it("handles product lists, coordinated names, and identifiers", () => {
     const text =
       "User reported top inbound integration pages: OpenClaw 25,443, " +
