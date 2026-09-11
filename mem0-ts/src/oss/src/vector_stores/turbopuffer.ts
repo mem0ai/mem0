@@ -247,23 +247,54 @@ export class TurbopufferDB implements VectorStore {
     }
   }
 
+  // Maps mem0's universal filter operators to Turbopuffer's filter tokens.
+  private static readonly OPERATOR_MAP: Record<string, string> = {
+    eq: "Eq",
+    ne: "NotEq",
+    gt: "Gt",
+    gte: "Gte",
+    lt: "Lt",
+    lte: "Lte",
+    in: "In",
+    nin: "NotIn",
+  };
+
   private convertFilters(filters?: SearchFilters): any {
     if (!filters || Object.keys(filters).length === 0) return null;
 
     const conditions: any[] = [];
     for (const [key, value] of Object.entries(filters)) {
-      if (
-        typeof value === "object" &&
-        value !== null &&
-        !Array.isArray(value)
-      ) {
-        if ("gte" in value) conditions.push([key, "Gte", value.gte]);
-        if ("lte" in value) conditions.push([key, "Lte", value.lte]);
-        if ("gt" in value) conditions.push([key, "Gt", value.gt]);
-        if ("lt" in value) conditions.push([key, "Lt", value.lt]);
-      } else {
-        conditions.push([key, "Eq", value]);
+      // "*" is a match-any wildcard: it must not constrain the query. The old
+      // code turned it into `[key, "Eq", "*"]`, matching nothing.
+      if (value === "*") {
+        continue;
       }
+
+      // Array shorthand: { key: [a, b] } means "in".
+      if (Array.isArray(value)) {
+        conditions.push([key, "In", value]);
+        continue;
+      }
+
+      if (typeof value === "object" && value !== null) {
+        // Operator dict: every operator present must hold. Previously only
+        // `gte` and `lte` were read, so `gt`/`lt`/`ne`/`eq`/`in`/`nin` were
+        // silently dropped and the filter returned unfiltered results.
+        for (const [op, operand] of Object.entries(value)) {
+          const token = TurbopufferDB.OPERATOR_MAP[op];
+          if (!token) {
+            throw new Error(
+              `Unsupported Turbopuffer filter operator '${op}' for field '${key}'. ` +
+                `Supported operators: ${Object.keys(TurbopufferDB.OPERATOR_MAP).join(", ")}.`,
+            );
+          }
+          conditions.push([key, token, operand]);
+        }
+        continue;
+      }
+
+      // Scalar shorthand: equality.
+      conditions.push([key, "Eq", value]);
     }
 
     if (conditions.length === 0) return null;
