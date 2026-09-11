@@ -9,9 +9,26 @@ from hashlib import sha256
 VECTOR_ID = str(uuid.uuid4())
 home_dir = os.path.expanduser("~")
 mem0_dir = os.environ.get("MEM0_DIR") or os.path.join(home_dir, ".mem0")
-os.makedirs(mem0_dir, exist_ok=True)
 
 _logger = logging.getLogger(__name__)
+
+
+def _ensure_dir(path):
+    """Best-effort mkdir. Returns False instead of raising when the directory
+    cannot be created (read-only or missing $HOME: Lambda, distroless images,
+    build sandboxes). This directory only holds local telemetry/notice state,
+    so losing it must never be fatal."""
+    try:
+        os.makedirs(path, exist_ok=True)
+        return True
+    except OSError as e:
+        _logger.debug("Failed to create mem0 directory %s: %s", path, e)
+        return False
+
+
+# Created at import so the default history_db_path (~/.mem0/history.db) works
+# out of the box, but never at the cost of `import mem0` itself.
+_ensure_dir(mem0_dir)
 
 
 def _config_path():
