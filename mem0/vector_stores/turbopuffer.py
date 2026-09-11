@@ -131,6 +131,18 @@ class TurbopufferDB(VectorStoreBase):
             ))
         return results
 
+    # Maps mem0 filter operators to their Turbopuffer equivalents.
+    OPERATOR_MAP = {
+        "eq": "Eq",
+        "ne": "NotEq",
+        "gt": "Gt",
+        "gte": "Gte",
+        "lt": "Lt",
+        "lte": "Lte",
+        "in": "In",
+        "nin": "NotIn",
+    }
+
     def _convert_filters(self, filters: Optional[Dict]):
         """
         Convert mem0 filters to Turbopuffer filter format.
@@ -143,10 +155,14 @@ class TurbopufferDB(VectorStoreBase):
         conditions = []
         for key, value in filters.items():
             if isinstance(value, dict):
-                if "gte" in value:
-                    conditions.append((key, "Gte", value["gte"]))
-                if "lte" in value:
-                    conditions.append((key, "Lte", value["lte"]))
+                for op, operand in value.items():
+                    tpuf_op = self.OPERATOR_MAP.get(op)
+                    if tpuf_op is None:
+                        raise ValueError(
+                            f"Unsupported filter operator '{op}' for field '{key}'. "
+                            f"Supported operators: {sorted(self.OPERATOR_MAP)}"
+                        )
+                    conditions.append((key, tpuf_op, operand))
             else:
                 conditions.append((key, "Eq", value))
 
