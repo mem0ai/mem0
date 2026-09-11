@@ -21,6 +21,12 @@ config = {
         "config": {
             "model": "mxbai-embed-large"
         }
+    },
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "embedding_model_dims": 1024  # mxbai-embed-large's real output dimension
+        }
     }
 }
 
@@ -45,6 +51,12 @@ const config = {
       url: 'http://localhost:11434', // Ollama server URL
     },
   },
+  vectorStore: {
+    provider: 'qdrant',
+    config: {
+      dimension: 768, // nomic-embed-text's real output dimension
+    },
+  },
 };
 
 const memory = new Memory(config);
@@ -57,6 +69,14 @@ const messages = [
 await memory.add(messages, { userId: "john" });
 ```
 </CodeGroup>
+
+<Accordion title="Why the examples set the vector store dimension">
+  Most of Mem0's vector stores, including Qdrant (the default), default `embedding_model_dims` to `1536` (OpenAI's dimension), which does not match Ollama's embedding models. If you use a different embedding model, set `vector_store.config.embedding_model_dims` (Python) / `vectorStore.config.dimension` (TypeScript) to that model's real output dimension — a mismatch makes `add()` fail with a vector shape error. You can get the real dimension for any pulled model with:
+  ```bash
+  curl -s http://localhost:11434/api/embeddings -d '{"model": "<your-model>", "prompt": "test"}' \
+    | python3 -c "import json,sys; print(len(json.load(sys.stdin)['embedding']))"
+  ```
+</Accordion>
 
 ### Config
 
