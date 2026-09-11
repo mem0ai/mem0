@@ -18,6 +18,12 @@ class OpenSearchConfig(BaseModel):
         "RequestsHttpConnection", description="Connection class for OpenSearch"
     )
     pool_maxsize: int = Field(20, description="Maximum number of connections in the pool")
+    timeout: Optional[int] = Field(
+        None,
+        description="Per-request timeout in seconds for the OpenSearch client. Defaults to "
+        "opensearch-py's built-in default (10s) when unset. Raise this for AWS OpenSearch "
+        "Serverless, whose cold-start can exceed 10s.",
+    )
     auto_refresh: bool = Field(
         False,
         description="Automatically refresh index after insert operations to make documents "
