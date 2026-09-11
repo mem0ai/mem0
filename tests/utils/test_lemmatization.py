@@ -6,6 +6,7 @@ def _ensure_spacy():
     """Skip tests if spaCy model is not available."""
     try:
         import spacy
+
         spacy.load("en_core_web_sm")
     except Exception:
         pytest.skip("spaCy en_core_web_sm model not available")
@@ -65,3 +66,30 @@ class TestLemmatizeForBm25:
         tokens = result.split()
         for stop in ["this", "is", "a", "very", "of", "the"]:
             assert stop not in tokens
+
+
+@pytest.fixture()
+def _use_zh_model(monkeypatch):
+    """Point mem0 at the Chinese pipeline and reset its cached spaCy state."""
+    import spacy
+
+    if not spacy.util.is_package("zh_core_web_sm"):
+        pytest.skip("spaCy zh_core_web_sm model not available")
+    import mem0.utils.spacy_models as sm
+
+    monkeypatch.setenv("MEM0_SPACY_MODEL", "zh_core_web_sm")
+    monkeypatch.setattr(sm, "_nlp_lemma", None)
+    monkeypatch.setattr(sm, "_load_failed_lemma", False)
+
+
+class TestLemmatizeForBm25Chinese:
+    def test_chinese_tokens_kept(self, _use_zh_model):
+        """zh pipelines return empty lemmas; surface forms must be kept."""
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        result = lemmatize_for_bm25("张三是阿里巴巴的工程师")
+        assert result != ""
+        assert "阿里巴巴" in result.split()
+        # Chinese stop words should be removed
+        assert "是" not in result.split()
+        assert "的" not in result.split()
