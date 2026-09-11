@@ -62,7 +62,7 @@
     "tsup": "^8.5.0",
     "typebox": "^1.2.3",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.11"
   },
   "dependencies": {
     "mem0ai": "^3.0.7"
