@@ -719,3 +719,20 @@ def test_build_filter_escapes_quotes(azure_ai_search_instance):
     instance, _, _ = azure_ai_search_instance
     expr = instance._build_filter_expression({"name": "O'Brien"})
     assert "name eq 'O''Brien'" in expr
+
+
+def test_build_filter_wildcard_means_field_exists(azure_ai_search_instance):
+    """The documented '*' filter value means "the field exists" (#6539).
+    A literal eq '*' comparison would match nothing; absent fields are null
+    in Azure AI Search, so it must translate to 'ne null'."""
+    instance, _, _ = azure_ai_search_instance
+    expr = instance._build_filter_expression({"agent_id": "*"})
+    assert expr == "agent_id ne null"
+
+
+def test_build_filter_wildcard_combines_with_equality(azure_ai_search_instance):
+    instance, _, _ = azure_ai_search_instance
+    expr = instance._build_filter_expression({"user_id": "alice", "agent_id": "*"})
+    assert "user_id eq 'alice'" in expr
+    assert "agent_id ne null" in expr
+    assert " and " in expr

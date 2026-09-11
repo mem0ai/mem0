@@ -196,7 +196,13 @@ class AzureAISearch(VectorStoreBase):
         filter_conditions = []
         for key, value in filters.items():
             safe_key = self._sanitize_key(key)
-            if isinstance(value, str):
+            if value == "*":
+                # The documented '*' filter value means "the field exists"; a
+                # literal eq '*' comparison would match nothing. Fields absent
+                # from a document are null in Azure AI Search, so 'ne null'
+                # expresses exactly field-exists.
+                condition = f"{safe_key} ne null"
+            elif isinstance(value, str):
                 safe_value = value.replace("'", "''")
                 condition = f"{safe_key} eq '{safe_value}'"
             elif isinstance(value, bool):
