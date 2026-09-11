@@ -93,6 +93,33 @@ export OPENAI_API_KEY="..."
 export COHERE_API_KEY="..."   # Cohere reranker only
 ```
 
+### OpenAI-compatible providers
+
+For OpenAI-compatible LLM providers, keep the `openai` provider and set
+`openai_base_url` in the LLM config. For example, TokenLab can be used with its
+OpenAI-compatible `/v1` endpoint:
+
+```python
+from mem0 import Memory
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "claude-sonnet-5",
+            "api_key": "your-tokenlab-api-key",
+            "openai_base_url": "https://api.tokenlab.sh/v1",
+        },
+    },
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {"host": "localhost", "port": 6333},
+    },
+}
+
+memory = Memory.from_config(config)
+```
+
 <Note>
   The TypeScript OSS SDK configures the LLM, embedder, vector store, history store, and reranker. Graph memory is not part of OSS in either language: it is a built-in [Mem0 Platform feature](/platform/features/graph-memory).
 </Note>
