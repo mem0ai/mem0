@@ -52,13 +52,17 @@ export async function withRetry<T>(
 }
 
 /**
- * Poll getAll until memories appear for a user.
- * The Mem0 API processes memories asynchronously — after add()
- * we need to wait for them to be available.
+ * Poll getAll until a user's memories reach minCount and the ID set
+ * stops changing between polls.
+ *
+ * The Mem0 API processes memories asynchronously, and consolidating a
+ * new fact replaces a memory (delete + add) instead of editing it in
+ * place. Returning on the first non-empty read hands callers IDs the
+ * pipeline then invalidates, so compare IDs rather than length: a
+ * replacement leaves the count unchanged.
  *
  * Polls every 15 seconds with a maximum of 4 retries to avoid
- * hitting rate limits. Throws if results aren't available after
- * all retries.
+ * hitting rate limits. Throws if minCount is never reached.
  */
 export async function waitForMemories(
   client: MemoryClient,
@@ -66,17 +70,31 @@ export async function waitForMemories(
   minCount: number,
   maxRetries = 4,
 ): Promise<Memory[]> {
+  let memories: Memory[] = [];
+  let previousIds = "";
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const response = await withRetry(() =>
       client.getAll({ filters: { user_id: userId } }),
     );
-    const memories = response.results ?? [];
-    if (memories.length >= minCount) {
+    memories = response.results ?? [];
+
+    const ids = memories
+      .map((m) => m.id)
+      .sort()
+      .join(",");
+    if (memories.length >= minCount && ids === previousIds) {
       return memories;
     }
+    previousIds = ids;
+
     if (attempt < maxRetries) {
       await new Promise((r) => setTimeout(r, 15_000));
     }
+  }
+
+  if (memories.length >= minCount) {
+    return memories;
   }
   throw new Error(
     `waitForMemories: expected at least ${minCount} memories for user "${userId}" but did not get them after ${maxRetries} attempts`,
@@ -200,34 +218,5 @@ export async function cleanupTestUser(
     await client.deleteUsers({ userId });
   } catch {
     // ignore
-  }
-}
-
-/**
- * Full project wipe — deletes all memories and all entities.
- * Equivalent to Python SDK's:
- *   client.delete_all(user_id="*", agent_id="*", app_id="*", run_id="*")
- *
- * Used as cleanup before and after integration test runs so tests
- * start from a clean slate and don't leave data behind.
- */
-export async function fullProjectCleanup(client: MemoryClient): Promise<void> {
-  // Delete all memories — all four filters set explicitly
-  try {
-    await client.deleteAll({
-      userId: "*",
-      agentId: "*",
-      appId: "*",
-      runId: "*",
-    });
-  } catch {
-    // ignore — may 404 if no data exists
-  }
-
-  // Delete all entities (users, agents, apps, runs)
-  try {
-    await client.deleteUsers();
-  } catch {
-    // ignore — may throw "No entities to delete"
   }
 }
