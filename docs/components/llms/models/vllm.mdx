@@ -1,9 +1,9 @@
 ---
 title: vLLM
-description: "Configure vLLM as an LLM provider in Mem0 for high-performance local inference with GPU-optimized serving."
+description: "Configure vLLM as an LLM provider in Mem0, with optional LMCache-backed KV reuse."
 ---
 
-[vLLM](https://docs.vllm.ai/) is a high-performance inference engine for large language models that provides significant performance improvements for local inference. It's designed to maximize throughput and memory efficiency for serving LLMs.
+[vLLM](https://docs.vllm.ai/) is a high-performance inference engine for serving large language models. Mem0 connects to its OpenAI-compatible API for memory extraction.
 
 ## Prerequisites
 
@@ -16,11 +16,9 @@ description: "Configure vLLM as an LLM provider in Mem0 for high-performance loc
 2. **Start vLLM server**:
 
    ```bash
-   # For testing with a small model
-   vllm serve microsoft/DialoGPT-medium --port 8000
-
-   # For production with a larger model (requires GPU)
-   vllm serve Qwen/Qwen2.5-32B-Instruct --port 8000
+   vllm serve Qwen/Qwen3-8B \
+     --port 8000 \
+     --max-model-len 16384
    ```
 
 ## Usage
@@ -36,8 +34,9 @@ config = {
     "llm": {
         "provider": "vllm",
         "config": {
-            "model": "Qwen/Qwen2.5-32B-Instruct",
+            "model": "Qwen/Qwen3-8B",
             "vllm_base_url": "http://localhost:8000/v1",
+            "api_key": "vllm-api-key",
             "temperature": 0.1,
             "max_tokens": 2000,
         }
@@ -61,7 +60,7 @@ const config = {
   llm: {
     provider: "vllm",
     config: {
-      model: "Qwen/Qwen2.5-32B-Instruct",
+      model: "Qwen/Qwen3-8B",
       baseURL: "http://localhost:8000/v1",
       apiKey: process.env.VLLM_API_KEY || "vllm-api-key",
       temperature: 0.1,
@@ -94,6 +93,61 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 
 </CodeGroup>
 
+## Optional: Reuse KV cache with LMCache
+
+[LMCache](https://docs.lmcache.ai/) adds reusable KV-cache tiers behind vLLM. Mem0 does not need a separate LMCache provider: both the Python and TypeScript configurations above continue to connect to the same vLLM URL.
+
+Mem0's inferred memory writes reuse a large extraction-prompt prefix, so later `add(..., infer=True)` calls can reuse cached prefill work. To enable LMCache in its recommended multiprocess mode:
+
+1. Install LMCache alongside vLLM:
+
+   ```bash
+   pip install lmcache vllm
+   ```
+
+2. Start the LMCache server:
+
+   ```bash
+   lmcache server \
+     --host localhost \
+     --port 5555 \
+     --l1-size-gb 20 \
+     --eviction-policy LRU
+   ```
+
+3. Start vLLM with the LMCache MP connector:
+
+   ```bash
+   vllm serve Qwen/Qwen3-8B \
+     --port 8000 \
+     --max-model-len 16384 \
+     --kv-transfer-config \
+     '{"kv_connector":"LMCacheMPConnector","kv_connector_module_path":"lmcache.integration.vllm.lmcache_mp_connector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://localhost","lmcache.mp.port":5555}}'
+   ```
+
+   The `kv_connector_module_path` setting selects LMCache's current connector with vLLM 0.20 and later. For older vLLM releases, omit that setting and use the connector bundled with vLLM. See the [LMCache quickstart](https://docs.lmcache.ai/getting_started/quickstart.html) for version-specific details.
+
+4. Run the same Mem0 code from the Usage section, or the repository example:
+
+   ```bash
+   python examples/misc/vllm_example.py
+   ```
+
+The first matching request populates LMCache. After subsequent requests, inspect the token-level lookup counters described in [LMCache's metrics reference](https://docs.lmcache.ai/mp/observability/metrics.html):
+
+```bash
+curl -s http://localhost:8080/metrics | \
+  grep -E 'lmcache_mp_lookup_(requested|hit)_tokens_total'
+```
+
+<Note>
+  LMCache accelerates LLM prefill for repeated prefixes, including inferred memory writes and procedural-memory summarization. Normal `search()` calls, embeddings, vector-store operations, and `add(..., infer=False)` do not use the extraction LLM and are not accelerated by LMCache.
+</Note>
+
+<Note>
+  vLLM also provides GPU-resident automatic prefix caching. Compare LMCache against vLLM with that cache enabled. LMCache is most useful when cached state must outgrow GPU memory, survive a vLLM restart, or be shared by multiple vLLM engines; short or mostly unique prompts may not benefit.
+</Note>
+
 ## Configuration Parameters
 
 | Parameter       | Description                       | Default                       | Environment Variable |
@@ -106,7 +160,7 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 
 ## Environment Variables
 
-You can set these environment variables instead of specifying them in config:
+The repository example reads these environment variables when constructing its vLLM configuration:
 
 ```bash
 export VLLM_BASE_URL="http://localhost:8000/v1"
@@ -116,7 +170,7 @@ export OPENAI_API_KEY="your-openai-api-key"  # for embeddings
 
 ## Benefits
 
-- **High Performance**: 2-24x faster inference than standard implementations
+- **GPU Optimized**: High-throughput inference with continuous batching
 - **Memory Efficient**: Optimized memory usage with PagedAttention
 - **Local Deployment**: Keep your data private and reduce API costs
 - **Easy Integration**: Drop-in replacement for other LLM providers
@@ -138,10 +192,10 @@ export OPENAI_API_KEY="your-openai-api-key"  # for embeddings
 
 3. **Model not found**: Check model name matches server
 
-4. **Out of memory**: Try smaller models or reduce `max_model_len`
+4. **Out of memory**: Try a smaller model or tune vLLM's memory settings. Mem0's extraction prompt can exceed 4,096 tokens, so ensure the server context window can hold the complete prompt and response.
 
    ```bash
-   vllm serve Qwen/Qwen2.5-32B-Instruct --max-model-len 4096
+   vllm serve Qwen/Qwen3-8B --max-model-len 16384
    ```
 
 ## Config
