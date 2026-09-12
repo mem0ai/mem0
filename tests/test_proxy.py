@@ -68,11 +68,13 @@ def test_completions_create(mock_memory_client, mock_litellm):
     completions = Completions(mock_memory_client)
 
     messages = [{"role": "user", "content": "Hello, how are you?"}]
-    mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
+    mock_memory_client.search.return_value = {"results": [{"memory": "Some relevant memory"}]}
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     mock_litellm.supports_function_calling.return_value = True
 
-    response = completions.create(model="gpt-4.1-nano-2025-04-14", messages=messages, user_id="test_user", temperature=0.7)
+    response = completions.create(
+        model="gpt-4.1-nano-2025-04-14", messages=messages, user_id="test_user", temperature=0.7
+    )
 
     mock_memory_client.add.assert_called_once()
     mock_memory_client.search.assert_called_once()
@@ -93,7 +95,7 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello, how are you?"},
     ]
-    mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
+    mock_memory_client.search.return_value = {"results": [{"memory": "Some relevant memory"}]}
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     mock_litellm.supports_function_calling.return_value = True
 
@@ -118,7 +120,7 @@ def test_completions_create_messages_default_does_not_leak_between_calls(mock_me
     completions = Completions(mock_memory_client)
     mock_litellm.supports_function_calling.return_value = True
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
-    mock_memory_client.search.return_value = []
+    mock_memory_client.search.return_value = {"results": []}
 
     # Each call passes a fresh list — confirms the public happy path stays green.
     completions.create(
@@ -141,6 +143,61 @@ def test_completions_create_messages_default_does_not_leak_between_calls(mock_me
         f"Completions.create(messages=...) must default to None to avoid the "
         f"B006 shared-default-list bug; got {messages_default!r}."
     )
+
+
+def test_fetch_relevant_memories_passes_entity_params_in_filters(mock_memory_client):
+    """Regression test for #4907 bug 1: entity params must go inside filters, not as top-level kwargs."""
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = {"results": []}
+
+    completions._fetch_relevant_memories(
+        messages=[{"role": "user", "content": "hi"}],
+        user_id="u1",
+        agent_id="a1",
+        run_id=None,
+        filters=None,
+        top_k=5,
+    )
+
+    mock_memory_client.search.assert_called_once()
+    call_kwargs = mock_memory_client.search.call_args[1]
+    assert "user_id" not in call_kwargs, "user_id must not be a top-level kwarg"
+    assert "agent_id" not in call_kwargs, "agent_id must not be a top-level kwarg"
+    assert call_kwargs["filters"] == {"user_id": "u1", "agent_id": "a1"}
+    assert call_kwargs["top_k"] == 5
+
+
+def test_fetch_relevant_memories_merges_caller_filters(mock_memory_client):
+    """Regression test for #4907: explicit entity params merge into caller-provided filters."""
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = {"results": []}
+    caller_filters = {"category": "work"}
+
+    completions._fetch_relevant_memories(
+        messages=[{"role": "user", "content": "hi"}],
+        user_id="u1",
+        agent_id=None,
+        run_id=None,
+        filters=caller_filters,
+        top_k=10,
+    )
+
+    call_kwargs = mock_memory_client.search.call_args[1]
+    assert call_kwargs["filters"] == {"category": "work", "user_id": "u1"}
+    assert caller_filters == {"category": "work"}, "caller's dict must not be mutated"
+
+
+def test_format_query_with_memories_memoryclient_uses_results_key(mock_memory_client):
+    """Regression test for #4907 bug 2: MemoryClient branch must unwrap ['results']."""
+    completions = Completions(mock_memory_client)
+    messages = [{"role": "user", "content": "What do I like?"}]
+    search_response = {"results": [{"memory": "likes pizza"}, {"memory": "likes hiking"}]}
+
+    result = completions._format_query_with_memories(messages, search_response)
+
+    assert "likes pizza" in result
+    assert "likes hiking" in result
+    assert "What do I like?" in result
 
 
 def test_missing_litellm_raises_actionable_import_error(monkeypatch):
