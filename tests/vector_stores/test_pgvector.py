@@ -2525,3 +2525,30 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_in_accepts_list_value(self):
         conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
         self.assertEqual(params, ["user_id", ["alice", "bob"]])
+
+    def test_none_value_produces_is_null_clause(self):
+        """None value must generate (payload->>%s IS NULL) for temporal active-state filtering."""
+        conditions, params = _build_filter_conditions({"valid_to": None})
+        self.assertEqual(conditions, ["(payload->>%s IS NULL)"])
+        self.assertEqual(params, ["valid_to"])
+
+    def test_is_null_operator_true_and_false(self):
+        """is_null operator generates IS NULL or IS NOT NULL appropriately."""
+        conditions_true, params_true = _build_filter_conditions({"valid_to": {"is_null": True}})
+        self.assertEqual(conditions_true, ["(payload->>%s IS NULL)"])
+        self.assertEqual(params_true, ["valid_to"])
+
+        conditions_false, params_false = _build_filter_conditions({"valid_to": {"is_null": False}})
+        self.assertEqual(conditions_false, ["(payload->>%s IS NOT NULL)"])
+        self.assertEqual(params_false, ["valid_to"])
+
+    def test_eq_and_ne_none_produces_null_checks(self):
+        """eq/ne operators with None values generate IS NULL or IS NOT NULL."""
+        cond_eq, params_eq = _build_filter_conditions({"valid_to": {"eq": None}})
+        self.assertEqual(cond_eq, ["(payload->>%s IS NULL)"])
+        self.assertEqual(params_eq, ["valid_to"])
+
+        cond_ne, params_ne = _build_filter_conditions({"valid_to": {"ne": None}})
+        self.assertEqual(cond_ne, ["(payload->>%s IS NOT NULL)"])
+        self.assertEqual(params_ne, ["valid_to"])
+

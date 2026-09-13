@@ -159,3 +159,106 @@ class TestScoreAndRank:
 class TestEntityBoostWeight:
     def test_weight_value(self):
         assert ENTITY_BOOST_WEIGHT == 0.5
+
+
+class TestBiTemporalScoring:
+    def test_legacy_untracked_payload_is_valid(self):
+        """Records without temporal keys remain valid by default."""
+        results = [{"id": "legacy", "score": 0.8, "payload": {"data": "old memory"}}]
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=5)
+        assert len(scored) == 1
+        assert scored[0]["id"] == "legacy"
+
+    def test_active_only_suppresses_superseded_fact(self):
+        """Active query excludes superseded facts (valid_to is not None)."""
+        results = [
+            {
+                "id": "stale_employer",
+                "score": 0.95,
+                "payload": {
+                    "data": "Works at Stripe",
+                    "valid_from": "2024-01-01T00:00:00Z",
+                    "valid_to": "2026-01-01T00:00:00Z",
+                },
+            },
+            {
+                "id": "current_employer",
+                "score": 0.90,
+                "payload": {
+                    "data": "Works at Anthropic",
+                    "valid_from": "2026-01-01T00:00:00Z",
+                    "valid_to": None,
+                },
+            },
+        ]
+        # Active only (default)
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=5)
+        assert len(scored) == 1
+        assert scored[0]["id"] == "current_employer"
+
+    def test_active_only_disabled_returns_both(self):
+        """Disabling active_only surfaces both current and superseded facts."""
+        results = [
+            {
+                "id": "stale_employer",
+                "score": 0.95,
+                "payload": {
+                    "data": "Works at Stripe",
+                    "valid_from": "2024-01-01T00:00:00Z",
+                    "valid_to": "2026-01-01T00:00:00Z",
+                },
+            },
+            {
+                "id": "current_employer",
+                "score": 0.90,
+                "payload": {
+                    "data": "Works at Anthropic",
+                    "valid_from": "2026-01-01T00:00:00Z",
+                    "valid_to": None,
+                },
+            },
+        ]
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=5, active_only=False)
+        assert len(scored) == 2
+        assert scored[0]["id"] == "stale_employer"
+        assert scored[1]["id"] == "current_employer"
+
+    def test_as_of_historical_reconstruction(self):
+        """Querying with as_of reconstructs historical ground truth."""
+        results = [
+            {
+                "id": "stale_employer",
+                "score": 0.95,
+                "payload": {
+                    "data": "Works at Stripe",
+                    "valid_from": "2024-01-01T00:00:00Z",
+                    "valid_to": "2026-01-01T00:00:00Z",
+                },
+            },
+            {
+                "id": "current_employer",
+                "score": 0.90,
+                "payload": {
+                    "data": "Works at Anthropic",
+                    "valid_from": "2026-01-01T00:00:00Z",
+                    "valid_to": None,
+                },
+            },
+        ]
+        # At mid-2025: user worked at Stripe, not yet Anthropic
+        as_of_2025 = "2025-06-01T00:00:00Z"
+        scored_2025 = score_and_rank(results, {}, {}, threshold=0.1, top_k=5, as_of=as_of_2025)
+        assert len(scored_2025) == 1
+        assert scored_2025[0]["id"] == "stale_employer"
+
+        # At mid-2026: user works at Anthropic, Stripe is superseded
+        as_of_2026 = "2026-06-01T00:00:00Z"
+        scored_2026 = score_and_rank(results, {}, {}, threshold=0.1, top_k=5, as_of=as_of_2026)
+        assert len(scored_2026) == 1
+        assert scored_2026[0]["id"] == "current_employer"
+
+        # At 2023: before user worked at Stripe
+        as_of_2023 = "2023-01-01T00:00:00Z"
+        scored_2023 = score_and_rank(results, {}, {}, threshold=0.1, top_k=5, as_of=as_of_2023)
+        assert len(scored_2023) == 0
+

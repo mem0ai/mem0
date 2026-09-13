@@ -57,6 +57,42 @@ def normalize_bm25(raw_score: float, midpoint: float, steepness: float) -> float
 ENTITY_BOOST_WEIGHT = 0.5
 
 
+def is_temporally_valid(
+    payload: Optional[Dict[str, Any]],
+    as_of: Optional[str] = None,
+    active_only: bool = True,
+) -> bool:
+    """Check if a candidate memory payload satisfies bi-temporal validity bounds.
+
+    Args:
+        payload: Metadata dictionary stored with the memory.
+        as_of: Target ISO timestamp for point-in-time historical replay.
+        active_only: If True and as_of is None, excludes superseded records (valid_to is not None).
+
+    Returns:
+        bool: True if the record is valid at the query point in time.
+    """
+    if not payload:
+        return True
+
+    valid_to = payload.get("valid_to")
+    valid_from = payload.get("valid_from")
+
+    # If active_only is set and no point-in-time is specified, only currently active records pass
+    if as_of is None:
+        if active_only and valid_to is not None:
+            return False
+        return True
+
+    # Point-in-time historical reconstruction
+    if valid_from is not None and str(valid_from) > str(as_of):
+        return False
+    if valid_to is not None and str(valid_to) <= str(as_of):
+        return False
+
+    return True
+
+
 def score_and_rank(
     semantic_results: List[Dict[str, Any]],
     bm25_scores: Dict[str, float],
@@ -64,6 +100,8 @@ def score_and_rank(
     threshold: float,
     top_k: int,
     explain: bool = False,
+    as_of: Optional[str] = None,
+    active_only: bool = True,
 ) -> List[Dict[str, Any]]:
     """Score candidates additively and return top-k results.
 
@@ -87,6 +125,8 @@ def score_and_rank(
         threshold: Minimum semantic score required before hybrid scoring.
         top_k: Maximum number of results to return.
         explain: Include score_details in each result when true.
+        as_of: Optional ISO timestamp to query historical point-in-time valid facts.
+        active_only: Whether to filter out superseded/invalidated facts (default: True).
 
     Returns:
         List of scored result dicts sorted by combined score descending.
@@ -105,6 +145,10 @@ def score_and_rank(
     for result in semantic_results:
         mem_id = result.get("id")
         if mem_id is None:
+            continue
+
+        payload = result.get("payload")
+        if not is_temporally_valid(payload, as_of=as_of, active_only=active_only):
             continue
 
         semantic_score = result.get("score") or 0.0

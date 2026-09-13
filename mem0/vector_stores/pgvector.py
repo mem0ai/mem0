@@ -83,8 +83,28 @@ def _build_filter_conditions(filters):
             params.append(key)
             continue
 
+        if value is None:
+            conditions.append("(payload->>%s IS NULL)")
+            params.append(key)
+            continue
+
         if isinstance(value, dict):
             for op, op_value in value.items():
+                if op == "is_null":
+                    if op_value:
+                        conditions.append("(payload->>%s IS NULL)")
+                    else:
+                        conditions.append("(payload->>%s IS NOT NULL)")
+                    params.append(key)
+                    continue
+                if op == "eq" and op_value is None:
+                    conditions.append("(payload->>%s IS NULL)")
+                    params.append(key)
+                    continue
+                if op == "ne" and op_value is None:
+                    conditions.append("(payload->>%s IS NOT NULL)")
+                    params.append(key)
+                    continue
                 if op not in OPERATOR_SQL_MAP:
                     raise ValueError(f"Unsupported filter operator: {op}")
                 template, is_numeric = OPERATOR_SQL_MAP[op]
