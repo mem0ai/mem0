@@ -4,7 +4,7 @@ description: "A step-by-step guide to a shared organizational memory: Mem0 Platf
 ---
 
 <Info icon="server">
-**Uses:** Mem0 **Platform** (`MemoryClient`) · **System of record:** Supabase (Postgres + Auth) · **Access layer:** the hosted Mem0 MCP server. **You'll build:** a company brain your whole org — and every agent — writes to and queries, ending with a new-hire onboarding demo.
+**Uses:** Mem0 **Platform** (`MemoryClient`) · **System of record:** Supabase (Postgres + Auth) · **Access layer:** the hosted Mem0 MCP server. **You'll build:** a company brain your whole org (and every agent) writes to and queries, ending with a new-hire onboarding demo.
 </Info>
 
 Companies lose knowledge constantly: why you picked Postgres over Mongo, who owns billing, the deploy rule only one engineer remembers. A **company brain** captures this and answers questions about it, for every employee and every agent, and keeps it after people leave.
@@ -12,18 +12,18 @@ Companies lose knowledge constantly: why you picked Postgres over Mongo, who own
 We'll build one on **Mem0 Platform** (the managed memory layer, so there's no vector DB to run) with **Supabase as the system of record** (where your employees, teams, and source documents actually live) and the **Mem0 MCP server** as the wire that lets Claude Code, Cursor, or a Slack bot all reach the same brain.
 
 <Note>
-**How Platform and Supabase divide the work.** Mem0 Platform manages storage and extraction server-side — you do **not** point it at your own database. Supabase is your app's source of truth and identity provider; we *ingest* knowledge from Supabase into the brain and use Supabase Auth to decide who's asking. (If you want to self-host the vector store instead, that's the OSS path — see the [Supabase vector store reference](/components/vectordbs/dbs/supabase).)
+**How Platform and Supabase divide the work.** Mem0 Platform manages storage and extraction server-side, you do **not** point it at your own database. Supabase is your app's source of truth and identity provider; we *ingest* knowledge from Supabase into the brain and use Supabase Auth to decide who's asking. (If you want to self-host the vector store instead, that's the OSS path, see the [Supabase vector store reference](/components/vectordbs/dbs/supabase).)
 </Note>
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  subgraph SB["Supabase — system of record"]
+  subgraph SB["Supabase: system of record"]
     K[(knowledge / employees / teams)]
     AU[Auth · who is asking]
   end
-  subgraph M0["Mem0 Platform — the brain"]
+  subgraph M0["Mem0 Platform: the brain"]
     B[(managed memory)]
   end
   K -->|ingest| B
@@ -39,18 +39,18 @@ Memory is partitioned by **scope** (Mem0's `user_id` entity): company-wide is `o
 ## Prerequisites
 
 - **Python 3.9+**
-- A **Mem0 Platform API key** — [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cookbook-company-brain). (Platform runs extraction and embeddings for you, so there's no OpenAI key to manage.)
-- A **Supabase** project — [supabase.com](https://supabase.com)
+- A **Mem0 Platform API key**, [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cookbook-company-brain). (Platform runs extraction and embeddings for you, so there's no OpenAI key to manage.)
+- A **Supabase** project, [supabase.com](https://supabase.com)
 
 About 20 minutes.
 
 ---
 
-## Step 1 — Get your Mem0 Platform API key
+## Step 1: Get your Mem0 Platform API key
 
 Sign in at [app.mem0.ai](https://app.mem0.ai) and copy a key from **Dashboard → API Keys**. The key is scoped to your org and project; Mem0 resolves both server-side, so you never pass IDs by hand.
 
-## Step 2 — Create the Supabase system of record
+## Step 2: Create the Supabase system of record
 
 In the Supabase **SQL editor**, create the tables your company already thinks in: people, teams, and a `knowledge` table the brain will ingest from. Identity reuses Supabase Auth's built-in `auth.users`.
 
@@ -83,7 +83,7 @@ insert into public.knowledge (scope, content) values
 
 Grab your project URL and **service-role** key from **Settings → API** (the ingestion job runs server-side and needs to read every scope).
 
-## Step 3 — Project setup
+## Step 3: Project setup
 
 ```bash
 mkdir company-brain && cd company-brain
@@ -96,9 +96,9 @@ export SUPABASE_URL="https://<project-ref>.supabase.co"
 export SUPABASE_SERVICE_KEY="<service-role-key>"
 ```
 
-## Step 4 — Configure the brain
+## Step 4: Configure the brain
 
-Create **`brain.py`**. This constructs the Platform client and teaches it what "company knowledge" means with **custom instructions** and **custom categories** — so extraction keeps decisions and ownership, not small talk, and files each memory under a useful label.
+Create **`brain.py`**. This constructs the Platform client and teaches it what "company knowledge" means with **custom instructions** and **custom categories**, so extraction keeps decisions and ownership, not small talk, and files each memory under a useful label.
 
 ```python
 # brain.py
@@ -122,7 +122,7 @@ client.project.update(
     ],
 )
 
-# Scope helpers — the brain is partitioned by audience via Mem0's user_id.
+# Scope helpers: the brain is partitioned by audience via Mem0's user_id.
 COMPANY = "org:acme"
 def team(name):   return f"team:{name}"
 def person(uid):  return f"person:{uid}"        # uid = Supabase auth user id
@@ -135,7 +135,7 @@ python -c "import brain; print('brain configured')"
 ```
 
 
-## Step 5 — Ingest company knowledge from Supabase
+## Step 5: Ingest company knowledge from Supabase
 
 This is where Supabase and the brain connect. Create **`ingest.py`**: read un-synced rows from `knowledge`, add each to the Platform brain under its scope, then mark it synced. Platform `add()` is **asynchronous**, it returns an `event_id` you can poll, so we include a small `wait_for` helper.
 
@@ -187,7 +187,7 @@ Ingested 4 knowledge items into the company brain.
 
 Re-running is safe, `mem0_synced_at` gates it, so a nightly cron can keep the brain in step with Supabase.
 
-## Step 6 — Ask the brain
+## Step 6: Ask the brain
 
 Create **`ask.py`**. It searches the brain scoped to the asker, then answers. Note that entity IDs go **inside `filters`**, passing `user_id=` at the top level of `search()` is rejected on Platform.
 
@@ -228,7 +228,7 @@ python ask.py "Who should I talk to about billing?"
 - Billing is owned by the Payments team; Alice is the tech lead
 ```
 
-## Step 7 — Sharper retrieval
+## Step 7: Sharper retrieval
 
 Platform search is hybrid (semantic + keyword) and filterable. Combine a keyword pass with a category filter to answer precise questions:
 
@@ -255,9 +255,9 @@ client.search(
 )
 ```
 
-## Step 8 — Expose the brain to every agent (MCP)
+## Step 8: Expose the brain to every agent (MCP)
 
-A brain only your script can reach isn't a company brain. Mem0's **hosted MCP server** lets any agent — Claude Code, Cursor, a Slack bot — query and contribute to the *same* brain. The endpoint is `https://mcp.mem0.ai/mcp`, and the supported way to connect is the `mcp-add` helper, which registers the server and runs Mem0's OAuth login so no key ever lands in a config file.
+A brain only your script can reach isn't a company brain. Mem0's **hosted MCP server** lets any agent (Claude Code, Cursor, a Slack bot) query and contribute to the *same* brain. The endpoint is `https://mcp.mem0.ai/mcp`, and the supported way to connect is the `mcp-add` helper, which registers the server and runs Mem0's OAuth login so no key ever lands in a config file.
 
 <Tabs>
 <Tab title="Claude Code / Cursor">
@@ -290,7 +290,7 @@ await mcp.call_tool("search_memories", {
 
 With this, an engineer asks the brain from their editor and a teammate asks it from Slack, one shared memory behind both.
 
-## Step 9 — The payoff: onboard a new hire
+## Step 9: Onboard a new hire (the payoff)
 
 This is what a company brain is *for*. Dana joins, and her identity comes from **Supabase Auth**, which maps straight to her Mem0 scope. She asks the questions every new hire asks and gets real answers on day one, from knowledge no one wrote for her.
 
@@ -333,7 +333,7 @@ Dana onboarded herself by asking, drawing on the shared brain the rest of the te
 </Warning>
 
 <Note>
-**Where the entity ID goes differs by call.** `search()` and `get_all()` take the scope inside `filters={"user_id": ...}` (a top-level `user_id=` is rejected). `add()` and `delete_all()` are the opposite — they take it as a top-level keyword: `client.delete_all(user_id="team:payments")`. Deletes are asynchronous too, so a `get_all` right after a `delete_all` can still show rows for a few seconds.
+**Where the entity ID goes differs by call.** `search()` and `get_all()` take the scope inside `filters={"user_id": ...}` (a top-level `user_id=` is rejected). `add()` and `delete_all()` are the opposite, they take it as a top-level keyword: `client.delete_all(user_id="team:payments")`. Deletes are asynchronous too, so a `get_all` right after a `delete_all` can still show rows for a few seconds.
 </Note>
 
 ## Where to take it next
