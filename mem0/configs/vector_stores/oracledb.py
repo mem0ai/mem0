@@ -101,15 +101,3 @@ class OracleAIVectorSearchConfig(BaseModel):
 
         return self
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        allowed_fields = set(cls.model_fields.keys())
-        extra_fields = set(values.keys()) - allowed_fields
-        if extra_fields:
-            raise ValueError(
-                "Extra fields not allowed: {}. Please input only the following fields: {}".format(
-                    ", ".join(sorted(extra_fields)), ", ".join(sorted(allowed_fields))
-                )
-            )
-        return values
