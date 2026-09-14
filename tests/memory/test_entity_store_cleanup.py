@@ -154,6 +154,41 @@ class TestSyncEntityCleanup:
         # Should not raise
         memory._remove_memory_from_entity_store("m1", {"user_id": "u1"})
 
+    def test_fast_path_preserves_tenant_filters(self, memory):
+        """Targeted filter must carry tenant scope alongside linked_memory_ids.
+
+        Without the tenant keys the fast path would leak cross-tenant entity
+        rows; without linked_memory_ids it would degenerate to the broad scan.
+        """
+        row = SimpleNamespace(id="e1", payload={"linked_memory_ids": ["m1"], "data": "alice"})
+        memory._entity_store.list.side_effect = [
+            ([], None),  # targeted miss
+            ([row], None),  # broad scan
+        ]
+
+        memory._get_entity_rows_for_memory("m1", {"user_id": "u1", "agent_id": "a1"})
+
+        calls = memory._entity_store.list.call_args_list
+        assert len(calls) == 2
+        assert calls[0].kwargs["filters"] == {
+            "user_id": "u1", "agent_id": "a1", "linked_memory_ids": "m1"
+        }
+        # Broad-scan fallback stays tenant-scoped and must NOT carry the
+        # linked_memory_ids key (it is not a tenant field).
+        assert calls[1].kwargs["filters"] == {"user_id": "u1", "agent_id": "a1"}
+
+    def test_remove_continues_after_per_entity_failure(self, memory):
+        """A failure while cleaning one entity must not abort the remaining ones."""
+        row1 = SimpleNamespace(id="e1", payload={"linked_memory_ids": ["m1"], "data": "alice"})
+        row2 = SimpleNamespace(id="e2", payload={"linked_memory_ids": ["m1"], "data": "bob"})
+        memory._entity_store.list.return_value = ([row1, row2], None)
+        memory._entity_store.delete.side_effect = [RuntimeError("store down"), None]
+
+        memory._remove_memory_from_entity_store("m1", {"user_id": "u1"})
+
+        # First delete raised but was swallowed; the second entity was still processed.
+        assert memory._entity_store.delete.call_count == 2
+
     def test_scan_limit_warning(self, memory, caplog):
         """Warning is logged when broad scan hits the limit."""
         # Create exactly _ENTITY_SCAN_LIMIT rows
@@ -196,6 +231,10 @@ class TestAsyncEntityCleanup:
 
         rows = await memory._get_entity_rows_for_memory("m1", {"user_id": "u1"})
         assert rows == [row]
+        # Only one call (targeted), mirroring the sync assertion
+        memory._entity_store.list.assert_called_once_with(
+            filters={"user_id": "u1", "linked_memory_ids": "m1"}, top_k=10000
+        )
 
     @pytest.mark.asyncio
     async def test_fallback_when_targeted_empty(self, memory):
@@ -208,6 +247,38 @@ class TestAsyncEntityCleanup:
 
         rows = await memory._get_entity_rows_for_memory("m1", {"user_id": "u1"})
         assert rows == [row]
+        assert memory._entity_store.list.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_fallback_when_targeted_raises(self, memory):
+        """Async: targeted filter raises → broad scan fallback."""
+        row = SimpleNamespace(id="e1", payload={"linked_memory_ids": ["m1"], "data": "alice"})
+        memory._entity_store.list.side_effect = [
+            ValueError("unsupported filter"),
+            ([row], None),
+        ]
+
+        rows = await memory._get_entity_rows_for_memory("m1", {"user_id": "u1"})
+        assert rows == [row]
+        assert memory._entity_store.list.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_fast_path_preserves_tenant_filters(self, memory):
+        """Async: targeted filter must carry tenant scope alongside linked_memory_ids."""
+        row = SimpleNamespace(id="e1", payload={"linked_memory_ids": ["m1"], "data": "alice"})
+        memory._entity_store.list.side_effect = [
+            ([], None),  # targeted miss
+            ([row], None),  # broad scan
+        ]
+
+        await memory._get_entity_rows_for_memory("m1", {"user_id": "u1", "agent_id": "a1"})
+
+        calls = memory._entity_store.list.call_args_list
+        assert len(calls) == 2
+        assert calls[0].kwargs["filters"] == {
+            "user_id": "u1", "agent_id": "a1", "linked_memory_ids": "m1"
+        }
+        assert calls[1].kwargs["filters"] == {"user_id": "u1", "agent_id": "a1"}
 
     @pytest.mark.asyncio
     async def test_remove_deletes_entity_when_last_link(self, memory):
@@ -232,3 +303,51 @@ class TestAsyncEntityCleanup:
         update_call = memory._entity_store.update.call_args
         assert update_call.kwargs["vector_id"] == "e1"
         assert update_call.kwargs["payload"]["linked_memory_ids"] == ["m2"]
+
+    @pytest.mark.asyncio
+    async def test_remove_skips_unrelated_entities(self, memory):
+        """Async: entities not referencing the target memory_id are skipped."""
+        row_match = SimpleNamespace(id="e1", payload={"linked_memory_ids": ["m1"], "data": "alice"})
+        row_other = SimpleNamespace(id="e2", payload={"linked_memory_ids": ["m99"], "data": "bob"})
+        memory._entity_store.list.return_value = ([row_match, row_other], None)
+
+        await memory._remove_memory_from_entity_store("m1", {"user_id": "u1"})
+
+        memory._entity_store.delete.assert_called_once_with(vector_id="e1")
+
+    @pytest.mark.asyncio
+    async def test_remove_noop_when_entity_store_none(self, memory):
+        """Async: no-op when entity store is not initialized."""
+        memory._entity_store = None
+        # Should not raise
+        await memory._remove_memory_from_entity_store("m1", {"user_id": "u1"})
+
+    @pytest.mark.asyncio
+    async def test_remove_continues_after_per_entity_failure(self, memory):
+        """Async: a failure on one entity must not abort the remaining ones."""
+        row1 = SimpleNamespace(id="e1", payload={"linked_memory_ids": ["m1"], "data": "alice"})
+        row2 = SimpleNamespace(id="e2", payload={"linked_memory_ids": ["m1"], "data": "bob"})
+        memory._entity_store.list.return_value = ([row1, row2], None)
+        memory._entity_store.delete.side_effect = [RuntimeError("store down"), None]
+
+        await memory._remove_memory_from_entity_store("m1", {"user_id": "u1"})
+
+        assert memory._entity_store.delete.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_scan_limit_warning(self, memory, caplog):
+        """Async: warning is logged when broad scan hits the limit."""
+        memory._ENTITY_SCAN_LIMIT = 5
+        rows = [SimpleNamespace(id=f"e{i}", payload={"linked_memory_ids": ["other"], "data": f"x{i}"}) for i in range(5)]
+        memory._entity_store.list.side_effect = [
+            ([], None),  # targeted empty
+            (rows, None),  # broad scan hits limit
+        ]
+
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            result = await memory._get_entity_rows_for_memory("m1", {"user_id": "u1"})
+
+        assert len(result) == 5
+        assert "hit limit" in caplog.text
