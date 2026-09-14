@@ -737,9 +737,13 @@ class Memory(MemoryBase):
             )
             if rows:
                 return rows
-        except Exception:
+        except Exception as e:
             # Store does not support array-element filtering; fall through.
-            pass
+            # Debug level: on stores without array-element matching this path
+            # fires on every cleanup, so a warning would spam the logs.
+            logger.debug(
+                f"Targeted entity filter failed for memory_id={memory_id}: {e}; falling back to broad scan"
+            )
 
         # --- Slow path: broad scan + app-layer filter ---
         listed = self.entity_store.list(filters=search_filters, top_k=self._ENTITY_SCAN_LIMIT)
@@ -2442,8 +2446,10 @@ class AsyncMemory(MemoryBase):
             )
             if rows:
                 return rows
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(
+                f"Targeted entity filter failed for memory_id={memory_id}: {e}; falling back to broad scan (async)"
+            )
 
         # --- Slow path: broad scan + app-layer filter ---
         listed = await asyncio.to_thread(

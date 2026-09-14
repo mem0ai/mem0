@@ -351,3 +351,36 @@ class TestAsyncEntityCleanup:
 
         assert len(result) == 5
         assert "hit limit" in caplog.text
+
+    # ------------------------------------------------------------------
+    # _bulk_clear_entity_store (delete_all path)
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_bulk_clear_deletes_all_scoped_rows(self, memory):
+        """_bulk_clear_entity_store lists the tenant scope and deletes every row.
+
+        Uses the wrapped (Qdrant scroll tuple) return format to also exercise
+        _extract_entity_rows on the delete_all path. Non-tenant filter keys
+        must be dropped, and top_k must honour _ENTITY_SCAN_LIMIT.
+        """
+        row1 = SimpleNamespace(id="e1", payload={"linked_memory_ids": ["m1"], "data": "alice"})
+        row2 = SimpleNamespace(id="e2", payload={"linked_memory_ids": ["m2"], "data": "bob"})
+        memory._entity_store.list.return_value = ([row1, row2], None)
+
+        await memory._bulk_clear_entity_store({"user_id": "u1", "actor_id": "x1"})
+
+        memory._entity_store.list.assert_called_once_with(
+            filters={"user_id": "u1"}, top_k=10000
+        )
+        assert memory._entity_store.delete.call_count == 2
+        deleted_ids = {call.kwargs["vector_id"] for call in memory._entity_store.delete.call_args_list}
+        assert deleted_ids == {"e1", "e2"}
+
+    @pytest.mark.asyncio
+    async def test_bulk_clear_noop_when_entity_store_none(self, memory):
+        """_bulk_clear_entity_store is a no-op without an entity store."""
+        memory._entity_store = None
+
+        # Should not raise and must not touch any store
+        await memory._bulk_clear_entity_store({"user_id": "u1"})
