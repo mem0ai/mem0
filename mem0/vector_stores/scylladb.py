@@ -149,7 +149,8 @@ class ScyllaDB(VectorStoreBase):
         """Create the keyspace if it does not already exist."""
         try:
             self.session.execute(
-                f"CREATE KEYSPACE IF NOT EXISTS {self.keyspace}"
+                f"CREATE KEYSPACE IF NOT EXISTS {self.keyspace} "
+                f"WITH REPLICATION = {{'class': 'NetworkTopologyStrategy', 'replication_factor': 3}}"
             )
             self.session.set_keyspace(self.keyspace)
             logger.info(f"Keyspace '{self.keyspace}' is ready")
