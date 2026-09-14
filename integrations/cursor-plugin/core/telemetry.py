@@ -34,6 +34,7 @@ from typing import Any
 
 import memory_core
 
+_salt_cache: str = ""
 _harness: str = "generic"
 _source_tag: str = "MEM0_PLUGIN"
 _PRIVATE_KEYS = {
@@ -92,15 +93,60 @@ def _digest(value: str, length: int = 16) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:length]
 
 
+def _salt_path() -> Path:
+    return memory_core.data_dir() / "telemetry-salt"
+
+
 def _install_salt() -> str:
-    """Random per-install salt, created on first use and kept in the identity file."""
-    identity = _read_identity()
-    salt = identity.get("salt")
-    if not salt:
-        salt = uuid.uuid4().hex
-        identity["salt"] = salt
-        _write_identity(identity)
-    return salt
+    """Random per-install salt, created once and memoized for the process.
+
+    Deliberately its own file, claimed with O_CREAT|O_EXCL, rather than a key in
+    the identity file. Three reasons, all of which produced wrong data when this
+    lived in the identity dict:
+
+    - Hooks are short-lived separate processes firing on every tool call, and
+      people run more than one agent window. A read-modify-write would let each
+      process mint its own salt, so one repository would hash several ways in the
+      window before a writer won.
+    - resolve_distinct_id holds a copy of the identity dict across a network call
+      to /v1/ping/, so whichever write landed second erased the other's key —
+      losing either the salt (repo_hash changes mid-stream) or the email (a
+      second $identify, splitting the person).
+    - Touching the identity file from record() would create it, and is_first_run
+      keys off that file, so recording an event would silently suppress the
+      install event.
+
+    On a read-only or full data directory the fallback is derived from the data
+    directory path: stable for the machine rather than random per call, so the
+    failure mode is a weaker salt and not unbounded cardinality in PostHog.
+    """
+    global _salt_cache
+    if _salt_cache:
+        return _salt_cache
+
+    path = _salt_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        try:
+            with os.fdopen(handle, "w", encoding="utf-8") as stream:
+                stream.write(uuid.uuid4().hex)
+        except OSError:
+            pass
+    except FileExistsError:
+        pass
+    except OSError:
+        # Cannot persist. Stable-per-machine beats random-per-call.
+        _salt_cache = hashlib.sha256(str(path).encode("utf-8")).hexdigest()
+        return _salt_cache
+
+    try:
+        _salt_cache = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        _salt_cache = ""
+    if not _salt_cache:
+        _salt_cache = hashlib.sha256(str(path).encode("utf-8")).hexdigest()
+    return _salt_cache
 
 
 def _scoped_digest(value: str, length: int = 16) -> str:
