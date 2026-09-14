@@ -49,6 +49,7 @@ except ImportError:
     _PLATFORM_SOURCE = "MEM0_PLUGIN"
     _PLATFORM_APPLICATION = ""
 
+_salt_cache: str = ""
 _harness: str = _DEFAULT_HARNESS
 _source_tag: str = _DEFAULT_SOURCE_TAG
 _PRIVATE_KEYS = {
@@ -121,15 +122,60 @@ def _digest(value: str, length: int = 16) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:length]
 
 
+def _salt_path() -> Path:
+    return memory_core.data_dir() / "telemetry-salt"
+
+
 def _install_salt() -> str:
-    """Random per-install salt, created on first use and kept in the identity file."""
-    identity = _read_identity()
-    salt = identity.get("salt")
-    if not salt:
-        salt = uuid.uuid4().hex
-        identity["salt"] = salt
-        _write_identity(identity)
-    return salt
+    """Random per-install salt, created once and memoized for the process.
+
+    Deliberately its own file, claimed with O_CREAT|O_EXCL, rather than a key in
+    the identity file. Three reasons, all of which produced wrong data when this
+    lived in the identity dict:
+
+    - Hooks are short-lived separate processes firing on every tool call, and
+      people run more than one agent window. A read-modify-write would let each
+      process mint its own salt, so one repository would hash several ways in the
+      window before a writer won.
+    - resolve_distinct_id holds a copy of the identity dict across a network call
+      to /v1/ping/, so whichever write landed second erased the other's key —
+      losing either the salt (repo_hash changes mid-stream) or the email (a
+      second $identify, splitting the person).
+    - Touching the identity file from record() would create it, and is_first_run
+      keys off that file, so recording an event would silently suppress the
+      install event.
+
+    On a read-only or full data directory the fallback is derived from the data
+    directory path: stable for the machine rather than random per call, so the
+    failure mode is a weaker salt and not unbounded cardinality in PostHog.
+    """
+    global _salt_cache
+    if _salt_cache:
+        return _salt_cache
+
+    path = _salt_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        try:
+            with os.fdopen(handle, "w", encoding="utf-8") as stream:
+                stream.write(uuid.uuid4().hex)
+        except OSError:
+            pass
+    except FileExistsError:
+        pass
+    except OSError:
+        # Cannot persist. Stable-per-machine beats random-per-call.
+        _salt_cache = hashlib.sha256(str(path).encode("utf-8")).hexdigest()
+        return _salt_cache
+
+    try:
+        _salt_cache = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        _salt_cache = ""
+    if not _salt_cache:
+        _salt_cache = hashlib.sha256(str(path).encode("utf-8")).hexdigest()
+    return _salt_cache
 
 
 def _scoped_digest(value: str, length: int = 16) -> str:
@@ -221,18 +267,35 @@ def is_first_run() -> bool:
     return not _install_state_path().exists()
 
 
-def claim_install() -> str | None:
+def data_dir_was_empty() -> bool:
+    """Whether the data directory is untouched. Call BEFORE anything writes to it.
+
+    hook_runner reaches claim_install() only after cache_plugin_api_key() has
+    written `api-key` and EvidenceStore() has created `evidence.sqlite3`, so
+    asking at claim time always saw content and every fresh install reported an
+    upgrade. The caller snapshots this at the top of the run instead.
+    """
+    return not _data_dir_has_content()
+
+
+def claim_install(was_empty: bool | None = None) -> str | None:
     """Claim the one install/upgrade record for this machine, atomically.
 
     Returns the event to record ("install" or "upgrade"), or None if another
     session already claimed it. O_CREAT|O_EXCL so two sessions starting together
     cannot both win.
+
+    `was_empty` must come from data_dir_was_empty() called before this process
+    wrote anything. Omitting it falls back to checking now, which is only
+    correct for a caller that has touched nothing.
     """
+    if not is_enabled():
+        # Never consume the one-shot claim while the user is opted out, or they
+        # would silently lose their install event if they later opt in.
+        return None
+
     path = _install_state_path()
-    # A fresh install has an empty data directory. Anything already there —
-    # a 0.2.x venv, an evidence db, a spool — means this is an upgrade. Read
-    # before the marker is created, since creating it would itself be content.
-    upgrading = _data_dir_has_content()
+    upgrading = not (data_dir_was_empty() if was_empty is None else was_empty)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -266,6 +329,19 @@ def _data_dir_has_content() -> bool:
     return False
 
 
+def _repair_install_state(path: Path) -> None:
+    """Rewrite an unparseable marker so version tracking can resume."""
+    try:
+        temporary = path.with_suffix(f".{os.getpid()}.tmp")
+        temporary.write_text(
+            json.dumps({"plugin_version": memory_core.PLUGIN_VERSION, "repaired_at": memory_core.utc_now()}),
+            encoding="utf-8",
+        )
+        temporary.replace(path)
+    except OSError:
+        pass
+
+
 def claim_version_change() -> str | None:
     """Return the previously recorded version if it differs, updating the marker.
 
@@ -276,13 +352,32 @@ def claim_version_change() -> str | None:
     path = _install_state_path()
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError:
         return None
+    except json.JSONDecodeError:
+        # A crash between O_EXCL and the write leaves an empty marker. Left
+        # alone it disables every future upgrade event on this machine, because
+        # claim_install sees the file and this function cannot parse it.
+        state = None
     if not isinstance(state, dict):
+        _repair_install_state(path)
         return None
     previous = str(state.get("plugin_version") or "")
     if not previous or previous == memory_core.PLUGIN_VERSION:
         return None
+    # Claim the transition with an exclusive sentinel before rewriting the
+    # marker. A plain read-modify-write let every concurrently starting session
+    # observe the old version and each record its own upgrade — and the first
+    # session after a version bump is exactly when several agent windows restart
+    # together.
+    sentinel = path.with_name(f"upgraded-{memory_core.PLUGIN_VERSION}")
+    try:
+        os.close(os.open(sentinel, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+    except FileExistsError:
+        return None
+    except OSError:
+        return None
+
     state["plugin_version"] = memory_core.PLUGIN_VERSION
     state["upgraded_at"] = memory_core.utc_now()
     try:
@@ -396,9 +491,18 @@ def _claim_name(attempt: int = 0) -> str:
 
 
 def _claim_attempt(claim: Path) -> int:
-    """Attempts recorded in a claim filename; 0 for the pre-attempt-count shape."""
+    """Attempts recorded in a claim filename; 0 for the pre-attempt-count shape.
+
+    Anchored on field position, not on a leading "a": the legacy shape is
+    ``telemetry-<pid>-<hex>.sending`` and a hex id such as ``a1234567`` would
+    otherwise parse as attempt 1234567 and be discarded unsent on the first
+    flush after an upgrade.
+    """
     stem = claim.name[: -len(".sending")] if claim.name.endswith(".sending") else claim.name
-    tail = stem.rsplit("-", 1)[-1]
+    parts = stem.split("-")
+    if len(parts) != 4:
+        return 0
+    tail = parts[3]
     if tail.startswith("a") and tail[1:].isdigit():
         return int(tail[1:])
     return 0
@@ -432,6 +536,21 @@ def _claim_spool() -> Path | None:
     return _claim_parked(directory)
 
 
+def _sweep_debris(directory: Path) -> None:
+    """Remove temp files orphaned by a crash between write and rename.
+
+    Neither glob in this module matches *.partial, so nothing else would ever
+    clean them up.
+    """
+    now = time.time()
+    for debris in directory.glob("telemetry-*.partial"):
+        try:
+            if now - debris.stat().st_mtime > CLAIM_STALE_SECONDS:
+                debris.unlink()
+        except OSError:
+            continue
+
+
 def _claim_parked(directory: Path) -> Path | None:
     """Take the oldest abandoned claim, if any lease has actually expired.
 
@@ -447,7 +566,11 @@ def _claim_parked(directory: Path) -> Path | None:
             age = now - orphan.stat().st_mtime
         except OSError:
             continue
-        if age > CLAIM_EXPIRY_SECONDS and _claim_attempt(orphan) >= MAX_CLAIM_ATTEMPTS:
+        # Attempts, not age. Every re-claim touches the mtime and every release
+        # backdates it by a fixed amount, so age is pinned near the stale
+        # threshold and never reaches the expiry. Age stays only as a backstop
+        # for files that never carried an attempt marker.
+        if _claim_attempt(orphan) >= MAX_CLAIM_ATTEMPTS or age > CLAIM_EXPIRY_SECONDS:
             try:
                 orphan.unlink()
             except OSError:
@@ -489,10 +612,14 @@ def _rewrite_claim(claim: Path, remaining: list[dict[str, Any]]) -> bool:
         return True
     temporary = claim.with_suffix(f".{os.getpid()}.partial")
     try:
-        temporary.write_text(
-            "".join(json.dumps(event, separators=(",", ":"), default=str) + "\n" for event in remaining),
-            encoding="utf-8",
-        )
+        payload = "".join(json.dumps(event, separators=(",", ":"), default=str) + "\n" for event in remaining)
+        # fsync before the rename: without it the rename can land while the
+        # bytes have not, and the claim comes back empty or truncated after a
+        # crash. _drain then reads zero events and unlinks it.
+        with open(temporary, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
         temporary.replace(claim)
         _touch(claim)
         return True
@@ -563,8 +690,18 @@ def resolve_distinct_id() -> tuple[str, str]:
     fingerprint = _digest(key) if key else ""
     email = identity.get("email", "")
 
-    if email and identity.get("key_fingerprint", "") == fingerprint and fingerprint:
-        return email, ""
+    if email and fingerprint:
+        recorded = identity.get("key_fingerprint", "")
+        if recorded == fingerprint:
+            return email, ""
+        if not recorded:
+            # Rows written before fingerprints existed. Adopt the current key
+            # rather than re-resolving: otherwise every existing user pays an
+            # uncached /v1/ping/ on every flush, forever, and a firewalled one
+            # pays the full timeout each time.
+            identity["key_fingerprint"] = fingerprint
+            _write_identity(identity)
+            return email, ""
 
     if not key:
         # No key to verify the account with; do not keep attributing to it.
@@ -576,10 +713,16 @@ def resolve_distinct_id() -> tuple[str, str]:
 
     resolved = _resolve_email(key)
     if not resolved:
-        return (email, "") if email else (anonymous_id(identity), "")
+        # The key changed and will not resolve (revoked, offline, API down).
+        # Do not keep attributing to the previous account.
+        return anonymous_id(identity), ""
 
-    # Alias only when going anonymous -> email for the first time.
-    previous = "" if email else identity.get("anonymous_id", "")
+    # Alias only when going anonymous -> email for the first time. Once an anon
+    # id has been merged into an account it must never be offered again: an
+    # alias naming an already-identified id is what could link two real people.
+    previous = "" if (email or identity.get("aliased")) else identity.get("anonymous_id", "")
+    if previous:
+        identity["aliased"] = True
     identity["email"] = resolved
     identity["key_fingerprint"] = fingerprint
     _write_identity(identity)
@@ -599,6 +742,7 @@ def flush() -> int:
     # Parked batches used to starve behind the live spool indefinitely. Bounded
     # per run so a long backlog cannot turn one flush into an unbounded loop.
     directory = memory_core.data_dir()
+    _sweep_debris(directory)
     for _ in range(MAX_PARKED_PER_RUN):
         parked = _claim_parked(directory)
         if parked is None:
@@ -619,7 +763,18 @@ def _drain(claim: Path | None) -> tuple[int, bool]:
         return 0, True
     try:
         lines = claim.read_text(encoding="utf-8").splitlines()
-    except OSError:
+    except (OSError, ValueError):
+        # ValueError covers UnicodeDecodeError from a torn write. Quarantine
+        # rather than retry: flush() runs from a bare `finally:` in
+        # flush_worker, so raising here also skips the handoff cleanup, and an
+        # undecodable file would otherwise be re-read on every flush forever.
+        try:
+            claim.replace(claim.with_suffix(".corrupt"))
+        except OSError:
+            try:
+                claim.unlink()
+            except OSError:
+                pass
         return 0, True
     events = []
     for line in lines:
@@ -630,8 +785,15 @@ def _drain(claim: Path | None) -> tuple[int, bool]:
         if isinstance(value, dict) and value.get("event"):
             events.append(value)
     if not events:
+        # Only delete when the file really is empty. A non-empty file that
+        # parses to nothing is a torn write, and its contents are the unsent
+        # remainder — deleting it is the data loss this PR exists to prevent.
         try:
-            claim.unlink()
+            empty = claim.stat().st_size == 0
+        except OSError:
+            empty = True
+        try:
+            claim.replace(claim.with_suffix(".corrupt")) if not empty else claim.unlink()
         except OSError:
             pass
         return 0, True
@@ -681,8 +843,13 @@ def _drain(claim: Path | None) -> tuple[int, bool]:
             return sent, False
         sent += len(chunk)
         # Record progress and refresh the lease after each successful batch, so
-        # a crash repeats at most one batch instead of the entire file.
-        _rewrite_claim(claim, events[start + len(chunk) :])
+        # a crash repeats at most one batch instead of the entire file. If the
+        # rewrite fails the claim still holds delivered events, so stop rather
+        # than carry on as though progress were recorded — continuing is how the
+        # duplicate delivery this PR fixes would come back.
+        if not _rewrite_claim(claim, events[start + len(chunk) :]):
+            _release_claim(claim, events[start + len(chunk) :])
+            return sent, False
     return sent, True
 
 

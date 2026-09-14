@@ -290,6 +290,11 @@ def run(
     if args.plugin_data_dir:
         os.environ[data_dir_env] = args.plugin_data_dir
 
+    # Snapshot BEFORE anything writes to the data dir: cache_plugin_api_key
+    # writes `api-key` and EvidenceStore creates `evidence.sqlite3`, so asking
+    # after them always saw content and every fresh install reported an upgrade.
+    data_dir_was_empty = telemetry.data_dir_was_empty()
+
     cache_plugin_api_key()
     if args.action == "session-start":
         clear_stale_api_key_cache()
@@ -307,7 +312,7 @@ def run(
         if args.action == "session-start":
             # Claims the marker atomically and says which event to record, so a
             # second session starting alongside this one cannot record it too.
-            first_event = telemetry.claim_install()
+            first_event = telemetry.claim_install(was_empty=data_dir_was_empty)
             if first_event == "install":
                 telemetry.record("install")
             elif first_event == "upgrade":
