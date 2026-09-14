@@ -1,3 +1,4 @@
+import type { SearchMemoryOptions } from "mem0ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type MemoryClient from "mem0ai";
 import type { Mem0Config, ScopeContext, Scope } from "./types.ts";
@@ -34,7 +35,11 @@ export function registerCommands(
       topK: SEARCH_TOP_K,
       rerank: true,
       source: PLATFORM_SOURCE,
-    });
+      // Widened by exactly this one property. `source` reaches the wire via the
+      // SDK's camelToSnakeKeys spread, but it is absent from SearchMemoryOptions
+      // in the published mem0ai types. A blanket `as never` would also disable
+      // checking of filters, threshold, topK and rerank above.
+    } as SearchMemoryOptions & { source: string });
     return result.results ?? [];
   };
 

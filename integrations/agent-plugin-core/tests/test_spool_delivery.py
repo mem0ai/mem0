@@ -25,15 +25,32 @@ pytestmark = pytest.mark.skipif(not HOST_CORE.exists(), reason="claude-code-plug
 
 @pytest.fixture()
 def telemetry(tmp_path, monkeypatch):
+    # CI runs this directory and claude-code-plugin/tests in ONE pytest process,
+    # and that suite's conftest sets MEM0_TELEMETRY=false at import, process-wide.
+    # Without this the whole file silently no-ops: record() returns early and
+    # every assertion sees an empty spool. Do not rely on ambient env.
+    monkeypatch.setenv("MEM0_TELEMETRY", "true")
     monkeypatch.setenv("MEM0_CODE_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.syspath_prepend(str(HOST_CORE))
-    for name in ("telemetry", "memory_core", "_harness_id"):
+
+    # Save and RESTORE rather than delete. claude-code-plugin/tests/conftest.py
+    # imports memory_core once at collection and calls configure_harness() on it;
+    # dropping the module left a later re-import with default harness config, so
+    # tests in that suite failed depending on collection order.
+    names = ("telemetry", "memory_core", "_harness_id")
+    saved = {name: sys.modules.get(name) for name in names}
+    for name in names:
         sys.modules.pop(name, None)
+
     module = importlib.import_module("telemetry")
     monkeypatch.setattr(module, "resolve_distinct_id", lambda: ("tester@example.com", ""))
-    yield module
-    for name in ("telemetry", "memory_core", "_harness_id"):
-        sys.modules.pop(name, None)
+    try:
+        yield module
+    finally:
+        for name in names:
+            sys.modules.pop(name, None)
+            if saved[name] is not None:
+                sys.modules[name] = saved[name]
 
 
 def _delivered(payloads):
