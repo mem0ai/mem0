@@ -78,6 +78,7 @@ insert into public.knowledge (scope, content) values
   ('org:acme', 'We chose Postgres over MongoDB for the core product for strong transactional guarantees and relational joins.'),
   ('org:acme', 'All production deploys go out Tuesday and Thursday; never on Fridays.'),
   ('org:acme', 'Customer data must stay in the EU region for GDPR compliance.'),
+  ('org:acme', 'Billing is owned by the Payments team, and Alice is the Payments tech lead.'),
   ('team:payments', 'Stripe is our processor; webhooks are verified with PAYMENTS_WEBHOOK_SECRET.');
 ```
 
@@ -182,7 +183,7 @@ python ingest.py
 ```
 
 ```text
-Ingested 4 knowledge items into the company brain.
+Ingested 5 knowledge items into the company brain.
 ```
 
 Re-running is safe, `mem0_synced_at` gates it, so a nightly cron can keep the brain in step with Supabase.
@@ -225,7 +226,8 @@ python ask.py "Who should I talk to about billing?"
 ```
 
 ```text
-- Billing is owned by the Payments team; Alice is the tech lead
+- Billing is owned by the Payments team
+- Alice is the Payments tech lead
 ```
 
 ## Step 7: Sharper retrieval
