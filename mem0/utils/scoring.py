@@ -116,7 +116,11 @@ def score_and_rank(
         entity_boost = entity_boosts.get(mem_id_str, 0.0)
 
         raw_combined = semantic_score + bm25_score + entity_boost
-        combined = min(raw_combined / max_possible, 1.0)
+        # Clamp both ends: upper to 1.0 and lower to 0.0.
+        # Some vector stores (e.g. cosine-distance backends) can return negative
+        # similarity scores for weak matches, which would propagate here and produce
+        # a combined score below 0 -- not a valid normalized relevance score.
+        combined = max(0.0, min(raw_combined / max_possible, 1.0))
 
         scored_result = {
             "id": mem_id_str,

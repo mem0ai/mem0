@@ -155,6 +155,23 @@ class TestScoreAndRank:
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
         assert "score_details" not in scored[0]
 
+    def test_score_clamped_to_0(self):
+        """Defensive: some vector stores (e.g. cosine-distance backends) can return
+        a negative similarity score for a weak match. The combined score must not
+        go negative even when the raw semantic score does."""
+        results = [{"id": "a", "score": -0.4, "payload": {}}]
+        scored = score_and_rank(results, {}, {}, threshold=-1.0, top_k=10)
+        assert scored[0]["score"] >= 0.0
+        assert scored[0]["score"] == pytest.approx(0.0)
+
+    def test_score_clamped_to_0_with_bm25_still_negative_overall(self):
+        """Even with a positive BM25 contribution, if the combined raw score is
+        still net-negative, the final score must clamp to 0, not go negative."""
+        results = [{"id": "a", "score": -0.9, "payload": {}}]
+        bm25 = {"a": 0.1}
+        scored = score_and_rank(results, bm25, {}, threshold=-1.0, top_k=10)
+        assert scored[0]["score"] == pytest.approx(0.0)
+
 
 class TestEntityBoostWeight:
     def test_weight_value(self):
