@@ -74,6 +74,35 @@ describe("MemoryClient - add()", () => {
     expect(getFetchBody(call!).expiration_date).toBe("2030-01-31");
   });
 
+  test("serializes agentCustomInstructions as agent_custom_instructions", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/add/", { status: 200, body: [createMockMemory()] });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.add([{ role: "user", content: "test" }], {
+      agentId: "a1",
+      agentCustomInstructions: "Remember tool failures",
+    });
+
+    const call = findFetchCall(mock, "/v3/memories/add/", "POST");
+    expect(getFetchBody(call!).agent_custom_instructions).toBe(
+      "Remember tool failures",
+    );
+  });
+
+  test("omits agent_custom_instructions when it is not passed", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/add/", { status: 200, body: [createMockMemory()] });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.add([{ role: "user", content: "test" }], { userId: "u1" });
+
+    const call = findFetchCall(mock, "/v3/memories/add/", "POST");
+    expect(getFetchBody(call!)).not.toHaveProperty("agent_custom_instructions");
+  });
+
   test("throws an error when given an empty messages array", async () => {
     setupMockFetch();
 

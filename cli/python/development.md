@@ -80,7 +80,7 @@ mem0 --help
 # Using Python directly (with venv activated)
 source .venv/bin/activate
 mem0 --help
-mem0 version
+mem0 --version
 
 # Or run without activating
 .venv/bin/mem0 --help

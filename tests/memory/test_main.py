@@ -453,6 +453,95 @@ def test_update_memory_metadata_cannot_change_identity_fields(mocker, caplog):
     assert "ignoring metadata['user_id']" in caplog.text
 
 
+_ATTACKER_ADD_METADATA = {
+    "agent_id": "victim-agent",
+    "run_id": "victim-run",
+    "actor_id": "victim-actor",
+    "category": "sports",
+}
+
+
+def _captured_add_metadata(memory, mocker, **add_kwargs):
+    """Run add() with the pipeline stubbed and return the metadata template it produced."""
+    captured = {}
+
+    def _capture(messages, metadata, filters, infer, **kwargs):
+        captured.update(metadata)
+        return []
+
+    mocker.patch.object(memory, "_add_to_vector_store", side_effect=_capture)
+    memory.add("I like coffee", infer=False, **add_kwargs)
+    return captured
+
+
+def test_add_metadata_cannot_set_identity_fields(mocker, caplog):
+    """Regression (issue #6655): add() metadata must not inject identity scope.
+
+    The caller scopes by user_id only, so the agent_id/run_id re-pins in
+    _build_filters_and_metadata never fire and cannot defend the payload.
+    """
+    memory = _build_memory_instance(mocker, Memory)
+
+    with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+        metadata = _captured_add_metadata(
+            memory, mocker, user_id="attacker", metadata=dict(_ATTACKER_ADD_METADATA)
+        )
+
+    assert metadata["user_id"] == "attacker"
+    for key in ("agent_id", "run_id", "actor_id"):
+        assert key not in metadata, f"{key} was injected through add() metadata"
+    # Non-identity metadata is untouched.
+    assert metadata["category"] == "sports"
+    assert "ignoring metadata['agent_id']" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_async_add_metadata_cannot_set_identity_fields(mocker):
+    """Async counterpart of test_add_metadata_cannot_set_identity_fields."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    captured = {}
+
+    async def _capture(messages, metadata, filters, infer, **kwargs):
+        captured.update(metadata)
+        return []
+
+    mocker.patch.object(memory, "_add_to_vector_store", side_effect=_capture)
+    await memory.add(
+        "I like coffee",
+        user_id="attacker",
+        metadata=dict(_ATTACKER_ADD_METADATA),
+        infer=False,
+    )
+
+    assert captured["user_id"] == "attacker"
+    for key in ("agent_id", "run_id", "actor_id"):
+        assert key not in captured, f"{key} was injected through async add() metadata"
+    assert captured["category"] == "sports"
+
+
+def test_add_entity_params_still_set_scope(mocker):
+    """The documented top-level params remain the only way to set scope."""
+    memory = _build_memory_instance(mocker, Memory)
+
+    metadata = _captured_add_metadata(
+        memory, mocker, user_id="u1", agent_id="a1", run_id="r1", metadata={"category": "sports"}
+    )
+
+    assert metadata["user_id"] == "u1"
+    assert metadata["agent_id"] == "a1"
+    assert metadata["run_id"] == "r1"
+    assert metadata["category"] == "sports"
+
+
+def test_add_without_metadata_is_unaffected(mocker):
+    """No metadata argument means no stripping and no behaviour change."""
+    memory = _build_memory_instance(mocker, Memory)
+
+    metadata = _captured_add_metadata(memory, mocker, user_id="u1")
+
+    assert metadata == {"user_id": "u1"}
+
+
 @pytest.mark.asyncio
 async def test_async_update_memory_metadata_cannot_change_identity_fields(mocker):
     """Async counterpart of test_update_memory_metadata_cannot_change_identity_fields."""

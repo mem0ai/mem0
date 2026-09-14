@@ -81,33 +81,25 @@ function decayUsagePayload(overrides: Record<string, any> = {}) {
 
 function createFetchMock(options: {
   variant?: string;
-  payload?: unknown;
-  failFlags?: boolean;
-  flagEnabled?: boolean;
+  payload?: Record<string, any>;
+  failConfig?: boolean;
 }) {
   const calls: any[] = [];
+  const variantSplit = options.variant === "holdout" ? 0.0 : 1.0;
+  const payload = options.payload ?? decayUsagePayload();
   const fetchMock = jest.fn(async (url: string | URL, init?: RequestInit) => {
     const target = String(url);
 
-    if (target.includes("/flags")) {
-      if (options.failFlags) {
-        throw new Error("flag evaluation failed");
+    if (target.includes("raw.githubusercontent.com")) {
+      if (options.failConfig) {
+        throw new Error("config fetch failed");
       }
-      const payload =
-        options.payload === undefined
-          ? JSON.stringify(decayUsagePayload())
-          : options.payload;
       return {
         ok: true,
         json: jest.fn().mockResolvedValue({
-          flags: {
-            "mem0-oss-notices": {
-              key: "mem0-oss-notices",
-              enabled: options.flagEnabled ?? true,
-              variant: options.variant ?? "displayed",
-              metadata: { payload },
-            },
-          },
+          version: 1,
+          variant_split: variantSplit,
+          ...payload,
         }),
       };
     }
@@ -134,9 +126,10 @@ function noticeEvents(calls: any[]) {
   return calls.filter((call) => call.event === "mem0.notice_displayed");
 }
 
-function flagRequestCount(fetchMock: jest.Mock) {
-  return fetchMock.mock.calls.filter(([url]) => String(url).includes("/flags"))
-    .length;
+function configRequestCount(fetchMock: jest.Mock) {
+  return fetchMock.mock.calls.filter(([url]) =>
+    String(url).includes("raw.githubusercontent.com"),
+  ).length;
 }
 
 async function createMemory() {
@@ -226,7 +219,7 @@ describe("Node OSS decay usage notice", () => {
       await memory.delete(id);
     }
 
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
     expect(noticeEvents(calls)).toHaveLength(0);
     expect(readConfig().notice_state?.decay_usage).toBeUndefined();
     expect(stderrSpy).not.toHaveBeenCalledWith(
@@ -279,7 +272,7 @@ describe("Node OSS decay usage notice", () => {
 
     await expect(memory.delete("memory-id")).rejects.toThrow("delete failed");
 
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
     expect(noticeEvents(calls)).toHaveLength(0);
     expect(readConfig().notice_state?.decay_usage).toBeUndefined();
   });
@@ -317,7 +310,7 @@ describe("Node OSS decay usage notice", () => {
 
     await memory.deleteAll({ userId: "empty-delete-all-user" });
 
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
     expect(noticeEvents(calls)).toHaveLength(0);
     expect(readConfig().notice_state?.decay_usage).toBeUndefined();
   });
@@ -332,7 +325,7 @@ describe("Node OSS decay usage notice", () => {
       "At least one filter is required",
     );
 
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
     expect(noticeEvents(calls)).toHaveLength(0);
     expect(readConfig().notice_state?.decay_usage).toBeUndefined();
   });
@@ -365,27 +358,21 @@ describe("Node OSS decay usage notice", () => {
   it.each([
     [
       "disabled payload",
-      JSON.stringify(decayUsagePayload({ enabled: false })),
+      decayUsagePayload({ enabled: false }),
       "payload_disabled",
       "payload_disabled",
     ],
-    [
-      "missing config",
-      JSON.stringify({ notices: {} }),
-      "missing_notice_config",
-      undefined,
-    ],
+    ["missing config", { notices: {} }, "missing_notice_config", undefined],
     [
       "missing copy",
-      JSON.stringify({
+      {
         notices: {
           decay_usage: { enabled: true, notice_type: "log_line" },
         },
-      }),
+      },
       "missing_copy",
       undefined,
     ],
-    ["malformed payload", "{not-json", "missing_notice_config", undefined],
   ])(
     "stays silent and emits safe bypass for %s",
     async (_label, payload, bypassReason, disabledReason) => {
@@ -416,33 +403,23 @@ describe("Node OSS decay usage notice", () => {
     },
   );
 
-  it("does not emit or consume cap when the blunt flag is disabled", async () => {
+  it("emits not-displayed event when config fetch fails (bundled config fallback)", async () => {
     consumeFirstRun();
-    const { fetchMock, calls } = createFetchMock({
-      variant: "displayed",
-      flagEnabled: false,
-    });
+    const { fetchMock, calls } = createFetchMock({ failConfig: true });
     global.fetch = fetchMock as any;
     const memory = await createMemory();
-    await addMemories(memory, "decay-flag-disabled-user", 3);
+    await addMemories(memory, "decay-config-failure-user", 3);
 
-    await memory.deleteAll({ userId: "decay-flag-disabled-user" });
+    await memory.deleteAll({ userId: "decay-config-failure-user" });
 
-    expect(noticeEvents(calls)).toHaveLength(0);
-    expect(readConfig().notice_state?.decay_usage).toBeUndefined();
-  });
-
-  it("does not emit or consume cap when PostHog fails", async () => {
-    consumeFirstRun();
-    const { fetchMock, calls } = createFetchMock({ failFlags: true });
-    global.fetch = fetchMock as any;
-    const memory = await createMemory();
-    await addMemories(memory, "decay-posthog-failure-user", 3);
-
-    await memory.deleteAll({ userId: "decay-posthog-failure-user" });
-
-    expect(noticeEvents(calls)).toHaveLength(0);
-    expect(readConfig().notice_state?.decay_usage).toBeUndefined();
+    const notices = noticeEvents(calls);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].properties).toEqual(
+      expect.objectContaining({
+        notice_id: "decay_usage",
+        displayed: false,
+      }),
+    );
   });
 
   it("skips flag evaluation, event emission, and state writes when telemetry is off", async () => {
@@ -484,7 +461,7 @@ describe("Node OSS decay usage notice", () => {
 
     await memory.deleteAll({ userId: "decay-cap-user" });
 
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
     expect(noticeEvents(calls)).toHaveLength(0);
     expect(readConfig().notice_state.decay_usage.events).toHaveLength(10);
   });
@@ -493,7 +470,7 @@ describe("Node OSS decay usage notice", () => {
     consumeFirstRun();
     const { fetchMock, calls } = createFetchMock({
       variant: "displayed",
-      payload: JSON.stringify({
+      payload: {
         notices: {
           first_run: {
             enabled: true,
@@ -506,7 +483,7 @@ describe("Node OSS decay usage notice", () => {
             copy: DECAY_USAGE_COPY,
           },
         },
-      }),
+      },
     });
     global.fetch = fetchMock as any;
     const memory = await createMemory();

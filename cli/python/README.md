@@ -241,14 +241,6 @@ Verify your API connection and display the current project.
 mem0 status
 ```
 
-### `mem0 version`
-
-Print the CLI version.
-
-```bash
-mem0 version
-```
-
 ## Agent mode
 
 Pass `--agent` (or its alias `--json`) as a **global flag** on any command to get output designed for AI agent tool loops:
@@ -306,6 +298,8 @@ These flags are available on all commands:
 | `--api-key` | Override the configured API key for this request |
 | `--base-url` | Override the configured API base URL for this request |
 | `-o, --output` | Set the output format |
+
+`mem0 --version` prints the CLI version. It is only valid before a subcommand, not after one.
 
 ## Environment variables
 

@@ -51,7 +51,7 @@ results = client.search(
 # Smart home assistant finding device preferences
 results = client.search(
     query="How do I like my bedroom temperature?",
-    rerank=True,           # Get most recent preferences first
+    rerank=True,           # Closest-matching preferences first
     filters={"user_id": "user123"},
 )
 
@@ -86,7 +86,7 @@ results = client.search(
 # Find learning progress for specific topics
 results = client.search(
     query="Python programming progress and difficulties",
-    rerank=True,           # Recent progress first
+    rerank=True,           # Closest-matching progress notes first
     filters={"user_id": "student123"},
 )
 
@@ -99,25 +99,24 @@ results = client.search(
 
 ### Recommended Configurations
 
+`rerank` is the only lever here that changes result *order*. `filters`, `top_k`, and `threshold` change *which* memories come back, not how they're ordered. The two functions below send the same query and filters; the only difference is the `rerank` flag.
+
 <CodeGroup>
 ```python Python
-# Basic search - good for exploration
+# Fast path - use for exploratory search, or anywhere the user scans a list
+# of results instead of trusting result #1 (dashboards, "show me everything
+# about X" style queries). No reranking overhead.
 def quick_search(query, user_id):
     return client.search(
         query=query,
         filters={"user_id": user_id},
     )
 
-# Reranked search - good for most applications
+# Precision path - use when only the top result reaches the user, e.g. an
+# agent that injects a single fact into a prompt. Reranking (see above)
+# re-scores every match and moves the closest one to position 1, at the
+# cost of ~150-200ms added latency.
 def standard_search(query, user_id):
-    return client.search(
-        query=query,
-        rerank=True,
-        filters={"user_id": user_id},
-    )
-
-# Reranked search - good for critical applications
-def precise_search(query, user_id):
     return client.search(
         query=query,
         rerank=True,
@@ -126,23 +125,20 @@ def precise_search(query, user_id):
 ```
 
 ```javascript JavaScript
-// Basic search - good for exploration
+// Fast path - use for exploratory search, or anywhere the user scans a list
+// of results instead of trusting result #1 (dashboards, "show me everything
+// about X" style queries). No reranking overhead.
 function quickSearch(query, userId) {
     return client.search(query, {
         filters: { user_id: userId },
     });
 }
 
-// Reranked search - good for most applications
+// Precision path - use when only the top result reaches the user, e.g. an
+// agent that injects a single fact into a prompt. Reranking (see above)
+// re-scores every match and moves the closest one to position 1, at the
+// cost of ~150-200ms added latency.
 function standardSearch(query, userId) {
-    return client.search(query, {
-        filters: { user_id: userId },
-        rerank: true,
-    });
-}
-
-// Reranked search - good for critical applications
-function preciseSearch(query, userId) {
     return client.search(query, {
         filters: { user_id: userId },
         rerank: true,
@@ -150,6 +146,8 @@ function preciseSearch(query, userId) {
 }
 ```
 </CodeGroup>
+
+**What changes in the response:** both calls return the same fields on each memory (see the [Search Memories API reference](/api-reference/memory/search-memories) for the full response shape). The only difference is the *order* of the `results` array, the same effect shown in the [Reranking example above](#reranking): `quick_search` returns results ranked by raw similarity, `standard_search` returns the reranked order.
 
 ## Best Practices
 

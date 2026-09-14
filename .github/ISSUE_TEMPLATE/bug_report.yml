@@ -51,3 +51,43 @@ body:
         - OS:
     validations:
       required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: How You Verified This
+      description: We only take on bugs someone has actually reproduced. Show your work.
+      value: |
+        ### What I Ran
+
+        The exact command or script, and where it ran.
+
+        ### What I Saw
+
+        The real output, log line, or traceback. Paste it, do not describe it.
+
+        ### Why This Is a Bug
+
+        What should have happened instead, and what says so: a docs link, a
+        docstring, a test, or the code itself.
+
+        ### What I Ruled Out
+
+        Anything you checked that turned out not to be the cause.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ai_assistance
+    attributes:
+      label: AI Assistance
+      description: >-
+        This asks how the bug was found and confirmed, not how the text was
+        written. Drafting the write-up with AI is fine. We ask because it tells
+        us how much to trust the reproduction, not because it counts against you.
+      options:
+        - No AI involved
+        - AI helped me find it, and I reproduced it myself afterwards
+        - AI found and wrote this, and I have not reproduced it myself
+    validations:
+      required: true

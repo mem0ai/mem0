@@ -3,8 +3,8 @@ parameter-passthrough surface.
 
 Verifies the kwarg → JSON payload mapping for every supported field
 (``custom_instructions``, ``custom_categories``, ``multilingual``,
-``decay``), the ValueError when no field is provided, and the
-URL/method shape. The HTTP layer is mocked.
+``decay``, ``agent_custom_instructions``), the ValueError when no field
+is provided, and the URL/method shape. The HTTP layer is mocked.
 """
 
 from unittest.mock import MagicMock, patch
@@ -82,6 +82,50 @@ class TestProjectUpdateDecay:
         proj.update(decay=True)
         args, _ = http.patch.call_args
         assert args[0] == "/api/v1/orgs/organizations/org1/projects/proj1/"
+
+
+class TestProjectUpdateAgentCustomInstructions:
+    def test_agent_custom_instructions_sent_in_payload(self, project):
+        proj, http = project
+        proj.update(agent_custom_instructions="remember tool failures")
+        assert _patch_payload(http) == {"agent_custom_instructions": "remember tool failures"}
+
+    def test_agent_custom_instructions_alone_satisfies_the_guard(self, project):
+        """It is a standalone field, so setting only it must not raise."""
+        proj, http = project
+        proj.update(agent_custom_instructions="remember tool failures")
+        assert http.patch.called
+
+    def test_empty_string_round_trips_to_clear_the_field(self, project):
+        """An empty string must survive the ``is not None`` filter, not be dropped as falsy."""
+        proj, http = project
+        proj.update(agent_custom_instructions="")
+        assert _patch_payload(http) == {"agent_custom_instructions": ""}
+
+    def test_combined_with_custom_instructions(self, project):
+        """Both sets in one PATCH: the split-instruction configuration."""
+        proj, http = project
+        proj.update(
+            custom_instructions="remember user preferences",
+            agent_custom_instructions="remember tool failures",
+        )
+        assert _patch_payload(http) == {
+            "custom_instructions": "remember user preferences",
+            "agent_custom_instructions": "remember tool failures",
+        }
+
+    def test_omitted_when_none(self, project):
+        """Callers that don't pass it must send an unchanged payload."""
+        proj, http = project
+        proj.update(custom_instructions="be concise")
+        payload = _patch_payload(http)
+        assert payload == {"custom_instructions": "be concise"}
+        assert "agent_custom_instructions" not in payload
+
+    def test_no_args_raises_with_agent_instructions_in_message(self, project):
+        proj, _ = project
+        with pytest.raises(ValueError, match=r"agent_custom_instructions"):
+            proj.update()
 
 
 class TestProjectUpdateBackwardsCompat:

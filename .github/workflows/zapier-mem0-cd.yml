@@ -1,0 +1,42 @@
+name: Deploy zapier-mem0 to Zapier
+
+# Zapier apps deploy to Zapier's own platform (not npm), so this is NOT wired
+# into the npm release router (release.yml). It is manual workflow_dispatch
+# only and requires the ZAPIER_DEPLOY_KEY repo secret.
+#
+#   gh workflow run zapier-mem0-cd.yml --ref main
+on:
+  workflow_dispatch:
+
+jobs:
+  push:
+    name: Push zapier-mem0 to Zapier
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/zapier-mem0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: integrations/zapier-mem0/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build TypeScript
+        run: pnpm build
+
+      - name: Push to Zapier
+        env:
+          ZAPIER_DEPLOY_KEY: ${{ secrets.ZAPIER_DEPLOY_KEY }}
+        run: npx zapier-platform-cli@19 push

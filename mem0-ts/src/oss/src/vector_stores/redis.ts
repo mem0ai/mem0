@@ -8,6 +8,7 @@ import type {
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import { loadPeer } from "../utils/load_peer";
+import { toCamelCasePreservingIds } from "../utils/casing";
 
 /**
  * Escape RediSearch TAG filter special characters. Any punctuation in the
@@ -133,16 +134,16 @@ function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   );
 }
 
-// Utility function to convert object keys to camelCase
-function toCamelCase(obj: Record<string, any>): Record<string, any> {
-  if (typeof obj !== "object" || obj === null) return obj;
-
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [
-      key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase()),
-      value,
-    ]),
-  );
+// Build a RediSearch pre-filter expression from filters. Returns "*" (match
+// all) when there are no usable conditions — including an empty filters object
+// or one whose values are all null/undefined — since an empty expression is an
+// invalid RediSearch query (e.g. ` =>[KNN ...]`).
+export function buildRedisFilterExpr(filters?: SearchFilters): string {
+  if (!filters) return "*";
+  const conditions = Object.entries(toSnakeCase(filters))
+    .filter(([, value]) => value !== null && value !== undefined)
+    .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`);
+  return conditions.length > 0 ? conditions.join(" ") : "*";
 }
 
 export class RedisDB implements VectorStore {
@@ -406,13 +407,7 @@ export class RedisDB implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     await this.initialize();
-    const snakeFilters = filters ? toSnakeCase(filters) : undefined;
-    const filterExpr = snakeFilters
-      ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
-          .join(" ")
-      : "*";
+    const filterExpr = buildRedisFilterExpr(filters);
 
     const queryVector = new Float32Array(query).buffer;
 
@@ -462,7 +457,7 @@ export class RedisDB implements VectorStore {
 
         return {
           id: doc.value.memory_id,
-          payload: toCamelCase(resultPayload),
+          payload: toCamelCasePreservingIds(resultPayload),
           score: Math.max(0, 1 - (Number(doc.value.__vector_score) ?? 0)),
         };
       });
@@ -567,7 +562,7 @@ export class RedisDB implements VectorStore {
 
       return {
         id: vectorId,
-        payload: toCamelCase(payload),
+        payload: toCamelCasePreservingIds(payload),
       };
     } catch (error) {
       console.error("Error getting vector:", error);
@@ -655,13 +650,7 @@ export class RedisDB implements VectorStore {
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     await this.initialize();
-    const snakeFilters = filters ? toSnakeCase(filters) : undefined;
-    const filterExpr = snakeFilters
-      ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
-          .join(" ")
-      : "*";
+    const filterExpr = buildRedisFilterExpr(filters);
 
     const searchOptions = {
       SORTBY: "created_at",
@@ -680,7 +669,7 @@ export class RedisDB implements VectorStore {
 
     const items = results.documents.map((doc) => ({
       id: doc.value.memory_id,
-      payload: toCamelCase({
+      payload: toCamelCasePreservingIds({
         hash: doc.value.hash,
         data: doc.value.memory,
         created_at: new Date(parseInt(doc.value.created_at)).toISOString(),

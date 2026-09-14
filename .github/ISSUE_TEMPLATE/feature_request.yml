@@ -36,3 +36,18 @@ body:
         Any workarounds you've tried or other approaches considered.
     validations:
       required: true
+
+  - type: dropdown
+    id: ai_assistance
+    attributes:
+      label: AI Assistance
+      description: >-
+        This asks where the idea came from, not how the text was written.
+        Drafting the write-up with AI is fine. A request you hit yourself while
+        building something carries more weight than one a model suggested.
+      options:
+        - No AI involved, this is a need I hit myself
+        - AI-assisted, but the need is mine
+        - AI suggested this feature
+    validations:
+      required: true
