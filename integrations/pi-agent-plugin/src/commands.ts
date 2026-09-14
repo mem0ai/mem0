@@ -6,6 +6,10 @@ import { resolveSearchFilters, resolveAddParams } from "./memory/scoping.ts";
 import { formatMemoryList, formatMemoryCompact, groupByCategory } from "./memory/formatting.ts";
 import { captureCommandEvent } from "./telemetry.ts";
 
+// Surface attribution on the wire. Previously a PostHog property only, so
+// the platform saw these calls as generic SDK traffic.
+const PLATFORM_SOURCE = "PI_AGENT";
+
 const SEARCH_TOP_K = 10;
 
 export function registerCommands(
@@ -22,10 +26,6 @@ export function registerCommands(
   const pluralize = (n: number, one: string, many: string): string =>
     `${n} ${n === 1 ? one : many}`;
 
-// Surface attribution on the wire. This was previously only a PostHog property,
-// so the platform saw these calls as generic SDK traffic.
-const PLATFORM_SOURCE = "PI_AGENT";
-
   const searchMemories = async (query: string, scope: Scope) => {
     const filters = resolveSearchFilters(scope, getScopeCtx());
     const result = await mem0.search(query, {
@@ -34,7 +34,7 @@ const PLATFORM_SOURCE = "PI_AGENT";
       topK: SEARCH_TOP_K,
       rerank: true,
       source: PLATFORM_SOURCE,
-    } as never);
+    });
     return result.results ?? [];
   };
 
@@ -50,7 +50,7 @@ const PLATFORM_SOURCE = "PI_AGENT";
       const addParams = resolveAddParams(config.defaultScope, getScopeCtx());
       const result = await mem0.add(
         [{ role: "user", content: text }],
-        { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false, source: PLATFORM_SOURCE } as never,
+        { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false, source: PLATFORM_SOURCE },
       );
       captureCommandEvent("mem0-remember", {}, telemetryCtx);
 

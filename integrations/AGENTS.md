@@ -60,13 +60,23 @@ and the rules on them are what keep one layer from erasing another:
 | `X-Application` | the host app it runs inside | **set-once** — write only if absent |
 | `X-Mem0-Client` | `name/version`, outermost first | **append-only** — add yourself, never replace |
 
-Set-once means `setdefault`, never assignment. An integration that wraps the
-SDK is the outermost layer and sets the source; the SDK underneath must defer to
-it. Assignment is exactly how every agent plugin came to be indistinguishable
-from every other one at the platform.
+Set-once means check-then-set, never assignment. An integration that wraps the
+SDK is the outermost layer and sets the source; the SDK underneath defers to it.
+Assignment is exactly how every agent plugin came to be indistinguishable from
+every other one at the platform.
 
-Append-only means a plugin calling the Python SDK produces
-`mem0-plugin/0.3.1, mem0-python/2.0.19`, so neither layer can erase the other.
+How to declare it from an integration, in order of preference:
+
+1. Send the headers yourself, if you make the HTTP call directly.
+2. Pass `source` in the call options, if you go through an SDK.
+3. Set `MEM0_SOURCE` / `MEM0_APPLICATION` / `MEM0_CLIENT_STACK` in the
+   environment before constructing the client. The SDKs read these and defer to
+   anything already present.
+
+Append-only applies where a stack can actually form: an SDK handed a client that
+already carries `X-Mem0-Client` appends itself rather than replacing. An SDK
+constructed with no outer context simply reports itself, which is correct — it
+is the outermost layer in that process.
 
 The backend recognizes a fixed list of source values and buckets everything else
 into `OTHERS`. A new value has to land in the platform's `EventSource` enum, so

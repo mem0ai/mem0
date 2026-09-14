@@ -2008,9 +2008,12 @@ def flush_session(
         "user_id": write_user,
         "app_id": repo.app_id,
         "run_id": session_id,
-        # Top level, not metadata: the backend reads `source` from the body,
-        # query string or X-Mem0-Source header, never from metadata. The
-        # harness tag stays in metadata as hook provenance.
+        # Top level, not metadata: the backend reads `source` from the body or
+        # the query string, never from metadata, which is where this used to
+        # sit. The X-Mem0-Source header is also read, but only from the
+        # platform release that ships alongside this change, so the body value
+        # is what makes attribution work on both. The harness tag stays in
+        # metadata as hook provenance.
         "source": _PLATFORM_SOURCE,
         "metadata": {**metadata, "author": write_user, "dirs": directory_chain(repo)},
         "agent_custom_instructions": PROJECT_MEMORY_INSTRUCTIONS,

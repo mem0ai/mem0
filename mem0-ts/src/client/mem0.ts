@@ -95,7 +95,13 @@ interface ClientIdentity {
 const IDENTITY_CACHE_MAX_DEFAULT = 50;
 const identityByCredentials = new Map<string, Promise<ClientIdentity>>();
 
-const SDK_VERSION = "3.1.8";
+declare const __MEM0_SDK_VERSION__: string | undefined;
+
+// Injected by tsup (see mem0-ts/tsup.config.ts `define`), the same mechanism
+// telemetry.ts already uses. A hardcoded literal goes stale at the next release
+// bump and then misreports the client version forever.
+const SDK_VERSION =
+  typeof __MEM0_SDK_VERSION__ !== "undefined" ? __MEM0_SDK_VERSION__ : "dev";
 
 /**
  * Surface-identity headers.
