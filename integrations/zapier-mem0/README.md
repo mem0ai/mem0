@@ -32,7 +32,7 @@ pnpm test:unit                  # offline unit tests (mocked, no network)
 MEM0_API_KEY=m0-... pnpm test   # unit + live E2E against api.mem0.ai
 ```
 
-Anonymous usage telemetry is sent to Mem0; opt out with `MEM0_TELEMETRY=false`.
+This app sends no telemetry of its own. Its API requests carry `source: "ZAPIER"` so Mem0 can see aggregate usage of the integration.
 
 To deploy (maintainers): `pnpm build && zapier push`.
 

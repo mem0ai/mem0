@@ -183,10 +183,15 @@ the same way the Python SDK and the CLI attribute theirs. Without a key they
 are sent under a random per-machine id.
 
 Each event carries the event name, the plugin version, the harness it ran in,
-your OS and Python version, timings, counts, and a coarse failure label.
-Repository and session identifiers are hashed with a random salt generated on
-your machine and never sent, so they cannot be linked back to a repository name
+your OS and Python version, and per-event properties describing what happened:
+timings, counts, coarse outcome and failure labels, and which model was
+configured. Repository and session identifiers are hashed with a random salt
+generated on your machine, so they cannot be linked back to a repository name
 or path.
+
+The exact set is enforced in code rather than by this list: every property is
+filtered through a denylist of sensitive keys and credential-shaped values are
+redacted before anything is sent.
 
 Prompts, memory text, queries, file paths, repository names, and API keys are
 never sent.
