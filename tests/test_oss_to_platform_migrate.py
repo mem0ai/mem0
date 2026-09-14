@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import threading
 from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -12,6 +13,9 @@ from urllib.parse import parse_qs, urlparse
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "oss-to-platform-migrate.sh"
+# bash treats backslashes as escapes, so a native Windows path (str(SCRIPT)) is mangled
+# before it reaches the script; a POSIX-form path is safe on every platform bash runs on.
+SCRIPT_ARG = SCRIPT.as_posix()
 
 
 class MigrationHTTPServer:
@@ -224,7 +228,7 @@ def run_migration_script(
     env.pop("MEM0_BASE_URL", None)
 
     result = subprocess.run(
-        ["bash", str(SCRIPT), "--auth-only", "--base-url", server.url, *args],
+        ["bash", SCRIPT_ARG, "--auth-only", "--base-url", server.url, *args],
         capture_output=True,
         text=True,
         env=env,
@@ -261,7 +265,7 @@ def run_export_script(
     result = subprocess.run(
         [
             "bash",
-            str(SCRIPT),
+            SCRIPT_ARG,
             "--export-only",
             "--qdrant-url",
             server.url,
@@ -306,7 +310,7 @@ def run_import_script(
     result = subprocess.run(
         [
             "bash",
-            str(SCRIPT),
+            SCRIPT_ARG,
             "--import-only",
             "--base-url",
             server.url,
@@ -350,7 +354,7 @@ def run_full_script(
     result = subprocess.run(
         [
             "bash",
-            str(SCRIPT),
+            SCRIPT_ARG,
             "--base-url",
             server.url,
             "--qdrant-url",
@@ -373,6 +377,28 @@ def run_full_script(
 
 def posthog_events(server: MigrationHTTPServer) -> list[dict[str, Any]]:
     return [request["body"] for request in server.requests if request["path"] == "/posthog"]
+
+
+def test_run_migration_script_passes_posix_form_script_path(monkeypatch, tmp_path: Path) -> None:
+    # On Windows, str(SCRIPT) contains backslashes, which bash treats as escape
+    # characters and mangles into a path it can't open. Force the module to use a
+    # value with backslash-hostile characters and confirm it reaches bash unmangled,
+    # proving the argv is built from SCRIPT_ARG (SCRIPT.as_posix()) rather than str(SCRIPT).
+    fake_arg = "C:/Users/dev/mem0/scripts/oss-to-platform-migrate.sh"
+    monkeypatch.setattr(sys.modules[__name__], "SCRIPT_ARG", fake_arg, raising=False)
+
+    captured: dict[str, Any] = {}
+
+    def fake_run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        captured["args"] = args
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with MigrationHTTPServer() as server:
+        run_migration_script(tmp_path, server, "--yes")
+
+    assert captured["args"][:2] == ["bash", fake_arg]
 
 
 def test_existing_api_key_authenticates_and_stitches_ids(tmp_path: Path) -> None:
@@ -540,7 +566,7 @@ def test_missing_python3_prints_clear_shell_error(tmp_path: Path) -> None:
     env["PATH"] = str(tmp_path)
 
     result = subprocess.run(
-        ["/bin/bash", str(SCRIPT), "--help"],
+        ["/bin/bash", SCRIPT_ARG, "--help"],
         capture_output=True,
         text=True,
         env=env,
@@ -554,7 +580,7 @@ def test_missing_python3_prints_clear_shell_error(tmp_path: Path) -> None:
 
 def test_curl_piped_help_works() -> None:
     result = subprocess.run(
-        ["bash", "-c", f"curl -fsSL file://{SCRIPT} | bash -s -- --help"],
+        ["bash", "-c", f"curl -fsSL file://{SCRIPT_ARG} | bash -s -- --help"],
         capture_output=True,
         text=True,
         timeout=20,
