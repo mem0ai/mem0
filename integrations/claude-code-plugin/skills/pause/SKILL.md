@@ -7,8 +7,8 @@ disable-model-invocation: true
 # Pause memory capture
 
 To pause (hooks stop capturing and sending session content; a minimal
-anonymous telemetry ping still fires at session start unless
-`MEM0_TELEMETRY=false`):
+telemetry ping still fires at session start, under your Mem0 account email,
+unless `MEM0_TELEMETRY=false`):
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/core/memory_cli.py" --harness "claude-code" --plugin-data-dir "${CLAUDE_PLUGIN_DATA}" pause
