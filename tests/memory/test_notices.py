@@ -1450,6 +1450,49 @@ def test_scale_threshold_provider_count_helpers_are_safe():
     assert notices._extract_count({"count": -1}) is None
 
 
+class SelfReturningDump:
+    """model_dump() hands back another object exposing model_dump(), as mocks and lazy proxies do."""
+
+    def __init__(self):
+        self.probes = 0
+
+    def model_dump(self):
+        self.probes += 1
+        return self
+
+
+def test_extract_count_does_not_recurse_into_non_dict_model_dump():
+    info = SelfReturningDump()
+
+    assert notices._extract_count(info) is None
+    assert info.probes == 1
+
+    class RaisingDump:
+        count = 42
+
+        def model_dump(self):
+            raise RuntimeError("dump unavailable")
+
+    assert notices._extract_count(RaisingDump()) == 42
+
+
+def test_provider_memory_count_does_not_recurse_into_non_dict_col_info():
+    info = SelfReturningDump()
+
+    class ProxyStore:
+        collection_name = "test_collection"
+
+        def count(self):
+            raise RuntimeError("count unavailable")
+
+        def col_info(self, name):
+            assert name == self.collection_name
+            return info
+
+    assert notices._get_provider_memory_count(SimpleNamespace(vector_store=ProxyStore())) is None
+    assert info.probes == 1
+
+
 def test_scale_threshold_props_do_not_include_raw_user_inputs(notice_harness):
     _, telemetry = notice_harness
     configure_flag(telemetry, "displayed", scale_payload(top_k_copy="safe copy {top_k}"))
