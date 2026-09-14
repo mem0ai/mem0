@@ -1195,20 +1195,14 @@ class TestAddPipelineEntityEmbeddingCountGuard:
 
 class TestTruncateToTokenLimit:
     def test_short_text_unchanged(self):
-        from mem0.memory.utils import truncate_to_token_limit
-
         result = truncate_to_token_limit("hello world")
         assert result == "hello world"
 
     def test_empty_text_unchanged(self):
-        from mem0.memory.utils import truncate_to_token_limit
-
         assert truncate_to_token_limit("") == ""
         assert truncate_to_token_limit(None) is None
 
     def test_long_text_truncated_from_head(self):
-        from mem0.memory.utils import truncate_to_token_limit
-
         # Force truncation with small max_tokens
         long_text = "word " * 5000  # ~5000 tokens
         result = truncate_to_token_limit(long_text, max_tokens=100)
@@ -1217,15 +1211,11 @@ class TestTruncateToTokenLimit:
         assert long_text.endswith(result[-50:])
 
     def test_truncation_logs_warning(self, caplog):
-        from mem0.memory.utils import truncate_to_token_limit
-
         with caplog.at_level(logging.WARNING, logger="mem0.memory.utils"):
             truncate_to_token_limit("word " * 5000, max_tokens=100)
         assert any("Truncating" in msg for msg in caplog.messages)
 
     def test_custom_max_tokens(self):
-        from mem0.memory.utils import truncate_to_token_limit
-
         text = "a " * 1000
         result = truncate_to_token_limit(text, max_tokens=50)
         assert len(result) < len(text)
@@ -1340,6 +1330,25 @@ class TestTruncateToTokenLimitFallback:
         mocker.patch.dict(sys.modules, {"tiktoken": None})
         text = "a" * 400  # heuristic: 400 // 4 == 100 == max_tokens
         assert truncate_to_token_limit(text, max_tokens=100) == text
+
+    def test_heuristic_cjk_approximation_limitation(self, mocker):
+        """CJK text under the len//4 fallback: correct within the heuristic
+        counting system, but the heuristic approximates real tokens poorly for
+        Chinese (each CJK char is typically 1-2 cl100k tokens, not 0.25), so the
+        result can still exceed a real tokenizer's limit. With tiktoken now a
+        core dependency this fallback path is defensive only (broken installs).
+        """
+        mocker.patch.dict(sys.modules, {"tiktoken": None})
+        text = "这是一段用于测试启发式截断的中文长文本。" * 200  # len = 4000
+        assert len(text) == 4000
+        result = truncate_to_token_limit(text, max_tokens=100)
+        # Correctness within the heuristic system: 4000 // 4 = 1000 tokens > 100,
+        # density is constant (4.0 chars/token), so one round keeps 400 chars.
+        assert len(result) == 400
+        assert text.endswith(result), "truncation must keep the tail"
+        assert len(result) // 4 <= 100  # heuristic token count within limit
+        # Documented limitation (not asserted): real cl100k tokens of the 400-char
+        # Chinese result ~ 400+, far above 100 -- accurate bounds need tiktoken.
 
 
 class TestAddPipelineEmbeddingTruncation:

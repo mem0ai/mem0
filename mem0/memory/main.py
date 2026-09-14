@@ -2586,7 +2586,10 @@ class AsyncMemory(MemoryBase):
         async def _get_history():
             return await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
 
-        embedding_input = truncate_to_token_limit(parsed_messages)
+        # Truncation may run tiktoken over a large conversation (tens of ms);
+        # offload it like the surrounding DB/embedding calls so it never blocks
+        # the event loop.
+        embedding_input = await asyncio.to_thread(truncate_to_token_limit, parsed_messages)
 
         async def _embed_query():
             return await asyncio.to_thread(self.embedding_model.embed, embedding_input, "search")
