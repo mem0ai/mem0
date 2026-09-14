@@ -82,6 +82,28 @@ describe("apply() config validation", () => {
 });
 
 describe("Harness lifecycle", () => {
+  it("recalls an undelivered memory after cancellation", async () => {
+    const response = { results: [{ id: "m1", memory: "A saved fact" }] };
+    const controller = new AbortController();
+    const hooks = applyAndCollectListeners({ apiKey: "test-key", userId: "u" });
+    const assemble = hooks.get("system-prompt/assemble")!;
+    const base = { sections: [], contexts: [], tools: [], variables: {} };
+    const agent = { session: { deriveMessages: () => [
+      { role: "user", source: { kind: "user" }, content: "Recall my saved information" },
+    ] } };
+    mockSearch.mockImplementationOnce(async () => {
+      controller.abort(); // Cancel during search, before returning the memory.
+      return response;
+    }).mockResolvedValue(response);
+
+    expect(await assemble(base, { agent, signal: controller.signal }, async () => base)).toBe(base);
+    const retried = await assemble(base, { agent, signal: new AbortController().signal }, async () => base);
+    expect(mockSearch).toHaveBeenCalledTimes(2);
+    expect(retried).toMatchObject({
+      contexts: [{ name: "mem0:recall", text: expect.stringContaining("A saved fact") }],
+    });
+  });
+
   it("automatically recalls memory into the prompt for the latest human message", async () => {
     mockSearch.mockResolvedValue({
       results: [{ id: "m1", memory: "Likes tea" }],

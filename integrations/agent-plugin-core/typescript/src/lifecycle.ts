@@ -73,6 +73,7 @@ interface RecallOptions {
   maxChars?: number;
   seenIds?: Set<string>;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 interface MemoryLifecycleOptions {
@@ -107,11 +108,13 @@ class MemoryLifecycle {
     prompt: string,
     enabled: boolean,
     search: (query: string) => Promise<{ results?: unknown[] }>,
+    signal?: AbortSignal,
   ): Promise<string> {
     return buildRecallContext(prompt, enabled, search, {
       maxChars: this.#options.maxContextChars,
       seenIds: this.#seenMemoryIds,
       timeoutMs: this.#options.recallTimeoutMs,
+      signal,
     });
   }
 }
@@ -144,6 +147,9 @@ export async function buildRecallContext(
       if (timer) clearTimeout(timer);
     }
     if (!response) return "";
+    // A caller that cancels mid-search must not have the returned memories marked
+    // seen: they were never delivered, so a later retry needs to see them again.
+    if (options.signal?.aborted) return "";
     const memories = (response.results ?? []) as MemoryLike[];
     const unseen = memories.filter((memory) => !options.seenIds?.has(memory.id));
     if (!unseen.length) return "";
