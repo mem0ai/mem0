@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -273,3 +274,49 @@ def test_spawn_flush_does_nothing_without_a_spool(isolated_env):
     with patch.object(telemetry.subprocess, "Popen") as popen:
         assert telemetry.spawn_flush() is True
         popen.assert_called_once()
+
+
+def test_salt_is_stable_across_processes(isolated_env):
+    """Hooks are separate short-lived processes; one repo must hash one way.
+
+    An unlocked read-modify-write let each process mint its own salt, so a
+    repository hashed several ways in the window before one writer won.
+    """
+    import subprocess as sp
+
+    core = str(Path(__file__).resolve().parents[1] / "core")
+    script = (
+        f"import sys; sys.path.insert(0, {core!r})\n"
+        "import telemetry\n"
+        "print(telemetry._install_salt())"
+    )
+    env = {**os.environ, "MEM0_CODE_DATA_DIR": str(memory_core.data_dir())}
+    salts = {
+        sp.run([sys.executable, "-c", script], capture_output=True, text=True, env=env).stdout.strip()
+        for _ in range(4)
+    }
+    assert len(salts) == 1, f"one repo hashed {len(salts)} ways: {salts}"
+
+
+def test_salt_does_not_touch_the_identity_file(isolated_env):
+    """The identity file is is_first_run's marker and the sender's email store.
+
+    Writing the salt into it would create it from record(), suppressing the
+    install event, and would race resolve_distinct_id, which holds a stale copy
+    of that dict across a network call.
+    """
+    telemetry._install_salt()
+    assert not telemetry._identity_path().exists()
+
+
+def test_salt_is_stable_when_it_cannot_be_persisted(isolated_env, monkeypatch):
+    """A read-only data dir must degrade to a weaker salt, not to random-per-call.
+
+    Random per call is unbounded cardinality in PostHog, which is worse than no
+    salt at all.
+    """
+    telemetry._salt_cache = ""
+    monkeypatch.setattr(telemetry.os, "open", lambda *a, **k: (_ for _ in ()).throw(OSError("read-only")))
+    first = telemetry._install_salt()
+    telemetry._salt_cache = ""
+    assert telemetry._install_salt() == first
