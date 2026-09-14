@@ -79,6 +79,50 @@ def _maybe_alias_anon_to_email(user_email):
         logger.debug("Failed to alias anon telemetry to %r: %s", user_email, e)
 
 
+def _sdk_version() -> str:
+    """Resolved here rather than imported from the package root, which would cycle."""
+    try:
+        import importlib.metadata
+
+        return importlib.metadata.version("mem0ai")
+    except Exception:
+        return "unknown"
+
+
+def _client_headers(api_key: str, user_id: str) -> Dict[str, str]:
+    """Auth plus surface-identity headers.
+
+    X-Mem0-Source and X-Application are SET-ONCE by contract: whichever layer is
+    outermost sets them, and nothing below overwrites. A plugin or harness that
+    wraps this SDK therefore keeps its own identity — it declares via MEM0_SOURCE
+    / MEM0_APPLICATION and the SDK defers.
+
+    X-Mem0-Client is APPEND-ONLY: every layer adds itself, so the platform sees
+    the whole stack rather than only whoever spoke last.
+    """
+    headers = {
+        "Authorization": f"Token {api_key}",
+        "Mem0-User-ID": user_id,
+        "X-Mem0-Client": _client_stack(),
+    }
+    source = os.getenv("MEM0_SOURCE", "").strip()
+    if source:
+        headers["X-Mem0-Source"] = source
+    application = os.getenv("MEM0_APPLICATION", "").strip()
+    if application:
+        headers["X-Application"] = application
+    return headers
+
+
+def _client_stack() -> str:
+    """This SDK appended to any stack an outer layer already declared."""
+    existing = os.getenv("MEM0_CLIENT_STACK", "").strip()
+    mine = f"mem0-python/{_sdk_version()}"
+    entries = [part.strip() for part in existing.split(",") if part.strip()] if existing else []
+    entries.append(mine)
+    return ", ".join(entries[:4])[:200]
+
+
 class MemoryClient:
     """Client for interacting with the Mem0 API.
 
@@ -129,19 +173,11 @@ class MemoryClient:
             self.client = client
             # Ensure the client has the correct base_url and headers
             self.client.base_url = httpx.URL(self.host)
-            self.client.headers.update(
-                {
-                    "Authorization": f"Token {self.api_key}",
-                    "Mem0-User-ID": self.user_id,
-                }
-            )
+            self.client.headers.update(_client_headers(self.api_key, self.user_id))
         else:
             self.client = httpx.Client(
                 base_url=self.host,
-                headers={
-                    "Authorization": f"Token {self.api_key}",
-                    "Mem0-User-ID": self.user_id,
-                },
+                headers=_client_headers(self.api_key, self.user_id),
                 timeout=300,
             )
         self.user_email = self._validate_api_key()
@@ -1027,10 +1063,7 @@ class AsyncMemoryClient:
         else:
             self.async_client = httpx.AsyncClient(
                 base_url=self.host,
-                headers={
-                    "Authorization": f"Token {self.api_key}",
-                    "Mem0-User-ID": self.user_id,
-                },
+                headers=_client_headers(self.api_key, self.user_id),
                 timeout=300,
             )
 
@@ -1053,10 +1086,7 @@ class AsyncMemoryClient:
             params = self._prepare_params()
             response = requests.get(
                 f"{self.host}/v1/ping/",
-                headers={
-                    "Authorization": f"Token {self.api_key}",
-                    "Mem0-User-ID": self.user_id,
-                },
+                headers=_client_headers(self.api_key, self.user_id),
                 params=params,
             )
             response.raise_for_status()

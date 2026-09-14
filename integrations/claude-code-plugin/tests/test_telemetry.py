@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -198,9 +199,11 @@ def test_a_stale_claim_is_reclaimed(isolated_env, monkeypatch):
     telemetry.record("search")
     orphan = telemetry._claim_spool()
     assert orphan is not None
-    monkeypatch.setattr(
-        telemetry.time, "time", lambda: orphan.stat().st_mtime + telemetry.CLAIM_STALE_SECONDS + 1
-    )
+    # Frozen rather than re-stat'd per call: flush() drains the live spool and
+    # then looks for parked claims in the same run, so by the second look this
+    # file no longer exists.
+    stale_now = orphan.stat().st_mtime + telemetry.CLAIM_STALE_SECONDS + 1
+    monkeypatch.setattr(telemetry.time, "time", lambda: stale_now)
 
     with patch.object(telemetry, "_post", lambda payload, url: True):
         assert telemetry.flush() == 1
@@ -210,9 +213,13 @@ def test_an_expired_claim_is_dropped(isolated_env, monkeypatch):
     telemetry.record("search")
     orphan = telemetry._claim_spool()
     assert orphan is not None
-    monkeypatch.setattr(
-        telemetry.time, "time", lambda: orphan.stat().st_mtime + telemetry.CLAIM_EXPIRY_SECONDS + 1
-    )
+    expired_now = orphan.stat().st_mtime + telemetry.CLAIM_EXPIRY_SECONDS + 1
+    monkeypatch.setattr(telemetry.time, "time", lambda: expired_now)
+    # Expiry now only discards a batch that was genuinely retried and failed,
+    # so age alone is not enough — age it past the attempt budget too.
+    retried = orphan.parent / orphan.name.replace("-a0.", f"-a{telemetry.MAX_CLAIM_ATTEMPTS}.")
+    orphan.replace(retried)
+    os.utime(retried, (expired_now, expired_now - telemetry.CLAIM_EXPIRY_SECONDS - 1))
     assert telemetry._claim_spool() is None
     assert not list(memory_core.data_dir().glob("telemetry-*.sending"))
 
@@ -258,10 +265,45 @@ def test_an_unresolvable_key_falls_back_to_the_anonymous_id(isolated_env, monkey
     assert telemetry.resolve_distinct_id()[0].startswith("code-anon-")
 
 
-def test_is_first_run_flips_after_the_first_identity_write(isolated_env):
+def test_first_run_is_not_flipped_by_writing_the_identity_file(isolated_env):
+    """The identity file is written by a successful flush, not by recording.
+
+    Keying first-run off it meant an offline user recorded code.install on every
+    session forever, and every 0.2.x user recorded one on their first 0.3.x run.
+    """
     assert telemetry.is_first_run()
     telemetry.anonymous_id()
+    assert telemetry.is_first_run()
+
+
+def test_claiming_install_ends_first_run(isolated_env):
+    assert telemetry.claim_install() == "install"
     assert not telemetry.is_first_run()
+
+
+def test_install_can_only_be_claimed_once(isolated_env):
+    """Two sessions starting together must not both record an install."""
+    assert telemetry.claim_install() == "install"
+    assert telemetry.claim_install() is None
+
+
+def test_a_populated_data_dir_reads_as_an_upgrade(isolated_env):
+    """A fresh install has an empty data directory; anything else predates it."""
+    data_dir = memory_core.data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    (data_dir / "requirements.txt").write_text("mem0ai\n", encoding="utf-8")
+    assert telemetry.claim_install() == "upgrade"
+
+
+def test_a_version_change_is_claimed_once(isolated_env):
+    telemetry.claim_install()
+    state_path = memory_core.data_dir() / "install-state.json"
+    state = json.loads(state_path.read_text())
+    state["plugin_version"] = "0.0.1-old"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    assert telemetry.claim_version_change() == "0.0.1-old"
+    assert telemetry.claim_version_change() is None
 
 
 def test_spawn_flush_does_nothing_without_a_spool(isolated_env):

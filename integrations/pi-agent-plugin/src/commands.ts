@@ -22,6 +22,10 @@ export function registerCommands(
   const pluralize = (n: number, one: string, many: string): string =>
     `${n} ${n === 1 ? one : many}`;
 
+// Surface attribution on the wire. This was previously only a PostHog property,
+// so the platform saw these calls as generic SDK traffic.
+const PLATFORM_SOURCE = "PI_AGENT";
+
   const searchMemories = async (query: string, scope: Scope) => {
     const filters = resolveSearchFilters(scope, getScopeCtx());
     const result = await mem0.search(query, {
@@ -29,7 +33,8 @@ export function registerCommands(
       threshold: config.searchThreshold,
       topK: SEARCH_TOP_K,
       rerank: true,
-    });
+      source: PLATFORM_SOURCE,
+    } as never);
     return result.results ?? [];
   };
 
@@ -45,7 +50,7 @@ export function registerCommands(
       const addParams = resolveAddParams(config.defaultScope, getScopeCtx());
       const result = await mem0.add(
         [{ role: "user", content: text }],
-        { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
+        { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false, source: PLATFORM_SOURCE } as never,
       );
       captureCommandEvent("mem0-remember", {}, telemetryCtx);
 
