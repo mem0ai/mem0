@@ -185,6 +185,10 @@ class PGVector(VectorStoreBase):
         self.use_hnsw = hnsw
         self.embedding_model_dims = embedding_model_dims
         self.connection_pool = None
+        # Whether this instance built the pool. A caller who supplies one keeps
+        # it: closing a shared pool from here takes it away from every other
+        # holder, and they never handed over that right.
+        self._owns_connection_pool = False
         self._collection_ensured = False
 
         # Connection setup with priority: connection_pool > connection_string > individual parameters
@@ -200,6 +204,7 @@ class PGVector(VectorStoreBase):
                 connection_string = _with_sslmode(connection_string, sslmode)
         
         if self.connection_pool is None:
+            self._owns_connection_pool = True
             if PSYCOPG_VERSION == 3:
                 # open=False avoids blocking when DB DNS is not yet resolvable (e.g. Docker startup)
                 self.connection_pool = ConnectionPool(
@@ -545,8 +550,14 @@ class PGVector(VectorStoreBase):
     def __del__(self) -> None:
         """
         Close the database connection pool when the object is deleted.
+
+        Only a pool this instance built is closed. One supplied by the caller
+        is theirs, and is very often shared with other stores or with the rest
+        of the application.
         """
         try:
+            if not getattr(self, "_owns_connection_pool", False):
+                return
             # Close pool appropriately
             if PSYCOPG_VERSION == 3:
                 self.connection_pool.close()

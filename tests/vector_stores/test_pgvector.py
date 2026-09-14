@@ -230,6 +230,64 @@ class TestPGVector(unittest.TestCase):
         self.assertEqual(pgvector.embedding_model_dims, 3)
         self.assertIs(pgvector.connection_pool, explicit_pool)
 
+    def _make_store(self, psycopg_version, connection_pool=None):
+        """Build a PGVector without touching a database."""
+        with patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', psycopg_version), \
+             patch('mem0.vector_stores.pgvector.ConnectionPool') as mock_pool:
+            mock_pool.return_value = MagicMock(name="OwnedPool")
+            store = PGVector(
+                dbname="test_db",
+                collection_name="test_collection",
+                embedding_model_dims=3,
+                user="test_user",
+                password="test_pass",
+                host="localhost",
+                port=5432,
+                diskann=False,
+                hnsw=False,
+                connection_pool=connection_pool,
+            )
+        return store
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    def test_del_leaves_a_supplied_pool_open_psycopg3(self, *_):
+        """A pool the caller supplied is very often shared with the rest of the
+        application, so disposing one store must not close it for everyone."""
+        supplied = MagicMock(name="SuppliedPool")
+        store = self._make_store(3, connection_pool=supplied)
+
+        store.__del__()
+
+        supplied.close.assert_not_called()
+        supplied.closeall.assert_not_called()
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    def test_del_leaves_a_supplied_pool_open_psycopg2(self, *_):
+        supplied = MagicMock(name="SuppliedPool")
+        store = self._make_store(2, connection_pool=supplied)
+
+        store.__del__()
+
+        supplied.close.assert_not_called()
+        supplied.closeall.assert_not_called()
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    def test_del_closes_a_pool_it_built_psycopg3(self, *_):
+        """The accept control: a pool this store made is still its to close."""
+        store = self._make_store(3)
+
+        store.__del__()
+
+        store.connection_pool.close.assert_called_once()
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    def test_del_closes_a_pool_it_built_psycopg2(self, *_):
+        store = self._make_store(2)
+
+        store.__del__()
+
+        store.connection_pool.closeall.assert_called_once()
+
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
     @patch.object(PGVector, '_get_cursor')
