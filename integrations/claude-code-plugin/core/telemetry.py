@@ -313,9 +313,18 @@ def _claim_name(attempt: int = 0) -> str:
 
 
 def _claim_attempt(claim: Path) -> int:
-    """Attempts recorded in a claim filename; 0 for the pre-attempt-count shape."""
+    """Attempts recorded in a claim filename; 0 for the pre-attempt-count shape.
+
+    Anchored on field position, not on a leading "a": the legacy shape is
+    ``telemetry-<pid>-<hex>.sending`` and a hex id such as ``a1234567`` would
+    otherwise parse as attempt 1234567 and be discarded unsent on the first
+    flush after an upgrade.
+    """
     stem = claim.name[: -len(".sending")] if claim.name.endswith(".sending") else claim.name
-    tail = stem.rsplit("-", 1)[-1]
+    parts = stem.split("-")
+    if len(parts) != 4:
+        return 0
+    tail = parts[3]
     if tail.startswith("a") and tail[1:].isdigit():
         return int(tail[1:])
     return 0
@@ -349,6 +358,21 @@ def _claim_spool() -> Path | None:
     return _claim_parked(directory)
 
 
+def _sweep_debris(directory: Path) -> None:
+    """Remove temp files orphaned by a crash between write and rename.
+
+    Neither glob in this module matches *.partial, so nothing else would ever
+    clean them up.
+    """
+    now = time.time()
+    for debris in directory.glob("telemetry-*.partial"):
+        try:
+            if now - debris.stat().st_mtime > CLAIM_STALE_SECONDS:
+                debris.unlink()
+        except OSError:
+            continue
+
+
 def _claim_parked(directory: Path) -> Path | None:
     """Take the oldest abandoned claim, if any lease has actually expired.
 
@@ -364,7 +388,11 @@ def _claim_parked(directory: Path) -> Path | None:
             age = now - orphan.stat().st_mtime
         except OSError:
             continue
-        if age > CLAIM_EXPIRY_SECONDS and _claim_attempt(orphan) >= MAX_CLAIM_ATTEMPTS:
+        # Attempts, not age. Every re-claim touches the mtime and every release
+        # backdates it by a fixed amount, so age is pinned near the stale
+        # threshold and never reaches the expiry. Age stays only as a backstop
+        # for files that never carried an attempt marker.
+        if _claim_attempt(orphan) >= MAX_CLAIM_ATTEMPTS or age > CLAIM_EXPIRY_SECONDS:
             try:
                 orphan.unlink()
             except OSError:
@@ -406,10 +434,14 @@ def _rewrite_claim(claim: Path, remaining: list[dict[str, Any]]) -> bool:
         return True
     temporary = claim.with_suffix(f".{os.getpid()}.partial")
     try:
-        temporary.write_text(
-            "".join(json.dumps(event, separators=(",", ":"), default=str) + "\n" for event in remaining),
-            encoding="utf-8",
-        )
+        payload = "".join(json.dumps(event, separators=(",", ":"), default=str) + "\n" for event in remaining)
+        # fsync before the rename: without it the rename can land while the
+        # bytes have not, and the claim comes back empty or truncated after a
+        # crash. _drain then reads zero events and unlinks it.
+        with open(temporary, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
         temporary.replace(claim)
         _touch(claim)
         return True
@@ -498,6 +530,7 @@ def flush() -> int:
     # Parked batches used to starve behind the live spool indefinitely. Bounded
     # per run so a long backlog cannot turn one flush into an unbounded loop.
     directory = memory_core.data_dir()
+    _sweep_debris(directory)
     for _ in range(MAX_PARKED_PER_RUN):
         parked = _claim_parked(directory)
         if parked is None:
@@ -518,7 +551,18 @@ def _drain(claim: Path | None) -> tuple[int, bool]:
         return 0, True
     try:
         lines = claim.read_text(encoding="utf-8").splitlines()
-    except OSError:
+    except (OSError, ValueError):
+        # ValueError covers UnicodeDecodeError from a torn write. Quarantine
+        # rather than retry: flush() runs from a bare `finally:` in
+        # flush_worker, so raising here also skips the handoff cleanup, and an
+        # undecodable file would otherwise be re-read on every flush forever.
+        try:
+            claim.replace(claim.with_suffix(".corrupt"))
+        except OSError:
+            try:
+                claim.unlink()
+            except OSError:
+                pass
         return 0, True
     events = []
     for line in lines:
@@ -529,8 +573,15 @@ def _drain(claim: Path | None) -> tuple[int, bool]:
         if isinstance(value, dict) and value.get("event"):
             events.append(value)
     if not events:
+        # Only delete when the file really is empty. A non-empty file that
+        # parses to nothing is a torn write, and its contents are the unsent
+        # remainder — deleting it is the data loss this PR exists to prevent.
         try:
-            claim.unlink()
+            empty = claim.stat().st_size == 0
+        except OSError:
+            empty = True
+        try:
+            claim.replace(claim.with_suffix(".corrupt")) if not empty else claim.unlink()
         except OSError:
             pass
         return 0, True
@@ -580,8 +631,13 @@ def _drain(claim: Path | None) -> tuple[int, bool]:
             return sent, False
         sent += len(chunk)
         # Record progress and refresh the lease after each successful batch, so
-        # a crash repeats at most one batch instead of the entire file.
-        _rewrite_claim(claim, events[start + len(chunk) :])
+        # a crash repeats at most one batch instead of the entire file. If the
+        # rewrite fails the claim still holds delivered events, so stop rather
+        # than carry on as though progress were recorded — continuing is how the
+        # duplicate delivery this PR fixes would come back.
+        if not _rewrite_claim(claim, events[start + len(chunk) :]):
+            _release_claim(claim, events[start + len(chunk) :])
+            return sent, False
     return sent, True
 
 

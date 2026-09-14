@@ -112,16 +112,19 @@ def test_a_parked_batch_is_drained_behind_the_live_spool(telemetry):
     assert names == {"code.parked", "code.fresh"}
 
 
-def test_an_untried_batch_is_not_expired_by_age_alone(telemetry):
-    """Expiry should discard what failed, not what never got a turn."""
+def test_a_batch_is_retried_until_the_budget_is_spent_not_discarded(telemetry):
+    """Expiry discards what failed repeatedly, not what merely sat for a while.
+
+    The budget is the attempt count, because age cannot be one: every re-claim
+    touches the mtime and every release backdates it, so age never accumulates.
+    """
     telemetry.record("parked")
     telemetry._post = lambda payload, url: False
     telemetry.flush()
 
     parked = list(telemetry.memory_core.data_dir().glob("telemetry-*.sending"))
     assert len(parked) == 1
-    ancient = time.time() - (telemetry.CLAIM_EXPIRY_SECONDS + 60)
-    os.utime(parked[0], (ancient, ancient))
+    assert telemetry._claim_attempt(parked[0]) < telemetry.MAX_CLAIM_ATTEMPTS
 
     sent: list[dict] = []
     telemetry._post = lambda payload, url: sent.append(payload) or True
@@ -154,11 +157,88 @@ def test_progress_is_recorded_after_every_batch(telemetry):
     assert json.loads(remaining[0])["properties"]["index"] == 200
 
 
-def test_the_heartbeat_stays_well_inside_the_lease(telemetry):
+def test_the_heartbeat_actually_refreshes_the_lease(telemetry):
     """The claim rewrite doubles as the lease heartbeat.
 
-    _post makes a single attempt with SEND_TIMEOUT and no retry, so a heartbeat
-    lands at least that often. If a retry loop is ever added to _post, this is
-    the assertion that catches a sender losing its claim mid-flight.
+    Previously asserted `SEND_TIMEOUT * 4 < CLAIM_STALE_SECONDS`, which compares
+    two constants and executes none of the code under test. Drive the real
+    rewrite and watch the mtime move instead.
     """
-    assert telemetry.SEND_TIMEOUT * 4 < telemetry.CLAIM_STALE_SECONDS
+    for index in range(150):
+        telemetry.record("search", index=index)
+    claim = telemetry._claim_spool()
+    assert claim is not None
+
+    stale = time.time() - (telemetry.CLAIM_STALE_SECONDS + 60)
+    os.utime(claim, (stale, stale))
+    assert time.time() - claim.stat().st_mtime > telemetry.CLAIM_STALE_SECONDS
+
+    telemetry._rewrite_claim(claim, [{"event": "code.x", "properties": {}}])
+    assert time.time() - claim.stat().st_mtime < telemetry.CLAIM_STALE_SECONDS
+
+
+def test_an_undeliverable_batch_is_eventually_given_up_on(telemetry):
+    """Expiry has to be reachable from a state the state machine can produce.
+
+    It was not: every re-claim touched the mtime and every release backdated it
+    by a fixed amount, so age hovered near the stale threshold and the 7-day
+    expiry never fired. An undeliverable batch lived on disk forever, and
+    spawn_flush saw it and started a sender on every hook.
+    """
+    telemetry.record("doomed")
+    telemetry._post = lambda payload, url: False
+
+    for _ in range(telemetry.MAX_CLAIM_ATTEMPTS + 3):
+        telemetry.flush()
+
+    leftover = list(telemetry.memory_core.data_dir().glob("telemetry-*.sending"))
+    assert leftover == [], f"batch never given up on: {[p.name for p in leftover]}"
+
+
+def test_a_legacy_claim_filename_is_not_mistaken_for_a_huge_attempt_count(telemetry):
+    """The old shape is telemetry-<pid>-<hex>.sending, and hex can start with 'a'."""
+    assert telemetry._claim_attempt(Path("telemetry-999-deadbeef.sending")) == 0
+    assert telemetry._claim_attempt(Path("telemetry-999-a1234567.sending")) == 0
+    assert telemetry._claim_attempt(Path("telemetry-999-deadbeef-a2.sending")) == 2
+
+
+def test_a_torn_claim_is_quarantined_not_deleted(telemetry):
+    """A non-empty file that parses to nothing is the remainder, not garbage."""
+    telemetry.record("search")
+    claim = telemetry._claim_spool()
+    claim.write_bytes(b"\xff\xfe not utf-8 at all")
+    stale = time.time() - (telemetry.CLAIM_STALE_SECONDS + 60)
+    os.utime(claim, (stale, stale))
+
+    sent = telemetry.flush()
+
+    assert sent == 0
+    assert not claim.exists()
+    quarantined = list(telemetry.memory_core.data_dir().glob("*.corrupt"))
+    assert len(quarantined) == 1, "torn claim was destroyed instead of kept"
+
+
+def test_a_failed_rewrite_stops_instead_of_redelivering(telemetry):
+    """Ignoring the rewrite result reintroduced the duplicates this PR fixes."""
+    for index in range(250):
+        telemetry.record("search", index=index)
+
+    telemetry._rewrite_claim = lambda claim, remaining: False
+    delivered = []
+    telemetry._post = lambda payload, url: delivered.extend(payload.get("batch", [])) or True
+
+    telemetry.flush()
+    assert len(delivered) == 100, f"kept going after a failed rewrite: {len(delivered)}"
+
+
+def test_partial_files_are_swept(telemetry):
+    """Nothing else globs *.partial, so a crash mid-rename orphans one forever."""
+    data_dir = telemetry.memory_core.data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    debris = data_dir / "telemetry-1-abc-a0.1.partial"
+    debris.write_text("x", encoding="utf-8")
+    old = time.time() - (telemetry.CLAIM_STALE_SECONDS + 60)
+    os.utime(debris, (old, old))
+
+    telemetry.flush()
+    assert not debris.exists()
