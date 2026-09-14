@@ -117,6 +117,71 @@ describe("Harness lifecycle", () => {
     });
   });
 
+  it("recalls an undelivered memory after the turn was cancelled", async () => {
+    // Cancelling while the search is in flight used to mark the memories seen
+    // anyway, so the next search in the same session filtered them out and the
+    // agent answered without them (#7302).
+    const response = { results: [{ id: "m1", memory: "A saved fact" }] };
+    const controller = new AbortController();
+    const listeners = applyAndCollectListeners({ apiKey: "k", userId: "u" });
+    const assemble = listeners.get("system-prompt/assemble")!;
+    const base = { sections: [], contexts: [], tools: [], variables: {} };
+    const agent = {
+      session: {
+        deriveMessages: () => [
+          { role: "user", source: { kind: "user" }, content: "Recall my saved information" },
+        ],
+      },
+    };
+
+    mockSearch
+      .mockImplementationOnce(async () => {
+        controller.abort(); // cancel during the search, before it answers
+        return response;
+      })
+      .mockResolvedValue(response);
+
+    // The cancelled turn delivers nothing, which is right.
+    expect(await assemble(base, { agent, signal: controller.signal }, async () => base)).toBe(base);
+
+    const retried = await assemble(
+      base,
+      { agent, signal: new AbortController().signal },
+      async () => base,
+    );
+
+    expect(mockSearch).toHaveBeenCalledTimes(2);
+    expect(retried).toMatchObject({
+      contexts: [{ name: "mem0:recall", text: expect.stringContaining("A saved fact") }],
+    });
+  });
+
+  it("still does not repeat a memory it already delivered", async () => {
+    // The accept control: the deduplication the seen set exists for has to
+    // survive the fix, or every turn re-sends the same memories.
+    const response = { results: [{ id: "m1", memory: "A saved fact" }] };
+    mockSearch.mockResolvedValue(response);
+    const listeners = applyAndCollectListeners({ apiKey: "k", userId: "u" });
+    const assemble = listeners.get("system-prompt/assemble")!;
+    const base = { sections: [], contexts: [], tools: [], variables: {} };
+    const agent = {
+      session: {
+        deriveMessages: () => [
+          { role: "user", source: { kind: "user" }, content: "Recall my saved information" },
+        ],
+      },
+    };
+    const live = new AbortController().signal;
+
+    const first = await assemble(base, { agent, signal: live }, async () => base);
+    const second = await assemble(base, { agent, signal: live }, async () => base);
+
+    expect(first).toMatchObject({
+      contexts: [{ name: "mem0:recall", text: expect.stringContaining("A saved fact") }],
+    });
+    expect(second).toBe(base);
+  });
+
   it("automatically captures a completed human and assistant turn", async () => {
     mockAdd.mockResolvedValue({ eventId: "evt-1", status: "PENDING" });
     const listeners = applyAndCollectListeners({ apiKey: "k", userId: "u" });

@@ -73,6 +73,14 @@ interface RecallOptions {
   maxChars?: number;
   seenIds?: Set<string>;
   timeoutMs?: number;
+  /**
+   * Whether the turn this recall belongs to has been cancelled. Checked after
+   * the search answers and before anything is marked seen: a context the
+   * caller is about to throw away must not cost the memories in it, or the
+   * next search in the same session filters them out and the agent answers
+   * without them.
+   */
+  isCancelled?: () => boolean;
 }
 
 interface MemoryLifecycleOptions {
@@ -107,11 +115,13 @@ class MemoryLifecycle {
     prompt: string,
     enabled: boolean,
     search: (query: string) => Promise<{ results?: unknown[] }>,
+    isCancelled?: () => boolean,
   ): Promise<string> {
     return buildRecallContext(prompt, enabled, search, {
       maxChars: this.#options.maxContextChars,
       seenIds: this.#seenMemoryIds,
       timeoutMs: this.#options.recallTimeoutMs,
+      isCancelled,
     });
   }
 }
@@ -144,6 +154,9 @@ export async function buildRecallContext(
       if (timer) clearTimeout(timer);
     }
     if (!response) return "";
+    // The search can finish after the turn was cancelled. Nothing below this
+    // line is delivered in that case, so nothing below it may be marked seen.
+    if (options.isCancelled?.()) return "";
     const memories = (response.results ?? []) as MemoryLike[];
     const unseen = memories.filter((memory) => !options.seenIds?.has(memory.id));
     if (!unseen.length) return "";

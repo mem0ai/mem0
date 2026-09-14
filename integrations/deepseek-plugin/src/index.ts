@@ -157,7 +157,7 @@ export function apply(ctx: Context, config: Config): void {
           }, client);
           throw err;
         }
-      });
+      }, () => signal?.aborted === true);
       if (!memoryContext || signal?.aborted) return assembly;
       return {
         ...assembly,
