@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Anonymous usage telemetry for Mem0 agent plugins.
+"""Usage telemetry for Mem0 agent plugins.
+
+Events are linked to your Mem0 account email when an API key is configured, and
+to a random per-machine id otherwise. Not anonymous — the Python SDK and CLI
+attribute the same way.
 
 Hooks run on a 3-6 second budget and fire on every tool call, so recording never
 touches the network: `record` appends one JSON line to a local spool and returns.
@@ -9,7 +13,8 @@ started once per session and again from the flush worker that is already detache
 Pure stdlib, matching the rest of the plugin. Opt out with MEM0_TELEMETRY=false.
 
 Never sends prompts, memory text, queries, file paths, repository names, or API
-keys: only event names, durations, counts, coarse outcomes, and salted hashes.
+keys: only event names, durations, counts, coarse outcomes, and repo/session
+identifiers hashed with a random per-install salt.
 """
 
 from __future__ import annotations
@@ -83,7 +88,34 @@ def is_enabled() -> bool:
 
 
 def _digest(value: str, length: int = 16) -> str:
+    """Unsalted digest. Only for values that are already secrets (API keys)."""
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:length]
+
+
+def _install_salt() -> str:
+    """Random per-install salt, created on first use and kept in the identity file."""
+    identity = _read_identity()
+    salt = identity.get("salt")
+    if not salt:
+        salt = uuid.uuid4().hex
+        identity["salt"] = salt
+        _write_identity(identity)
+    return salt
+
+
+def _scoped_digest(value: str, length: int = 16) -> str:
+    """Salted digest for values drawn from a guessable space.
+
+    repo.identity is a git remote URL, or ``local:<absolute path>`` when there is
+    no remote — which normally contains the account username. Sixteen unsalted
+    hex characters over that input space is enumerable, so this is not a
+    privacy control without the salt. Salting per install keeps every
+    within-account join the analytics actually use and gives up only
+    cross-machine joins on the same repository, which nothing computes.
+    """
+    if not value:
+        return ""
+    return hashlib.sha256(f"{_install_salt()}:{value}".encode("utf-8")).hexdigest()[:length]
 
 
 def _safe_value(value: Any) -> Any:
@@ -175,9 +207,9 @@ def record(
             python_version=platform.python_version(),
         )
         if repo is not None:
-            properties["repo_hash"] = _digest(getattr(repo, "identity", ""))
+            properties["repo_hash"] = _scoped_digest(getattr(repo, "identity", ""))
         if session_id:
-            properties["session_hash"] = _digest(session_id)
+            properties["session_hash"] = _scoped_digest(session_id)
         line = json.dumps(
             {
                 "event": f"{EVENT_PREFIX}.{event}",
