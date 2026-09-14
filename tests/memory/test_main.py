@@ -1235,11 +1235,9 @@ class TestTruncateToTokenLimitRealTokenizer:
     """Truncation behavior asserted against the real cl100k_base tokenizer.
 
     Skipped when tiktoken (or the cl100k_base encoding) is unavailable.
-    Note: these tests deliberately do NOT assert "output tokens <= max_tokens";
-    the ratio-based trim can overshoot on adversarial non-uniform input
-    (e.g. low-density English head + high-density Chinese tail), which is
-    tracked as a separate blocker. Here we assert the documented behavior:
-    identity at/below the limit, and a tail-preserving trim above it.
+    The trim re-verifies the token count after each cut (loop with binary-search
+    fallback), so every case also asserts the strict postcondition:
+    real token count of the result <= max_tokens.
     """
 
     def test_short_text_unchanged(self):
@@ -1267,7 +1265,7 @@ class TestTruncateToTokenLimitRealTokenizer:
         result = truncate_to_token_limit(text, max_tokens=200)
         assert result != text
         assert text.endswith(result), "truncation must keep the tail (most recent context)"
-        assert len(enc.encode(result)) < len(enc.encode(text))
+        assert len(enc.encode(result)) <= 200
 
     def test_chinese_over_limit_trim_is_tail_suffix(self):
         enc = _get_cl100k()
@@ -1277,7 +1275,7 @@ class TestTruncateToTokenLimitRealTokenizer:
         result = truncate_to_token_limit(text, max_tokens=200)
         assert result != text
         assert text.endswith(result), "truncation must keep the tail (most recent context)"
-        assert len(enc.encode(result)) < len(enc.encode(text))
+        assert len(enc.encode(result)) <= 200
 
     def test_emoji_over_limit_trim_is_tail_suffix(self):
         enc = _get_cl100k()
@@ -1287,7 +1285,43 @@ class TestTruncateToTokenLimitRealTokenizer:
         result = truncate_to_token_limit(text, max_tokens=200)
         assert result != text
         assert text.endswith(result), "truncation must keep the tail (most recent context)"
-        assert len(enc.encode(result)) < len(enc.encode(text))
+        assert len(enc.encode(result)) <= 200
+
+    def test_adversarial_english_head_chinese_tail_within_limit(self):
+        """Regression: a low-density English head + high-density Chinese tail.
+
+        The old two-pass trim scaled by the global average density (2.6 chars/token
+        here), but keep-the-tail retains the densest segment (Chinese, ~0.97
+        chars/token), so the old code returned 9261 real tokens for an 8000 limit
+        (overshoot 15.8%). The re-verification loop must clamp this under the limit.
+        """
+        enc = _get_cl100k()
+        if enc is None:
+            pytest.skip("tiktoken/cl100k_base unavailable")
+        head = "This is a long English conversation prefix with many common words. " * 800
+        tail_cn = "这是一段很长的中文对话内容，包含了很多个汉字，用于测试高密度情形。" * 500
+        text = head + tail_cn
+        result = truncate_to_token_limit(text)  # default 8000
+        assert result != text
+        assert text.endswith(result), "truncation must keep the tail (most recent context)"
+        out_tokens = len(enc.encode(result))
+        assert out_tokens <= 8000, f"overshoot: {out_tokens} real tokens for an 8000 limit"
+        assert "高密度情形" in result, "the dense (most recent) tail must be preserved"
+
+    def test_hard_cut_fallback_within_limit(self, mocker):
+        """With the density loop budget exhausted (patched to 0), the binary-search
+        hard cut must still guarantee the strict token bound."""
+        enc = _get_cl100k()
+        if enc is None:
+            pytest.skip("tiktoken/cl100k_base unavailable")
+        mocker.patch("mem0.memory.utils._TRUNCATION_MAX_ROUNDS", 0)
+        head = "This is a long English conversation prefix with many common words. " * 800
+        tail_cn = "这是一段很长的中文对话内容，包含了很多个汉字，用于测试高密度情形。" * 500
+        text = head + tail_cn
+        result = truncate_to_token_limit(text)  # default 8000
+        assert result != text
+        assert text.endswith(result)
+        assert len(enc.encode(result)) <= 8000
 
 
 class TestTruncateToTokenLimitFallback:
