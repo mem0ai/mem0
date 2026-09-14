@@ -325,6 +325,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Healthcare Google ADK](https://docs.mem0.ai/cookbooks/integrations/healthcare-google-adk) [Platform]: Use when the domain is medical and the framework is Google ADK.
 - [AWS Bedrock](https://docs.mem0.ai/cookbooks/integrations/aws-bedrock) [OSS]: Use when deploying with AWS managed model services.
 - [Tavily Search](https://docs.mem0.ai/cookbooks/integrations/tavily-search) [Platform]: Use when the agent layers web search on memory.
+- [Company Brain (Mem0 Platform + Supabase)](https://docs.mem0.ai/cookbooks/integrations/supabase) [Platform]: Use to build a shared org brain on Mem0 Platform with Supabase as system of record and the MCP server as the access layer (with a new-hire onboarding demo).
 
 ### Framework Examples
 - [LlamaIndex React](https://docs.mem0.ai/cookbooks/frameworks/llamaindex-react) [Both]: Use when building a React UI with LlamaIndex and memory.
