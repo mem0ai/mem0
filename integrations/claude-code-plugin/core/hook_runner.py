@@ -305,8 +305,19 @@ def run(
             return 0
 
         if args.action == "session-start":
-            if telemetry.is_first_run():
+            # Claims the marker atomically and says which event to record, so a
+            # second session starting alongside this one cannot record it too.
+            first_event = telemetry.claim_install()
+            if first_event == "install":
                 telemetry.record("install")
+            elif first_event == "upgrade":
+                # First run after a build that never wrote the marker; the
+                # predecessor version was never recorded anywhere.
+                telemetry.record("upgrade", from_version="pre-0.3")
+            else:
+                previous = telemetry.claim_version_change()
+                if previous:
+                    telemetry.record("upgrade", from_version=previous)
             recovered = recover_pending_handoffs()
             record_session_start(store, hook_input)
             if recovered:

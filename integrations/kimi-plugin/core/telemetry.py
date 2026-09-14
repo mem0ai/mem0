@@ -206,9 +206,92 @@ def anonymous_id(identity: dict[str, str] | None = None) -> str:
     return created
 
 
+def _install_state_path() -> Path:
+    return memory_core.data_dir() / "install-state.json"
+
+
 def is_first_run() -> bool:
-    """Whether this machine has never recorded a plugin event before."""
-    return not _identity_path().exists()
+    """Whether install has never been recorded on this machine.
+
+    Deliberately NOT the identity file. That file is only written by a
+    successful flush, so an offline or firewalled user recorded code.install on
+    every single session, forever — and every 0.2.x user recorded one on their
+    first 0.3.x session because 0.2.x never wrote it at all.
+    """
+    return not _install_state_path().exists()
+
+
+def claim_install() -> str | None:
+    """Claim the one install/upgrade record for this machine, atomically.
+
+    Returns the event to record ("install" or "upgrade"), or None if another
+    session already claimed it. O_CREAT|O_EXCL so two sessions starting together
+    cannot both win.
+    """
+    path = _install_state_path()
+    # A fresh install has an empty data directory. Anything already there —
+    # a 0.2.x venv, an evidence db, a spool — means this is an upgrade. Read
+    # before the marker is created, since creating it would itself be content.
+    upgrading = _data_dir_has_content()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        return None
+    except OSError:
+        return None
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            json.dump(
+                {
+                    "plugin_version": memory_core.PLUGIN_VERSION,
+                    "installed_at": memory_core.utc_now(),
+                    "upgraded": upgrading,
+                },
+                stream,
+            )
+    except OSError:
+        pass
+    return "upgrade" if upgrading else "install"
+
+
+def _data_dir_has_content() -> bool:
+    """Whether anything predates this session in the plugin data directory."""
+    try:
+        for entry in memory_core.data_dir().iterdir():
+            if entry.name != "install-state.json":
+                return True
+    except OSError:
+        pass
+    return False
+
+
+def claim_version_change() -> str | None:
+    """Return the previously recorded version if it differs, updating the marker.
+
+    Only meaningful once the marker exists — the first transition into 0.3.x has
+    no recorded predecessor and reports "pre-0.3" instead. Claiming by rewriting
+    the marker means the next session sees no change and records nothing.
+    """
+    path = _install_state_path()
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(state, dict):
+        return None
+    previous = str(state.get("plugin_version") or "")
+    if not previous or previous == memory_core.PLUGIN_VERSION:
+        return None
+    state["plugin_version"] = memory_core.PLUGIN_VERSION
+    state["upgraded_at"] = memory_core.utc_now()
+    try:
+        temporary = path.with_suffix(f".{os.getpid()}.tmp")
+        temporary.write_text(json.dumps(state), encoding="utf-8")
+        temporary.replace(path)
+    except OSError:
+        return None
+    return previous
 
 
 def record(
@@ -468,21 +551,39 @@ def _post(payload: dict[str, Any], url: str) -> bool:
 
 
 def resolve_distinct_id() -> tuple[str, str]:
-    """Return the PostHog distinct id and the anonymous id it replaced, if any."""
+    """Return the PostHog distinct id and the anonymous id it replaced, if any.
+
+    The second value becomes a PostHog $identify alias. It is ONLY ever an
+    anonymous id: aliasing one account email to another merges two real person
+    profiles and cannot be undone, so a key that now belongs to a different
+    account re-resolves with no alias.
+    """
     identity = _read_identity()
-    email = identity.get("email", "")
-    if email:
-        return email, ""
     key = memory_core.api_key()
+    fingerprint = _digest(key) if key else ""
+    email = identity.get("email", "")
+
+    if email and identity.get("key_fingerprint", "") == fingerprint and fingerprint:
+        return email, ""
+
     if not key:
+        # No key to verify the account with; do not keep attributing to it.
+        if email:
+            identity.pop("email", None)
+            identity.pop("key_fingerprint", None)
+            _write_identity(identity)
         return anonymous_id(identity), ""
-    email = _resolve_email(key)
-    if not email:
-        return anonymous_id(identity), ""
-    previous = identity.get("anonymous_id", "")
-    identity["email"] = email
+
+    resolved = _resolve_email(key)
+    if not resolved:
+        return (email, "") if email else (anonymous_id(identity), "")
+
+    # Alias only when going anonymous -> email for the first time.
+    previous = "" if email else identity.get("anonymous_id", "")
+    identity["email"] = resolved
+    identity["key_fingerprint"] = fingerprint
     _write_identity(identity)
-    return email, previous
+    return resolved, previous
 
 
 def flush() -> int:
