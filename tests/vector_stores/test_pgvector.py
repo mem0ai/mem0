@@ -2330,6 +2330,60 @@ class TestPGVector(unittest.TestCase):
             # Verify pool.closeall() was called
             mock_pool.closeall.assert_called()
 
+    def test_external_pool_cleanup_psycopg3(self):
+        """Test that externally supplied psycopg3 pool is not closed on object deletion."""
+        mock_pool = MagicMock()
+        with patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3):
+            pgvector = PGVector(
+                dbname="test_db",
+                collection_name="test_collection",
+                embedding_model_dims=3,
+                user="test_user",
+                password="test_pass",
+                host="localhost",
+                port=5432,
+                diskann=False,
+                hnsw=False,
+                minconn=1,
+                maxconn=4,
+                connection_pool=mock_pool,
+            )
+
+            self.assertFalse(pgvector._owns_connection_pool)
+            pgvector.__del__()
+            del pgvector
+
+            # Verify external pool was NOT closed
+            mock_pool.close.assert_not_called()
+            mock_pool.closeall.assert_not_called()
+
+    def test_external_pool_cleanup_psycopg2(self):
+        """Test that externally supplied psycopg2 pool is not closed on object deletion."""
+        mock_pool = MagicMock()
+        with patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2):
+            pgvector = PGVector(
+                dbname="test_db",
+                collection_name="test_collection",
+                embedding_model_dims=3,
+                user="test_user",
+                password="test_pass",
+                host="localhost",
+                port=5432,
+                diskann=False,
+                hnsw=False,
+                minconn=1,
+                maxconn=4,
+                connection_pool=mock_pool,
+            )
+
+            self.assertFalse(pgvector._owns_connection_pool)
+            pgvector.__del__()
+            del pgvector
+
+            # Verify external pool was NOT closed
+            mock_pool.close.assert_not_called()
+            mock_pool.closeall.assert_not_called()
+
     def tearDown(self):
         """Clean up after each test."""
         pass

@@ -185,6 +185,7 @@ class PGVector(VectorStoreBase):
         self.use_hnsw = hnsw
         self.embedding_model_dims = embedding_model_dims
         self.connection_pool = None
+        self._owns_connection_pool = False
         self._collection_ensured = False
 
         # Connection setup with priority: connection_pool > connection_string > individual parameters
@@ -200,6 +201,7 @@ class PGVector(VectorStoreBase):
                 connection_string = _with_sslmode(connection_string, sslmode)
         
         if self.connection_pool is None:
+            self._owns_connection_pool = True
             if PSYCOPG_VERSION == 3:
                 # open=False avoids blocking when DB DNS is not yet resolvable (e.g. Docker startup)
                 self.connection_pool = ConnectionPool(
@@ -546,12 +548,16 @@ class PGVector(VectorStoreBase):
         """
         Close the database connection pool when the object is deleted.
         """
+        if not getattr(self, "_owns_connection_pool", False):
+            return
+
         try:
             # Close pool appropriately
-            if PSYCOPG_VERSION == 3:
-                self.connection_pool.close()
-            else:
-                self.connection_pool.closeall()
+            if self.connection_pool is not None:
+                if PSYCOPG_VERSION == 3:
+                    self.connection_pool.close()
+                else:
+                    self.connection_pool.closeall()
         except Exception:
             pass
 
