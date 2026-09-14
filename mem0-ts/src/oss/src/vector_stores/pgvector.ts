@@ -241,7 +241,49 @@ export class PGVector implements VectorStore {
         this.useDirectConnection ? undefined : "postgres",
       ),
     );
+    this.attachClientErrorHandler(this.client);
     this.initialize().catch(console.error);
+  }
+
+  /**
+   * Register a process-level guard on the pg.Client so that a server-side
+   * connection termination (e.g. container restart, `pg_terminate_backend`,
+   * `FATAL 57P01`) cannot become an uncaught exception and kill the host
+   * process. Also clears the memoised `_initPromise` so the next operation
+   * can reconnect, instead of being permanently broken until the process
+   * is restarted. See https://github.com/mem0ai/mem0/issues/7294
+   */
+  private attachClientErrorHandler(client: ClientType): void {
+    client.on("error", (err) => {
+      // EventEmitter semantics: an 'error' event without a listener throws.
+      // Registering here keeps the host alive. The store is left unusable
+      // until the next operation triggers a reconnect through resetInit.
+      console.error("PGVector client error:", err);
+      this.resetInit();
+    });
+  }
+
+  /**
+   * Drop the memoised init promise and rebuild the underlying pg.Client so
+   * the next call to `initialize()` performs a fresh handshake. Safe to
+   * call multiple times.
+   */
+  private resetInit(): void {
+    this._initPromise = undefined;
+    try {
+      // The previous client is already in an error state; just drop the
+      // local reference. `client.end()` here would itself fail on a
+      // terminated socket, so we don't await it.
+      this.client.removeAllListeners();
+    } catch {
+      // ignore
+    }
+    // The handler may fire on a fresh client too, so reinstall the guard
+    // before any other code touches `this.client`.
+    this.client = new Client(
+      buildClientConfig(this.config, this.useDirectConnection ? undefined : "postgres"),
+    );
+    this.attachClientErrorHandler(this.client);
   }
 
   private col(): string {

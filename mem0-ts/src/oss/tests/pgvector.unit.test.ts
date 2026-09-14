@@ -43,16 +43,17 @@ function mockPgQuery(sql: string) {
 
 jest.mock("pg", () => {
   const clients: any[] = [];
+  const { EventEmitter } = require("events");
 
   const Client = jest.fn().mockImplementation((config: any) => {
-    const client = {
+    const client = Object.assign(new EventEmitter(), {
       config,
       connect: jest.fn().mockResolvedValue(undefined),
       end: jest.fn().mockResolvedValue(undefined),
       query: jest
         .fn()
         .mockImplementation(async (sql: string) => mockPgQuery(sql)),
-    };
+    });
 
     clients.push(client);
     return client;
@@ -239,6 +240,74 @@ describe("PGVector", () => {
     expect(activeClient.query).toHaveBeenCalledWith(
       expect.stringContaining("vector <=> $1::vector AS distance"),
       ["[1,0,0]", 4],
+    );
+  });
+
+  test("attaches an error handler to every pg.Client so a server-side termination does not crash the host process", async () => {
+    // See https://github.com/mem0ai/mem0/issues/7294
+    // Without an `error` listener on the pg.Client, a server-side
+    // termination (e.g. `pg_terminate_backend`, container restart)
+    // emits an `'error'` event with no listener; Node throws it as an
+    // uncaught exception and kills the host. PGVector must register a
+    // listener so the host process stays alive.
+    const store = new PGVector({
+      collectionName: "memories",
+      connectionString:
+        "postgresql://postgres:postgres@db.example.com:5432/neondb",
+      embeddingModelDims: 3,
+      dimension: 3,
+    } as any);
+
+    await store.initialize();
+
+    const pg = require("pg");
+    const client = pg.__mock.clients[0];
+    expect(client.listenerCount("error")).toBeGreaterThanOrEqual(1);
+    expect(() =>
+      client.emit(
+        "error",
+        Object.assign(new Error("terminating connection"), {
+          code: "57P01",
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  test("reconnects on the next call after the underlying pg.Client errors out", async () => {
+    // After a server-side termination, the store must rebuild a fresh
+    // pg.Client on the next call so a transient DB restart does not
+    // permanently break the host. The original `_initPromise` was
+    // memoised, so the fix is to drop it (and the broken client) when
+    // the error listener fires.
+    mockState.databaseExists = true;
+    const store = new PGVector({
+      collectionName: "memories",
+      connectionString:
+        "postgresql://postgres:postgres@db.example.com:5432/neondb",
+      embeddingModelDims: 3,
+      dimension: 3,
+    } as any);
+
+    await store.initialize();
+
+    const pg = require("pg");
+    const beforeErrorClient = pg.__mock.clients[0];
+    beforeErrorClient.emit(
+      "error",
+      Object.assign(new Error("terminating connection"), {
+        code: "57P01",
+      }),
+    );
+
+    // The listener fires synchronously inside emit; the next initialize()
+    // must use a brand-new pg.Client.
+    await store.initialize();
+
+    expect(pg.__mock.Client).toHaveBeenCalledTimes(2);
+    const reconnectedClient = pg.__mock.clients[1];
+    expect(reconnectedClient).not.toBe(beforeErrorClient);
+    expect(reconnectedClient.listenerCount("error")).toBeGreaterThanOrEqual(
+      1,
     );
   });
 });
