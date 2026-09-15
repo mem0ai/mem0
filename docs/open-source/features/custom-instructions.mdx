@@ -148,6 +148,31 @@ const memory = new Memory(config);
 
 ---
 
+## Preserve the input language
+
+For Python OSS deployments, set `use_input_language` when you want extracted memories to use the same language and script as the input conversation. This is useful for Chinese, Japanese, Korean, Arabic, Hindi, and other multilingual workloads where the extraction model might otherwise normalize facts into English.
+
+```python Python
+from mem0 import Memory
+
+config = {
+    "use_input_language": True,
+    "llm": {
+        "provider": "openai",
+        "config": {"model": "gpt-5-mini"},
+    },
+}
+
+memory = Memory.from_config(config)
+memory.add("我喜欢周末打乒乓球", user_id="xiaoming")
+```
+
+The option defaults to `False`, so existing deployments keep their current extraction behavior. It adds language-preservation guidance to both synchronous `Memory` and asynchronous `AsyncMemory` extraction. Model adherence can vary, so test the setting with the model and languages used in production.
+
+Use `custom_instructions` instead when you need additional language-specific rules or want to combine language preservation with domain-specific extraction guidance.
+
+---
+
 ## See it in action
 
 ### Example: Order support memory
