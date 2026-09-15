@@ -81,7 +81,12 @@ class S3Vectors(VectorStoreBase):
                     logger.warning(f"Failed to parse metadata for key {v.get('key')}")
                     payload = {}
             raw_distance = v.get("distance")
-            score = max(0.0, 1.0 - raw_distance) if raw_distance is not None else None
+            if raw_distance is None:
+                score = None
+            elif self.distance_metric == "euclidean":
+                score = 1.0 / (1.0 + raw_distance)
+            else:
+                score = max(0.0, 1.0 - raw_distance)
             results.append(OutputData(id=v.get("key"), score=score, payload=payload))
         return results
 
