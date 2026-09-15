@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import time
+from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
 import telemetry
@@ -321,7 +322,14 @@ async def log_requests(request: Request, call_next):
 
 @app.get("/configure", summary="Get current Mem0 configuration")
 def get_config(_auth=Depends(verify_auth)):
-    return _redact_config(get_current_config())
+    config = get_current_config()
+    response = _redact_config(config)
+    for name in ("llm", "embedder"):
+        provider = config.get(name)
+        if isinstance(provider, dict):
+            settings = provider.get("config") or {}
+            response[name].setdefault("config", {})["api_key_set"] = bool(settings.get("api_key"))
+    return response
 
 
 @app.get("/configure/providers", summary="List bundled LLM and embedder providers")
@@ -333,7 +341,19 @@ def list_bundled_providers(_auth=Depends(verify_auth)):
 def set_config(config: Dict[str, Any], _auth=Depends(require_admin)):
     """Set memory configuration. Requires admin role."""
     _validate_bundled_providers(config)
-    update_config(config)
+    updates = deepcopy(config)
+    for name in ("llm", "embedder"):
+        provider = updates.get(name)
+        if not isinstance(provider, dict):
+            continue
+        settings = provider.get("config")
+        if not isinstance(settings, dict):
+            continue
+        settings.pop("api_key_set", None)
+        api_key = settings.get("api_key")
+        if api_key is None or (isinstance(api_key, str) and api_key.strip() in ("", "[redacted]")):
+            settings.pop("api_key", None)
+    update_config(updates)
     return {"message": "Configuration set successfully"}
 
 

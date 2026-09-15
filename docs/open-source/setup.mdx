@@ -133,6 +133,22 @@ The shipped container bundles the Python packages for:
 
 The Configuration page and `POST /configure` only accept providers from these lists. Anything else returns a 400 up front instead of failing at the first memory write.
 
+`GET /configure` redacts saved provider API keys and includes an `api_key_set` boolean alongside each key in `llm.config` and `embedder.config`:
+
+```json
+{
+  "llm": {
+    "provider": "openai",
+    "config": {
+      "api_key": "[redacted]",
+      "api_key_set": true
+    }
+  }
+}
+```
+
+The dashboard uses this flag to show that a key is configured. To keep the current key when calling `POST /configure`, omit `api_key`. Empty strings, whitespace-only strings, `null`, and the `[redacted]` placeholder also leave the existing LLM or embedder key unchanged. Send a new key to replace it. `api_key_set` is response metadata and is ignored on save.
+
 **To add another provider**, for example to run embeddings locally with `sentence-transformers`:
 
 1. Add the package to `server/requirements.txt` (e.g. `sentence-transformers>=2.0`).
