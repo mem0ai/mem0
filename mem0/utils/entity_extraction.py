@@ -748,24 +748,28 @@ def _extract_entities_from_doc(doc) -> list[tuple[str, str]]:
     return _resolve_candidates(candidates)
 
 
-def extract_entities(text: str) -> list[tuple[str, str]]:
+def extract_entities(text: str, spacy_model: str = "en_core_web_sm") -> list[tuple[str, str]]:
     """Extract typed entity candidates from text."""
     from mem0.utils.spacy_models import get_nlp_full
 
-    nlp = get_nlp_full()
+    nlp = get_nlp_full(spacy_model)
     if nlp is None:
         return []
     return _extract_entities_from_doc(nlp(text))
 
 
-def extract_entities_batch(texts: list[str], batch_size: int = 32) -> list[list[tuple[str, str]]]:
+def extract_entities_batch(
+    texts: list[str],
+    batch_size: int = 32,
+    spacy_model: str = "en_core_web_sm",
+) -> list[list[tuple[str, str]]]:
     """Extract typed entity candidates from multiple texts."""
     if not texts:
         return []
 
     from mem0.utils.spacy_models import get_nlp_full
 
-    nlp = get_nlp_full()
+    nlp = get_nlp_full(spacy_model)
     if nlp is None:
         return [[] for _ in texts]
 
