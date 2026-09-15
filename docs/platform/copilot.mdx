@@ -74,7 +74,22 @@ Not every field has an inline editor. If a proposal includes both extraction ins
   A generated prompt profile contains separate prompts for extraction and summaries. If your project uses one, saving extraction instructions through Copilot deactivates it. Review the replacement rules and test the affected behavior before using them in production.
 </Warning>
 
-## Stop storing small talk, then test extraction
+## What Copilot cannot do
+
+Copilot cannot perform these actions, even in **Auto-apply** mode:
+
+- Create or delete API keys.
+- Directly edit or delete existing memories.
+- Export project data.
+- Invite or remove organization or project members, or change their roles and permissions.
+- Create or delete organizations or projects.
+- Change billing details or subscription plans.
+
+Use the dashboard or the relevant platform API for these tasks. Copilot can explain the steps or point you to documentation, but it cannot carry out the actions.
+
+Copilot supports the managed Mem0 platform. It does not help configure or use the [self-hosted open-source library](/open-source/overview).
+
+## Example 1: Stop storing small talk, then test extraction
 
 This walkthrough uses a project where you have noticed greetings or small talk in stored memories. Use a development project when trying configuration changes, since a test user does not isolate project settings.
 
@@ -136,7 +151,7 @@ This walkthrough uses a project where you have noticed greetings or small talk i
 
 Test with new inputs after changing settings. Updating configuration is not a cleanup operation for existing memories. See [Custom instructions](/platform/features/custom-instructions) for guidance on writing extraction rules.
 
-## Suggest categories and extraction instructions from data
+## Example 2: Suggest categories and extraction instructions
 
 These workflows sample the selected project's data. Generating a suggestion does not update settings by itself. Copilot can then propose applying it, which follows the selected review mode. Use **Review changes** to inspect suggestions before they are saved.
 
@@ -151,7 +166,7 @@ Extraction suggestions compare conversation inputs with what was extracted. One 
 
 Both workflows require enough project data. If a suggestion fails because there is too little data, check the activity's **Result** for the current and required counts. You can still inspect memories, ask SDK/API questions, or provide your own rules instead of requesting a data-based suggestion.
 
-## Adjust detail and language
+## Example 3: Adjust detail and language
 
 Ask Copilot to read the current settings, then request the change you need:
 
@@ -160,15 +175,13 @@ Ask Copilot to read the current settings, then request the change you need:
 
 Both are project settings. Review the proposed values and test a fresh input after applying them. See [Organization and project settings](/api-reference/organizations-projects) for configuration through the API.
 
-## Ask SDK and API questions
+## Example 4: Ask SDK and API questions
 
 Include your language and the task, for example:
 
 > Show me how to search memories for user alice with the managed Mem0 Python SDK. Link the documentation you used.
 
 Copilot can look up the official platform documentation. Check the **Browse mem0 docs** and **Read docs page** activities and open the cited pages. If an answer has no sources, ask for them before using the example. The [Platform quickstart](/platform/quickstart) covers adding and searching memories in code.
-
-Copilot covers the managed Mem0 platform. It does not configure the [self-hosted open-source library](/open-source/overview) or perform member and account administration, such as inviting teammates or changing billing details.
 
 ## Resume a conversation and check message limits
 
