@@ -15,7 +15,7 @@ export class MiniMaxLLM extends OpenAILLM {
         config.baseURL ||
         process.env.MINIMAX_API_BASE ||
         "https://api.minimax.io/v1",
-      model: config.model || "MiniMax-M2.7",
+      model: config.model || "MiniMax-M3",
     });
   }
 
