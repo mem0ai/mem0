@@ -506,3 +506,39 @@ class TestParseResponseLegacy:
         response = {"body": body}
         result = llm._parse_response(response, tools=None)
         assert result == "hello from ai21"
+
+    def test_amazon_titan_normal_response(self, mock_boto3):
+        """Amazon Titan text models return results[0].outputText."""
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({
+            "inputTextTokenCount": 3,
+            "results": [{"tokenCount": 5, "outputText": "Hi from Titan", "completionReason": "FINISH"}]
+        }).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == "Hi from Titan"
+
+    def test_amazon_titan_empty_results_fallback(self, mock_boto3):
+        """When results is missing or empty, fall back to completion field."""
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({
+            "completion": "legacy completion fallback"
+        }).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == "legacy completion fallback"
+
+    def test_amazon_titan_missing_fields_returns_empty(self, mock_boto3):
+        """When neither results nor completion is present, return empty string."""
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({}).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == ""
+
