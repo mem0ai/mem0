@@ -139,3 +139,33 @@ class TestExtractEntitiesBatch:
         assert len(batch) == 1
         # Both should extract the same entities
         assert set(t for _, t in single) == set(t for _, t in batch[0])
+
+
+@pytest.fixture()
+def _use_zh_model(monkeypatch):
+    """Point mem0 at the Chinese pipeline and reset its cached spaCy state."""
+    import spacy
+
+    if not spacy.util.is_package("zh_core_web_sm"):
+        pytest.skip("spaCy zh_core_web_sm model not available")
+    import mem0.utils.spacy_models as sm
+
+    monkeypatch.setenv("MEM0_SPACY_MODEL", "zh_core_web_sm")
+    monkeypatch.setattr(sm, "_nlp_full", None)
+    monkeypatch.setattr(sm, "_load_failed_full", False)
+
+
+class TestExtractEntitiesChinese:
+    def test_no_noun_chunks_crash(self, _use_zh_model):
+        """zh has no noun_chunks iterator; extraction must not raise."""
+        from mem0.utils.entity_extraction import extract_entities
+
+        entities = extract_entities("张三是阿里巴巴的工程师，他在杭州负责大模型训练。")
+        assert isinstance(entities, list)
+
+    def test_chinese_proper_noun(self, _use_zh_model):
+        from mem0.utils.entity_extraction import extract_entities
+
+        entities = extract_entities("张三是阿里巴巴的工程师，用的框架是 PyTorch。")
+        entity_texts = [e[1] for e in entities]
+        assert any("PyTorch" in t for t in entity_texts), f"Expected PyTorch, got {entities}"
