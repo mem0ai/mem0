@@ -8,6 +8,7 @@ import os
 import time
 import uuid
 import warnings
+from collections.abc import Mapping
 from copy import deepcopy
 from datetime import date, datetime, timezone
 from typing import Any, Dict, Optional
@@ -88,6 +89,55 @@ def _vector_store_list_rows(listed):
     if isinstance(listed, (list, tuple)):
         return listed
     return []
+
+
+def _search_result_value(result, field, default=None):
+    if isinstance(result, Mapping):
+        return result.get(field, default)
+    return getattr(result, field, default)
+
+
+def _build_hybrid_candidates(semantic_results, keyword_results, bm25_scores, show_expired=False):
+    """Union dense and sparse search results while preserving dense scores for overlaps."""
+    candidates_by_id = {}
+    seen_ids = set()
+
+    for result in semantic_results or []:
+        memory_id = _search_result_value(result, "id")
+        if memory_id is None:
+            continue
+        memory_id = str(memory_id)
+        if memory_id in seen_ids:
+            continue
+        seen_ids.add(memory_id)
+        payload = _search_result_value(result, "payload", {}) or {}
+        if not show_expired and _payload_is_expired(payload):
+            continue
+        candidates_by_id[memory_id] = {
+            "id": memory_id,
+            "score": _search_result_value(result, "score"),
+            "payload": payload,
+        }
+
+    for result in keyword_results or []:
+        memory_id = _search_result_value(result, "id")
+        if memory_id is None:
+            continue
+        memory_id = str(memory_id)
+        if memory_id in seen_ids or memory_id not in bm25_scores:
+            continue
+        seen_ids.add(memory_id)
+        payload = _search_result_value(result, "payload", {}) or {}
+        if not show_expired and _payload_is_expired(payload):
+            continue
+        candidates_by_id[memory_id] = {
+            "id": memory_id,
+            "score": 0.0,
+            "payload": payload,
+            "_keyword_only": True,
+        }
+
+    return list(candidates_by_id.values())
 
 
 # Fields that hold runtime auth/connection objects and must be preserved.
@@ -1415,7 +1465,8 @@ class Memory(MemoryBase):
                 - {"AND": [filter1, filter2]} - logical AND
                 - {"OR": [filter1, filter2]} - logical OR
                 - {"NOT": [filter1]} - logical NOT
-            threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
+            threshold (float, optional): Minimum semantic similarity score for candidates returned by
+                vector search. Keyword-only candidates are ranked by keyword relevance. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
             reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
@@ -1653,28 +1704,23 @@ class Memory(MemoryBase):
         if keyword_results is not None:
             midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
             for mem in keyword_results:
-                mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
-                raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
-                if raw_score and raw_score > 0:
-                    bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
+                memory_id = _search_result_value(mem, "id")
+                raw_score = _search_result_value(mem, "score", 0)
+                if memory_id is not None and raw_score and raw_score > 0:
+                    bm25_scores[str(memory_id)] = normalize_bm25(raw_score, midpoint, steepness)
 
         # Step 6: Compute entity boosts
         entity_boosts = {}
         if query_entities:
             entity_boosts = self._compute_entity_boosts(query_entities, filters)
 
-        # Step 7: Build candidate set from semantic results
-        candidates = []
-        for mem in semantic_results:
-            payload = mem.payload if hasattr(mem, 'payload') else {}
-            if not show_expired and _payload_is_expired(payload):
-                continue
-            mem_id = str(mem.id)
-            candidates.append({
-                "id": mem_id,
-                "score": mem.score,
-                "payload": payload,
-            })
+        # Step 7: Union semantic and keyword candidates before scoring
+        candidates = _build_hybrid_candidates(
+            semantic_results,
+            keyword_results,
+            bm25_scores,
+            show_expired=show_expired,
+        )
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
@@ -3073,7 +3119,8 @@ class AsyncMemory(MemoryBase):
                 - {"AND": [filter1, filter2]} - logical AND
                 - {"OR": [filter1, filter2]} - logical OR
                 - {"NOT": [filter1]} - logical NOT
-            threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
+            threshold (float, optional): Minimum semantic similarity score for candidates returned by
+                vector search. Keyword-only candidates are ranked by keyword relevance. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
             reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
@@ -3317,28 +3364,23 @@ class AsyncMemory(MemoryBase):
         if keyword_results is not None:
             midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
             for mem in keyword_results:
-                mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
-                raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
-                if raw_score and raw_score > 0:
-                    bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
+                memory_id = _search_result_value(mem, "id")
+                raw_score = _search_result_value(mem, "score", 0)
+                if memory_id is not None and raw_score and raw_score > 0:
+                    bm25_scores[str(memory_id)] = normalize_bm25(raw_score, midpoint, steepness)
 
         # Step 6: Compute entity boosts
         entity_boosts = {}
         if query_entities:
             entity_boosts = await self._compute_entity_boosts_async(query_entities, filters)
 
-        # Step 7: Build candidate set from semantic results
-        candidates = []
-        for mem in semantic_results:
-            payload = mem.payload if hasattr(mem, 'payload') else {}
-            if not show_expired and _payload_is_expired(payload):
-                continue
-            mem_id = str(mem.id)
-            candidates.append({
-                "id": mem_id,
-                "score": mem.score,
-                "payload": payload,
-            })
+        # Step 7: Union semantic and keyword candidates before scoring
+        candidates = _build_hybrid_candidates(
+            semantic_results,
+            keyword_results,
+            bm25_scores,
+            show_expired=show_expired,
+        )
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
