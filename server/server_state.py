@@ -7,6 +7,8 @@ from typing import Any, Callable, Dict
 from mem0 import Memory
 
 _state_lock = threading.RLock()
+_default_config: Dict[str, Any] = {}
+_current_overrides: Dict[str, Any] = {}
 _current_config: Dict[str, Any] = {}
 _memory_instance: Memory | None = None
 _session_factory: Callable | None = None
@@ -17,7 +19,7 @@ def set_session_factory(factory: Callable) -> None:
     _session_factory = factory
 
 
-def _load_overrides() -> Dict[str, Any]:
+def _load_overrides() -> Dict[str, Any] | None:
     try:
         if _session_factory is None:
             return {}
@@ -32,7 +34,8 @@ def _load_overrides() -> Dict[str, Any]:
         finally:
             session.close()
     except Exception:
-        return {}
+        logging.warning("Failed to load config overrides from database", exc_info=True)
+        return None
 
 
 def _save_overrides(overrides: Dict[str, Any]) -> None:
@@ -74,34 +77,51 @@ def _merge_config(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, An
 
 
 def initialize_state(default_config: Dict[str, Any]) -> None:
-    global _current_config, _memory_instance
+    global _default_config, _current_overrides, _current_config, _memory_instance
     with _state_lock:
-        _current_config = deepcopy(default_config)
-        overrides = _load_overrides()
-        if overrides:
-            _current_config = _merge_config(_current_config, overrides)
+        _default_config = deepcopy(default_config)
+        _current_overrides = deepcopy(_load_overrides() or {})
+        _current_config = _merge_config(_default_config, _current_overrides)
         _memory_instance = Memory.from_config(_current_config)
 
 
 def update_config(updates: Dict[str, Any]) -> Dict[str, Any]:
-    global _current_config, _memory_instance
+    global _current_overrides, _current_config, _memory_instance
     with _state_lock:
-        next_config = _merge_config(_current_config, updates)
+        persisted_overrides = _load_overrides()
+        base_overrides = _current_overrides if persisted_overrides is None else persisted_overrides
+        next_overrides = _merge_config(base_overrides, updates)
+        next_config = _merge_config(_default_config, next_overrides)
+        next_memory_instance = Memory.from_config(next_config)
+        _save_overrides(next_overrides)
+        _current_overrides = deepcopy(next_overrides)
         _current_config = next_config
-        _memory_instance = Memory.from_config(next_config)
-        overrides = _load_overrides()
-        overrides = _merge_config(overrides, updates)
-        _save_overrides(overrides)
+        _memory_instance = next_memory_instance
         return deepcopy(_current_config)
+
+
+def _refresh_persisted_config() -> None:
+    global _current_overrides, _current_config, _memory_instance
+    persisted_overrides = _load_overrides()
+    if persisted_overrides is None or persisted_overrides == _current_overrides:
+        return
+
+    next_config = _merge_config(_default_config, persisted_overrides)
+    next_memory_instance = Memory.from_config(next_config)
+    _current_overrides = deepcopy(persisted_overrides)
+    _current_config = next_config
+    _memory_instance = next_memory_instance
 
 
 def get_current_config() -> Dict[str, Any]:
     with _state_lock:
+        _refresh_persisted_config()
         return deepcopy(_current_config)
 
 
 def get_memory_instance() -> Memory:
     with _state_lock:
+        _refresh_persisted_config()
         if _memory_instance is None:
             raise RuntimeError("Mem0 runtime has not been initialized.")
         return _memory_instance
