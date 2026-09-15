@@ -24,3 +24,7 @@ posthog>=3.0,<8.0
 
 # Per-IP rate limiting on auth endpoints
 slowapi>=0.1.9,<1.0
+
+# YAML config-file support (MEM0_CONFIG_PATH env var). Upper bound <7 guards against a potential
+# major-version API break in a future release (PyYAML 7.0 does not exist as of this writing).
+pyyaml>=6.0,<7.0
