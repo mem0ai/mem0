@@ -5,5 +5,7 @@ SOURCE_TAG = "CURSOR_PLUGIN"
 
 # Platform-side vocabulary (mem0_event.source + X-Application). The whole
 # plugin family is one source; which editor it runs in is the application.
+# An empty application means the host is unknown, and memory_core omits
+# the header entirely rather than sending a placeholder.
 PLATFORM_SOURCE = "MEM0_PLUGIN"
 PLATFORM_APPLICATION = "cursor"

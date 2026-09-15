@@ -95,6 +95,44 @@ interface ClientIdentity {
 const IDENTITY_CACHE_MAX_DEFAULT = 50;
 const identityByCredentials = new Map<string, Promise<ClientIdentity>>();
 
+declare const __MEM0_SDK_VERSION__: string | undefined;
+
+// Injected by tsup (see mem0-ts/tsup.config.ts `define`), the same mechanism
+// telemetry.ts already uses. A hardcoded literal goes stale at the next release
+// bump and then misreports the client version forever.
+const SDK_VERSION =
+  typeof __MEM0_SDK_VERSION__ !== "undefined" ? __MEM0_SDK_VERSION__ : "dev";
+
+/**
+ * Surface-identity headers.
+ *
+ * X-Mem0-Source and X-Application are SET-ONCE by contract: whichever layer is
+ * outermost sets them and nothing below overwrites, so a plugin wrapping this
+ * SDK keeps its own identity. X-Mem0-Client is APPEND-ONLY - every layer adds
+ * itself, so the platform sees the whole stack and not just the last speaker.
+ */
+function surfaceHeaders(): Record<string, string> {
+  const env: Record<string, string | undefined> =
+    typeof process !== "undefined" && process.env ? process.env : {};
+  const existing = (env.MEM0_CLIENT_STACK ?? "").trim();
+  const entries = existing
+    ? existing
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean)
+    : [];
+  entries.push(`mem0-js/${SDK_VERSION}`);
+
+  const headers: Record<string, string> = {
+    "X-Mem0-Client": entries.slice(0, 4).join(", ").slice(0, 200),
+  };
+  const source = (env.MEM0_SOURCE ?? "").trim();
+  if (source) headers["X-Mem0-Source"] = source;
+  const application = (env.MEM0_APPLICATION ?? "").trim();
+  if (application) headers["X-Application"] = application;
+  return headers;
+}
+
 export default class MemoryClient {
   apiKey: string;
   host: string;
@@ -129,6 +167,7 @@ export default class MemoryClient {
     this.headers = {
       Authorization: `Token ${this.apiKey}`,
       "Content-Type": "application/json",
+      ...surfaceHeaders(),
     };
 
     this.client = axios.create({
