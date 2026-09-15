@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "prettier --check .",
     "format": "prettier --write .",
+    "test": "node --test src/utils/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

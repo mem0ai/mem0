@@ -20,6 +20,7 @@ import { MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
 import {
   buildProviderConfig,
   getEffectiveConfig,
+  hasConfiguredApiKey,
 } from "@/utils/self-hosted-config";
 import { useAuth } from "@/hooks/use-auth";
 import { useApiQuery } from "@/hooks/use-api-query";
@@ -35,15 +36,28 @@ export default function ConfigurationPage() {
   const [llmProvider, setLlmProvider] = useState("");
   const [llmModel, setLlmModel] = useState("");
   const [llmApiKey, setLlmApiKey] = useState("");
+  const [llmBaseUrl, setLlmBaseUrl] = useState("");
   const [embedderProvider, setEmbedderProvider] = useState("");
   const [embedderModel, setEmbedderModel] = useState("");
+  const [embedderApiKey, setEmbedderApiKey] = useState("");
+  const [embedderBaseUrl, setEmbedderBaseUrl] = useState("");
 
-  const { data: config, isLoading: isPrefilling } = useApiQuery(
+  const {
+    data: config,
+    isLoading: isPrefilling,
+    refetch: refetchConfig,
+  } = useApiQuery(
     async () => {
       const res = await api.get(MEMORY_ENDPOINTS.CONFIGURE);
       return getEffectiveConfig(res.data);
     },
     { errorToast: "Failed to load server configuration" },
+  );
+
+  const llmKeyConfigured = hasConfiguredApiKey(config?.llm, llmProvider);
+  const embedderKeyConfigured = hasConfiguredApiKey(
+    config?.embedder,
+    embedderProvider,
   );
 
   const { data: providers } = useApiQuery<BundledProviders>(
@@ -60,11 +74,17 @@ export default function ConfigurationPage() {
     if (!config) return;
     setLlmProvider((current) => current || config.llm?.provider || "");
     setLlmModel((current) => current || config.llm?.config?.model || "");
+    setLlmBaseUrl(
+      (current) => current || config.llm?.config?.openai_base_url || "",
+    );
     setEmbedderProvider(
       (current) => current || config.embedder?.provider || "",
     );
     setEmbedderModel(
       (current) => current || config.embedder?.config?.model || "",
+    );
+    setEmbedderBaseUrl(
+      (current) => current || config.embedder?.config?.openai_base_url || "",
     );
   }, [config]);
 
@@ -76,10 +96,13 @@ export default function ConfigurationPage() {
         provider: llmProvider,
         model: llmModel,
         apiKey: llmApiKey,
+        baseUrl: llmBaseUrl,
       });
       const embedder = buildProviderConfig({
         provider: embedderProvider,
         model: embedderModel,
+        apiKey: embedderApiKey,
+        baseUrl: embedderBaseUrl,
       });
 
       const newConfig: Record<string, unknown> = {
@@ -95,6 +118,9 @@ export default function ConfigurationPage() {
       }
 
       await api.post(MEMORY_ENDPOINTS.CONFIGURE, newConfig);
+      setLlmApiKey("");
+      setEmbedderApiKey("");
+      await refetchConfig();
       toast({ title: "Configuration saved", variant: "success" });
     } catch (error) {
       toast({
@@ -132,7 +158,7 @@ export default function ConfigurationPage() {
                   setLlmProvider(value);
                   setLlmApiKey("");
                 }}
-                disabled={!isAdmin || !providers}
+                disabled={!isAdmin || !providers || isSaving || isPrefilling}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select provider" />
@@ -152,20 +178,56 @@ export default function ConfigurationPage() {
                 placeholder="gpt-4.1-nano-2025-04-14"
                 value={llmModel}
                 onChange={(e) => setLlmModel(e.target.value)}
-                disabled={!isAdmin}
+                disabled={!isAdmin || isSaving || isPrefilling}
               />
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">API Key</Label>
+            <Label htmlFor="llm-api-key" className="text-xs">
+              API Key
+            </Label>
+            {llmKeyConfigured && (
+              <p
+                id="llm-api-key-help"
+                className="text-xs text-onSurface-default-tertiary"
+              >
+                API key configured. Leave blank to keep it, or enter a new key
+                to replace it.
+              </p>
+            )}
             <Input
+              id="llm-api-key"
               type="password"
-              placeholder="sk-..."
+              autoComplete="new-password"
+              aria-describedby={
+                llmKeyConfigured ? "llm-api-key-help" : undefined
+              }
+              placeholder={
+                llmKeyConfigured ? "•••••••• (configured)" : "sk-..."
+              }
               value={llmApiKey}
               onChange={(e) => setLlmApiKey(e.target.value)}
-              disabled={!isAdmin}
+              disabled={!isAdmin || isSaving || isPrefilling}
             />
           </div>
+          {llmProvider === "openai" && (
+            <div className="space-y-1">
+              <Label htmlFor="llm-base-url" className="text-xs">
+                Base URL
+              </Label>
+              <Input
+                id="llm-base-url"
+                type="url"
+                placeholder="https://api.openai.com/v1"
+                value={llmBaseUrl}
+                onChange={(e) => setLlmBaseUrl(e.target.value)}
+                disabled={!isAdmin || isSaving || isPrefilling}
+              />
+              <p className="text-xs text-onSurface-default-tertiary">
+                Base URL for an OpenAI-compatible LLM service.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -179,8 +241,11 @@ export default function ConfigurationPage() {
               <Label className="text-xs">Provider</Label>
               <Select
                 value={embedderProvider}
-                onValueChange={setEmbedderProvider}
-                disabled={!isAdmin || !providers}
+                onValueChange={(value) => {
+                  setEmbedderProvider(value);
+                  setEmbedderApiKey("");
+                }}
+                disabled={!isAdmin || !providers || isSaving || isPrefilling}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select provider" />
@@ -200,10 +265,56 @@ export default function ConfigurationPage() {
                 placeholder="text-embedding-3-small"
                 value={embedderModel}
                 onChange={(e) => setEmbedderModel(e.target.value)}
-                disabled={!isAdmin}
+                disabled={!isAdmin || isSaving || isPrefilling}
               />
             </div>
           </div>
+          <div className="space-y-1">
+            <Label htmlFor="embedder-api-key" className="text-xs">
+              API Key
+            </Label>
+            {embedderKeyConfigured && (
+              <p
+                id="embedder-api-key-help"
+                className="text-xs text-onSurface-default-tertiary"
+              >
+                API key configured. Leave blank to keep it, or enter a new key
+                to replace it.
+              </p>
+            )}
+            <Input
+              id="embedder-api-key"
+              type="password"
+              autoComplete="new-password"
+              aria-describedby={
+                embedderKeyConfigured ? "embedder-api-key-help" : undefined
+              }
+              placeholder={
+                embedderKeyConfigured ? "•••••••• (configured)" : "sk-..."
+              }
+              value={embedderApiKey}
+              onChange={(e) => setEmbedderApiKey(e.target.value)}
+              disabled={!isAdmin || isSaving || isPrefilling}
+            />
+          </div>
+          {embedderProvider === "openai" && (
+            <div className="space-y-1">
+              <Label htmlFor="embedder-base-url" className="text-xs">
+                Base URL
+              </Label>
+              <Input
+                id="embedder-base-url"
+                type="url"
+                placeholder="https://api.openai.com/v1"
+                value={embedderBaseUrl}
+                onChange={(e) => setEmbedderBaseUrl(e.target.value)}
+                disabled={!isAdmin || isSaving || isPrefilling}
+              />
+              <p className="text-xs text-onSurface-default-tertiary">
+                Base URL for an OpenAI-compatible embedding service.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -222,7 +333,7 @@ export default function ConfigurationPage() {
       </p>
 
       {isAdmin && (
-        <Button onClick={handleSave} disabled={isSaving}>
+        <Button onClick={handleSave} disabled={isSaving || isPrefilling}>
           {isSaving ? "Saving..." : "Save Configuration"}
         </Button>
       )}
