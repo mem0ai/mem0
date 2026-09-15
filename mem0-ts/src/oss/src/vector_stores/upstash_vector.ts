@@ -243,11 +243,73 @@ export class UpstashVector implements VectorStore {
       return undefined;
     }
 
-    const expressions = Object.entries(filters)
-      .filter(([, value]) => value !== undefined && value !== null)
-      .map(([key, value]) => `${key} = ${this.stringifyFilterValue(value)}`);
+    const clauses: string[] = [];
+    for (const [key, value] of Object.entries(filters)) {
+      if (value === undefined || value === null) continue;
+      const clause = this.buildFilterClause(key, value);
+      if (clause) clauses.push(clause);
+    }
+    return clauses.length > 0 ? clauses.join(" AND ") : undefined;
+  }
 
-    return expressions.length > 0 ? expressions.join(" AND ") : undefined;
+  // mem0's universal comparison operators -> Upstash filter tokens.
+  private static readonly COMPARATORS: Record<string, string> = {
+    eq: "=",
+    ne: "!=",
+    gt: ">",
+    gte: ">=",
+    lt: "<",
+    lte: "<=",
+  };
+
+  /**
+   * Translate a single field condition into Upstash filter syntax. Handles the
+   * operator dicts, "in" arrays and "*" wildcard that mem0 supports — the old
+   * version only emitted `key = value`, so anything else serialized to
+   * `key = [object Object]` and Upstash rejected the query.
+   */
+  private buildFilterClause(key: string, value: any): string | undefined {
+    // "*" means "the field must exist".
+    if (value === "*") return `HAS FIELD ${key}`;
+
+    // Array shorthand -> IN.
+    if (Array.isArray(value)) {
+      return `${key} IN (${value.map((v) => this.stringifyFilterValue(v)).join(", ")})`;
+    }
+
+    // Operator dict, e.g. { gte: 18, lte: 65 } — apply EVERY operator (AND).
+    if (typeof value === "object") {
+      const parts: string[] = [];
+      for (const [op, opValue] of Object.entries(value)) {
+        const comparator = UpstashVector.COMPARATORS[op];
+        if (comparator) {
+          parts.push(
+            `${key} ${comparator} ${this.stringifyFilterValue(opValue)}`,
+          );
+        } else if (op === "in" && Array.isArray(opValue)) {
+          parts.push(
+            `${key} IN (${opValue.map((v) => this.stringifyFilterValue(v)).join(", ")})`,
+          );
+        } else if (op === "nin" && Array.isArray(opValue)) {
+          parts.push(
+            `${key} NOT IN (${opValue.map((v) => this.stringifyFilterValue(v)).join(", ")})`,
+          );
+        } else {
+          throw new Error(this.unsupportedOperatorMessage(op, key));
+        }
+      }
+      return parts.length > 0 ? parts.join(" AND ") : undefined;
+    }
+
+    // Scalar equality.
+    return `${key} = ${this.stringifyFilterValue(value)}`;
+  }
+
+  private unsupportedOperatorMessage(op: string, key: string): string {
+    return (
+      `Unsupported Upstash filter operator '${op}' for field '${key}'. ` +
+      `Supported operators: ${Object.keys(UpstashVector.COMPARATORS).join(", ")}, in, nin.`
+    );
   }
 
   private matchesFilters(
@@ -262,8 +324,46 @@ export class UpstashVector implements VectorStore {
       if (value === undefined || value === null) {
         return true;
       }
-
-      return vector.metadata?.[key] === value;
+      return this.matchesFieldCondition(vector.metadata ?? {}, key, value);
     });
+  }
+
+  /** Client-side equivalent of buildFilterClause, applying every operator. */
+  private matchesFieldCondition(
+    metadata: Record<string, any>,
+    key: string,
+    value: any,
+  ): boolean {
+    const fieldValue = metadata[key];
+
+    if (value === "*") return key in metadata;
+    if (Array.isArray(value)) return value.includes(fieldValue);
+
+    if (value && typeof value === "object") {
+      return Object.entries(value).every(([op, opValue]) => {
+        switch (op) {
+          case "eq":
+            return fieldValue === opValue;
+          case "ne":
+            return fieldValue !== opValue;
+          case "gt":
+            return fieldValue > (opValue as any);
+          case "gte":
+            return fieldValue >= (opValue as any);
+          case "lt":
+            return fieldValue < (opValue as any);
+          case "lte":
+            return fieldValue <= (opValue as any);
+          case "in":
+            return Array.isArray(opValue) && opValue.includes(fieldValue);
+          case "nin":
+            return !Array.isArray(opValue) || !opValue.includes(fieldValue);
+          default:
+            throw new Error(this.unsupportedOperatorMessage(op, key));
+        }
+      });
+    }
+
+    return fieldValue === value;
   }
 }
