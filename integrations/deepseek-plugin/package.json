@@ -1,6 +1,6 @@
 {
   "name": "@mem0/deepseek-plugin",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Mem0 long-term memory as a native DeepSeek Harness (Cordis) plugin.",
   "type": "module",
   "license": "Apache-2.0",
@@ -29,13 +29,21 @@
   "publishConfig": {
     "access": "public"
   },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
   "files": [
     "dist",
+    "cordis.patch.yml",
+    "cordis.example.yml",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "build": "tsup",
+    "prepack": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
