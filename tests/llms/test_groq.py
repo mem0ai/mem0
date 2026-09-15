@@ -182,3 +182,25 @@ def test_generate_response_handles_non_string_model(mock_groq_client):
 
     _, kwargs = mock_groq_client.chat.completions.create.call_args
     assert kwargs["response_format"] == {"type": "json_object"}
+
+
+@pytest.mark.parametrize("model", ["o3-mini", "gpt-5", "openai/o3-mini", "o1-2024-12-17"])
+def test_generate_response_omits_sampling_params_for_reasoning_models(mock_groq_client, model):
+    """Reasoning-model names must not receive temperature/top_p/max_tokens (issue #6085)."""
+    config = BaseLlmConfig(model=model, temperature=0.1, max_tokens=100, top_p=0.9)
+    llm = GroqLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_groq_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    _, kwargs = mock_groq_client.chat.completions.create.call_args
+    assert kwargs["model"] == model
+    assert kwargs["messages"] == messages
+    assert "temperature" not in kwargs
+    assert "top_p" not in kwargs
+    assert "max_tokens" not in kwargs
+    assert "max_completion_tokens" not in kwargs
