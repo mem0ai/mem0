@@ -325,6 +325,7 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
         if (config?.agent_id) body.agent_id = config.agent_id;
         if (config?.run_id) body.run_id = config.run_id;
         if (config?.metadata) body.metadata = config.metadata;
+        if (config?.expiration_date) body.expiration_date = config.expiration_date;
         if (config?.infer != null) body.infer = config.infer;
 
         const options = {
