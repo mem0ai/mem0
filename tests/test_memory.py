@@ -240,6 +240,275 @@ def test_search_explain_includes_score_details(
     assert details["threshold"] == 0.1
 
 
+def _configure_entity_rescue_memory(
+    mock_vector_factory,
+    mock_llm_factory,
+    mock_embedder_factory,
+    mock_sqlite,
+    memory_class=None,
+):
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+    mock_embedder_factory.return_value = mock_embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    if memory_class is not None:
+        MemoryClass = memory_class
+
+    memory = MemoryClass(MemoryConfig())
+    memory.embedding_model = mock_embedder
+    return memory, mock_vector_store
+
+
+@patch('mem0.memory.main.extract_entities', return_value=[("person", "Alice")])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_search_rescues_entity_linked_candidates_with_fail_closed_filters(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    _mock_extract_entities,
+):
+    memory, mock_vector_store = _configure_entity_rescue_memory(
+        mock_vector_factory, mock_llm_factory, mock_embedder_factory, mock_sqlite
+    )
+    primary = MockVectorMemory(
+        "primary", {"data": "primary", "user_id": "u1", "topic": "keep"}, score=0.8
+    )
+    rescued = MockVectorMemory(
+        "rescued",
+        {
+            "data": "rescued",
+            "user_id": "u1",
+            "topic": "keep",
+            "memory_type": "procedural_memory",
+            "not": "keep",
+            "rank": True,
+        },
+    )
+    wrong_scope = MockVectorMemory(
+        "wrong-scope", {"data": "wrong", "user_id": "u2", "topic": "keep"}
+    )
+    wrong_filter = MockVectorMemory(
+        "wrong-filter", {"data": "wrong", "user_id": "u1", "topic": "drop"}
+    )
+    expired = MockVectorMemory(
+        "expired",
+        {
+            "data": "expired",
+            "user_id": "u1",
+            "topic": "keep",
+            "expiration_date": "2000-01-01",
+        },
+    )
+    malformed = MockVectorMemory("malformed", None)
+
+    mock_vector_store.search.return_value = [primary, primary]
+    mock_vector_store.keyword_search.return_value = []
+    memory._entity_store = MagicMock()
+    memory._entity_store.search.return_value = [
+        MockVectorMemory(
+            "alice",
+            {
+                "linked_memory_ids": [
+                    "primary",
+                    "rescued",
+                    "rescued",
+                    "wrong-scope",
+                    "wrong-filter",
+                    "expired",
+                    "malformed",
+                    "missing",
+                    "raises",
+                ]
+            },
+            score=0.9,
+        )
+    ]
+
+    fetched = {
+        "rescued": {"id": "rescued", "payload": rescued.payload},
+        "wrong-scope": wrong_scope,
+        "wrong-filter": wrong_filter,
+        "expired": expired,
+        "malformed": malformed,
+    }
+
+    def get_memory(vector_id):
+        if vector_id == "raises":
+            raise RuntimeError("point fetch failed")
+        return fetched.get(vector_id)
+
+    mock_vector_store.get.side_effect = get_memory
+
+    result = memory.search("Alice", filters={"user_id": "u1", "topic": "keep"}, top_k=10)
+    result_ids = [item["id"] for item in result["results"]]
+
+    assert result_ids.count("rescued") == 1
+    assert result_ids.count("primary") == 1
+    rescued_result = next(item for item in result["results"] if item["id"] == "rescued")
+    assert rescued_result["metadata"]["memory_type"] == "procedural_memory"
+    assert "wrong-scope" not in result_ids
+    assert "wrong-filter" not in result_ids
+    assert "expired" not in result_ids
+    assert "malformed" not in result_ids
+    assert "missing" not in result_ids
+    assert "raises" not in result_ids
+    assert not any(
+        call.kwargs.get("vector_id") == "primary" for call in mock_vector_store.get.call_args_list
+    )
+
+    for advanced_filters in (
+        {"eq": "keep"},
+        ["keep"],
+        {"$or": [{"topic": "keep"}]},
+        "*",
+    ):
+        advanced_result = memory.search(
+            "Alice", filters={"user_id": "u1", "topic": advanced_filters}, top_k=10
+        )
+        assert "rescued" not in [item["id"] for item in advanced_result["results"]]
+
+    metadata_key_result = memory.search(
+        "Alice", filters={"user_id": "u1", "not": "keep"}, top_k=10
+    )
+    assert "rescued" in [item["id"] for item in metadata_key_result["results"]]
+    type_mismatch_result = memory.search(
+        "Alice", filters={"user_id": "u1", "rank": 1}, top_k=10
+    )
+    assert "rescued" not in [item["id"] for item in type_mismatch_result["results"]]
+    missing_field_result = memory.search(
+        "Alice", filters={"user_id": "u1", "missing": "value"}, top_k=10
+    )
+    assert "rescued" not in [item["id"] for item in missing_field_result["results"]]
+
+
+@patch('mem0.memory.main.extract_entities', return_value=[("person", "Alice")])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_entity_rescue_fetches_are_bounded_independently_of_top_k(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    _mock_extract_entities,
+):
+    memory, mock_vector_store = _configure_entity_rescue_memory(
+        mock_vector_factory, mock_llm_factory, mock_embedder_factory, mock_sqlite
+    )
+    linked_ids = [f"rescued-{index}" for index in range(75)]
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("primary", {"data": "primary", "user_id": "u1"}, score=0.8)
+    ]
+    mock_vector_store.keyword_search.return_value = []
+    memory._entity_store = MagicMock()
+    memory._entity_store.search.return_value = [
+        MockVectorMemory("alice", {"linked_memory_ids": linked_ids}, score=0.9)
+    ]
+    mock_vector_store.get.side_effect = lambda vector_id: MockVectorMemory(
+        vector_id, {"data": vector_id, "user_id": "u1"}
+    )
+
+    memory.search("Alice", filters={"user_id": "u1"}, top_k=100)
+
+    assert mock_vector_store.get.call_count == 60
+    mock_vector_store.get.reset_mock()
+    memory.search("Alice", filters={"user_id": "u1"}, top_k=1)
+    assert mock_vector_store.get.call_count == 60
+
+
+@pytest.mark.asyncio
+@patch('mem0.memory.main.extract_entities', return_value=[("person", "Alice")])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_search_rescues_entity_linked_candidate_and_survives_point_fetch_failure(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    _mock_extract_entities,
+):
+    from mem0.memory.main import AsyncMemory
+
+    memory, mock_vector_store = _configure_entity_rescue_memory(
+        mock_vector_factory, mock_llm_factory, mock_embedder_factory, mock_sqlite, AsyncMemory
+    )
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("primary", {"data": "primary", "user_id": "u1"}, score=0.8)
+    ]
+    mock_vector_store.keyword_search.return_value = []
+    memory._entity_store = MagicMock()
+    memory._entity_store.search.return_value = [
+        MockVectorMemory(
+            "alice", {"linked_memory_ids": ["rescued", "rescued", "raises"]}, score=0.9
+        )
+    ]
+    mock_vector_store.get.side_effect = lambda vector_id: (
+        (_ for _ in ()).throw(RuntimeError("point fetch failed"))
+        if vector_id == "raises"
+        else MockVectorMemory("rescued", {"data": "rescued", "user_id": "u1"})
+    )
+
+    result = await memory.search("Alice", filters={"user_id": "u1"}, top_k=10)
+    result_ids = [item["id"] for item in result["results"]]
+
+    assert result_ids.count("rescued") == 1
+    assert result_ids.count("primary") == 1
+
+
+@pytest.mark.asyncio
+@patch('mem0.memory.main.extract_entities', return_value=[("person", "Alice")])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_entity_rescue_fetches_are_bounded_independently_of_top_k(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    _mock_extract_entities,
+):
+    from mem0.memory.main import AsyncMemory
+
+    memory, mock_vector_store = _configure_entity_rescue_memory(
+        mock_vector_factory, mock_llm_factory, mock_embedder_factory, mock_sqlite, AsyncMemory
+    )
+    linked_ids = [f"rescued-{index}" for index in range(75)]
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("primary", {"data": "primary", "user_id": "u1"}, score=0.8)
+    ]
+    mock_vector_store.keyword_search.return_value = []
+    memory._entity_store = MagicMock()
+    memory._entity_store.search.return_value = [
+        MockVectorMemory("alice", {"linked_memory_ids": linked_ids}, score=0.9)
+    ]
+    mock_vector_store.get.side_effect = lambda vector_id: MockVectorMemory(
+        vector_id, {"data": vector_id, "user_id": "u1"}
+    )
+
+    await memory.search("Alice", filters={"user_id": "u1"}, top_k=100)
+
+    assert mock_vector_store.get.call_count == 60
+    mock_vector_store.get.reset_mock()
+    await memory.search("Alice", filters={"user_id": "u1"}, top_k=1)
+    assert mock_vector_store.get.call_count == 60
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
