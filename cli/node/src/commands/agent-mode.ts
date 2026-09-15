@@ -5,6 +5,8 @@
 import readline from "node:readline";
 import { colors, printError, printInfo, printSuccess } from "../branding.js";
 import { type Mem0Config, saveConfig } from "../config.js";
+import { formatJsonEnvelope } from "../output.js";
+import { isAgentMode } from "../state.js";
 
 const { brand, dim } = colors;
 
@@ -134,21 +136,54 @@ export async function bootstrapViaBackend(
 	config.defaults.userId = envelope.default_user_id;
 	saveConfig(config);
 
-	printSuccess(
-		`Agent Mode active. Default user_id: ${envelope.default_user_id}`,
-	);
-	if (envelope.mem0_notice) {
-		console.log(`\n\x1b[33m🔔 ${envelope.mem0_notice}\x1b[0m\n`);
+	// Agent/JSON mode: emit exactly ONE structured envelope on stdout so a
+	// machine consumer (an LLM agent parsing this output) doesn't have to deal
+	// with stray plain-text lines mixed into the response. Human mode keeps
+	// the original colored console output unchanged.
+	if (isAgentMode()) {
+		formatJsonEnvelope({
+			command: "init",
+			data: {
+				api_key_saved: true,
+				default_user_id: envelope.default_user_id,
+				// The API key is written to ~/.mem0/config.json, but MCP hosts
+				// (Codex, Cursor, etc.) read the key from the MEM0_API_KEY env
+				// var, not from config.json. If that env var isn't present in
+				// THIS process, MCP tools will fail auth even though the CLI
+				// itself reports "connected" — this reflects that honestly.
+				mcp_ready: !!process.env.MEM0_API_KEY,
+				next_step: process.env.MEM0_API_KEY
+					? "MCP tools are ready to use."
+					: "MEM0_API_KEY is not set in this shell/agent environment. Export it (see ~/.mem0/config.json) and restart your MCP host before using MCP tools.",
+				...(envelope.mem0_notice
+					? { mem0_notice: envelope.mem0_notice }
+					: {}),
+				...(agentCaller
+					? {}
+					: {
+							identify_hint:
+								"If you are an AI agent, identify yourself: `mem0 identify <your-name>` (e.g. claude-code, cursor).",
+						}),
+			},
+		});
 	} else {
-		// Fallback for older backends without the unified notice field.
-		const claimCmd = envelope.claim_command ?? "mem0 init --email <your-email>";
-		console.log(`  ${dim(`To claim this account later: ${claimCmd}`)}`);
-	}
-
-	if (!agentCaller) {
-		console.log(
-			`  ${dim("If you are an AI agent, identify yourself: `mem0 identify <your-name>` (e.g. claude-code, cursor).")}`,
+		printSuccess(
+			`Agent Mode active. Default user_id: ${envelope.default_user_id}`,
 		);
+		if (envelope.mem0_notice) {
+			console.log(`\n\x1b[33m🔔 ${envelope.mem0_notice}\x1b[0m\n`);
+		} else {
+			// Fallback for older backends without the unified notice field.
+			const claimCmd =
+				envelope.claim_command ?? "mem0 init --email <your-email>";
+			console.log(`  ${dim(`To claim this account later: ${claimCmd}`)}`);
+		}
+
+		if (!agentCaller) {
+			console.log(
+				`  ${dim("If you are an AI agent, identify yourself: `mem0 identify <your-name>` (e.g. claude-code, cursor).")}`,
+			);
+		}
 	}
 }
 
