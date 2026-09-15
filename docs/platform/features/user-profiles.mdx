@@ -137,8 +137,7 @@ A response looks like this:
   "status": "succeeded",
   "entity_type": "user",
   "entity_id": "alice",
-  "updated_at": "2026-02-08T10:30:00Z",
-  "generation_count": 4
+  "updated_at": "2026-02-08T10:30:00Z"
 }
 ```
 
@@ -221,7 +220,7 @@ await client.regenerateProfiles();
 ```
 </CodeGroup>
 
-This returns immediately and runs in the background; a large project takes a while. It is limited to one run per project per hour, so sample first and regenerate once you are satisfied.
+This returns immediately and runs in the background; a large project takes a while. It is limited to one run per project per day, so sample first and regenerate once you are satisfied.
 
 ## When profiles update
 
@@ -306,7 +305,7 @@ Generation is asynchronous and needs enough to work with. Branch on `status`: `p
 No. `sample_profiles` runs real generations against real memories and **keeps** the profiles it produces, so it counts toward your usage like any other generation. It exists to check a schema on a few entities before you commit to it — not as a zero-cost dry run.
 
 **Does changing the schema rewrite existing profiles?**
-No. A schema change applies to future generations. To apply a new schema to entities that already have a profile, call `regenerate_profiles` (rate-limited to once per project per hour).
+No. A schema change applies to future generations. To apply a new schema to entities that already have a profile, call `regenerate_profiles` (rate-limited to once per project per day).
 
 **What happens to a field I remove from the schema?**
 It stops being maintained. On an entity's next generation, fields your schema no longer defines are pruned from the stored profile — so keep a field in the schema for as long as you want its value kept.
