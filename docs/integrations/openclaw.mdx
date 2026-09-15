@@ -481,7 +481,9 @@ Plugin config is stored in `~/.openclaw/openclaw.json` with file permissions `0o
 
 ### Telemetry
 
-Anonymous usage telemetry (PostHog) is enabled by default to help improve the plugin. No conversation content or memory values are included, only event counts (recall, capture, tool usage, CLI commands).
+Usage telemetry (PostHog) is enabled by default to help improve the plugin. No conversation content or memory values are included, only event counts (recall, capture, tool usage, CLI commands).
+
+These events are **not anonymous**. OpenClaw does not send your account email the way the SDK does, but it does send an unsalted SHA-256 hash of it, falling back to a hash of the API key and then to a random per-machine id. Mem0 holds the email the hash is derived from, so the hash identifies your account rather than concealing it. The first run that resolves an account also emits a PostHog `$identify`, which permanently merges any earlier random id into that identity.
 
 To opt out, set the environment variable:
 
