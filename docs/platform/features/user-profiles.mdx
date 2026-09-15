@@ -19,6 +19,8 @@ Search answers "what did this user say about X". A profile answers "who is this 
 
 Profiles cover **users and agents**. An agent profile summarizes how an agent behaves, in the same way a user profile summarizes a person.
 
+Profiles are a **Pro-plan feature** — see [Plan availability](#plan-availability) for the details.
+
 ## How it works
 
 1. You define a **schema**: the fields a profile should contain, each with a description.
@@ -221,6 +223,19 @@ await client.regenerateProfiles();
 
 This returns immediately and runs in the background; a large project takes a while. It is limited to one run per project per hour, so sample first and regenerate once you are satisfied.
 
+## When profiles update
+
+You never call an "update profile" endpoint — Mem0 keeps each profile current for you. Two things drive it:
+
+- **Automatically, as memories accumulate.** Mem0 refreshes an entity's profile after roughly every **10 messages** it receives, folding the new memories into the existing profile. There is no schedule to wait for and no extra call to make: the same `add` you already do keeps the profile moving.
+- **On demand.** Call `generate_profile` to build or refresh a profile immediately — useful for a brand-new entity that has not yet crossed the automatic threshold.
+
+Generation is **asynchronous and incremental**. A refresh runs in the background a short while after its trigger, so a read taken immediately after an `add` may still show the previous profile (or `pending`). Branch on `status` rather than assuming the latest memory is already reflected.
+
+<Note>
+  Updates are **incremental**, not a full rebuild each time — Mem0 merges what it newly learns into the stored profile and keeps the fields your schema still defines. To rebuild every profile from scratch after a schema change, use [regenerate](#apply-a-new-schema-to-existing-entities).
+</Note>
+
 ## Use a profile in a prompt
 
 The point of the structure is that it drops straight into a prompt:
@@ -248,6 +263,25 @@ else:
 - **Say what the field is not.** A description that rules out the near-miss interpretation is worth more than one that only states the obvious.
 - **Sample before you commit.** It is the only way to see what your descriptions actually produce.
 
+<Note>
+  A schema has a size budget of roughly **10,000 tokens** of serialized JSON — the whole schema is sent to the model on every generation, so a handful of verbose fields can cost more than many terse ones. Oversized schemas are rejected on save.
+</Note>
+
+## Plan availability
+
+| Capability | Free | Starter | Pro | Enterprise |
+|---|:---:|:---:|:---:|:---:|
+| **Profiles** (define a schema, generate, read) | — | — | ✓ | ✓ |
+| **Profiles dashboard** (schema editor, samples, regenerate) | — | — | ✓ | ✓ |
+
+Profiles require a **Pro plan or higher**. For an individual entity to get a profile, three things must hold:
+
+- the project is on **Pro or above**,
+- profiles are **enabled** with a schema for the project (see [Define the schema](#define-the-schema)), and
+- the memory is scoped to an entity — a `user_id`, or an `agent_id` for agent profiles.
+
+On a project where profiles are turned off, a read returns `status: not_enabled` rather than an error, so you can call it unconditionally and branch on the status.
+
 ## Settings reference
 
 | Field | Type | Description |
@@ -259,6 +293,29 @@ else:
 <Note>
   Profile settings are per project. An API key is scoped to one project, so profiles never cross a project boundary.
 </Note>
+
+## FAQ
+
+**Do I need to change my `add` or `search` calls to use profiles?**
+No. Profiles are built from the memories you already add. You define a schema once and read the profile when you need it — your ingestion and retrieval code is unchanged.
+
+**Why is `profile` empty even though the entity has memories?**
+Generation is asynchronous and needs enough to work with. Branch on `status`: `pending` means it is still building, and `insufficient_data` means there are not yet enough memories to fill the schema. Read again shortly, or call `generate_profile` to build one now.
+
+**Is sampling free?**
+No. `sample_profiles` runs real generations against real memories and **keeps** the profiles it produces, so it counts toward your usage like any other generation. It exists to check a schema on a few entities before you commit to it — not as a zero-cost dry run.
+
+**Does changing the schema rewrite existing profiles?**
+No. A schema change applies to future generations. To apply a new schema to entities that already have a profile, call `regenerate_profiles` (rate-limited to once per project per hour).
+
+**What happens to a field I remove from the schema?**
+It stops being maintained. On an entity's next generation, fields your schema no longer defines are pruned from the stored profile — so keep a field in the schema for as long as you want its value kept.
+
+**Can I have profiles for agents, not just users?**
+Yes. Pass `entity_type="agent"` to `get_profile` / `generate_profile`. An agent profile summarizes an agent the same way a user profile summarizes a person.
+
+**How current is a profile?**
+It refreshes automatically as memories accumulate (about every 10 messages for an entity), plus any on-demand `generate_profile` calls. Because refreshes run in the background, expect a short delay after the triggering `add` rather than an instant update.
 
 ## Related
 
