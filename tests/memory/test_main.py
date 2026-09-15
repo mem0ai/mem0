@@ -1,4 +1,6 @@
 import logging
+import sys
+import threading
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -8,6 +10,17 @@ import pytest
 
 from mem0.exceptions import LLMError
 from mem0.memory.main import AsyncMemory, Memory
+from mem0.memory.utils import truncate_to_token_limit
+
+
+def _get_cl100k():
+    """Return the real cl100k_base encoding, or None when tiktoken is unavailable."""
+    try:
+        import tiktoken
+
+        return tiktoken.get_encoding("cl100k_base")
+    except Exception:
+        return None
 
 
 def _setup_mocks(mocker):
@@ -1178,3 +1191,346 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+class TestTruncateToTokenLimit:
+    def test_short_text_unchanged(self):
+        result = truncate_to_token_limit("hello world")
+        assert result == "hello world"
+
+    def test_empty_text_unchanged(self):
+        assert truncate_to_token_limit("") == ""
+        assert truncate_to_token_limit(None) is None
+
+    def test_long_text_truncated_from_head(self):
+        # Force truncation with small max_tokens
+        long_text = "word " * 5000  # ~5000 tokens
+        result = truncate_to_token_limit(long_text, max_tokens=100)
+        assert len(result) < len(long_text)
+        # Tail is preserved
+        assert long_text.endswith(result[-50:])
+
+    def test_truncation_logs_warning(self, caplog):
+        with caplog.at_level(logging.WARNING, logger="mem0.memory.utils"):
+            truncate_to_token_limit("word " * 5000, max_tokens=100)
+        assert any("Truncating" in msg for msg in caplog.messages)
+
+    def test_custom_max_tokens(self):
+        text = "a " * 1000
+        result = truncate_to_token_limit(text, max_tokens=50)
+        assert len(result) < len(text)
+
+
+class TestTruncateToTokenLimitRealTokenizer:
+    """Truncation behavior asserted against the real cl100k_base tokenizer.
+
+    Skipped when tiktoken (or the cl100k_base encoding) is unavailable.
+    The trim re-verifies the token count after each cut (loop with binary-search
+    fallback), so every case also asserts the strict postcondition:
+    real token count of the result <= max_tokens.
+    """
+
+    def test_short_text_unchanged(self):
+        enc = _get_cl100k()
+        if enc is None:
+            pytest.skip("tiktoken/cl100k_base unavailable")
+        text = "hello world, this is a short conversation."
+        assert len(enc.encode(text)) < 100
+        assert truncate_to_token_limit(text, max_tokens=100) == text
+
+    def test_exactly_at_limit_unchanged(self):
+        enc = _get_cl100k()
+        if enc is None:
+            pytest.skip("tiktoken/cl100k_base unavailable")
+        tokens = enc.encode("filler sentence for exact token budget " * 20)
+        text = enc.decode(tokens[:100])
+        assert len(enc.encode(text)) == 100  # round-trip sanity
+        assert truncate_to_token_limit(text, max_tokens=100) == text
+
+    def test_over_limit_trim_is_tail_suffix(self):
+        enc = _get_cl100k()
+        if enc is None:
+            pytest.skip("tiktoken/cl100k_base unavailable")
+        text = "the quick brown fox jumps over the lazy dog " * 1000
+        result = truncate_to_token_limit(text, max_tokens=200)
+        assert result != text
+        assert text.endswith(result), "truncation must keep the tail (most recent context)"
+        assert len(enc.encode(result)) <= 200
+
+    def test_chinese_over_limit_trim_is_tail_suffix(self):
+        enc = _get_cl100k()
+        if enc is None:
+            pytest.skip("tiktoken/cl100k_base unavailable")
+        text = "这是一段用于测试截断行为的中文长文本。" * 1000
+        result = truncate_to_token_limit(text, max_tokens=200)
+        assert result != text
+        assert text.endswith(result), "truncation must keep the tail (most recent context)"
+        assert len(enc.encode(result)) <= 200
+
+    def test_emoji_over_limit_trim_is_tail_suffix(self):
+        enc = _get_cl100k()
+        if enc is None:
+            pytest.skip("tiktoken/cl100k_base unavailable")
+        text = "😀🎉🎊🎈🎁🎂🍰🍵😊🥳 " * 1000
+        result = truncate_to_token_limit(text, max_tokens=200)
+        assert result != text
+        assert text.endswith(result), "truncation must keep the tail (most recent context)"
+        assert len(enc.encode(result)) <= 200
+
+    def test_adversarial_english_head_chinese_tail_within_limit(self):
+        """Regression: a low-density English head + high-density Chinese tail.
+
+        The old two-pass trim scaled by the global average density (2.6 chars/token
+        here), but keep-the-tail retains the densest segment (Chinese, ~0.97
+        chars/token), so the old code returned 9261 real tokens for an 8000 limit
+        (overshoot 15.8%). The re-verification loop must clamp this under the limit.
+        """
+        enc = _get_cl100k()
+        if enc is None:
+            pytest.skip("tiktoken/cl100k_base unavailable")
+        head = "This is a long English conversation prefix with many common words. " * 800
+        tail_cn = "这是一段很长的中文对话内容，包含了很多个汉字，用于测试高密度情形。" * 500
+        text = head + tail_cn
+        result = truncate_to_token_limit(text)  # default 8000
+        assert result != text
+        assert text.endswith(result), "truncation must keep the tail (most recent context)"
+        out_tokens = len(enc.encode(result))
+        assert out_tokens <= 8000, f"overshoot: {out_tokens} real tokens for an 8000 limit"
+        assert "高密度情形" in result, "the dense (most recent) tail must be preserved"
+
+    def test_hard_cut_fallback_within_limit(self, mocker):
+        """With the density loop budget exhausted (patched to 0), the binary-search
+        hard cut must still guarantee the strict token bound."""
+        enc = _get_cl100k()
+        if enc is None:
+            pytest.skip("tiktoken/cl100k_base unavailable")
+        mocker.patch("mem0.memory.utils._TRUNCATION_MAX_ROUNDS", 0)
+        head = "This is a long English conversation prefix with many common words. " * 800
+        tail_cn = "这是一段很长的中文对话内容，包含了很多个汉字，用于测试高密度情形。" * 500
+        text = head + tail_cn
+        result = truncate_to_token_limit(text)  # default 8000
+        assert result != text
+        assert text.endswith(result)
+        assert len(enc.encode(result)) <= 8000
+
+
+class TestTruncateToTokenLimitFallback:
+    """Without tiktoken, counting falls back to the len//4 heuristic with a warning."""
+
+    def test_heuristic_truncation_with_warning(self, mocker, caplog):
+        # A None entry in sys.modules makes ``import tiktoken`` raise ImportError.
+        mocker.patch.dict(sys.modules, {"tiktoken": None})
+        with caplog.at_level(logging.WARNING, logger="mem0.memory.utils"):
+            result = truncate_to_token_limit("a" * 4000, max_tokens=100)
+        # heuristic: 4000 // 4 = 1000 tokens > 100; chars_per_token = 4.0 -> keep 400 chars
+        assert result == "a" * 400
+        assert any("tiktoken not available" in msg for msg in caplog.messages)
+
+    def test_heuristic_exact_limit_unchanged(self, mocker):
+        mocker.patch.dict(sys.modules, {"tiktoken": None})
+        text = "a" * 400  # heuristic: 400 // 4 == 100 == max_tokens
+        assert truncate_to_token_limit(text, max_tokens=100) == text
+
+    def test_heuristic_cjk_approximation_limitation(self, mocker):
+        """CJK text under the len//4 fallback: correct within the heuristic
+        counting system, but the heuristic approximates real tokens poorly for
+        Chinese (each CJK char is typically 1-2 cl100k tokens, not 0.25), so the
+        result can still exceed a real tokenizer's limit. With tiktoken now a
+        core dependency this fallback path is defensive only (broken installs).
+        """
+        mocker.patch.dict(sys.modules, {"tiktoken": None})
+        text = "这是一段用于测试启发式截断的中文长文本。" * 200  # len = 4000
+        assert len(text) == 4000
+        result = truncate_to_token_limit(text, max_tokens=100)
+        # Correctness within the heuristic system: 4000 // 4 = 1000 tokens > 100,
+        # density is constant (4.0 chars/token), so one round keeps 400 chars.
+        assert len(result) == 400
+        assert text.endswith(result), "truncation must keep the tail"
+        assert len(result) // 4 <= 100  # heuristic token count within limit
+        # Documented limitation (not asserted): real cl100k tokens of the 400-char
+        # Chinese result ~ 400+, far above 100 -- accurate bounds need tiktoken.
+
+
+class TestAddPipelineEmbeddingTruncation:
+    """Phase 1 must embed/search the truncated tail while Phase 2 LLM extraction
+    still receives the full conversation.
+
+    Sentinel-based data-flow assertions: the head sentinel must appear only in
+    the LLM extraction input, never in the embedding input or the vector-store
+    search query (which some providers, e.g. Upstash, use for server-side
+    embedding). Works with or without tiktoken: both counting paths trigger
+    truncation for this conversation size.
+    """
+
+    HEAD_SENTINEL = "ZZHEADZZ-start-of-conversation"
+    TAIL_SENTINEL = "ZZTAILZZ-end-of-conversation"
+
+    @classmethod
+    def _long_messages(cls):
+        # ~140K chars: > 8000 tokens under both real tiktoken counting and the
+        # len//4 heuristic, so truncation triggers regardless of the environment.
+        # The head sentinel sits at the very beginning (dropped by the trim);
+        # the tail sentinel is the last message (always kept).
+        return [
+            {
+                "role": "user",
+                "content": cls.HEAD_SENTINEL + " marker at top plus " + "filler conversation text for bulk " * 2000,
+            },
+            {"role": "assistant", "content": "filler assistant response for bulk " * 2000},
+            {"role": "user", "content": cls.TAIL_SENTINEL},
+        ]
+
+    @staticmethod
+    def _assert_data_flow(memory, head, tail):
+        # First embed call in the pipeline is the Phase 1 search-query embed.
+        first_embed = memory.embedding_model.embed.call_args_list[0]
+        embed_text = first_embed.args[0]
+        assert first_embed.args[1] == "search"
+        assert head not in embed_text, "embedding input must be truncated (head dropped)"
+        assert tail in embed_text, "embedding input must keep the tail"
+
+        # Vector search must use the SAME truncated text as its query.
+        search_call = memory.vector_store.search.call_args_list[0]
+        assert search_call.kwargs["query"] == embed_text
+        assert head not in search_call.kwargs["query"]
+
+        # Phase 2 LLM extraction must still see the FULL conversation.
+        llm_messages = memory.llm.generate_response.call_args.kwargs["messages"]
+        user_content = llm_messages[1]["content"]
+        assert head in user_content, "LLM extraction must receive the full conversation"
+        assert tail in user_content
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        memory.llm.generate_response.return_value = '{"memory": []}'
+        mocker.patch("mem0.memory.main.capture_event")
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        memory.llm.generate_response.return_value = '{"memory": []}'
+        mocker.patch("mem0.memory.main.capture_event")
+        return memory
+
+    def test_sync_embed_and_search_get_truncated_text_llm_gets_full(self, mock_memory, mocker):
+        messages = self._long_messages()
+        result = mock_memory._add_to_vector_store(
+            messages=messages, metadata={}, filters={"user_id": "u1"}, infer=True
+        )
+        assert result == []
+        self._assert_data_flow(mock_memory, self.HEAD_SENTINEL, self.TAIL_SENTINEL)
+
+    @pytest.mark.asyncio
+    async def test_async_embed_and_search_get_truncated_text_llm_gets_full(self, mock_async_memory, mocker):
+        messages = self._long_messages()
+        result = await mock_async_memory._add_to_vector_store(
+            messages=messages, metadata={}, effective_filters={"user_id": "u1"}, infer=True
+        )
+        assert result == []
+        self._assert_data_flow(mock_async_memory, self.HEAD_SENTINEL, self.TAIL_SENTINEL)
+
+
+class TestAsyncAddPipelineHistoryEmbedOverlap:
+    """The async add pipeline must overlap DB history fetching with embedding
+    (asyncio.gather), and failures in either branch must propagate."""
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        memory.llm.generate_response.return_value = '{"memory": []}'
+        mocker.patch("mem0.memory.main.capture_event")
+        return memory
+
+    @pytest.mark.asyncio
+    async def test_history_and_embed_run_concurrently(self, mock_async_memory):
+        memory = mock_async_memory
+        embed_started = threading.Event()
+        history_started = threading.Event()
+
+        def fake_embed(text, action="add"):
+            embed_started.set()
+            assert history_started.wait(timeout=5), (
+                "embed() ran without get_last_messages() overlapping (sequential pipeline?)"
+            )
+            return [0.1] * 10
+
+        def fake_history(scope, limit=10):
+            history_started.set()
+            assert embed_started.wait(timeout=5), (
+                "get_last_messages() ran without embed() overlapping (sequential pipeline?)"
+            )
+            return []
+
+        memory.embedding_model.embed = Mock(side_effect=fake_embed)
+        memory.db.get_last_messages = MagicMock(side_effect=fake_history)
+
+        result = await memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "hello"}],
+            metadata={},
+            effective_filters={"user_id": "u1"},
+            infer=True,
+        )
+        assert result == []
+        assert embed_started.is_set() and history_started.is_set()
+        memory.vector_store.search.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_db_history_failure_propagates(self, mock_async_memory):
+        memory = mock_async_memory
+        memory.db.get_last_messages = MagicMock(side_effect=RuntimeError("db down"))
+        with pytest.raises(RuntimeError, match="db down"):
+            await memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "hello"}],
+                metadata={},
+                effective_filters={"user_id": "u1"},
+                infer=True,
+            )
+        memory.vector_store.search.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_embed_failure_propagates(self, mock_async_memory):
+        memory = mock_async_memory
+        memory.embedding_model.embed = Mock(side_effect=ValueError("embed boom"))
+        with pytest.raises(ValueError, match="embed boom"):
+            await memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "hello"}],
+                metadata={},
+                effective_filters={"user_id": "u1"},
+                infer=True,
+            )
+        memory.vector_store.search.assert_not_called()

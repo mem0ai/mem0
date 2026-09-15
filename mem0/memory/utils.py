@@ -328,3 +328,74 @@ def remove_spaces_from_entities(
         cleaned.append(item)
     return cleaned
 
+
+_EMBEDDING_MAX_TOKENS = 8000  # Conservative limit for OpenAI 8192, with buffer
+_TRUNCATION_MAX_ROUNDS = 5  # Density-recheck rounds before the binary-search hard cut
+
+
+def _count_tokens(text):
+    """Count tokens using tiktoken if available, else char-based heuristic."""
+    try:
+        import tiktoken
+
+        enc = tiktoken.get_encoding("cl100k_base")
+        return len(enc.encode(text))
+    except Exception:
+        logger.warning("tiktoken not available; using approximate token count (len/4).")
+        return len(text) // 4
+
+
+def _hard_cut_to_token_limit(text, max_tokens):
+    """Return the longest tail of ``text`` fitting ``max_tokens`` (binary search, exact counting)."""
+    lo, hi = 0, len(text)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if _count_tokens(text[-mid:]) <= max_tokens:
+            lo = mid
+        else:
+            hi = mid - 1
+    return text[-lo:] if lo > 0 else ""
+
+
+def truncate_to_token_limit(text, max_tokens=_EMBEDDING_MAX_TOKENS):
+    """Truncate text to fit within token limit, keeping the tail (most recent context).
+
+    Returns the original text if within limits, otherwise truncates from the head.
+    The result is guaranteed not to exceed ``max_tokens`` under exact counting:
+    after each density-based cut the token count is re-verified and the next cut is
+    re-estimated from the *actual* density of the kept tail (the global average
+    overshoots when the tail is denser than the head, e.g. Chinese after English).
+    If the loop has not converged within ``_TRUNCATION_MAX_ROUNDS`` (pathological
+    density mixes), a binary-search hard cut guarantees the bound. With the len//4
+    heuristic fallback the density is constant, so the first cut is already exact
+    and the loop exits after one round.
+    """
+    if not text:
+        return text
+    token_count = _count_tokens(text)
+    if token_count <= max_tokens:
+        return text
+
+    # Keep tail (most recent messages are most relevant for dedup)
+    logger.warning(
+        "Truncating embedding input from ~%d tokens to ~%d tokens (keeping tail).",
+        token_count,
+        max_tokens,
+    )
+
+    result = text
+    result_tokens = token_count
+    for _ in range(_TRUNCATION_MAX_ROUNDS):
+        # Re-estimate the cut from the actual density of the current segment so a
+        # dense tail converges instead of overshooting; always drop >= 1 char.
+        chars_per_token = len(result) / result_tokens
+        max_chars = min(int(max_tokens * chars_per_token), len(result) - 1)
+        result = result[-max_chars:] if max_chars > 0 else ""
+        result_tokens = _count_tokens(result)
+        if result_tokens <= max_tokens:
+            return result
+
+    # Geometric loop exhausted (pathological input): binary search the longest
+    # fitting tail -- exact counting guarantees <= max_tokens.
+    return _hard_cut_to_token_limit(result, max_tokens)
+
