@@ -56,11 +56,11 @@
   "devDependencies": {
     "@qdrant/js-client-rest": "^1.18.0",
     "@types/node": "^22.15.0",
-    "@vitest/coverage-v8": "^4.1.7",
+    "@vitest/coverage-v8": "^4.1.11",
     "tsup": "^8.5.0",
     "typescript": "^5.8.3",
     "vite": "^8.0.5",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.11"
   },
   "pnpm": {
     "overrides": {
