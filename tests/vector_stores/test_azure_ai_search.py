@@ -719,3 +719,103 @@ def test_build_filter_escapes_quotes(azure_ai_search_instance):
     instance, _, _ = azure_ai_search_instance
     expr = instance._build_filter_expression({"name": "O'Brien"})
     assert "name eq 'O''Brien'" in expr
+
+
+# --- Regression tests for IndexingResult status handling ---
+
+
+class _FakeIndexingResult:
+    """Mimic the azure.search.documents.models.IndexingResult attribute shape."""
+
+    def __init__(self, key, status_code, status=True, error_message=None):
+        self.key = key
+        self.status_code = status_code
+        self.status = status
+        self.error_message = error_message
+
+
+def test_insert_accepts_successful_sdk_results(azure_ai_search_instance):
+    """IndexingResult objects with a successful status_code must not raise."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.upload_documents.return_value = [_FakeIndexingResult("doc1", 201)]
+
+    instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
+
+    mock_search_client.upload_documents.assert_called_once()
+
+
+def test_insert_raises_on_failed_sdk_result(azure_ai_search_instance):
+    """A failed IndexingResult object must raise instead of being silently ignored."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.upload_documents.return_value = [
+        _FakeIndexingResult("doc1", 400, status=False, error_message="bad request")
+    ]
+
+    with pytest.raises(Exception) as exc_info:
+        instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
+
+    assert "Insert failed for document doc1" in str(exc_info.value)
+
+
+def test_update_accepts_successful_sdk_results(azure_ai_search_instance):
+    """IndexingResult objects with a successful status_code must not raise."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_or_upload_documents.return_value = [_FakeIndexingResult("doc1", 200)]
+
+    instance.update("doc1", payload={"user_id": "user1"})
+
+    mock_search_client.merge_or_upload_documents.assert_called_once()
+
+
+def test_update_raises_on_failed_sdk_result(azure_ai_search_instance):
+    """A failed IndexingResult object must raise instead of being silently ignored."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_or_upload_documents.return_value = [
+        _FakeIndexingResult("doc1", 500, status=False, error_message="server error")
+    ]
+
+    with pytest.raises(Exception) as exc_info:
+        instance.update("doc1", payload={"user_id": "user1"})
+
+    assert "Update failed for document doc1" in str(exc_info.value)
+
+
+def test_delete_accepts_successful_sdk_results(azure_ai_search_instance):
+    """IndexingResult objects with a successful status_code must not raise."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.delete_documents.return_value = [_FakeIndexingResult("doc1", 200)]
+
+    instance.delete("doc1")
+
+    mock_search_client.delete_documents.assert_called_once()
+
+
+def test_delete_raises_on_failed_sdk_result(azure_ai_search_instance):
+    """A failed IndexingResult object must raise instead of being silently ignored."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.delete_documents.return_value = [
+        _FakeIndexingResult("doc1", 404, status=False, error_message="not found")
+    ]
+
+    with pytest.raises(Exception) as exc_info:
+        instance.delete("doc1")
+
+    assert "Delete failed for document doc1" in str(exc_info.value)
+
+
+def test_failed_dict_results_raise_on_update_and_delete(azure_ai_search_instance):
+    """Mapping/dict results keep working: non-success status codes raise."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_or_upload_documents.return_value = [{"status": False, "id": "doc1", "status_code": 409}]
+
+    with pytest.raises(Exception) as exc_info:
+        instance.update("doc1", payload={"user_id": "user1"})
+
+    assert "Update failed for document doc1" in str(exc_info.value)
+
+    mock_search_client.delete_documents.return_value = [{"status": False, "id": "doc1", "status_code": 404}]
+
+    with pytest.raises(Exception) as exc_info:
+        instance.delete("doc1")
+
+    assert "Delete failed for document doc1" in str(exc_info.value)

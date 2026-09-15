@@ -169,6 +169,14 @@ class AzureAISearch(VectorStoreBase):
                 document[field] = payload[field]
         return document
 
+    @staticmethod
+    def _result_status_code(result):
+        """Return the HTTP status code from an IndexingResult object or a mapping."""
+        status_code = getattr(result, "status_code", None)
+        if status_code is None and hasattr(result, "get"):
+            status_code = result.get("status_code")
+        return status_code
+
     # Note: Explicit "insert" calls may later be decoupled from memory management decisions.
     def insert(self, vectors, payloads=None, ids=None):
         """
@@ -185,8 +193,9 @@ class AzureAISearch(VectorStoreBase):
         ]
         response = self.search_client.upload_documents(documents)
         for doc in response:
-            if not hasattr(doc, "status_code") and doc.get("status_code") != 201:
-                raise Exception(f"Insert failed for document {doc.get('id')}: {doc}")
+            if self._result_status_code(doc) != 201:
+                doc_id = doc.get("id") if hasattr(doc, "get") else getattr(doc, "key", None)
+                raise Exception(f"Insert failed for document {doc_id}: {doc}")
         return response
 
     def _sanitize_key(self, key: str) -> str:
@@ -290,7 +299,7 @@ class AzureAISearch(VectorStoreBase):
         """
         response = self.search_client.delete_documents(documents=[{"id": vector_id}])
         for doc in response:
-            if not hasattr(doc, "status_code") and doc.get("status_code") != 200:
+            if self._result_status_code(doc) != 200:
                 raise Exception(f"Delete failed for document {vector_id}: {doc}")
         logger.info(f"Deleted document with ID '{vector_id}' from index '{self.index_name}'.")
         return response
@@ -314,7 +323,7 @@ class AzureAISearch(VectorStoreBase):
                 document[field] = payload.get(field)
         response = self.search_client.merge_or_upload_documents(documents=[document])
         for doc in response:
-            if not hasattr(doc, "status_code") and doc.get("status_code") != 200:
+            if self._result_status_code(doc) != 200:
                 raise Exception(f"Update failed for document {vector_id}: {doc}")
         return response
 
