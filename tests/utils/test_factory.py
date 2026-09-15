@@ -4,7 +4,8 @@ from mem0.configs.llms.anthropic import AnthropicConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.openai import OpenAIConfig
-from mem0.utils.factory import LlmFactory
+from mem0.embeddings.mock import MockEmbeddings
+from mem0.utils.factory import EmbedderFactory, LlmFactory
 
 
 def _capture_config(provider_name, config):
@@ -60,3 +61,20 @@ def test_dict_config_not_mutated_by_kwargs():
         LlmFactory.create("openai", config, api_key="secret")
 
     assert config == {"model": "gpt-4o-mini"}
+
+
+def test_embedder_factory_uses_vector_store_enable_embeddings():
+    """Upstash server-side embeddings are a vector-store flag, not an embedder name."""
+    embedder = EmbedderFactory.create("openai", {"model": "text-embedding-3-small"}, {"enable_embeddings": True})
+    assert isinstance(embedder, MockEmbeddings)
+
+
+def test_embedder_factory_uses_object_vector_config_enable_embeddings():
+    from types import SimpleNamespace
+
+    embedder = EmbedderFactory.create(
+        "openai",
+        {"model": "text-embedding-3-small"},
+        SimpleNamespace(enable_embeddings=True),
+    )
+    assert isinstance(embedder, MockEmbeddings)
