@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Anonymous usage telemetry for Mem0 agent plugins.
+"""Usage telemetry for Mem0 agent plugins.
+
+Events are linked to your Mem0 account email when an API key is configured, and
+to a random per-machine id otherwise. Not anonymous — the Python SDK and CLI
+attribute the same way.
 
 Hooks run on a 3-6 second budget and fire on every tool call, so recording never
 touches the network: `record` appends one JSON line to a local spool and returns.
@@ -9,7 +13,8 @@ started once per session and again from the flush worker that is already detache
 Pure stdlib, matching the rest of the plugin. Opt out with MEM0_TELEMETRY=false.
 
 Never sends prompts, memory text, queries, file paths, repository names, or API
-keys: only event names, durations, counts, coarse outcomes, and salted hashes.
+keys: only event names, durations, counts, coarse outcomes, and repo/session
+identifiers hashed with a random per-install salt.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ from typing import Any
 
 import memory_core
 
+_salt_cache: str = ""
 _harness: str = "generic"
 _source_tag: str = "MEM0_PLUGIN"
 _PRIVATE_KEYS = {
@@ -83,7 +89,79 @@ def is_enabled() -> bool:
 
 
 def _digest(value: str, length: int = 16) -> str:
+    """Unsalted digest. Only for values that are already secrets (API keys)."""
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:length]
+
+
+def _salt_path() -> Path:
+    return memory_core.data_dir() / "telemetry-salt"
+
+
+def _install_salt() -> str:
+    """Random per-install salt, created once and memoized for the process.
+
+    Deliberately its own file, claimed with O_CREAT|O_EXCL, rather than a key in
+    the identity file. Three reasons, all of which produced wrong data when this
+    lived in the identity dict:
+
+    - Hooks are short-lived separate processes firing on every tool call, and
+      people run more than one agent window. A read-modify-write would let each
+      process mint its own salt, so one repository would hash several ways in the
+      window before a writer won.
+    - resolve_distinct_id holds a copy of the identity dict across a network call
+      to /v1/ping/, so whichever write landed second erased the other's key —
+      losing either the salt (repo_hash changes mid-stream) or the email (a
+      second $identify, splitting the person).
+    - Touching the identity file from record() would create it, and is_first_run
+      keys off that file, so recording an event would silently suppress the
+      install event.
+
+    On a read-only or full data directory the fallback is derived from the data
+    directory path: stable for the machine rather than random per call, so the
+    failure mode is a weaker salt and not unbounded cardinality in PostHog.
+    """
+    global _salt_cache
+    if _salt_cache:
+        return _salt_cache
+
+    path = _salt_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        try:
+            with os.fdopen(handle, "w", encoding="utf-8") as stream:
+                stream.write(uuid.uuid4().hex)
+        except OSError:
+            pass
+    except FileExistsError:
+        pass
+    except OSError:
+        # Cannot persist. Stable-per-machine beats random-per-call.
+        _salt_cache = hashlib.sha256(str(path).encode("utf-8")).hexdigest()
+        return _salt_cache
+
+    try:
+        _salt_cache = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        _salt_cache = ""
+    if not _salt_cache:
+        _salt_cache = hashlib.sha256(str(path).encode("utf-8")).hexdigest()
+    return _salt_cache
+
+
+def _scoped_digest(value: str, length: int = 16) -> str:
+    """Salted digest for values drawn from a guessable space.
+
+    repo.identity is a git remote URL, or ``local:<absolute path>`` when there is
+    no remote — which normally contains the account username. Sixteen unsalted
+    hex characters over that input space is enumerable, so this is not a
+    privacy control without the salt. Salting per install keeps every
+    within-account join the analytics actually use and gives up only
+    cross-machine joins on the same repository, which nothing computes.
+    """
+    if not value:
+        return ""
+    return hashlib.sha256(f"{_install_salt()}:{value}".encode("utf-8")).hexdigest()[:length]
 
 
 def _safe_value(value: Any) -> Any:
@@ -175,9 +253,9 @@ def record(
             python_version=platform.python_version(),
         )
         if repo is not None:
-            properties["repo_hash"] = _digest(getattr(repo, "identity", ""))
+            properties["repo_hash"] = _scoped_digest(getattr(repo, "identity", ""))
         if session_id:
-            properties["session_hash"] = _digest(session_id)
+            properties["session_hash"] = _scoped_digest(session_id)
         line = json.dumps(
             {
                 "event": f"{EVENT_PREFIX}.{event}",

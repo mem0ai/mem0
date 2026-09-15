@@ -6,8 +6,8 @@ description: Pause Mem0 memory capture on this machine. Use when the user wants 
 # Pause memory capture
 
 To pause (hooks stop capturing and sending session content; a minimal
-anonymous telemetry ping still fires at session start unless
-`MEM0_TELEMETRY=false`):
+telemetry ping still fires at session start, under your Mem0 account email,
+unless `MEM0_TELEMETRY=false`):
 
 ```bash
 python3 "${PLUGIN_ROOT}/core/memory_cli.py" --harness "coding-agent"  pause
