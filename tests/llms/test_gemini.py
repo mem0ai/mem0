@@ -232,6 +232,123 @@ def test_explicit_config_values_passed_to_generation_config(mock_gemini_client: 
     assert config_arg.top_p == 0.9
 
 
+def _make_tool_call_response() -> Mock:
+    """Build a generate_content response whose tool_calls parse cleanly."""
+    mock_tool_call = Mock()
+    mock_tool_call.name = "add_memory"
+    mock_tool_call.args = {"data": "Today is a sunny day."}
+
+    mock_text_part = Mock()
+    mock_text_part.text = "I've added the memory for you."
+    mock_text_part.function_call = None
+
+    mock_func_part = Mock()
+    mock_func_part.text = None
+    mock_func_part.function_call = mock_tool_call
+
+    mock_content = Mock()
+    mock_content.parts = [mock_text_part, mock_func_part]
+
+    mock_candidate = Mock()
+    mock_candidate.content = mock_content
+    return Mock(candidates=[mock_candidate])
+
+
+def _single_tool() -> list:
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "add_memory",
+                "description": "Add a memory",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"data": {"type": "string", "description": "Data to add to memory"}},
+                    "required": ["data"],
+                },
+            },
+        }
+    ]
+
+
+def test_generate_response_tool_choice_required_maps_to_any_and_locks_names(mock_gemini_client: Mock):
+    """Regression #5430: ``tool_choice="required"`` is the standard value for
+    "force a tool call". Gemini has no required mode, so we map it to ANY with
+    allowed_function_names set — matching caller expectations from other
+    providers. Previously, ``"required"`` fell through to the else branch and
+    mapped to NONE, silently disabling tool calling."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+
+    mock_gemini_client.models.generate_content.return_value = _make_tool_call_response()
+
+    llm.generate_response(
+        [{"role": "user", "content": "Add a memory: Today is a sunny day."}],
+        tools=_single_tool(),
+        tool_choice="required",
+    )
+
+    config_arg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    fc = config_arg.tool_config.function_calling_config
+    assert fc.mode == types.FunctionCallingConfigMode.ANY
+    # ``required`` must restrict to the provided tool names, matching ``any``.
+    assert fc.allowed_function_names == ["add_memory"]
+
+
+def test_generate_response_tool_choice_any_still_maps_to_any_and_locks_names(mock_gemini_client: Mock):
+    """Existing ``tool_choice="any"`` behaviour is preserved by the #5430 fix."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+
+    mock_gemini_client.models.generate_content.return_value = _make_tool_call_response()
+
+    llm.generate_response(
+        [{"role": "user", "content": "Add a memory: Today is a sunny day."}],
+        tools=_single_tool(),
+        tool_choice="any",
+    )
+
+    config_arg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    fc = config_arg.tool_config.function_calling_config
+    assert fc.mode == types.FunctionCallingConfigMode.ANY
+    assert fc.allowed_function_names == ["add_memory"]
+
+
+def test_generate_response_accepts_kwargs_max_tokens_override(mock_gemini_client: Mock):
+    """Regression #5430: base ``LLMBase.generate_response`` accepts ``**kwargs``
+    for per-call overrides. Gemini's signature previously omitted ``**kwargs``
+    so any caller passing e.g. ``max_tokens=...`` raised TypeError."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.5, max_tokens=200, top_p=0.9)
+    llm = GeminiLLM(config)
+
+    mock_part = Mock(text="ok")
+    mock_content = Mock(parts=[mock_part])
+    mock_candidate = Mock(content=mock_content)
+    mock_gemini_client.models.generate_content.return_value = Mock(candidates=[mock_candidate])
+
+    llm.generate_response([{"role": "user", "content": "hi"}], max_tokens=4096)
+
+    config_arg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    # Per-call override wins over the configured default.
+    assert "max_output_tokens" in config_arg.model_fields_set
+    assert config_arg.max_output_tokens == 4096
+
+
+def test_generate_response_accepts_unknown_kwargs_without_raising(mock_gemini_client: Mock):
+    """Arbitrary ``**kwargs`` must not raise — they are silently dropped,
+    matching the base-class contract for provider-specific extras."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.5, max_tokens=200, top_p=0.9)
+    llm = GeminiLLM(config)
+
+    mock_part = Mock(text="ok")
+    mock_content = Mock(parts=[mock_part])
+    mock_candidate = Mock(content=mock_content)
+    mock_gemini_client.models.generate_content.return_value = Mock(candidates=[mock_candidate])
+
+    # Should not raise TypeError.
+    llm.generate_response([{"role": "user", "content": "hi"}], some_future_param=True)
+
+
 # --- Vertex AI backend initialization (issue #3990, PR #4030) ---
 
 
