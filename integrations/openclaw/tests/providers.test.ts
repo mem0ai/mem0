@@ -117,7 +117,7 @@ describe("PlatformProvider", () => {
 // ---------------------------------------------------------------------------
 
 describe("providerToBackend — search", () => {
-  // v3.0.0: keyword_search, reranking removed from SDK
+  // v3.0.0: keyword_search removed from SDK
   it("delegates to provider.search with correct options", async () => {
     const provider = createMockProvider();
     const backend = providerToBackend(provider as any, DEFAULT_USER);
@@ -132,11 +132,28 @@ describe("providerToBackend — search", () => {
       user_id: DEFAULT_USER,
       top_k: 10,
       threshold: 0.5,
+      rerank: undefined,
       filters: { category: "preference" },
       source: "OPENCLAW",
     });
     expect(results).toHaveLength(1);
     expect((results[0] as any).id).toBe("m1");
+  });
+
+  it("passes rerank through when requested", async () => {
+    const provider = createMockProvider();
+    const backend = providerToBackend(provider as any, DEFAULT_USER);
+
+    await backend.search("hello world", { rerank: true });
+
+    expect(provider.search).toHaveBeenCalledWith("hello world", {
+      user_id: DEFAULT_USER,
+      top_k: undefined,
+      threshold: undefined,
+      rerank: true,
+      filters: undefined,
+      source: "OPENCLAW",
+    });
   });
 
   it("uses default userId when opts.userId is not provided", async () => {
@@ -145,11 +162,12 @@ describe("providerToBackend — search", () => {
 
     await backend.search("query");
 
-    // v3.0.0: keyword_search, reranking removed
+    // v3.0.0: keyword_search removed
     expect(provider.search).toHaveBeenCalledWith("query", {
       user_id: DEFAULT_USER,
       top_k: undefined,
       threshold: undefined,
+      rerank: undefined,
       filters: undefined,
       source: "OPENCLAW",
     });
