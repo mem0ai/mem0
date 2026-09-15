@@ -1,39 +1,35 @@
 ---
 title: Hermes Agent
-description: "Add long-term memory to Hermes agents with Mem0, on managed Mem0 Cloud or fully self-hosted (OSS), with automatic background sync and zero-latency prefetch."
+description: "Add long-term memory to Hermes agents with Mem0: managed Platform, a self-hosted server, or fully local OSS — with current-turn recall and background fact extraction."
 ---
 
-Add long-term memory to [Hermes Agent](https://github.com/NousResearch/hermes-agent), a self-improving AI agent CLI by Nous Research. Hermes has a pluggable memory system, and Mem0 is one of the supported providers. Once enabled, Mem0 learns facts from your conversations and surfaces relevant ones before each turn, without slowing down the chat.
+Add long-term memory to [Hermes Agent](https://github.com/NousResearch/hermes-agent), a self-improving AI agent CLI by Nous Research. Hermes has a pluggable memory system, and Mem0 is one of the supported providers. Once enabled, Mem0 learns facts from your conversations and surfaces relevant ones for the current question, without slowing down the chat.
 
-You can run Mem0 in two ways:
+You can run Mem0 in three ways:
 
 - **Platform mode** (default): managed Mem0 Cloud. Add your API key and you are ready.
-- **OSS mode**: fully self-hosted with your own LLM, embedder, and vector store. No data leaves your machine.
+- **Self-hosted server mode**: point the plugin at a Mem0 server you run yourself (the Docker-shipped server). The plugin only talks HTTP to your server.
+- **OSS mode**: run Mem0 in-process with your own LLM, embedder, and vector store. No Mem0 server required.
 
 ## How It Works
 
-Hermes runs a built-in memory system (file-based `MEMORY.md` and `USER.md`) alongside one external provider. When Mem0 is active, it works additively with the built-in system at three points in every conversation turn.
+Hermes runs a built-in memory system (file-based `MEMORY.md` and `USER.md`) alongside one external provider. When Mem0 is active, it works additively with the built-in system at two points in every conversation turn.
 
-### 1. Before the agent responds (prefetch)
+### 1. Current-turn recall (bounded wait)
 
-When you send a message, Hermes checks for cached Mem0 search results from the previous turn. If they exist, those memories are injected into the system prompt so the model can see them. This is zero-latency, with no waiting on an API call.
+When you send a message, Hermes searches your stored memories for the current question and waits up to 3 seconds for results. If they arrive in time, they are injected into the system prompt so the model can see them. If the backend is slower, Hermes skips the injection and the model can still call `mem0_search` itself — so a slow backend never blocks a turn.
 
-### 2. After the agent responds (sync)
+### 2. Background fact extraction (sync)
 
 Once the model finishes, Hermes sends the `(user message, assistant response)` pair to Mem0 in a background thread. Mem0 extracts facts automatically (for example, "user prefers Python" or "user works at Acme Corp"), so you never have to tell it what to remember. Each write is tagged with the gateway channel it came from.
 
-### 3. Background prefetch for the next turn
-
-At the same time, Hermes runs a background search to pre-load relevant memories for your next message. By the time you type, the results are already cached.
-
 ## Agent Tools
 
-When Mem0 is active, the model gets five tools it can call during a conversation:
+When Mem0 is active, the model gets four tools it can call during a conversation:
 
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `mem0_list` | List all stored memories, for a full overview | `page`, `page_size` (default 100, max 200) |
-| `mem0_search` | Semantic search by meaning, ranked by relevance | `query` (required), `top_k` (default 10, max 50), `rerank` (default `true`, Platform mode only) |
+| `mem0_search` | Semantic search by meaning, ranked by relevance | `query` (required), `top_k` (default 10, max 50), `rerank` (default `false`, Platform mode only) |
 | `mem0_add` | Store a fact verbatim, with no LLM extraction | `content` (required) |
 | `mem0_update` | Update a memory's text by ID | `memory_id`, `text` (both required) |
 | `mem0_delete` | Delete a memory by ID | `memory_id` (required) |
@@ -79,6 +75,36 @@ memory:
 
 That's it. Mem0 runs automatically from here.
 
+## Self-Hosted Server Setup
+
+Run the [Mem0 server](https://github.com/mem0ai/mem0/tree/main/server) (FastAPI + pgvector) from its Docker image and point the plugin at it. Unlike OSS mode, the plugin just talks HTTP to your server.
+
+### Interactive
+
+```bash
+hermes memory setup
+# Select "mem0", then "Self-hosted server", and enter the server URL
+```
+
+### With flags
+
+```bash
+hermes memory setup mem0 --mode selfhosted \
+  --host http://localhost:8888 \
+  --api-key your-admin-api-key
+```
+
+### With environment variables
+
+```bash
+echo "MEM0_HOST=http://localhost:8888" >> ~/.hermes/.env
+echo "MEM0_API_KEY=your-admin-api-key" >> ~/.hermes/.env
+```
+
+Then start a fresh Hermes session and call `mem0_search` — it connects to your server. The plugin authenticates with `X-API-Key` and uses the server's `/search` and `/memories` routes. The API key is optional only for servers running with `AUTH_DISABLED`.
+
+<Note>Setting `host` routes to the self-hosted server automatically. Don't combine it with `mode: oss` — OSS takes precedence and ignores `host`.</Note>
+
 ## OSS (Self-Hosted) Setup
 
 OSS mode runs Mem0 entirely on your own infrastructure: your LLM, your embedder, and your vector store. No data is sent to Mem0 Cloud, and no Mem0 API key is required.
@@ -111,15 +137,20 @@ hermes memory setup mem0 --mode oss \
 
 | Flag | Description |
 |------|-------------|
-| `--mode` | `platform` or `oss` |
+| `--mode` | `platform`, `selfhosted`, or `oss` |
+| `--api-key` | Platform API key, or the admin key of a self-hosted server |
+| `--host` | Self-hosted server URL (with `--mode selfhosted`) |
 | `--oss-llm` | LLM provider (`openai` or `ollama`, default `openai`) |
 | `--oss-llm-key` | LLM API key (for `openai`) |
 | `--oss-llm-model` | Override the LLM model |
 | `--oss-llm-url` | LLM base URL (for `ollama` or a custom endpoint) |
 | `--oss-embedder` | Embedder provider (default `openai`) |
 | `--oss-embedder-key` | Embedder API key |
+| `--oss-embedder-model` | Override the embedder model |
+| `--oss-embedder-url` | Embedder base URL (for `ollama` or a custom endpoint) |
 | `--oss-vector` | Vector store (`qdrant` or `pgvector`, default `qdrant`) |
 | `--oss-vector-path` | Local Qdrant storage path |
+| `--oss-vector-url` | Qdrant server URL |
 | `--oss-vector-host`, `--oss-vector-port` | PGVector or remote Qdrant host and port |
 | `--oss-vector-user`, `--oss-vector-password`, `--oss-vector-dbname` | PGVector connection details |
 | `--user-id` | Canonical user identifier |
@@ -127,7 +158,7 @@ hermes memory setup mem0 --mode oss \
 
 ## Switching Modes
 
-You can move between Platform and OSS at any time. Run the setup command again, or edit `~/.hermes/mem0.json` directly.
+You can move between the three modes at any time. Run the setup command again, or edit `~/.hermes/mem0.json` directly.
 
 ```bash
 # Platform to OSS
@@ -135,6 +166,9 @@ hermes memory setup mem0 --mode oss --oss-llm-key sk-...
 
 # OSS to Platform
 hermes memory setup mem0 --mode platform --api-key sk-...
+
+# Platform to a self-hosted server
+hermes memory setup mem0 --mode selfhosted --host http://localhost:8888
 
 # Preview without writing anything
 hermes memory setup mem0 --mode oss --oss-llm-key sk-... --dry-run
@@ -146,7 +180,7 @@ A self-hosted `~/.hermes/mem0.json` looks like this:
 {
   "mode": "oss",
   "oss": {
-    "llm": {"provider": "openai", "config": {"model": "gpt-5-mini"}},
+    "llm": {"provider": "openai", "config": {"model": "gpt-5-mini", "is_reasoning_model": true}},
     "embedder": {"provider": "openai", "config": {"model": "text-embedding-3-small"}},
     "vector_store": {"provider": "qdrant", "config": {"path": "~/.hermes/mem0_qdrant"}}
   }
@@ -159,11 +193,12 @@ Behavioral settings live in `~/.hermes/mem0.json` and are written for you by `he
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `mode` | `platform` | `platform` (Mem0 Cloud) or `oss` (self-hosted) |
-| `api_key` | none | Mem0 Platform API key, required in Platform mode. Stored in `.env` as `MEM0_API_KEY` |
+| `mode` | `platform` | `platform` (Mem0 Cloud) or `oss` (self-managed, in-process). Self-hosted server routing is set via `host` |
+| `host` | none | Self-hosted Mem0 server URL. When set, the plugin talks HTTP to your server instead of the cloud |
+| `api_key` | none | Mem0 Platform API key, or the admin key of a self-hosted server. Stored in `.env` as `MEM0_API_KEY` |
 | `user_id` | `hermes-user` | Identifier that scopes memories. See cross-channel behavior below |
 | `agent_id` | `hermes` | Agent identifier attached to writes |
-| `rerank` | `true` | Rerank search results for relevance (Platform mode only) |
+| `rerank` | `false` | Rerank search results for relevance (Platform mode only) |
 
 ### Cross-channel memories
 
@@ -174,12 +209,11 @@ Hermes can run from the CLI and from gateways like Telegram, Slack, and Discord.
 
 Either way, every write is tagged with `metadata.channel` (for example `telegram` or `cli`), so per-channel views are still possible at query time.
 
-
 ## Reliability
 
 - **Circuit breaker**: if Mem0 fails five times in a row, Hermes pauses calls for two minutes, then retries. The agent keeps working without memory during that window. Expected client errors, like a 404 on a missing memory id, do not count toward tripping the breaker.
-- **Non-blocking**: every Mem0 call runs in a background daemon thread, so a slow or failed call never blocks your conversation.
-- **Thread-safe**: the client uses lazy initialization with locking, and the background sync and prefetch threads are guarded so concurrent gateway messages cannot produce duplicate memories.
+- **Non-blocking**: fact extraction runs in a background daemon thread, and current-turn recall waits at most 3 seconds, so a slow or failed call never blocks your conversation.
+- **Thread-safe**: the client uses lazy initialization with locking, and the background sync and recall threads are guarded so concurrent gateway messages cannot produce duplicate memories.
 
 ## Troubleshooting
 
@@ -188,6 +222,7 @@ Either way, every write is tagged with `metadata.channel` (for example `telegram
 The circuit breaker tripped after five consecutive failures and resets after two minutes.
 
 - **Platform mode**: check your API key and internet connection.
+- **Self-hosted server mode**: check that the server is running and reachable at the configured `host` URL.
 - **OSS mode**: make sure your vector store (Qdrant or PGVector) is running and reachable.
 
 ### OSS: vector store connection refused
@@ -217,8 +252,8 @@ curl http://localhost:11434/api/tags
 
 ## Key Features
 
-1. **Two ways to run**: managed Platform or fully self-hosted OSS, switchable at any time.
-2. **Zero-latency recall**: memories are prefetched in the background and cached before you type.
+1. **Three ways to run**: managed Platform, a self-hosted server, or fully local OSS, switchable at any time.
+2. **Current-turn recall**: memories for the current question are injected within a 3-second window, with `mem0_search` as the model's own backstop.
 3. **Automatic extraction**: Mem0 extracts and deduplicates facts from each exchange for you.
 4. **Non-blocking and fault tolerant**: background threads plus a circuit breaker keep the agent responsive even when Mem0 is unreachable.
 5. **Additive memory**: works alongside Hermes' built-in file memory (`MEMORY.md`, `USER.md`).
