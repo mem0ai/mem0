@@ -236,3 +236,57 @@ export interface GetMemoryExportPayload {
   filters?: Record<string, any>;
   memoryExportId?: string;
 }
+
+// ─── Profile Types ──────────────────────────────────────────
+
+/** Entity kinds that can carry a profile. */
+export type ProfileEntityType = "user" | "agent";
+
+/** `succeeded` is the only state in which `profile` is guaranteed to hold content. */
+export type ProfileStatus =
+  "succeeded" | "pending" | "failed" | "notEnabled" | "insufficientData";
+
+export interface ProfileResponse {
+  /** Shaped by the project's schema; keys are not camel-cased. */
+  profile: Record<string, any>;
+  status: ProfileStatus;
+  entityType: ProfileEntityType;
+  entityId: string;
+  updatedAt: string | null;
+  generationCount: number;
+}
+
+export interface ProfileTriggerResponse {
+  message: string;
+  entityType: ProfileEntityType;
+  entityId: string;
+  profileId: string;
+  status: string;
+}
+
+export interface ProfileSettings {
+  enabled?: boolean;
+  /** JSON Schema for the profile. Every property needs a `description`. */
+  schema?: Record<string, any> | null;
+  customInstructions?: string | null;
+}
+
+export interface ProfileSampleResult {
+  entityType: ProfileEntityType;
+  entityId: string;
+  profileId?: string;
+  [key: string]: any;
+}
+
+export interface ProfileSamplesResponse {
+  message: string;
+  sampled: number;
+  results: Array<ProfileSampleResult>;
+}
+
+export interface ProfileRegenerateResponse {
+  status: string;
+  message: string;
+  projectId: string;
+  existingProfileCount: number;
+}

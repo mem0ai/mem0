@@ -197,6 +197,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 ### Features - Essential
 - [V2 Memory Filters](https://docs.mem0.ai/platform/features/v2-memory-filters) [Platform]: Use when compound filters (AND/OR on metadata, entity, time) are needed at search.
 - [Entity-Scoped Memory](https://docs.mem0.ai/platform/features/entity-scoped-memory) [Platform]: Use when partitioning memories by user, agent, app, or run.
+- [Profiles](https://docs.mem0.ai/platform/features/user-profiles) [Platform]: Use when a structured always-current summary of a user or agent is needed in one read, instead of searching their memories.
 - [Graph Memory](https://docs.mem0.ai/platform/features/graph-memory) [Platform]: Use when connecting facts across memories through shared entities for entity-centric or multi-hop questions.
 - [Async Client](https://docs.mem0.ai/platform/features/async-client) [Platform]: Use when the app issues many concurrent Mem0 calls and needs non-blocking I/O.
 - [Multimodal Support](https://docs.mem0.ai/platform/features/multimodal-support) [Platform]: Use when storing images or PDFs as memory input.
@@ -362,6 +363,12 @@ All API Reference docs describe Mem0 Platform REST endpoints (requires API key).
 ### Entities
 - [Get Users](https://docs.mem0.ai/api-reference/entities/get-users) [Platform]: Use when listing users, agents, or apps known to a project.
 - [Delete User](https://docs.mem0.ai/api-reference/entities/delete-user) [Platform]: Use when removing an entity and all its memories.
+- [Get Profile](https://docs.mem0.ai/api-reference/profiles/get-profile) [Platform]: Use when reading a user's or agent's structured profile and branching on its generation status.
+- [Generate Profile](https://docs.mem0.ai/api-reference/profiles/trigger-profile) [Platform]: Use when a profile is needed before the entity reaches the automatic message threshold.
+- [Get Profile Settings](https://docs.mem0.ai/api-reference/profiles/get-profile-settings) [Platform]: Use when checking the project's profile schema, instructions, or enabled flag.
+- [Update Profile Settings](https://docs.mem0.ai/api-reference/profiles/update-profile-settings) [Platform]: Use when defining or changing the JSON Schema that shapes profiles for a project.
+- [Sample Profiles](https://docs.mem0.ai/api-reference/profiles/sample-profiles) [Platform]: Use when validating a profile schema against a few real entities before applying it project-wide.
+- [Regenerate Profiles](https://docs.mem0.ai/api-reference/profiles/regenerate-profiles) [Platform]: Use when a new schema must be applied to entities that already have a profile.
 
 ### Organizations
 - [Create Organization](https://docs.mem0.ai/api-reference/organization/create-org) [Platform]: Use when setting up a new org.

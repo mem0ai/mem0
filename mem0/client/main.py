@@ -683,6 +683,155 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
+    def get_profile(self, entity_id: str, entity_type: str = "user") -> Dict[str, Any]:
+        """Get the memory profile for a single entity.
+
+        Branch on ``status``, not on an empty ``profile``: generation is
+        asynchronous, so a known entity without a profile yet is a normal response.
+
+        Args:
+            entity_id: The entity's id, as you supplied it on ``add`` (e.g. "alice").
+            entity_type: Either "user" or "agent". Defaults to "user".
+
+        Returns:
+            Dict with ``profile``, ``status``, ``entity_type``, ``entity_id``,
+            ``updated_at`` and ``generation_count``. ``status`` is one of
+            "succeeded", "pending", "failed", "not_enabled" or "insufficient_data".
+
+        Raises:
+            ValidationError: If entity_type is not a supported entity kind.
+            AuthenticationError: If authentication fails.
+            NotFoundError: If no such entity exists in the project.
+        """
+
+        response = self.client.get(
+            f"/v2/entities/{_encode_path_segment(entity_type)}/{_encode_path_segment(entity_id)}/profile/"
+        )
+        response.raise_for_status()
+        capture_client_event("client.get_profile", self, {"entity_type": entity_type, "sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
+    def generate_profile(self, entity_id: str, entity_type: str = "user") -> Dict[str, Any]:
+        """Generate or refresh the profile for a single entity, now.
+
+        Profiles are otherwise built once an entity crosses an internal message
+        threshold, so a new entity has none for its first few memories. Returns as
+        soon as the work is queued: poll :meth:`get_profile` and branch on ``status``.
+
+        Args:
+            entity_id: The entity's id, as you supplied it on ``add``.
+            entity_type: Either "user" or "agent". Defaults to "user".
+
+        Returns:
+            Dict containing ``profile_id``, ``entity_type``, ``entity_id`` and
+            ``status``.
+
+        Raises:
+            ValidationError: If entity_type is unsupported or profiles are not
+                enabled and configured for the project.
+            NotFoundError: If no such entity exists in the project.
+        """
+
+        response = self.client.post(
+            "/v2/profiles/trigger/",
+            json={"entity_type": entity_type, "entity_id": entity_id},
+        )
+        response.raise_for_status()
+        capture_client_event("client.generate_profile", self, {"entity_type": entity_type, "sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
+    def get_profile_settings(self) -> Dict[str, Any]:
+        """Get the profile settings for the current project.
+
+        Returns:
+            Dict with ``enabled``, ``schema`` and ``custom_instructions``.
+        """
+
+        response = self.client.get("/v2/profiles/settings/")
+        response.raise_for_status()
+        capture_client_event("client.get_profile_settings", self, {"sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
+    def update_profile_settings(
+        self,
+        enabled: Optional[bool] = None,
+        schema: Optional[Dict[str, Any]] = None,
+        custom_instructions: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update the profile settings for the current project.
+
+        Only the arguments you pass are written.
+
+        Args:
+            enabled: Turn profile generation on or off.
+            schema: JSON Schema for the profile. Every property needs a
+                ``description``.
+            custom_instructions: Extra guidance for the extraction step.
+
+        Returns:
+            Dict with the settings as stored after the update.
+
+        Raises:
+            ValidationError: If the schema is not a valid profile schema.
+        """
+
+        payload = self._prepare_params(
+            {"enabled": enabled, "schema": schema, "custom_instructions": custom_instructions}
+        )
+        response = self.client.post("/v2/profiles/settings/", json=payload)
+        response.raise_for_status()
+        capture_client_event(
+            "client.update_profile_settings", self, {"keys": list(payload.keys()), "sync_type": "sync"}
+        )
+        return response.json()
+
+    @api_error_handler
+    def sample_profiles(self, limit: Optional[int] = None) -> Dict[str, Any]:
+        """Generate profiles for a few real entities, to check a schema.
+
+        Real generations against real memories, and the results are kept.
+
+        Args:
+            limit: How many entities to sample, 1-10. Defaults to the server value.
+
+        Returns:
+            Dict containing ``sampled`` and one ``results`` row per entity.
+
+        Raises:
+            ValidationError: If profiles are not enabled and configured.
+            RateLimitError: If a sample run was already started very recently.
+        """
+
+        response = self.client.post("/v2/profiles/samples/", json=self._prepare_params({"limit": limit}))
+        response.raise_for_status()
+        capture_client_event("client.sample_profiles", self, {"sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
+    def regenerate_profiles(self) -> Dict[str, Any]:
+        """Rebuild the profile of every entity in the current project.
+
+        This is how a new schema reaches entities that already have a profile.
+        Returns as soon as the work is queued.
+
+        Returns:
+            Dict containing ``status``, ``message``, ``project_id`` and
+            ``existing_profile_count``.
+
+        Raises:
+            ValidationError: If profiles are not enabled and configured.
+            RateLimitError: If a regenerate already ran for this project recently.
+        """
+
+        response = self.client.post("/v2/profiles/regenerate/", json={})
+        response.raise_for_status()
+        capture_client_event("client.regenerate_profiles", self, {"sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
     def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
         """Get instructions or categories for the current project.
 
@@ -1586,6 +1735,155 @@ class AsyncMemoryClient:
         response = await self.async_client.post("/v1/summary/", json=self._prepare_params({"filters": filters}))
         response.raise_for_status()
         capture_client_event("client.get_summary", self, {"sync_type": "async"})
+        return response.json()
+
+    @api_error_handler
+    async def get_profile(self, entity_id: str, entity_type: str = "user") -> Dict[str, Any]:
+        """Get the memory profile for a single entity.
+
+        Branch on ``status``, not on an empty ``profile``: generation is
+        asynchronous, so a known entity without a profile yet is a normal response.
+
+        Args:
+            entity_id: The entity's id, as you supplied it on ``add`` (e.g. "alice").
+            entity_type: Either "user" or "agent". Defaults to "user".
+
+        Returns:
+            Dict with ``profile``, ``status``, ``entity_type``, ``entity_id``,
+            ``updated_at`` and ``generation_count``. ``status`` is one of
+            "succeeded", "pending", "failed", "not_enabled" or "insufficient_data".
+
+        Raises:
+            ValidationError: If entity_type is not a supported entity kind.
+            AuthenticationError: If authentication fails.
+            NotFoundError: If no such entity exists in the project.
+        """
+
+        response = await self.async_client.get(
+            f"/v2/entities/{_encode_path_segment(entity_type)}/{_encode_path_segment(entity_id)}/profile/"
+        )
+        response.raise_for_status()
+        capture_client_event("client.get_profile", self, {"entity_type": entity_type, "sync_type": "async"})
+        return response.json()
+
+    @api_error_handler
+    async def generate_profile(self, entity_id: str, entity_type: str = "user") -> Dict[str, Any]:
+        """Generate or refresh the profile for a single entity, now.
+
+        Profiles are otherwise built once an entity crosses an internal message
+        threshold, so a new entity has none for its first few memories. Returns as
+        soon as the work is queued: poll :meth:`get_profile` and branch on ``status``.
+
+        Args:
+            entity_id: The entity's id, as you supplied it on ``add``.
+            entity_type: Either "user" or "agent". Defaults to "user".
+
+        Returns:
+            Dict containing ``profile_id``, ``entity_type``, ``entity_id`` and
+            ``status``.
+
+        Raises:
+            ValidationError: If entity_type is unsupported or profiles are not
+                enabled and configured for the project.
+            NotFoundError: If no such entity exists in the project.
+        """
+
+        response = await self.async_client.post(
+            "/v2/profiles/trigger/",
+            json={"entity_type": entity_type, "entity_id": entity_id},
+        )
+        response.raise_for_status()
+        capture_client_event("client.generate_profile", self, {"entity_type": entity_type, "sync_type": "async"})
+        return response.json()
+
+    @api_error_handler
+    async def get_profile_settings(self) -> Dict[str, Any]:
+        """Get the profile settings for the current project.
+
+        Returns:
+            Dict with ``enabled``, ``schema`` and ``custom_instructions``.
+        """
+
+        response = await self.async_client.get("/v2/profiles/settings/")
+        response.raise_for_status()
+        capture_client_event("client.get_profile_settings", self, {"sync_type": "async"})
+        return response.json()
+
+    @api_error_handler
+    async def update_profile_settings(
+        self,
+        enabled: Optional[bool] = None,
+        schema: Optional[Dict[str, Any]] = None,
+        custom_instructions: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update the profile settings for the current project.
+
+        Only the arguments you pass are written.
+
+        Args:
+            enabled: Turn profile generation on or off.
+            schema: JSON Schema for the profile. Every property needs a
+                ``description``.
+            custom_instructions: Extra guidance for the extraction step.
+
+        Returns:
+            Dict with the settings as stored after the update.
+
+        Raises:
+            ValidationError: If the schema is not a valid profile schema.
+        """
+
+        payload = self._prepare_params(
+            {"enabled": enabled, "schema": schema, "custom_instructions": custom_instructions}
+        )
+        response = await self.async_client.post("/v2/profiles/settings/", json=payload)
+        response.raise_for_status()
+        capture_client_event(
+            "client.update_profile_settings", self, {"keys": list(payload.keys()), "sync_type": "async"}
+        )
+        return response.json()
+
+    @api_error_handler
+    async def sample_profiles(self, limit: Optional[int] = None) -> Dict[str, Any]:
+        """Generate profiles for a few real entities, to check a schema.
+
+        Real generations against real memories, and the results are kept.
+
+        Args:
+            limit: How many entities to sample, 1-10. Defaults to the server value.
+
+        Returns:
+            Dict containing ``sampled`` and one ``results`` row per entity.
+
+        Raises:
+            ValidationError: If profiles are not enabled and configured.
+            RateLimitError: If a sample run was already started very recently.
+        """
+
+        response = await self.async_client.post("/v2/profiles/samples/", json=self._prepare_params({"limit": limit}))
+        response.raise_for_status()
+        capture_client_event("client.sample_profiles", self, {"sync_type": "async"})
+        return response.json()
+
+    @api_error_handler
+    async def regenerate_profiles(self) -> Dict[str, Any]:
+        """Rebuild the profile of every entity in the current project.
+
+        This is how a new schema reaches entities that already have a profile.
+        Returns as soon as the work is queued.
+
+        Returns:
+            Dict containing ``status``, ``message``, ``project_id`` and
+            ``existing_profile_count``.
+
+        Raises:
+            ValidationError: If profiles are not enabled and configured.
+            RateLimitError: If a regenerate already ran for this project recently.
+        """
+
+        response = await self.async_client.post("/v2/profiles/regenerate/", json={})
+        response.raise_for_status()
+        capture_client_event("client.regenerate_profiles", self, {"sync_type": "async"})
         return response.json()
 
     @api_error_handler
