@@ -82,6 +82,15 @@ The backend recognizes a fixed list of source values and buckets everything else
 into `OTHERS`. A new value has to land in the platform's `EventSource` enum, so
 do not invent one without that change going in too.
 
+`X-Application` is allowlisted the same way, and this one has a rule of its own:
+**omit the header when you do not know the host.** A value outside the allowlist
+is discarded server-side, so guessing produces an event that claims an
+attribution we do not actually have. The portable bundle is the case that
+matters. It runs in whatever editor a user drops it into, so its build leaves
+`PLATFORM_APPLICATION` empty and `memory_core` sends no header at all, while the
+native bundles each name the host they were generated for. If you add a build
+target, decide which of those two it is.
+
 ## Adding an integration
 
 1. For a native coding-agent host, add `integrations/<name>-plugin/` with `plugin-build.json`, its manifest, and a thin adapter, then generate its shared runtime. Portable clients use the single `mem0-agent-plugin/` package. Independent TypeScript integrations stay self-contained and import shared lifecycle behavior from `agent-plugin-core/typescript/`.
