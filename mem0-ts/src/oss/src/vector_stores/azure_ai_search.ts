@@ -316,7 +316,13 @@ export class AzureAISearch implements VectorStore {
     for (const [key, value] of Object.entries(filters)) {
       const safeKey = this.sanitizeKey(key);
 
-      if (typeof value === "string") {
+      if (value === "*") {
+        // The documented '*' filter value means "the field exists"
+        // (mem0ai/mem0#6539); a literal eq '*' comparison would match
+        // nothing. Fields absent from a document are null in Azure AI
+        // Search, so 'ne null' expresses exactly field-exists.
+        filterConditions.push(`${safeKey} ne null`);
+      } else if (typeof value === "string") {
         // Escape single quotes in string values
         const safeValue = value.replace(/'/g, "''");
         filterConditions.push(`${safeKey} eq '${safeValue}'`);
