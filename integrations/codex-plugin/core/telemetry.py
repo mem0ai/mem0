@@ -272,6 +272,25 @@ def anonymous_id(identity: dict[str, str] | None = None) -> str:
     return created
 
 
+def _rotate_anonymous_id(identity: dict[str, str]) -> str:
+    """Mint a fresh anonymous id because the account context is gone.
+
+    The previous id may already have been merged into a person profile by an
+    $identify, and that merge is permanent. Reusing it after a logout or a key
+    change attributes everything that follows to the account that just went
+    away, which is the same misattribution the key fingerprint exists to stop,
+    only arriving through the anonymous path instead.
+
+    `aliased` is cleared with it: the new id has never been merged, so it is
+    eligible to be aliased into whatever account comes next.
+    """
+    created = f"code-anon-{uuid.uuid4().hex}"
+    identity["anonymous_id"] = created
+    identity.pop("aliased", None)
+    _write_identity(identity)
+    return created
+
+
 def _install_state_path() -> Path:
     return memory_core.data_dir() / "install-state.json"
 
@@ -400,11 +419,19 @@ def claim_version_change() -> str | None:
 
     state["plugin_version"] = memory_core.PLUGIN_VERSION
     state["upgraded_at"] = memory_core.utc_now()
+    temporary = path.with_suffix(f".{os.getpid()}.tmp")
     try:
-        temporary = path.with_suffix(f".{os.getpid()}.tmp")
         temporary.write_text(json.dumps(state), encoding="utf-8")
         temporary.replace(path)
     except OSError:
+        # Release the claim. The marker still records the old version, so
+        # without this the sentinel makes claim_version_change return early on
+        # every later run and this version's upgrade is never recorded again.
+        for leftover in (sentinel, temporary):
+            try:
+                leftover.unlink()
+            except OSError:
+                pass
         return None
     return previous
 
@@ -727,26 +754,43 @@ def resolve_distinct_id() -> tuple[str, str]:
         if recorded == fingerprint:
             return email, ""
         if not recorded:
-            # Rows written before fingerprints existed. Adopt the current key
-            # rather than re-resolving: otherwise every existing user pays an
-            # uncached /v1/ping/ on every flush, forever, and a firewalled one
-            # pays the full timeout each time.
+            # Rows written before fingerprints existed. Verify rather than
+            # adopt: a key changed before the upgrade would otherwise bind the
+            # new key to the previous account's email, permanently, and the
+            # fingerprint would then agree with itself forever after.
+            verified = _resolve_email(key)
+            if not verified:
+                # Offline, firewalled, or the API is down. Keep the previous
+                # behaviour and retry on the next flush rather than dropping a
+                # real account attribution. Safe because the same network that
+                # failed /v1/ping/ is about to fail the PostHog POST, so nothing
+                # is delivered under the unverified identity in the meantime.
+                return email, ""
+            identity["email"] = verified
             identity["key_fingerprint"] = fingerprint
             _write_identity(identity)
-            return email, ""
+            return verified, ""
 
     if not key:
         # No key to verify the account with; do not keep attributing to it.
         if email:
             identity.pop("email", None)
             identity.pop("key_fingerprint", None)
-            _write_identity(identity)
+            return _rotate_anonymous_id(identity), ""
         return anonymous_id(identity), ""
 
     resolved = _resolve_email(key)
     if not resolved:
         # The key changed and will not resolve (revoked, offline, API down).
-        # Do not keep attributing to the previous account.
+        # Reaching here with an email means the recorded fingerprint disagreed,
+        # so the key really did change. Drop the account and rotate: the stored
+        # anonymous id may already be merged into that account's person, and
+        # reusing it would keep the events on the profile we are trying to
+        # leave.
+        if email:
+            identity.pop("email", None)
+            identity.pop("key_fingerprint", None)
+            return _rotate_anonymous_id(identity), ""
         return anonymous_id(identity), ""
 
     # Alias only when going anonymous -> email for the first time. Once an anon
