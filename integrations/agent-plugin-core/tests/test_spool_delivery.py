@@ -266,11 +266,100 @@ def test_an_undeliverable_batch_is_eventually_given_up_on(telemetry):
     telemetry.record("doomed")
     telemetry._post = lambda payload, url: False
 
+    directory = telemetry.memory_core.data_dir()
     for _ in range(telemetry.MAX_CLAIM_ATTEMPTS + 3):
         telemetry.flush()
+        # Attempts now carry a cooldown, so a released claim is not instantly
+        # reclaimable. Age it to stand in for the wall time a real retry waits;
+        # without this the loop spins inside one cooldown and proves nothing.
+        for parked in directory.glob("telemetry-*.sending"):
+            stale = time.time() - (telemetry.CLAIM_STALE_SECONDS + 60)
+            os.utime(parked, (stale, stale))
 
-    leftover = list(telemetry.memory_core.data_dir().glob("telemetry-*.sending"))
+    leftover = list(directory.glob("telemetry-*.sending"))
     assert leftover == [], f"batch never given up on: {[p.name for p in leftover]}"
+
+
+def test_a_batch_that_cannot_be_read_is_not_counted_as_delivered(telemetry):
+    """Review finding: a read failure reported 'everything delivered'.
+
+    Nothing was posted, so calling it delivered lets flush() carry on to other
+    claims as though this batch had arrived, and hides the failure from the one
+    signal that says the run went badly. It also must not quarantine: a briefly
+    unreadable file is retryable, and moving it to .corrupt discards the events
+    over a transient filesystem error, because nothing ever re-globs .corrupt.
+    """
+    telemetry.record("search")
+    spool = telemetry._spool_path()
+    stale = time.time() - (telemetry.CLAIM_STALE_SECONDS + 60)
+    os.utime(spool, (stale, stale))
+    claim = telemetry._claim_spool()
+    assert claim is not None
+
+    original = Path.read_text
+
+    def unreadable(self, *args, **kwargs):
+        if self == claim:
+            raise OSError(5, "I/O error")
+        return original(self, *args, **kwargs)
+
+    Path.read_text = unreadable
+    try:
+        sent, delivered = telemetry._drain(claim)
+    finally:
+        Path.read_text = original
+
+    assert sent == 0
+    assert delivered is False, "an unread batch was reported as delivered"
+    assert claim.exists(), "a transient read error discarded the batch"
+    assert not list(claim.parent.glob("*.corrupt")), "quarantined over a transient error"
+
+
+def test_undecodable_content_is_still_quarantined_and_the_run_continues(telemetry):
+    """The other half: genuinely unrecoverable content must not block the run.
+
+    Guards the over-correction. If every read problem returned undelivered, one
+    torn file would stop every later claim on every flush, forever.
+    """
+    telemetry.record("search")
+    spool = telemetry._spool_path()
+    stale = time.time() - (telemetry.CLAIM_STALE_SECONDS + 60)
+    os.utime(spool, (stale, stale))
+    claim = telemetry._claim_spool()
+    assert claim is not None
+    claim.write_bytes(b"\xff\xfe torn \x00 write")
+
+    sent, delivered = telemetry._drain(claim)
+
+    assert (sent, delivered) == (0, True)
+    assert not claim.exists()
+    assert list(claim.parent.glob("*.corrupt")), "unrecoverable content was not quarantined"
+
+
+def test_retries_are_spread_over_real_time_not_burned_at_once(telemetry):
+    """Review finding: releasing straight to reclaimable spent the budget instantly.
+
+    Two senders hitting one momentary failure could walk a batch from attempt 0
+    to the limit within seconds and discard it, when a retry a minute later would
+    have delivered. Each release now has to age past a cooldown that grows with
+    the attempts already spent.
+    """
+    telemetry.record("doomed")
+    telemetry._post = lambda payload, url: False
+
+    directory = telemetry.memory_core.data_dir()
+    telemetry.flush()
+
+    parked = list(directory.glob("telemetry-*.sending"))
+    assert parked, "the batch was discarded on its first failure"
+    assert telemetry._claim_attempt(parked[0]) == 0
+
+    # Second sender, immediately: the cooldown has not elapsed, so it must not
+    # be able to spend another attempt.
+    telemetry.flush()
+    still = list(directory.glob("telemetry-*.sending"))
+    assert len(still) == 1
+    assert telemetry._claim_attempt(still[0]) <= 1, "burned attempts without waiting"
 
 
 def test_a_legacy_claim_filename_is_not_mistaken_for_a_huge_attempt_count(telemetry):
