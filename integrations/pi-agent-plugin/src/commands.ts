@@ -6,10 +6,12 @@ import { DEFAULT_CUSTOM_CATEGORIES } from "./types.ts";
 import { resolveSearchFilters, resolveAddParams } from "./memory/scoping.ts";
 import { formatMemoryList, formatMemoryCompact, groupByCategory } from "./memory/formatting.ts";
 import { captureCommandEvent } from "./telemetry.ts";
+import { PLATFORM_SOURCE } from "./attribution.ts";
 
-// Surface attribution on the wire. Previously a PostHog property only, so
-// the platform saw these calls as generic SDK traffic.
-const PLATFORM_SOURCE = "PI_AGENT";
+// Wire identity is set once on the shared client in entry.ts, which covers
+// every path including recall, capture, tools and deletion. It stays in the
+// body of the two calls below as well: body `source` is what the backend reads
+// when the header is absent.
 
 const SEARCH_TOP_K = 10;
 
