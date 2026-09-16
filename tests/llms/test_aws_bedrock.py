@@ -506,3 +506,69 @@ class TestParseResponseLegacy:
         response = {"body": body}
         result = llm._parse_response(response, tools=None)
         assert result == "hello from ai21"
+
+    def test_titan_results_output_text(self, mock_boto3):
+        """Titan InvokeModel returns results[0].outputText, not top-level completion."""
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({
+            "inputTextTokenCount": 3,
+            "results": [{"tokenCount": 5, "outputText": "Hi from Titan", "completionReason": "FINISH"}],
+        }).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == "Hi from Titan"
+
+    def test_titan_generate_response(self, mock_boto3):
+        """End-to-end: generate_response returns Titan outputText instead of ''."""
+        import io
+        import json
+        titan_body = {
+            "inputTextTokenCount": 3,
+            "results": [{"tokenCount": 5, "outputText": "Hi from Titan", "completionReason": "FINISH"}],
+        }
+        mock_boto3.invoke_model.return_value = {"body": io.BytesIO(json.dumps(titan_body).encode())}
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+
+        result = llm.generate_response([{"role": "user", "content": "Hello"}])
+
+        assert result == "Hi from Titan"
+
+    def test_titan_missing_results_and_completion_returns_empty(self, mock_boto3):
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({"not_results": True}).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == ""
+
+    def test_titan_empty_results_returns_empty(self, mock_boto3):
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({"results": []}).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == ""
+
+    def test_titan_legacy_completion_fallback(self, mock_boto3):
+        """Keep completion lookup as fallback for any other legacy Amazon shape."""
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({"completion": "legacy fallback"}).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == "legacy fallback"
+
+    def test_nova_content_unchanged(self, mock_boto3):
+        """Nova branch still reads content[0].text."""
+        llm = _make_llm("amazon.nova-3-mini-20241119-v1:0", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({"content": [{"text": "nova hi"}]}).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == "nova hi"
