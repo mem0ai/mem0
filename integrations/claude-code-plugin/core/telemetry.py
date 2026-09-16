@@ -147,6 +147,19 @@ def _install_salt() -> str:
             os.link(temporary, path)
         except FileExistsError:
             pass
+        except OSError:
+            # No hardlinks here (some network mounts, some container volumes).
+            # Claim the name directly instead. That reopens the empty-file
+            # window, but the window is now benign: a reader that lands in it
+            # gets "" and omits the hash for that process rather than caching a
+            # guessable one. Losing the hashes on every run of an entire
+            # filesystem is the worse failure.
+            try:
+                fallback = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                with os.fdopen(fallback, "w", encoding="utf-8") as stream:
+                    stream.write(temporary.read_text(encoding="utf-8"))
+            except OSError:
+                pass
     except OSError:
         pass
     finally:
