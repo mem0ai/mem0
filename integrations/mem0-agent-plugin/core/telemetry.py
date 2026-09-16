@@ -370,6 +370,14 @@ def claim_install(was_empty: bool | None = None) -> str | None:
                 },
                 stream,
             )
+            # Durable before this returns. The O_EXCL open is what makes the
+            # claim exclusive, so it cannot be replaced by a temp-and-rename
+            # without losing that, which leaves the content as the thing to make
+            # safe. A kill between the open and this fsync used to leave a marker
+            # that exists but parses to nothing: is_first_run reads it as claimed
+            # and claim_version_change cannot read a version out of it.
+            stream.flush()
+            os.fsync(stream.fileno())
     except OSError:
         pass
     return "upgrade" if upgrading else "install"
