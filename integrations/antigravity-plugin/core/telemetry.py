@@ -461,6 +461,14 @@ def _claim_parked(directory: Path) -> Path | None:
             age = now - orphan.stat().st_mtime
         except OSError:
             continue
+        if age < CLAIM_STALE_SECONDS:
+            # Someone else holds a live lease on it. This check has to come
+            # first. Claiming a file bumps its attempt count and refreshes its
+            # mtime, so a sender that has just taken the final attempt looks
+            # exhausted to everyone else while it is actively draining. Judging
+            # exhaustion before liveness let a second sender unlink a batch out
+            # from under its owner, losing every event in it.
+            continue
         # Attempts, not age. Every re-claim touches the mtime and every release
         # backdates it by a fixed amount, so age is pinned near the stale
         # threshold and never reaches the expiry. Age stays only as a backstop
@@ -470,9 +478,6 @@ def _claim_parked(directory: Path) -> Path | None:
                 orphan.unlink()
             except OSError:
                 pass
-            continue
-        if age < CLAIM_STALE_SECONDS:
-            # Someone else holds a live lease on it.
             continue
         claim = orphan.parent / _claim_name(_claim_attempt(orphan) + 1)
         try:
