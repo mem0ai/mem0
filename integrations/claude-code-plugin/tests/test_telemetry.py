@@ -358,6 +358,26 @@ def test_a_half_written_salt_is_never_visible_to_another_process(isolated_env, m
     assert salt_path.read_text(encoding="utf-8").strip() == salt
 
 
+def test_a_filesystem_without_hardlinks_still_gets_a_salt(isolated_env, monkeypatch):
+    """Publishing by link must not become a silent loss of the hashes.
+
+    Some network mounts and container volumes reject os.link. Returning ""
+    there would drop repo_hash and session_hash on every run for that whole
+    cohort, which is a bigger loss than the narrow race the link closes.
+    """
+    telemetry._salt_cache = ""
+    monkeypatch.setattr(
+        telemetry.os, "link", lambda src, dst: (_ for _ in ()).throw(OSError(38, "not implemented"))
+    )
+
+    salt = telemetry._install_salt()
+
+    assert len(salt) == 32, "no salt on a filesystem without hardlinks"
+    assert telemetry._salt_path().read_text(encoding="utf-8").strip() == salt
+    assert telemetry._scoped_digest("git@github.com:acme/x.git") != ""
+    assert not list(telemetry._salt_path().parent.glob("telemetry-salt.*.tmp"))
+
+
 def test_a_concurrent_writer_does_not_clobber_the_published_salt(isolated_env):
     """Second process to finish must adopt the first one's salt, not replace it.
 
