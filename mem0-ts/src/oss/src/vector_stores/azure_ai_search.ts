@@ -71,6 +71,7 @@ interface AzureAISearchConfig extends VectorStoreConfig {
  */
 export class AzureAISearch implements VectorStore {
   private searchClient!: SearchClient<any>;
+  private migrationsClient!: SearchClient<any>;
   private indexClient!: SearchIndexClient;
   private readonly serviceName: string;
   private readonly indexName: string;
@@ -122,6 +123,11 @@ export class AzureAISearch implements VectorStore {
     this.searchClient = new searchSdk.SearchClient(
       serviceEndpoint,
       this.indexName,
+      credential,
+    );
+    this.migrationsClient = new searchSdk.SearchClient(
+      serviceEndpoint,
+      "memory_migrations",
       credential,
     );
     this.indexClient = new searchSdk.SearchIndexClient(
@@ -639,7 +645,7 @@ export class AzureAISearch implements VectorStore {
       }
 
       // Try to get existing user_id
-      const searchResults = await this.searchClient.search("*", {
+      const searchResults = await this.migrationsClient.search("*", {
         top: 1,
       });
 
@@ -655,7 +661,7 @@ export class AzureAISearch implements VectorStore {
         Math.random().toString(36).substring(2, 15) +
         Math.random().toString(36).substring(2, 15);
 
-      await this.searchClient.uploadDocuments([
+      await this.migrationsClient.uploadDocuments([
         {
           id: this.generateUUID(),
           user_id: randomUserId,
@@ -677,7 +683,7 @@ export class AzureAISearch implements VectorStore {
     await this.initialize();
     try {
       // Get existing point ID or generate new one
-      const searchResults = await this.searchClient.search("*", {
+      const searchResults = await this.migrationsClient.search("*", {
         top: 1,
       });
 
@@ -688,7 +694,7 @@ export class AzureAISearch implements VectorStore {
         break;
       }
 
-      await this.searchClient.mergeOrUploadDocuments([
+      await this.migrationsClient.mergeOrUploadDocuments([
         {
           id: pointId,
           user_id: userId,
