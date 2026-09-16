@@ -2306,8 +2306,8 @@ def test_sidekick_instructions_reject_unrequested_related_changes():
     prompt = (PLUGIN_ROOT / "agents" / "sidekick.md").read_text()
     normalized = " ".join(prompt.split())
     assert "Skill" in prompt.split("---", 2)[1]
-    assert "ALWAYS call `search_memories` before answering anything" in normalized
-    assert "Do not rely on the chat window" in normalized
+    assert "When memories from earlier sessions could help" in normalized
+    assert "Skip another search when the context already answers it" in normalized
     assert "Complete only the work the main agent assigned" in normalized
     assert "Do not make related improvements" in normalized
     assert "report them separately" in normalized
@@ -2783,7 +2783,7 @@ def test_search_skill_describes_memory_as_optional_starting_knowledge():
 
 def test_control_skills_exposed():
     names = sorted(p.name for p in (PLUGIN_ROOT / "skills").iterdir() if p.is_dir())
-    assert names == ["forget", "pause", "remember", "resume", "search", "status"]
+    assert names == ["forget", "handoff", "pause", "remember", "resume", "search", "status"]
 
 
 def test_status_skill_runs_cli_and_surfaces_auth_failures():
@@ -3460,7 +3460,7 @@ def test_automatic_flush_can_be_disabled_for_external_harnesses(isolated_env):
 def test_version_is_single_sourced():
     manifest = json.loads((PLUGIN_ROOT / ".claude-plugin" / "plugin.json").read_text())
     assert manifest["name"] == "mem0"
-    assert manifest["version"] == memory_core.PLUGIN_VERSION == "0.3.1"
+    assert manifest["version"] == memory_core.PLUGIN_VERSION == "0.3.2"
     root = REPOSITORY_ROOT
     for mp in (root / "marketplace.json", root / ".claude-plugin" / "marketplace.json"):
         entry = next(p for p in json.loads(mp.read_text())["plugins"] if p["name"] == "mem0")

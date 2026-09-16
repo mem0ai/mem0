@@ -5,7 +5,9 @@ description: "Add persistent memory to Pi Agent with the Mem0 plugin, semantic s
 
 Add persistent memory to [**Pi Agent**](https://pi.dev) with `@mem0/pi-agent-plugin`. Your agent forgets everything between sessions. This plugin fixes that by automatically capturing knowledge from conversations, storing it in Mem0's cloud memory layer, and retrieving relevant context before every response.
 
-<Info>Current package version: `0.3.0`.</Info>
+<Info>Current package version: `0.3.1`.</Info>
+
+For explicit session handoff, use `/mem0-handoff`, `/mem0-handoff list`, or `/mem0-handoff resume /absolute/path.json`. All plugins share local resources in `~/.mem0/handoffs/`. Requires Python 3.10+; first use downloads and verifies the shared engine, then cached use works offline.
 
 Sidekick is available only in the [Claude Code plugin](/integrations/claude-code#sidekick-agent).
 
@@ -16,7 +18,7 @@ The plugin provides:
 2. **Semantic recall**: Automatically searches project memories before each agent turn; `mem0_memory` supports additional explicit searches
 3. **Monorepo-aware scoping**: Uses git root for project detection, consistent across subdirectories
 4. **Confirmation dialogs**: Destructive commands ask before acting via Pi's built-in UI
-5. **6 skills + 6 commands**: Essential memory management from slash commands and agent-guided workflows
+5. **6 skills + 7 commands**: Essential memory management from slash commands and agent-guided workflows
 
 ## Prerequisites
 
@@ -80,7 +82,7 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
 | Component | Description |
 |-----------|-------------|
 | `mem0_memory` tool | Agent-callable tool for search, add, get_all, delete, delete_all |
-| 6 slash commands | Essential memory management from the command line |
+| 7 slash commands | Essential memory management from the command line |
 | 6 skills | Guide the agent on how to use each capability |
 | Auto-capture | Extracts and stores facts on every `agent_end` event |
 | System prompt | Appends memory policy to every agent turn |
@@ -110,6 +112,7 @@ Tool output is truncated to 200 lines / 50KB to prevent context overflow.
 | `/mem0-search <query>` | Semantic search across memories |
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
 | `/mem0-scope <scope>` | Change default scope for this session (project, session, global) |
+| `/mem0-handoff [save|list|resume <path>]` | Save or resume shared session context |
 | `/mem0-status` | Connection health, identity, and memory count |
 
 ## Memory Scopes

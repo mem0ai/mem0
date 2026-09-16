@@ -1,6 +1,6 @@
 {
   "name": "@mem0/opencode-plugin",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "description": "Mem0 persistent memory plugin for OpenCode — add, search, and manage memories across sessions",
   "main": "dist/index.js",
@@ -35,8 +35,8 @@
     "opencode-skills"
   ],
   "scripts": {
-    "build": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext]",
-    "dev": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] --watch",
+    "build": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] && node ../agent-plugin-core/build/package_handoff.mjs",
+    "dev": "mkdir -p dist && node ../agent-plugin-core/build/package_handoff.mjs && bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] --watch",
     "type-check": "tsc --noEmit",
     "prepack": "bun run build",
     "postpack": ""

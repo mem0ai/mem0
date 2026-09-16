@@ -1,0 +1,11 @@
+{
+  "revision": "59939c003f6b3eb8add709e5897f7bfbe3e9f4d8",
+  "files": {
+    "handoff_engine.py": "5786e4f24e1145ce26867d18c78fafc8e3de4097b5494815073a2e09df15ea11",
+    "handoff_sources.py": "dee34ca5a6cd591e2468b10108233adde3de0f7f2858e0b864f88ae6bed5e5f9"
+  },
+  "artifacts": [
+    "session_handoff.py",
+    "handoff-runtime.json"
+  ]
+}

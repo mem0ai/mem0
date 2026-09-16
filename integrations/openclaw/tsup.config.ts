@@ -1,4 +1,5 @@
 import { defineConfig } from "tsup";
+import { packageHandoff } from "../agent-plugin-core/build/package_handoff.mjs";
 import pkg from "./package.json";
 
 export default defineConfig({
@@ -8,6 +9,7 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
+  onSuccess: () => packageHandoff(),
   external: [/^node:/, /^openclaw\//, "fs", "os", "path", "url", "readline", "module",
              "mem0ai", /^mem0ai\//, "better-sqlite3", "@sinclair/typebox"],
   define: {

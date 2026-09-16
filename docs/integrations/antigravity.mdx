@@ -5,7 +5,9 @@ description: "Add persistent memory to Google Antigravity with the Mem0 plugin: 
 
 Add persistent memory to [**Google Antigravity**](https://antigravity.google) (`agy` CLI and Desktop IDE) with the Mem0 plugin. The plugin captures completed work, and Antigravity can search those memories in later sessions.
 
-<Info>Current plugin version: `0.3.1`.</Info>
+<Info>Current plugin version: `0.3.2`.</Info>
+
+The explicit `handoff` skill saves session context as a shared local resource in `~/.mem0/handoffs/`. Ask the agent to use `handoff_resource` to list the current project’s resources or resume a saved path from any Mem0 plugin. Requires Python 3.10+; the shared engine is downloaded and verified on first use, then cached.
 
 Sidekick is available only in the [Claude Code plugin](/integrations/claude-code#sidekick-agent).
 

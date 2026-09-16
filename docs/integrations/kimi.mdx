@@ -5,7 +5,9 @@ description: "Add persistent project memory to Kimi Code with automatic capture,
 
 Kimi Code forgets project decisions between sessions. The Mem0 plugin captures completed work, recalls relevant context before a response, and gives Kimi explicit memory tools and skills.
 
-<Info>Current plugin version: `0.3.1`.</Info>
+<Info>Current plugin version: `0.3.2`.</Info>
+
+The explicit `handoff` skill saves session context as a shared local resource in `~/.mem0/handoffs/`. Ask the agent to use `handoff_resource` to list the current project’s resources or resume a saved path from any Mem0 plugin. Requires Python 3.10+; the shared engine is downloaded and verified on first use, then cached.
 
 Sidekick is available only in the [Claude Code plugin](/integrations/claude-code#sidekick-agent).
 

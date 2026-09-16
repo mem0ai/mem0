@@ -4,7 +4,7 @@ Persistent cross-session memory for Claude Code, plus a Sonnet sidekick agent fo
 
 Claude Code forgets everything between sessions. This plugin fixes that: hooks capture session details locally, a background worker turns them into Mem0 memories, and Claude automatically gets the relevant ones back at the start of later sessions.
 
-Current bundle version: `0.3.1`.
+Current bundle version: `0.3.2`.
 
 ## Prerequisites
 
@@ -102,6 +102,10 @@ By default the worktree branches from the repo's default branch. Set `worktree.b
 | `/mem0:remember` | Tell Claude to capture something specific in its reply. |
 
 Categories for `--category`: `project_knowledge`, `decisions_and_constraints`, `workflows`, `problems_and_fixes`, `results`.
+
+## Session handoff
+
+Run `/mem0:handoff` to save the current Claude session as a shared local resource. Any Mem0 plugin can resume it; explicitly ask the agent to use `handoff_resource` to list or resume a saved path. Requires Python 3.10+. See the [shared handoff logic](../agent-plugin-core/README.md#session-handoff).
 
 ## Search scope
 

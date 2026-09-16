@@ -24,6 +24,17 @@ declare module "openclaw/plugin-sdk" {
     publicArtifacts?: PublicArtifactsProvider;
   }
 
+  export type OpenClawPluginTool = {
+    name: string;
+    description: string;
+    parameters: unknown;
+    execute: (
+      toolCallId: string,
+      params: Record<string, unknown>,
+    ) => Promise<{ content: Array<{ type: string; text: string }>; [key: string]: unknown }>;
+    [key: string]: unknown;
+  };
+
   export interface OpenClawPluginApi {
     pluginConfig: Record<string, unknown>;
     registrationMode?: "full" | "cli-metadata" | string;
@@ -35,16 +46,7 @@ declare module "openclaw/plugin-sdk" {
     };
     resolvePath(p: string): string;
     registerTool(
-      definition: {
-        name: string;
-        description: string;
-        parameters: unknown;
-        execute: (
-          toolCallId: string,
-          params: Record<string, unknown>,
-        ) => Promise<{ content: Array<{ type: string; text: string }>; [key: string]: unknown }>;
-        [key: string]: unknown;
-      },
+      definition: OpenClawPluginTool | ((ctx: { workspaceDir?: string; sessionId?: string; sessionKey?: string }) => OpenClawPluginTool | null),
       metadata?: { optional?: boolean; [key: string]: unknown },
     ): void;
     on(event: string, handler: (event: any, ctx: any) => any): void;

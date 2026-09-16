@@ -27,10 +27,9 @@ When an ID is detected:
 
 ### Step 2: Search
 
-Run 2 parallel `search_memories` calls:
-
-1. Broad: `query=<user's query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
-2. Targeted: `query=<user's query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "decision"}}]}`, `top_k=5`, `rerank=true`
+Call `search_memories` with `query=<user's query>`,
+`filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`.
+Search again only if a specific gap remains.
 
 ### Step 3: Display
 

@@ -10,10 +10,19 @@ It gives a Harness agent automatic long-term memory plus two explicit memory too
 | Auto-capture | Stores the human/assistant messages from each completed turn |
 | `search_memory` | Recall facts from Mem0 relevant to a query |
 | `add_memory` | Store a fact in Mem0 for future sessions |
+| `mem0_handoff` | Save, list, or resume shared session context |
 
 Unlike the local/file-based memory plugins in the ecosystem, Mem0 is a managed backend: server-side extraction, semantic dedup and conflict resolution, and memories that other agents can retrieve when their user and entity filters match.
 
-Current package version: `0.3.0`.
+Current package version: `0.3.1`.
+
+## Session handoff
+
+Use `mem0_handoff` with action `save`, `list`, or `resume` (with a resource path). Save reads the current DeepSeek session; invoke save directly, outside a running nested code-mode call.
+
+All plugins share local resources in `~/.mem0/handoffs/`, preserving supported active context, images, and completed tool outcomes. Resume reads that context as historical evidence. Requires **Python 3.10+** as `python3`; no destination CLI or Mem0 credentials are required.
+
+The shared engine is fetched from a pinned GitHub commit on first use, verified, and cached across all plugins. Cached use works offline; no transcript is sent to GitHub. See the [shared handoff logic](../agent-plugin-core/README.md#session-handoff) for source formats and validation.
 
 Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent).
 
@@ -54,7 +63,7 @@ Cordis owns listener and tool cleanup when the plugin unmounts. Every automatic 
 3. Install it into a disposable Harness profile:
    ```sh
    DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
-     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.3.0.tgz
+     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.3.1.tgz
    ```
 4. Copy `cordis.example.yml`, set its installed package path and your `userId`, then run Harness with the same profile:
    ```sh
@@ -70,7 +79,7 @@ For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that
 | Field | Required | Default | Notes |
 |---|---|---|---|
 | `apiKey` | no | `$MEM0_API_KEY` | Mem0 platform API key |
-| `userId` | yes | | Entity that owns the memories |
+| `userId` | yes | | Entity that owns the memories; required when a Mem0 API key is configured |
 | `allowUserOverride` | no | `false` | Permit model-selected access to a different user only in a trusted multi-user deployment |
 | `host` | no | `api.mem0.ai` | Platform base URL (on-prem / dedicated) |
 | `autoRecall` | no | `true` | Recall relevant memory before model requests |

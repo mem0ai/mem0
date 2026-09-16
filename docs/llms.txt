@@ -418,7 +418,7 @@ Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load 
 
 Source: https://github.com/mem0ai/mem0/tree/main/integrations/claude-code-plugin
 
-The self-contained Claude Code plugin lives in `integrations/claude-code-plugin/` (v0.3.1, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes a single local MCP tool, `search_memories`, plus six `/mem0:*` skills and `mem0:sidekick`, available only in Claude Code. Pure-stdlib Python, nothing to install.
+The self-contained Claude Code plugin lives in `integrations/claude-code-plugin/` (v0.3.2, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes local MCP tools `search_memories` and `handoff_resource`, plus six memory skills, the explicit `/mem0:handoff` command and `mem0:sidekick`, available only in Claude Code. Pure-stdlib Python, nothing to install.
 
 ### Coding-Agent Plugin Sources
 

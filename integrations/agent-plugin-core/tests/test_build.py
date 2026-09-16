@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 import pytest
@@ -133,3 +134,34 @@ def test_marketplaces_keep_public_names_and_reference_real_plugins() -> None:
     assert [plugin["name"] for plugin in codex_marketplace["plugins"]] == ["mem0"]
     codex = codex_marketplace["plugins"][0]
     assert codex["source"]["path"] == "./integrations/codex-plugin"
+
+
+@pytest.mark.parametrize("host", ["claude-code", "cursor", "codex", "kimi", "antigravity", "mem0-agent-plugin"])
+def test_handoff_is_bundled_with_host_appropriate_invocation(host: str, tmp_path: Path) -> None:
+    kind = "portable" if host == "mem0-agent-plugin" else "native"
+    root = build(host, kind, tmp_path / host)
+    skill = (root / "skills" / "handoff" / "SKILL.md").read_text()
+    assert (root / "core" / "session_handoff.py").is_file()
+    assert (root / "core" / "handoff-runtime.json").is_file()
+    assert not (root / "core" / "handoff_sources.py").exists()
+    assert not (root / "core" / "handoff_engine.py").exists()
+    assert "Only run on an explicit user request" in skill
+    assert "--save --command-output" in skill
+    if host == "claude-code":
+        assert '!`python3 "${CLAUDE_PLUGIN_ROOT}/core/session_handoff.py"' in skill
+        assert "${CLAUDE_SESSION_ID}" in skill
+    else:
+        assert "!`" not in skill
+        assert "NATIVE_TRANSCRIPT_PATH" in skill
+        assert "Never guess the latest session" in skill
+
+
+def test_handoff_preprocessor_matches_its_declared_permission(tmp_path: Path) -> None:
+    root = build("claude-code", "native", tmp_path / "plugin with spaces")
+    skill = (root / "skills" / "handoff" / "SKILL.md").read_text()
+    rule = next(line for line in skill.splitlines() if line.startswith("allowed-tools: Bash("))
+    pattern = rule.removeprefix("allowed-tools: Bash(").removesuffix(")")
+    command = next(line for line in skill.splitlines() if line.startswith("!`")).removeprefix("!`").removesuffix("`")
+    assert fnmatchcase(command, pattern), (
+        "Claude's preprocessor command must match its permission rule, including quotes"
+    )

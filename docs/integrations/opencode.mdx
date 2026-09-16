@@ -5,7 +5,9 @@ description: "Add persistent memory to OpenCode with the Mem0 plugin: native SDK
 
 Add persistent memory to [**OpenCode**](https://opencode.ai) with the Mem0 plugin. Your agent forgets everything between sessions. Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
 
-<Info>Current package version: `0.3.0`.</Info>
+<Info>Current package version: `0.3.1`.</Info>
+
+For explicit session handoff, use `/mem0-handoff`, `/mem0-handoff list`, or `/mem0-handoff resume /absolute/path.json`. All plugins share local resources in `~/.mem0/handoffs/`. Requires Python 3.10+; first use downloads and verifies the shared engine, then cached use works offline.
 
 Sidekick is available only in the [Claude Code plugin](/integrations/claude-code#sidekick-agent).
 
@@ -110,7 +112,7 @@ The project id (`app_id`) is derived from your git remote (`owner-repo`), fallin
 
 ## Lifecycle Hooks
 
-The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SDK directly. It is pure TypeScript, no Python, no shell scripts.
+The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SDK directly. Memory features use TypeScript. The optional session handoff command runs the shared cached Python engine.
 
 | OpenCode Event | Hook | What happens |
 |----------------|------|-------------|

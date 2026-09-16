@@ -5,7 +5,9 @@ description: "Persistent cross-session memory for Claude Code. Install once, mem
 
 Claude Code forgets everything between sessions. This plugin fixes that. Install it, work normally, and Claude remembers what happened across sessions.
 
-<Info>Current plugin version: `0.3.1`.</Info>
+<Info>Current plugin version: `0.3.2`.</Info>
+
+The explicit `handoff` skill saves session context as a shared local resource in `~/.mem0/handoffs/`. Ask the agent to use `handoff_resource` to list the current project’s resources or resume a saved path from any Mem0 plugin. Requires Python 3.10+; the shared engine is downloaded and verified on first use, then cached.
 
 ## Prerequisites
 
@@ -60,7 +62,7 @@ Categories for `--category`: `project_knowledge`, `decisions_and_constraints`, `
 
 ### Search tool
 
-After the automatic first-prompt search, Claude can also call `search_memories` with a specific question, and you can run `/mem0:search` yourself. Explicit searches return up to 3 results by default (configurable to 20). The combined search output is capped at 4,000 characters by default, configurable with `max_context_chars`. This recall limit does not truncate captured messages sent for extraction.
+After the automatic first-prompt search, Claude can call `search_memories` when earlier work would help answer a specific question. It can reuse context already available and does not need to search before every answer. You can run `/mem0:search` yourself. Explicit searches return up to 3 results by default (configurable to 20). The combined search output is capped at 4,000 characters by default, configurable with `max_context_chars`. This recall limit does not truncate captured messages sent for extraction.
 
 ### Sidekick agent
 

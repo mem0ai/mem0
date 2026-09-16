@@ -1,3 +1,4 @@
+import { SEARCH_GUIDANCE } from "../../agent-plugin-core/typescript/src/search_guidance.ts";
 /**
  * deepseek-plugin: Mem0 long-term memory as a native DeepSeek Harness (Cordis) plugin.
  *
@@ -20,6 +21,7 @@ import { formatMemoryList, formatAddResult } from "./formatting.ts";
 import { truncateOutput } from "./output.ts";
 import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 import { captureEvent, errorKind } from "./telemetry.ts";
+import { buildHandoffBundle, runHandoff, runHandoffAction } from "../../agent-plugin-core/typescript/src/handoff.ts";
 import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
 
 export const name = "mem0";
@@ -90,9 +92,50 @@ const scopeParams = {
 } as const;
 
 export function apply(ctx: Context, config: Config): void {
+  ctx.tools.register(
+    defineTool({
+      name: "mem0_handoff",
+      description: "On explicit user request, save the current session as a shared handoff resource, list resources for this project, or resume one resource into the current conversation as historical context. Requires Python 3.10+.",
+      parameters: {
+        action: {type: "string", enum: ["save", "list", "resume"], description: "Defaults to save; resume loads a shared resource into this conversation."},
+        resource: {type: "string", description: "Resource path returned by save or list; required for resume."},
+      },
+      output: textOutput,
+      async execute({action = "save", resource}, exec) {
+        try {
+          if (exec.rootCallId && exec.rootCallId !== exec.callId) throw new Error("Invoke handoff directly, outside a nested code-mode tool call.");
+          const session = exec.agent?.session;
+          if (!session) throw new Error("The active DeepSeek session is unavailable.");
+          if (!session.header.cwd) throw new Error("The native session project directory is unavailable.");
+          if (action === "list" || action === "resume") return await runHandoffAction(new URL("./session_handoff.py", import.meta.url), action, session.header.cwd, resource);
+          if (action !== "save") throw new Error("Handoff action must be save, list, or resume.");
+          // dsh-session-title persists user renames and generated titles as last-wins log events.
+          const titleEvent = [...session.events].reverse().find(event => String(event.type) === "session/title");
+          const nativeTitle = (titleEvent?.data as {title?: unknown} | undefined)?.title;
+          if (titleEvent && (typeof nativeTitle !== "string" || !nativeTitle.trim())) throw new Error("The native session title is invalid.");
+          const bundle = await buildHandoffBundle({
+            host: "deepseek", session_id: session.id,
+            title: typeof nativeTitle === "string" ? nativeTitle : `DeepSeek session ${session.id}`, cwd: session.header.cwd,
+          }, session.deriveMessages(), {
+            excludeCallId: exec.callId,
+            readImage: async (ref) => {
+              // Optional services must use Cordis lookup; direct access requires inject.
+              const attachments = ctx.get("attachments") as { readImage(ref: unknown): Promise<{ref: {mediaType: string}; data: Uint8Array}> } | undefined;
+              if (!attachments) throw new Error("DeepSeek image attachment storage is unavailable.");
+              const image = await attachments.readImage(ref);
+              return { data: image.data, mediaType: image.ref.mediaType };
+            },
+          });
+          return await runHandoff(new URL("./session_handoff.py", import.meta.url), bundle);
+        } catch (error) {
+          return `Session handoff failed: ${error instanceof Error ? error.message : String(error)}`;
+        }
+      },
+    }),
+  );
   const apiKey = config.apiKey ?? process.env.MEM0_API_KEY;
   if (!apiKey) {
-    throw new Error("deepseek-plugin: set config.apiKey or the MEM0_API_KEY env var");
+    return; // Local handoff remains available before memory is configured.
   }
   const userId = config.userId?.trim();
   if (!userId || /^\*+$/.test(userId)) {
@@ -199,7 +242,7 @@ export function apply(ctx: Context, config: Config): void {
     defineTool({
       name: "search_memory",
       description:
-        "Search the user's long-term Mem0 memory for facts relevant to a query. Use proactively before answering anything that may depend on what the user told you earlier.",
+        SEARCH_GUIDANCE,
       parameters: {
         query: { type: "string", description: "What to recall.", required: true },
         limit: {

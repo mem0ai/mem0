@@ -129,7 +129,8 @@ describe("resolveApiKey", () => {
         message: "MEM0_API_KEY environment variable not set. Get one at https://app.mem0.ai/dashboard/api-keys",
       },
     });
-    expect(plugin).toEqual({});
+    expect(Object.keys(plugin.tool ?? {})).toEqual(["mem0_handoff"]);
+    expect(plugin["chat.message"]).toBeUndefined();
   });
 
   test("recovers the issue's shell-profile startup path", async () => {

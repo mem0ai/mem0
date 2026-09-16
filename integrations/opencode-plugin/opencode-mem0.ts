@@ -1,9 +1,10 @@
+import {SEARCH_GUIDANCE} from "../agent-plugin-core/typescript/src/search_guidance.ts";
 import { resolveToolScope } from "../agent-plugin-core/typescript/src/scoping.ts";
 // Mem0 memory plugin for OpenCode: captures and recalls memories across sessions
 // (add / search / manage) via the Mem0 platform, wired through OpenCode plugin hooks.
 // Memory operations are exposed as native OpenCode tools backed by the mem0ai SDK
 // (no MCP server required).
-import type {Plugin} from "@opencode-ai/plugin";
+import type {Hooks, Plugin} from "@opencode-ai/plugin";
 import {tool} from "@opencode-ai/plugin";
 import {MemoryClient} from "mem0ai";
 import {userInfo} from "os";
@@ -17,6 +18,7 @@ import {captureEvent} from "./telemetry";
 import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
 import {parseProjectFromRemote} from "./project";
 import {resolveApiKey} from "./api-key";
+import {createHandoffTool, registerHandoffCommand} from "./handoff";
 import {createMemoryLifecycle} from "../agent-plugin-core/typescript/src/lifecycle.ts";
 
 async function getUserId(): Promise<string> {
@@ -231,8 +233,9 @@ function extractUserText(input: any, output: any): string {
   return "";
 }
 
-const Mem0Plugin: Plugin = async (ctx) => {
+const Mem0Plugin: Plugin = async (ctx): Promise<Hooks> => {
   const {$, client} = ctx;
+  const handoffTool = createHandoffTool(client);
 
   const apiKey = resolveApiKey(process.env, process.env.HOME || process.env.USERPROFILE || homedir());
 
@@ -248,7 +251,7 @@ const Mem0Plugin: Plugin = async (ctx) => {
       });
     } catch {
     }
-    return {};
+    return {tool: {mem0_handoff: handoffTool}, config: async (config) => registerHandoffCommand(config)};
   }
 
   const mem0 = new MemoryClient({apiKey});
@@ -356,6 +359,7 @@ Identity context (resolved at plugin startup):
     },
 
     config: async (opencodeConfig: any) => {
+      registerHandoffCommand(opencodeConfig);
       // Point OpenCode at the plugin's OWN skills directory via `skills.paths`
       const here = import.meta.filename;
       const skillsDir = [
@@ -376,6 +380,7 @@ Identity context (resolved at plugin startup):
     },
 
     tool: {
+      mem0_handoff: handoffTool,
       add_memory: tool({
         description: "Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something. Set infer to false to store the memory verbatim without LLM fact extraction.",
         args: {
@@ -424,7 +429,7 @@ Identity context (resolved at plugin startup):
       }),
 
       search_memories: tool({
-        description: "Search stored memories by semantic meaning. Use this proactively before answering when the request may depend on the user's past work, preferences, decisions, or environment -- relevant memories are not always auto-injected. For multi-part or comparative questions, run several searches with different phrasings and combine the results rather than stopping after one (multi-hop).",
+        description: SEARCH_GUIDANCE,
         args: {
           query: tool.schema.string().describe("Search query"),
           user_id: tool.schema.string().optional().describe("User ID"),
@@ -636,9 +641,6 @@ Identity context (resolved at plugin startup):
         }
 
         if (memoryCount > 0) {
-          systemContext.push(
-            "Search mem0 for recent decisions and task learnings before responding. Run 2 parallel searches: one for decision type, one for task_learning type.",
-          );
           try {
             const res = await mem0.search(
               "recent session state decisions and learnings",
@@ -659,9 +661,7 @@ Identity context (resolved at plugin startup):
           }
         }
 
-        systemContext.push(
-          "Mem0 searches apply when user references past work, decision questions, errors, or non-trivial tasks. Queries use noun-phrases, 2-4 parallel calls with different metadata.type filters, and include user_id + app_id.",
-        );
+        systemContext.push(SEARCH_GUIDANCE);
         systemContext.push(SCOPE_GUIDANCE);
         const activeScope = loadDefaultScope();
         if (activeScope !== "project") {

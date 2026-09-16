@@ -7,7 +7,12 @@ HOST = Path(__file__).resolve().parents[1]
 CORE_ROOT = HOST.parent / "agent-plugin-core"
 sys.path.insert(0, str(CORE_ROOT))
 
-from build.build import SHARED_SKILLS, build, render_template  # noqa: E402
+from build.build import (  # noqa: E402
+    SHARED_SKILLS,
+    build,
+    handoff_instructions,
+    render_template,
+)
 
 
 def test_native_claude_bundle_preserves_working_contract(tmp_path: Path) -> None:
@@ -26,6 +31,7 @@ def test_native_claude_bundle_preserves_working_contract(tmp_path: Path) -> None
         "COMMAND_PREFIX": "mem0",
         "HARNESS_ID": "claude-code",
         "HARNESS_NAME": "Claude Code",
+        "HANDOFF_INSTRUCTIONS": handoff_instructions("claude-code", "${CLAUDE_PLUGIN_ROOT}"),
     }
     for skill in SHARED_SKILLS.glob("*/SKILL.md.tmpl"):
         rendered = render_template(skill.read_text(encoding="utf-8"), values)

@@ -9,7 +9,7 @@ integrations/
 ├── agent-plugin-core/       # Shared source; never installed as a plugin
 │   ├── python/              # Claude-derived capture, recall, MCP, scoping, and telemetry
 │   ├── typescript/          # Shared lifecycle, formatting, identity, scoping, and telemetry
-│   ├── skills/              # The only source for the six generated memory skills
+│   ├── skills/              # The source for six memory skills and the handoff command
 │   ├── build/               # Bundle builder, schemas, and validation
 │   ├── conformance/         # One offline/live verification entry point
 │   └── tests/
@@ -29,7 +29,9 @@ TypeScript integrations (`openclaw`, `opencode-plugin`, `pi-agent-plugin`, and `
 
 ## Shared memory behavior
 
-The six Python packages use the same `search_memories` MCP tool and six skill templates. Native hooks collect conversations and flush them to Mem0 in the background. The portable package uses the Agent Plugins v1 layout so compatible hosts can load its MCP server and skills. It has no lifecycle hooks or flush worker; its bundled `remember` skill assumes automatic capture and cannot save a memory on its own.
+The six Python packages use the `search_memories` and `handoff_resource` MCP tools, six memory skill templates, and the handoff command. Native hooks collect conversations and flush them to Mem0 in the background. The portable package uses the Agent Plugins v1 layout so compatible hosts can load its MCP server and skills. It has no lifecycle hooks or flush worker; its bundled `remember` skill assumes automatic capture and cannot save a memory on its own.
+
+Search guidance follows Memo: use a focused question when earlier work could help, reuse available context, and search again only for a specific remaining gap. The TypeScript hosts import one shared guidance constant; conformance checks keep it aligned with the generated Python MCP description and reject strict before-answer or repeated-search prompts. Automatic recall schedules and retrieval limits are independent of this wording.
 
 Python search accepts `query`, `top_k`, `category`, `scope`, and optional `run_id`:
 
@@ -49,12 +51,30 @@ TypeScript hosts reuse redaction and lifecycle utilities but retain their own to
 
 For installation, follow the host guides: [Claude Code](../../docs/integrations/claude-code.mdx), [Cursor](../../docs/integrations/cursor.mdx), [Codex](../../docs/integrations/codex.mdx), [Kimi](../../docs/integrations/kimi.mdx), and [Antigravity](../../docs/integrations/antigravity.mdx).
 
+## Session handoff
+
+`python/session_handoff.py` is the common launcher. `python/handoff_sources.py` reads native transcripts; `python/handoff_engine.py` validates and stores the shared resource. The transcript conversion is adapted from [mem0ai/memo](https://github.com/mem0ai/memo/blob/aeeb1593284d1d2fca3b4bcf1e32ea10f71df549/docs/session-handoff.md).
+
+All ten plugins save to the same local resource directory, `~/.mem0/handoffs/`. Each resource preserves the source host, session title, project, active user/assistant context, paired tool calls/results, and supported images. Readable compaction context is retained; hidden reasoning and harness configuration are excluded. Unknown model-visible content, missing results, and opaque compaction fail explicitly. Saving never summarizes or truncates the context, runs recorded tools, or launches a destination application.
+
+TypeScript adapters supply native active context through `typescript/src/handoff.ts`; OpenClaw supplies its trusted transcript path. The six Python packages generate one shared `handoff` skill with source-specific instructions. Claude saves before model invocation to avoid capturing the handoff command itself; other Python hosts require an explicit completed transcript or neutral bundle.
+
+To continue in another plugin on the same machine, explicitly ask it to list the current project's handoffs and resume the selected resource. Python plugins expose `handoff_resource` with `action: "list"` or `action: "resume", resource: "/absolute/path.json"`. OpenCode, Pi, and OpenClaw expose `/mem0-handoff list` and `/mem0-handoff resume /absolute/path.json`; DeepSeek exposes the same actions on `mem0_handoff`. Resumed context is historical evidence, not instructions to replay old tools. Project-scoped listing uses the repository root; an explicit resource path also supports continuing in a relocated checkout. This is local storage, not cloud sync.
+
+Handoff requires Python 3.10+ and runs independently of memory hooks and Mem0 credentials. Pi's save action additionally requires Node.js 22.19+ for its native SDK; list and resume remain available on Node.js 20. No destination CLI or model call is required.
+
+The engine source exists only here. Installable packages contain the small launcher and `build/handoff-runtime.json`, which pins a Git commit and SHA-256 digests. On first explicit use, the launcher downloads the two source files from GitHub into `~/.mem0/handoff-runtime/<revision>`. All ten plugins verify and reuse that cache, including offline. A missing or invalid cache requires GitHub access; download or digest failures stop the operation. No transcript is sent to GitHub.
+
+Every TypeScript build uses `build/package_handoff.mjs`; the Python builder uses the same manifest. Builds reject source hashes that differ from the pin, and conformance checks reject stale launchers/manifests. To change the engine, commit its source, pin that immutable commit and its file digests, regenerate Python bundles, and rebuild TypeScript packages. No per-plugin engine edits are needed. Before distributing a new pin, retain its source commit with a `handoff-runtime-<full-commit-sha>` tag. Keep these tags after squash merges and branch deletion so fresh installs can still fetch every distributed runtime. These are retention tags, not package releases.
+
+See the [plugin changelog](../../docs/changelog/sdk.mdx) for invocation details.
+
 ## Build and verify
 
 From the repository root:
 
 ```bash
-python3.11 -m venv /tmp/mem0-agent-plugins
+python3 -m venv /tmp/mem0-agent-plugins
 /tmp/mem0-agent-plugins/bin/pip install \
   -r integrations/agent-plugin-core/requirements-dev.txt
 
