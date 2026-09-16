@@ -38,6 +38,7 @@ ADD_MAPPING: dict[str, list[str]] = {
     "metadata": ["metadata"],
     "expiration_date": ["expires"],
     "custom_instructions": ["custom_instructions"],
+    "agent_custom_instructions": ["agent_custom_instructions"],
     "custom_categories": ["custom_categories"],
     "infer": ["no_infer"],
     "immutable": ["immutable"],

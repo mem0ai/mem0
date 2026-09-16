@@ -1,6 +1,7 @@
 ---
-title: LM Studio
-description: "Run local GGUF models in Mem0 via LM Studio server on localhost:1234 using its OpenAI-compatible API, with optional lmstudio_response_format schema."
+title: "LM Studio as LLM Provider"
+sidebarTitle: "LM Studio"
+description: "Configure LM Studio as an LLM provider in Mem0 for running local language models via an OpenAI-compatible API."
 ---
 
 To use LM Studio with Mem0, you'll need to have LM Studio running locally with its server enabled. LM Studio provides a way to run local LLMs with an OpenAI-compatible API.
@@ -76,7 +77,7 @@ m.add(messages, user_id="alice123", metadata={"category": "movies"})
   To use LM Studio, you need to:
   1. Download and install [LM Studio](https://lmstudio.ai/)
   2. Start a local server from the "Server" tab
-  3. Set the appropriate `lmstudio_base_url` in your configuration (default is usually http://localhost:1234/v1)
+  3. Set the appropriate `lmstudio_base_url` in your configuration (default is usually `http://localhost:1234/v1`)
 </Note>
 
 ## Config

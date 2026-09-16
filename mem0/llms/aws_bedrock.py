@@ -9,8 +9,8 @@ try:
 except ImportError:
     raise ImportError("The 'boto3' library is required. Please install it using 'pip install boto3'.")
 
-from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
+from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 from mem0.memory.utils import extract_json
 
@@ -23,8 +23,14 @@ PROVIDERS = [
 ]
 
 
-def extract_provider(model: str) -> str:
-    """Extract provider from model identifier."""
+def extract_provider(model: str, explicit_provider: Optional[str] = None) -> str:
+    """Extract provider from model identifier, or return explicit_provider when set."""
+    if explicit_provider:
+        if explicit_provider not in PROVIDERS:
+            raise ValueError(
+                f"Unknown provider_override '{explicit_provider}'. Valid providers: {', '.join(PROVIDERS)}"
+            )
+        return explicit_provider
     for provider in PROVIDERS:
         if re.search(rf"\b{re.escape(provider)}\b", model):
             return provider
@@ -69,7 +75,7 @@ class AWSBedrockLLM(LLMBase):
 
         # Get model configuration
         self.model_config = self.config.get_model_config()
-        self.provider = extract_provider(self.config.model)
+        self.provider = extract_provider(self.config.model, self.config.provider_override)
 
         # Initialize provider-specific settings
         self._initialize_provider_settings()

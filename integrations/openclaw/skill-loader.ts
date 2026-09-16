@@ -346,12 +346,12 @@ export function loadSkill(
   }
 
   // Inject triage knobs (importanceThreshold, credentialPatterns)
-  if (skillName === "memory-triage" || skillName === "memory-dream") {
+  if (skillName === "memory-triage") {
     const knobs = renderTriageKnobs(config);
     if (knobs) parts.push(knobs);
   }
 
-  // Append user custom rules (triage-only — extraction rules don't apply to recall/dream)
+  // Append user custom rules to the triage prompt.
   if (skillName === "memory-triage" && config.customRules) {
     const rulesBlock: string[] = ["\n## User Custom Rules\n"];
     if (config.customRules.include?.length) {
@@ -657,15 +657,6 @@ export function loadCompactTriagePrompt(config: SkillsConfig = {}): string {
 
   parts.push("</memory-system>");
   return parts.join("\n");
-}
-
-/**
- * Load the dream skill prompt for consolidation sessions.
- */
-export function loadDreamPrompt(config: SkillsConfig = {}): string {
-  const dream = loadSkill("memory-dream", config);
-  if (!dream) return "";
-  return dream.prompt;
 }
 
 /**

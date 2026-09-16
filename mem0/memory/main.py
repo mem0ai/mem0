@@ -404,13 +404,18 @@ def _build_filters_and_metadata(
     return base_metadata_template, effective_query_filters
 
 
+def _escape_scope_value(val: Any) -> str:
+    """Escape the structural delimiters of the session scope key."""
+    return str(val).replace("%", "%25").replace("&", "%26").replace("=", "%3D")
+
+
 def _build_session_scope(filters):
     """Build deterministic session scope string from entity IDs."""
     parts = []
     for key in sorted(["user_id", "agent_id", "run_id"]):
         val = filters.get(key)
         if val:
-            parts.append(f"{key}={val}")
+            parts.append(f"{key}={_escape_scope_value(val)}")
     return "&".join(parts)
 
 
@@ -790,6 +795,11 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+
+        Note:
+            `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
+            they reject top-level `user_id`/`agent_id`/`run_id` arguments. `add()` accepts them top-level, but passing
+            the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
 
 
         Returns:
@@ -2007,6 +2017,12 @@ class Memory(MemoryBase):
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
 
+        if not procedural_memory:
+            raise ValueError(
+                "The LLM returned no content for the procedural memory summary. "
+                "The model may have declined the request or returned an empty response."
+            )
+
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
 
@@ -2447,6 +2463,12 @@ class AsyncMemory(MemoryBase):
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
+
+        Note:
+            `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
+            they reject top-level `user_id`/`agent_id`/`run_id` arguments. `add()` accepts them top-level, but passing
+            the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
+
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
@@ -3685,10 +3707,16 @@ class AsyncMemory(MemoryBase):
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
-        
+
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
+
+        if not procedural_memory:
+            raise ValueError(
+                "The LLM returned no content for the procedural memory summary. "
+                "The model may have declined the request or returned an empty response."
+            )
 
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")

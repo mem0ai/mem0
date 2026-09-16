@@ -57,29 +57,24 @@ function firstRunPayload(overrides: Record<string, any> = {}) {
 function createFetchMock(options: {
   variant?: string;
   payload?: Record<string, any>;
-  failFlags?: boolean;
+  failConfig?: boolean;
 }) {
   const calls: any[] = [];
+  const variantSplit = options.variant === "holdout" ? 0.0 : 1.0;
+  const payload = options.payload ?? firstRunPayload();
   const fetchMock = jest.fn(async (url: string | URL, init?: RequestInit) => {
     const target = String(url);
 
-    if (target.includes("/flags")) {
-      if (options.failFlags) {
-        throw new Error("flag evaluation failed");
+    if (target.includes("raw.githubusercontent.com")) {
+      if (options.failConfig) {
+        throw new Error("config fetch failed");
       }
       return {
         ok: true,
         json: jest.fn().mockResolvedValue({
-          flags: {
-            "mem0-oss-notices": {
-              key: "mem0-oss-notices",
-              enabled: true,
-              variant: options.variant ?? "displayed",
-              metadata: {
-                payload: JSON.stringify(options.payload ?? firstRunPayload()),
-              },
-            },
-          },
+          version: 1,
+          variant_split: variantSplit,
+          ...payload,
         }),
       };
     }
@@ -376,23 +371,32 @@ describe("Node OSS first-run notice", () => {
     );
 
     expect(
-      fetchMock.mock.calls.filter(([url]) => String(url).includes("/flags")),
+      fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("raw.githubusercontent.com"),
+      ),
     ).toHaveLength(0);
     expect(noticeEvents(calls)).toHaveLength(0);
   });
 
-  it("does not break the successful operation when flag evaluation fails", async () => {
-    const { fetchMock, calls } = createFetchMock({ failFlags: true });
+  it("does not break the successful operation when config fetch fails", async () => {
+    const { fetchMock, calls } = createFetchMock({ failConfig: true });
     global.fetch = fetchMock as any;
     const memory = await createMemory();
 
-    const result = await memory.add("Flag failure content", {
+    const result = await memory.add("Config failure content", {
       userId: "first-run-failure",
       infer: false,
     });
 
     expect(result.results).toHaveLength(1);
-    expect(noticeEvents(calls)).toHaveLength(0);
+    const notices = noticeEvents(calls);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].properties).toEqual(
+      expect.objectContaining({
+        notice_id: "first_run",
+        displayed: false,
+      }),
+    );
   });
 
   it("can trigger from get() when get is the first successful public call", async () => {

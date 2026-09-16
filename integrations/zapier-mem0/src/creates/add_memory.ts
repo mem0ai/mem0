@@ -1,5 +1,4 @@
 import type { ZObject, Bundle, AddResponse, EventResponse } from '../types';
-import { captureEvent } from '../telemetry';
 
 const POLL_INTERVAL_MS = 1500;
 // Bounded to a 60s poll budget, under Zapier's per-step execution timeout.
@@ -38,6 +37,8 @@ const perform = async (z: ZObject, bundle: Bundle): Promise<AddResponse | EventR
 	const body: Record<string, unknown> = {
 		messages: [{ role: bundle.inputData.role || 'user', content: bundle.inputData.content }],
 		infer,
+		// Attribution is recorded server-side by Mem0 from this source tag.
+		source: 'ZAPIER',
 	};
 	if (bundle.inputData.user_id) body.user_id = bundle.inputData.user_id;
 	if (bundle.inputData.agent_id) body.agent_id = bundle.inputData.agent_id;
@@ -69,8 +70,6 @@ const perform = async (z: ZObject, bundle: Bundle): Promise<AddResponse | EventR
 	if (bundle.inputData.includes) body.includes = bundle.inputData.includes;
 	if (bundle.inputData.excludes) body.excludes = bundle.inputData.excludes;
 
-	captureEvent('zapier.add_memory', bundle.authData?.apiKey, { infer, wait });
-
 	const response = await z.request({
 		url: '/v3/memories/add/',
 		method: 'POST',
@@ -97,7 +96,7 @@ export default {
 	noun: 'Memory',
 	display: {
 		label: 'Add Memory',
-		description: 'Extract and store memories from a message.',
+		description: 'Extracts and stores memories from a message.',
 	},
 	operation: {
 		perform,

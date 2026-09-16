@@ -6,6 +6,10 @@ icon: "filter"
 
 Enhanced metadata filtering in Mem0 lets you run complex queries across memory metadata. Combine comparisons, logical operators, and wildcard matches to zero in on the exact memories your agent needs.
 
+<Info>
+This page covers the self-hosted `Memory` / `AsyncMemory` grammar. Sibling top-level keys are implicitly ANDed on both self-hosted and the hosted Platform API, so a flat filter like `{"user_id": "alice", "category": "work"}` works without wrapping it in `AND` on either. Two real differences remain: the `nin` operator documented below is not part of the Platform contract, and Platform validates every top-level key against a fixed allow-list, rejecting anything else with a 400. See [Memory Filters (Platform)](/platform/features/v2-memory-filters) for the hosted grammar.
+</Info>
+
 ---
 
 ## Feature anatomy
@@ -19,7 +23,7 @@ Enhanced metadata filtering in Mem0 lets you run complex queries across memory m
     | `lt` / `lte` | Less than / less than or equal | Cap numeric values (e.g., ratings, timestamps). |
     | `in` / `nin` | In list / not in list | Pre-approve or block sets of values without chaining multiple filters. |
     | `contains` / `icontains` | Case-sensitive / case-insensitive substring match | Scan text fields for keywords. |
-    | `*` | Wildcard | Require that a field exists, regardless of value. |
+    | `*` | Wildcard | Match regardless of value. Exact semantics (field-must-exist vs. no-op) vary by vector store, see [Wildcard matching](#wildcard-matching). |
     | `AND` / `OR` / `NOT` | Combine filters | Build logic trees so multiple conditions work together. |
   </Accordion>
 </AccordionGroup>
@@ -111,7 +115,7 @@ results = m.search(
 
 ### Wildcard matching
 
-Allow any value for a field while still requiring the field to exist: handy when the mere presence of a field matters.
+Match any value for a field, handy when the mere presence of a field matters.
 
 ```python
 # Match any value for a field
@@ -124,9 +128,17 @@ results = m.search(
 )
 ```
 
+<Warning>
+Wildcard semantics differ by vector store. pgvector requires the key to exist in the payload (a real "field exists" check). Qdrant and Chroma have no native "field exists" filter, so `*` is a no-op there: the field condition is dropped and every record passes, including ones where the field is missing entirely. Do not rely on `*` to exclude records with a missing field unless you have confirmed your store's behavior in `mem0/vector_stores/<provider>.py`.
+</Warning>
+
 ### Logical combinations
 
 Combine filters with `AND`, `OR`, and `NOT` to express complex decision trees. Nest logical operators to encode multi-branch workflows.
+
+<Warning>
+The examples on this page use `search()`. `get_all()` accepts the same entity and comparison-operator filters, but the `AND` / `OR` / `NOT` wrapper is only translated at the `search()` layer before it reaches the vector store. Whether it also works on `get_all()` depends on your vector store: Qdrant recognizes raw `AND` / `OR` / `NOT` keys natively, but pgvector does not, so a logical wrapper passed to `get_all()` on pgvector silently matches nothing. Stick to `search()` for logical trees, or use plain sibling keys (implicitly ANDed) with `get_all()`.
+</Warning>
 
 ```python
 # Logical AND
@@ -245,25 +257,18 @@ avoid_filters = {
   When you reorder filters so indexed fields come first (`good_filters` example), queries typically return faster than the `avoid_filters` pattern where expensive text searches run before simple checks.
 </Info>
 
-Vector store support varies. Confirm operator coverage before shipping:
+Vector store support varies widely. This table reflects what each provider's filter-translation code (`mem0/vector_stores/<provider>.py`) actually implements, confirm before shipping if you use a store not listed:
 
-<AccordionGroup>
-  <Accordion title="Qdrant">
-    Full comparison, list, and logical support. Handles deeply nested boolean logic efficiently.
-  </Accordion>
-  <Accordion title="Chroma">
-    Equality and basic comparisons only. Limited nesting: break large trees into smaller calls.
-  </Accordion>
-  <Accordion title="Pinecone">
-    Comparisons plus `in`/`nin`. Text operators are constrained; rely on tags where possible.
-  </Accordion>
-  <Accordion title="Weaviate">
-    Full operator coverage with advanced text filters. Best option when you need hybrid text + metadata queries.
-  </Accordion>
-</AccordionGroup>
+| Store | `eq`/`ne`/`gt`/`gte`/`lt`/`lte`/`in`/`nin` | `contains`/`icontains` | `AND`/`OR`/`NOT` | `*` wildcard |
+| --- | --- | --- | --- | --- |
+| Qdrant | Full support (`in`/`nin` must be a list, or the Qdrant client raises a validation error) | Yes | Yes, nested | No-op: matches every record regardless of whether the field is present |
+| pgvector | Full support (`in`/`nin` must be a list, or the call raises `ValueError`) | Yes, via SQL `LIKE`/`ILIKE` | Yes, nested | Requires the key to exist in the payload |
+| Chroma | Full support | No: silently falls back to equality | Yes, one level of nesting | No-op: the filter is dropped |
+| Pinecone | Full support | Not implemented | Not implemented: filters are only ANDed field-by-field | Not implemented: `"*"` is matched as the literal string `"*"`, not a wildcard |
+| Weaviate | Not implemented: only `user_id`, `agent_id` and `run_id` are filtered on, as exact equality. Every other key, including all metadata, is silently dropped | Not implemented | Not implemented: only an implicit AND across the three supported keys | Not implemented |
 
 <Warning>
-  If an operator is unsupported, most stores silently ignore that branch. Add validation before execution so you can fall back to simpler queries instead of returning empty results.
+  If an operator is unsupported, most stores silently ignore it or fall back to equality rather than raising an error. Test filters against your actual store instead of assuming operator parity with Qdrant.
 </Warning>
 
 ### Migrate from earlier filters
@@ -426,5 +431,8 @@ except ValueError as e:
   </Card>
   <Card title="Tag and Organize Memories" icon="tag" href="/cookbooks/essentials/tagging-and-organizing-memories">
     Practice building workflows that label and retrieve memories with clear metadata filters.
+  </Card>
+  <Card title="Memory Filters (Platform)" icon="cloud" href="/platform/features/v2-memory-filters">
+    Using the hosted API instead? See the allow-listed top-level fields, the missing `nin` operator, and Platform-only fields like `created_at` and `memory_ids`.
   </Card>
 </CardGroup>

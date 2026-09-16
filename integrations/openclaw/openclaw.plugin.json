@@ -2,7 +2,7 @@
   "id": "openclaw-mem0",
   "name": "Memory (Mem0)",
   "description": "Mem0 memory backend for OpenClaw — platform (mem0.ai cloud) or self-hosted open-source. Auto-recall and auto-capture are opt-in (disabled by default). Supports OpenAI, Anthropic, Ollama (fully local), Qdrant, and PGVector providers.",
-  "version": "1.0.15",
+  "version": "1.1.0",
   "kind": "memory",
   "skills": ["skills"],
   "commandAliases": [
@@ -145,7 +145,7 @@
     "skills": {
       "label": "Agentic Memory Skills",
       "advanced": true,
-      "help": "Enable skills-based memory extraction. The agent controls what to remember (triage), how to recall (recall), and periodic cleanup (dream). Disables auto-capture when active."
+      "help": "Enable skills-based memory extraction. The agent controls what to remember (triage) and how to recall (recall). Disables auto-capture when active."
     }
   },
   "configSchema": {
@@ -277,16 +277,6 @@
               "threshold": { "type": "number" },
               "identityAlwaysInclude": { "type": "boolean" },
               "categoryOrder": { "type": "array", "items": { "type": "string" } }
-            }
-          },
-          "dream": {
-            "type": "object",
-            "properties": {
-              "enabled": { "type": "boolean" },
-              "auto": { "type": "boolean" },
-              "minHours": { "type": "number" },
-              "minSessions": { "type": "number" },
-              "minMemories": { "type": "number" }
             }
           },
           "domain": { "type": "string" },

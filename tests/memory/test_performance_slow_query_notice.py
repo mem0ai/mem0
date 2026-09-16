@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from mem0.memory import notices
 from mem0.memory import main as memory_main
+from mem0.memory import notices
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -34,6 +34,7 @@ def notice_harness(monkeypatch):
     config = {}
     telemetry = MagicMock()
     telemetry.user_id = "oss-user"
+    evaluate_mock = MagicMock()
 
     def write_config(updated):
         saved = deepcopy(updated)
@@ -44,12 +45,14 @@ def notice_harness(monkeypatch):
     monkeypatch.setattr(notices, "_write_config", write_config)
     monkeypatch.setattr(notices.telemetry_module, "MEM0_TELEMETRY", True)
     monkeypatch.setattr(notices.telemetry_module, "_get_oss_telemetry", lambda: telemetry)
+    monkeypatch.setattr(notices, "_evaluate_notice_flags", evaluate_mock)
+    telemetry._evaluate_mock = evaluate_mock
     return config, telemetry
 
 
 def configure_flag(telemetry, variant, payload):
     flags = FakeFlags(variant, payload)
-    telemetry.posthog.evaluate_flags.return_value = flags
+    telemetry._evaluate_mock.return_value = flags
     return flags
 
 
@@ -274,7 +277,7 @@ def test_performance_slow_query_displayed_logs_and_captures_event(notice_harness
     )
 
     assert capsys.readouterr().err == "Performance CTA\n"
-    telemetry.posthog.evaluate_flags.assert_called_once_with("oss-user", flag_keys=[notices.FLAG_KEY])
+    telemetry._evaluate_mock.assert_called_once_with("oss-user")
     telemetry.capture_event.assert_called_once()
     event_name, props = telemetry.capture_event.call_args.args
     assert event_name == notices.NOTICE_EVENT
@@ -421,7 +424,7 @@ def test_performance_slow_query_cap_blocks_before_posthog_eval(notice_harness, c
     )
 
     assert capsys.readouterr().err == "Performance CTA\n" * notices.PERFORMANCE_SLOW_QUERY_CAP
-    assert telemetry.posthog.evaluate_flags.call_count == notices.PERFORMANCE_SLOW_QUERY_CAP
+    assert telemetry._evaluate_mock.call_count == notices.PERFORMANCE_SLOW_QUERY_CAP
     assert telemetry.capture_event.call_count == notices.PERFORMANCE_SLOW_QUERY_CAP
     assert len(config["notice_state"]["performance_slow_query"]["events"]) == notices.PERFORMANCE_SLOW_QUERY_CAP
 

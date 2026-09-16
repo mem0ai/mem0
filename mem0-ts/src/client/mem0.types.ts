@@ -12,6 +12,7 @@ export interface AddMemoryOptions extends EntityOptions {
   infer?: boolean;
   customCategories?: custom_categories[];
   customInstructions?: string;
+  agentCustomInstructions?: string;
   timestamp?: number;
   expirationDate?: string;
   structuredDataSchema?: Record<string, any>;
@@ -60,6 +61,7 @@ export interface ProjectOptions {
 
 export interface PromptUpdatePayload {
   customInstructions?: string;
+  agentCustomInstructions?: string;
   customCategories?: custom_categories[];
   version?: string;
   memoryDepth?: string | null;
@@ -174,6 +176,7 @@ export interface PaginatedMemories {
 
 export interface ProjectResponse {
   customInstructions?: string;
+  agentCustomInstructions?: string;
   // The API returns category objects (`[{ "<name>": "<description>" }]`),
   // not bare strings (see issue #5738).
   customCategories?: custom_categories[];

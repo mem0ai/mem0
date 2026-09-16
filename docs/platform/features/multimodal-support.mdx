@@ -1,6 +1,7 @@
 ---
-title: Multimodal Support
-description: Add images, PDFs, and other documents alongside text on the Mem0 Platform so agents can extract and recall insights from mixed visual content.
+title: "Platform Multimodal Support"
+sidebarTitle: "Multimodal Support"
+description: Integrate images and documents into your interactions with Mem0
 ---
 
 Mem0 extends its capabilities beyond text by supporting multimodal data, including images and documents. With this feature, users can seamlessly integrate visual and document content into their interactions, allowing Mem0 to extract relevant information from various media types and enrich the memory system.
@@ -76,18 +77,8 @@ await client.add(messages, { userId: "alice" })
 
 ```json Output
 {
-  "results": [
-    {
-      "memory": "Name is Alice",
-      "event": "ADD",
-      "id": "7ae113a3-3cb5-46e9-b6f7-486c36391847"
-    },
-    {
-      "memory": "Likes large pizza with toppings including cherry tomatoes, black olives, green spinach, yellow bell peppers, diced ham, and sliced mushrooms",
-      "event": "ADD",
-      "id": "56545065-7dee-4acf-8bf2-a5b2535aabb3"
-    }
-  ]
+  "event_id": "evt-uuid",
+  "status": "PENDING"
 }
 ```
 </CodeGroup>

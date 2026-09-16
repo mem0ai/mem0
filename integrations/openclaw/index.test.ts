@@ -3,6 +3,7 @@
  * message filtering logic.
  */
 import { describe, it, expect, vi } from "vitest";
+import { createMemoryLifecycle } from "../agent-plugin-core/typescript/src/lifecycle.ts";
 import memoryPlugin, {
   extractAgentId,
   effectiveUserId,
@@ -521,13 +522,14 @@ What is the deployment plan?`,
     expect(result[0].content).toBe("What is the deployment plan?");
   });
 
-  it("truncates long messages", () => {
-    const longContent = "A".repeat(3000);
-    const messages = [{ role: "assistant", content: longContent }];
-    const result = filterMessagesForExtraction(messages);
-    expect(result).toHaveLength(1);
-    expect(result[0].content.length).toBeLessThan(2100);
-    expect(result[0].content).toContain("[...truncated]");
+  it.each(["user", "assistant"])("preserves long %s messages through extraction preparation", (role) => {
+    const content = "Repository detail. ".repeat(600) + "Final requirement. password=hidden-extraction-secret";
+    const result = createMemoryLifecycle().prepareConversation(
+      filterMessagesForExtraction([{ role, content }]),
+    );
+    expect(result).toEqual([
+      { role, content: content.replace("hidden-extraction-secret", "[REDACTED]") },
+    ]);
   });
 
   it("returns empty array when all messages are noise", () => {

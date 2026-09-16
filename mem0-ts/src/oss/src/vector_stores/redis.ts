@@ -8,6 +8,7 @@ import type {
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import { loadPeer } from "../utils/load_peer";
+import { toCamelCasePreservingIds } from "../utils/casing";
 
 /**
  * Escape RediSearch TAG filter special characters. Any punctuation in the
@@ -143,18 +144,6 @@ export function buildRedisFilterExpr(filters?: SearchFilters): string {
     .filter(([, value]) => value !== null && value !== undefined)
     .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`);
   return conditions.length > 0 ? conditions.join(" ") : "*";
-}
-
-// Utility function to convert object keys to camelCase
-function toCamelCase(obj: Record<string, any>): Record<string, any> {
-  if (typeof obj !== "object" || obj === null) return obj;
-
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [
-      key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase()),
-      value,
-    ]),
-  );
 }
 
 export class RedisDB implements VectorStore {
@@ -468,7 +457,7 @@ export class RedisDB implements VectorStore {
 
         return {
           id: doc.value.memory_id,
-          payload: toCamelCase(resultPayload),
+          payload: toCamelCasePreservingIds(resultPayload),
           score: Math.max(0, 1 - (Number(doc.value.__vector_score) ?? 0)),
         };
       });
@@ -573,7 +562,7 @@ export class RedisDB implements VectorStore {
 
       return {
         id: vectorId,
-        payload: toCamelCase(payload),
+        payload: toCamelCasePreservingIds(payload),
       };
     } catch (error) {
       console.error("Error getting vector:", error);
@@ -680,7 +669,7 @@ export class RedisDB implements VectorStore {
 
     const items = results.documents.map((doc) => ({
       id: doc.value.memory_id,
-      payload: toCamelCase({
+      payload: toCamelCasePreservingIds({
         hash: doc.value.hash,
         data: doc.value.memory,
         created_at: new Date(parseInt(doc.value.created_at)).toISOString(),

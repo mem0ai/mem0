@@ -43,8 +43,6 @@ describe("loadConfig", () => {
     const config = loadConfig();
     expect(config.apiKey).toBe("m0-file-key");
     expect(config.userId).toBe("file-user");
-    expect(config.dream.enabled).toBe(true);
-    expect(config.dream.minHours).toBe(24);
   });
 
   it("env vars override config file", () => {

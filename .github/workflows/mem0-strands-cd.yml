@@ -1,0 +1,50 @@
+name: Publish mem0-strands 🐍 distribution 📦 to PyPI
+
+# Dispatched by release.yml (Release Router) when a release tagged
+# mem0-strands-v* is published. Can also be dispatched manually to re-publish
+# a tag. Publishing uses PyPI Trusted Publishing (OIDC), so no API token is
+# stored; the `mem0-strands` PyPI project must have a trusted publisher
+# configured for mem0ai/mem0 + this workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build and publish (e.g. mem0-strands-v0.1.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Unused for PyPI (pre-releases are expressed in the version itself); accepted for router uniformity'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-n-publish:
+    name: Build and publish mem0-strands 📦 to PyPI
+    if: startsWith(inputs.tag, 'mem0-strands-v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: integrations/mem0-strands/python
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Hatch
+        run: pip install hatch
+
+      - name: Build a binary wheel and a source tarball
+        run: hatch build --clean
+
+      - name: Publish distribution 📦 to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: integrations/mem0-strands/python/dist/
