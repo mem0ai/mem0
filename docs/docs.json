@@ -594,7 +594,7 @@
     "primary": {
       "type": "button",
       "label": "Your Dashboard",
-      "href": "https://app.mem0.ai?utm_source=oss&utm_medium=docs-nav"
+      "href": "https://app.mem0.ai/login?utm_source=oss&utm_medium=docs-nav"
     }
   },
   "footer": {
