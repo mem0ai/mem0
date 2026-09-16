@@ -186,6 +186,7 @@ class PGVector(VectorStoreBase):
         self.embedding_model_dims = embedding_model_dims
         self.connection_pool = None
         self._collection_ensured = False
+        self._owns_pool = connection_pool is None
 
         # Connection setup with priority: connection_pool > connection_string > individual parameters
         if connection_pool is not None:
@@ -547,11 +548,11 @@ class PGVector(VectorStoreBase):
         Close the database connection pool when the object is deleted.
         """
         try:
-            # Close pool appropriately
-            if PSYCOPG_VERSION == 3:
-                self.connection_pool.close()
-            else:
-                self.connection_pool.closeall()
+            if getattr(self, "_owns_pool", False) and getattr(self, "connection_pool", None) is not None:
+                if PSYCOPG_VERSION == 3:
+                    self.connection_pool.close()
+                else:
+                    self.connection_pool.closeall()
         except Exception:
             pass
 

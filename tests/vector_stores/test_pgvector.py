@@ -1,3 +1,4 @@
+import gc
 import importlib
 import sys
 import unittest
@@ -2329,6 +2330,156 @@ class TestPGVector(unittest.TestCase):
             
             # Verify pool.closeall() was called
             mock_pool.closeall.assert_called()
+
+    def test_external_pool_survives_del_psycopg3(self):
+        """External pool must not be closed when PGVector is deleted (psycopg3 close)."""
+        with patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3):
+
+            class ExternalPool:
+                def __init__(self):
+                    self.closed = False
+
+                def close(self):
+                    self.closed = True
+
+                def closeall(self):
+                    self.closed = True
+
+            pool = ExternalPool()
+            store = PGVector(
+                dbname="postgres",
+                collection_name="example",
+                embedding_model_dims=8,
+                user=None,
+                password=None,
+                host=None,
+                port=None,
+                diskann=False,
+                hnsw=False,
+                connection_pool=pool,
+            )
+            self.assertIs(store.connection_pool, pool)
+            self.assertFalse(getattr(store, "_owns_pool", True))
+            del store
+            gc.collect()
+            self.assertFalse(pool.closed, "externally supplied pool was closed on __del__")
+
+    def test_external_pool_survives_del_psycopg2(self):
+        """External pool must not be closed when PGVector is deleted (psycopg2 closeall)."""
+        with patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2):
+
+            class ExternalPool:
+                def __init__(self):
+                    self.closed = False
+
+                def close(self):
+                    self.closed = True
+
+                def closeall(self):
+                    self.closed = True
+
+            pool = ExternalPool()
+            store = PGVector(
+                dbname="postgres",
+                collection_name="example2",
+                embedding_model_dims=8,
+                user=None,
+                password=None,
+                host=None,
+                port=None,
+                diskann=False,
+                hnsw=False,
+                connection_pool=pool,
+            )
+            self.assertIs(store.connection_pool, pool)
+            self.assertFalse(getattr(store, "_owns_pool", True))
+            del store
+            gc.collect()
+            self.assertFalse(pool.closed, "externally supplied pool was closed on __del__")
+
+    def test_owned_pool_closed_on_del_psycopg3(self):
+        """Owned pool must be closed on deletion (psycopg3)."""
+        with patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3), patch(
+            'mem0.vector_stores.pgvector.ConnectionPool'
+        ) as mock_pool_cls:
+            mock_instance = MagicMock()
+            mock_pool_cls.return_value = mock_instance
+            store = PGVector(
+                dbname="test_db",
+                collection_name="test_collection",
+                embedding_model_dims=3,
+                user="test_user",
+                password="test_pass",
+                host="localhost",
+                port=5432,
+                diskann=False,
+                hnsw=False,
+            )
+            self.assertTrue(getattr(store, "_owns_pool", False))
+            del store
+            gc.collect()
+            mock_instance.close.assert_called_once()
+
+    def test_owned_pool_closed_on_del_psycopg2(self):
+        """Owned pool must be closed on deletion (psycopg2)."""
+        with patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2), patch(
+            'mem0.vector_stores.pgvector.ConnectionPool'
+        ) as mock_pool_cls:
+            mock_instance = MagicMock()
+            mock_pool_cls.return_value = mock_instance
+            store = PGVector(
+                dbname="test_db",
+                collection_name="test_collection",
+                embedding_model_dims=3,
+                user="test_user",
+                password="test_pass",
+                host="localhost",
+                port=5432,
+                diskann=False,
+                hnsw=False,
+            )
+            self.assertTrue(getattr(store, "_owns_pool", False))
+            del store
+            gc.collect()
+            mock_instance.closeall.assert_called_once()
+
+    def test_del_half_init_does_not_raise(self):
+        """__del__ on partially constructed instance must not raise."""
+        # No attributes at all
+        obj = PGVector.__new__(PGVector)
+        try:
+            obj.__del__()
+        except Exception as e:
+            self.fail(f"__del__ raised on half-init object: {e}")
+
+        # _owns_pool True but no connection_pool attribute
+        obj2 = PGVector.__new__(PGVector)
+        obj2._owns_pool = True
+        try:
+            obj2.__del__()
+        except Exception as e:
+            self.fail(f"__del__ raised on half-init with _owns_pool=True and no pool: {e}")
+
+        # _owns_pool True but connection_pool is None
+        obj3 = PGVector.__new__(PGVector)
+        obj3._owns_pool = True
+        obj3.connection_pool = None
+        try:
+            obj3.__del__()
+        except Exception as e:
+            self.fail(f"__del__ raised on half-init with None pool: {e}")
+
+        # _owns_pool False should be safe even if pool exists but not owned
+        obj4 = PGVector.__new__(PGVector)
+        obj4._owns_pool = False
+        obj4.connection_pool = MagicMock()
+        try:
+            obj4.__del__()
+        except Exception as e:
+            self.fail(f"__del__ raised on half-init with _owns_pool=False: {e}")
+        # Ensure external pool not closed
+        obj4.connection_pool.close.assert_not_called()
+        obj4.connection_pool.closeall.assert_not_called()
 
     def tearDown(self):
         """Clean up after each test."""
