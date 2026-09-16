@@ -104,6 +104,67 @@ def test_a_fresh_claim_is_not_immediately_stealable(telemetry):
     assert telemetry._claim_parked(first.parent) is None
 
 
+def test_a_live_final_attempt_is_not_deleted_by_another_sender(telemetry):
+    """Review finding: exhaustion was judged before liveness, so owners lost batches.
+
+    Claiming a parked file bumps its attempt count and refreshes its mtime. Once
+    the count reaches the budget, the owner draining it looked exhausted to every
+    other sender, which unlinked the file out from under it. Everything in that
+    batch was gone, which is precisely the loss this PR exists to stop.
+    """
+    telemetry.record("search", reason="owned-by-the-first-sender")
+    spool = telemetry._spool_path()
+    stale = time.time() - (telemetry.CLAIM_STALE_SECONDS + 60)
+    os.utime(spool, (stale, stale))
+
+    claim = telemetry._claim_spool()
+    assert claim is not None
+
+    # Walk it to the final attempt, ageing it each round so it can be re-claimed.
+    # _claim_spool hands back a0 and _release_claim keeps the name, so it takes
+    # one full round per attempt to reach the budget.
+    for _ in range(telemetry.MAX_CLAIM_ATTEMPTS):
+        # Carry the marker through each rewrite so the final assertion proves the
+        # events survived, not merely that some file with the right name did.
+        telemetry._release_claim(claim, [{"event": "code.search", "uuid": "owned-by-the-first-sender"}])
+        parked = sorted(claim.parent.glob("telemetry-*.sending"))
+        assert parked, "the batch was dropped while still inside its budget"
+        os.utime(parked[0], (stale, stale))
+        claim = telemetry._claim_parked(claim.parent)
+        assert claim is not None
+
+    assert telemetry._claim_attempt(claim) >= telemetry.MAX_CLAIM_ATTEMPTS
+    assert claim.exists()
+
+    # The owner is draining it right now: fresh mtime, live lease.
+    second_sender = telemetry._claim_parked(claim.parent)
+
+    assert second_sender is None, "a second sender took a batch under a live lease"
+    assert claim.exists(), "a second sender deleted a batch its owner was draining"
+    assert "owned-by-the-first-sender" in claim.read_text(encoding="utf-8")
+
+
+def test_an_exhausted_batch_is_still_discarded_once_its_lease_lapses(telemetry):
+    """The liveness check must defer the cleanup, not cancel it.
+
+    Guards the obvious over-correction: skipping live claims is only safe if an
+    abandoned one at the same attempt count is still reaped on a later run.
+    """
+    telemetry.record("search")
+    spool = telemetry._spool_path()
+    stale = time.time() - (telemetry.CLAIM_STALE_SECONDS + 60)
+    os.utime(spool, (stale, stale))
+
+    claim = telemetry._claim_spool()
+    assert claim is not None
+    exhausted = claim.parent / telemetry._claim_name(telemetry.MAX_CLAIM_ATTEMPTS)
+    claim.replace(exhausted)
+    os.utime(exhausted, (stale, stale))
+
+    assert telemetry._claim_parked(exhausted.parent) is None
+    assert not exhausted.exists(), "an abandoned exhausted batch was left behind forever"
+
+
 def test_a_parked_batch_is_drained_behind_the_live_spool(telemetry):
     """Defect 6: parked claims were only reachable when no spool existed.
 

@@ -350,14 +350,59 @@ def test_salt_does_not_touch_the_identity_file(isolated_env):
     assert not telemetry._identity_path().exists()
 
 
-def test_salt_is_stable_when_it_cannot_be_persisted(isolated_env, monkeypatch):
-    """A read-only data dir must degrade to a weaker salt, not to random-per-call.
+def test_no_salt_means_no_hash_rather_than_an_unsalted_one(isolated_env, monkeypatch):
+    """A read-only data dir drops the property; it must not emit a weak digest.
 
-    Random per call is unbounded cardinality in PostHog, which is worse than no
-    salt at all.
+    The previous fallback was a digest of the salt file's own path, which an
+    attacker can compute, memoized for the whole process. A property named
+    repo_hash carrying an effectively unsalted digest is worse than no property:
+    it reads as protected and is not.
     """
     telemetry._salt_cache = ""
     monkeypatch.setattr(telemetry.os, "open", lambda *a, **k: (_ for _ in ()).throw(OSError("read-only")))
-    first = telemetry._install_salt()
+
+    assert telemetry._install_salt() == ""
+    assert telemetry._scoped_digest("git@github.com:acme/secret.git") == ""
+
+
+def test_a_half_written_salt_is_never_visible_to_another_process(isolated_env, monkeypatch):
+    """The window this closes: file created, value not yet written.
+
+    O_CREAT|O_EXCL then write leaves the name present and empty in between. A
+    hook reading it there used to get "", fall back to the path digest and cache
+    that for its whole run, so the same repo hashed two ways depending on timing.
+    Publishing by link means the name either does not exist or is complete.
+    """
     telemetry._salt_cache = ""
-    assert telemetry._install_salt() == first
+    salt_path = telemetry._salt_path()
+    observed = []
+
+    real_link = telemetry.os.link
+
+    def observing_link(source, target):
+        # Stand where the racing reader stands: after the temp file is written,
+        # before the real name exists.
+        observed.append(salt_path.exists())
+        return real_link(source, target)
+
+    monkeypatch.setattr(telemetry.os, "link", observing_link)
+    salt = telemetry._install_salt()
+
+    assert observed == [False], "the salt name existed before it held a value"
+    assert len(salt) == 32
+    assert salt_path.read_text(encoding="utf-8").strip() == salt
+
+
+def test_a_concurrent_writer_does_not_clobber_the_published_salt(isolated_env):
+    """Second process to finish must adopt the first one's salt, not replace it.
+
+    os.link rather than os.replace is what makes losing the race harmless.
+    """
+    telemetry._salt_cache = ""
+    first = telemetry._install_salt()
+
+    telemetry._salt_cache = ""
+    second = telemetry._install_salt()
+
+    assert second == first
+    assert not list(telemetry._salt_path().parent.glob("telemetry-salt.*.tmp")), "temp file left behind"
