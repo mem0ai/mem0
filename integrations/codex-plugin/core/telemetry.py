@@ -145,36 +145,49 @@ def _install_salt() -> str:
       keys off that file, so recording an event would silently suppress the
       install event.
 
-    On a read-only or full data directory the fallback is derived from the data
-    directory path: stable for the machine rather than random per call, so the
-    failure mode is a weaker salt and not unbounded cardinality in PostHog.
+    Published atomically, and there is deliberately no derived fallback. Creating
+    the file with O_CREAT|O_EXCL and then writing into it leaves a window where
+    the file exists and is empty, and a concurrent hook that reads it in that
+    window gets nothing. Falling back to a digest of the path would hand that
+    process a salt an attacker can compute, memoized for its whole run, which is
+    the privacy control this function exists to provide silently turning itself
+    off under load. The salt is written to a private temp file first and linked
+    into place, so the name either does not exist or already has the full value.
+
+    Returns "" when it genuinely cannot persist. Callers omit the hash entirely
+    rather than emit an unsalted one.
     """
     global _salt_cache
     if _salt_cache:
         return _salt_cache
 
     path = _salt_path()
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        handle = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            stream.write(uuid.uuid4().hex)
+            stream.flush()
+            os.fsync(stream.fileno())
         try:
-            with os.fdopen(handle, "w", encoding="utf-8") as stream:
-                stream.write(uuid.uuid4().hex)
+            # Atomic claim: fails if another process already published one.
+            # os.link rather than replace, which would clobber theirs.
+            os.link(temporary, path)
+        except FileExistsError:
+            pass
+    except OSError:
+        pass
+    finally:
+        try:
+            temporary.unlink()
         except OSError:
             pass
-    except FileExistsError:
-        pass
-    except OSError:
-        # Cannot persist. Stable-per-machine beats random-per-call.
-        _salt_cache = hashlib.sha256(str(path).encode("utf-8")).hexdigest()
-        return _salt_cache
 
     try:
         _salt_cache = path.read_text(encoding="utf-8").strip()
     except OSError:
         _salt_cache = ""
-    if not _salt_cache:
-        _salt_cache = hashlib.sha256(str(path).encode("utf-8")).hexdigest()
     return _salt_cache
 
 
@@ -187,10 +200,17 @@ def _scoped_digest(value: str, length: int = 16) -> str:
     privacy control without the salt. Salting per install keeps every
     within-account join the analytics actually use and gives up only
     cross-machine joins on the same repository, which nothing computes.
+
+    Returns "" when there is no salt, so record() omits the property. An
+    unsalted digest over this input space is close to plaintext, and emitting one
+    under a name that implies it is hashed is worse than sending nothing.
     """
     if not value:
         return ""
-    return hashlib.sha256(f"{_install_salt()}:{value}".encode("utf-8")).hexdigest()[:length]
+    salt = _install_salt()
+    if not salt:
+        return ""
+    return hashlib.sha256(f"{salt}:{value}".encode("utf-8")).hexdigest()[:length]
 
 
 def _safe_value(value: Any) -> Any:
@@ -248,6 +268,25 @@ def anonymous_id(identity: dict[str, str] | None = None) -> str:
         return existing
     created = f"code-anon-{uuid.uuid4().hex}"
     identity["anonymous_id"] = created
+    _write_identity(identity)
+    return created
+
+
+def _rotate_anonymous_id(identity: dict[str, str]) -> str:
+    """Mint a fresh anonymous id because the account context is gone.
+
+    The previous id may already have been merged into a person profile by an
+    $identify, and that merge is permanent. Reusing it after a logout or a key
+    change attributes everything that follows to the account that just went
+    away, which is the same misattribution the key fingerprint exists to stop,
+    only arriving through the anonymous path instead.
+
+    `aliased` is cleared with it: the new id has never been merged, so it is
+    eligible to be aliased into whatever account comes next.
+    """
+    created = f"code-anon-{uuid.uuid4().hex}"
+    identity["anonymous_id"] = created
+    identity.pop("aliased", None)
     _write_identity(identity)
     return created
 
@@ -380,11 +419,19 @@ def claim_version_change() -> str | None:
 
     state["plugin_version"] = memory_core.PLUGIN_VERSION
     state["upgraded_at"] = memory_core.utc_now()
+    temporary = path.with_suffix(f".{os.getpid()}.tmp")
     try:
-        temporary = path.with_suffix(f".{os.getpid()}.tmp")
         temporary.write_text(json.dumps(state), encoding="utf-8")
         temporary.replace(path)
     except OSError:
+        # Release the claim. The marker still records the old version, so
+        # without this the sentinel makes claim_version_change return early on
+        # every later run and this version's upgrade is never recorded again.
+        for leftover in (sentinel, temporary):
+            try:
+                leftover.unlink()
+            except OSError:
+                pass
         return None
     return previous
 
@@ -418,10 +465,17 @@ def record(
             os=sys.platform,
             python_version=platform.python_version(),
         )
+        # Assigned only when the digest is real. _scoped_digest returns "" when
+        # the salt could not be persisted, and an empty property is worse than an
+        # absent one: it survives the None filter below and reads as a value.
         if repo is not None:
-            properties["repo_hash"] = _scoped_digest(getattr(repo, "identity", ""))
+            repo_hash = _scoped_digest(getattr(repo, "identity", ""))
+            if repo_hash:
+                properties["repo_hash"] = repo_hash
         if session_id:
-            properties["session_hash"] = _scoped_digest(session_id)
+            session_hash = _scoped_digest(session_id)
+            if session_hash:
+                properties["session_hash"] = session_hash
         line = json.dumps(
             {
                 "event": f"{EVENT_PREFIX}.{event}",
@@ -566,6 +620,14 @@ def _claim_parked(directory: Path) -> Path | None:
             age = now - orphan.stat().st_mtime
         except OSError:
             continue
+        if age < CLAIM_STALE_SECONDS:
+            # Someone else holds a live lease on it. This check has to come
+            # first. Claiming a file bumps its attempt count and refreshes its
+            # mtime, so a sender that has just taken the final attempt looks
+            # exhausted to everyone else while it is actively draining. Judging
+            # exhaustion before liveness let a second sender unlink a batch out
+            # from under its owner, losing every event in it.
+            continue
         # Attempts, not age. Every re-claim touches the mtime and every release
         # backdates it by a fixed amount, so age is pinned near the stale
         # threshold and never reaches the expiry. Age stays only as a backstop
@@ -575,9 +637,6 @@ def _claim_parked(directory: Path) -> Path | None:
                 orphan.unlink()
             except OSError:
                 pass
-            continue
-        if age < CLAIM_STALE_SECONDS:
-            # Someone else holds a live lease on it.
             continue
         claim = orphan.parent / _claim_name(_claim_attempt(orphan) + 1)
         try:
@@ -695,26 +754,43 @@ def resolve_distinct_id() -> tuple[str, str]:
         if recorded == fingerprint:
             return email, ""
         if not recorded:
-            # Rows written before fingerprints existed. Adopt the current key
-            # rather than re-resolving: otherwise every existing user pays an
-            # uncached /v1/ping/ on every flush, forever, and a firewalled one
-            # pays the full timeout each time.
+            # Rows written before fingerprints existed. Verify rather than
+            # adopt: a key changed before the upgrade would otherwise bind the
+            # new key to the previous account's email, permanently, and the
+            # fingerprint would then agree with itself forever after.
+            verified = _resolve_email(key)
+            if not verified:
+                # Offline, firewalled, or the API is down. Keep the previous
+                # behaviour and retry on the next flush rather than dropping a
+                # real account attribution. Safe because the same network that
+                # failed /v1/ping/ is about to fail the PostHog POST, so nothing
+                # is delivered under the unverified identity in the meantime.
+                return email, ""
+            identity["email"] = verified
             identity["key_fingerprint"] = fingerprint
             _write_identity(identity)
-            return email, ""
+            return verified, ""
 
     if not key:
         # No key to verify the account with; do not keep attributing to it.
         if email:
             identity.pop("email", None)
             identity.pop("key_fingerprint", None)
-            _write_identity(identity)
+            return _rotate_anonymous_id(identity), ""
         return anonymous_id(identity), ""
 
     resolved = _resolve_email(key)
     if not resolved:
         # The key changed and will not resolve (revoked, offline, API down).
-        # Do not keep attributing to the previous account.
+        # Reaching here with an email means the recorded fingerprint disagreed,
+        # so the key really did change. Drop the account and rotate: the stored
+        # anonymous id may already be merged into that account's person, and
+        # reusing it would keep the events on the profile we are trying to
+        # leave.
+        if email:
+            identity.pop("email", None)
+            identity.pop("key_fingerprint", None)
+            return _rotate_anonymous_id(identity), ""
         return anonymous_id(identity), ""
 
     # Alias only when going anonymous -> email for the first time. Once an anon

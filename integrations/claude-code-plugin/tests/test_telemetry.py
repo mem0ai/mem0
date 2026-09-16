@@ -265,6 +265,109 @@ def test_an_unresolvable_key_falls_back_to_the_anonymous_id(isolated_env, monkey
     assert telemetry.resolve_distinct_id()[0].startswith("code-anon-")
 
 
+def test_logging_out_does_not_leave_events_on_the_previous_account(isolated_env, monkeypatch):
+    """Review finding: clearing the email kept an id already merged into a person.
+
+    The anonymous id is offered to PostHog as $anon_distinct_id on first sign-in,
+    and that merge is permanent. Keeping it after the key goes away means every
+    later anonymous event lands on the account that just left.
+    """
+    # Run anonymously first, which is the only way an id exists to be merged.
+    merged = telemetry.anonymous_id()
+
+    monkeypatch.setenv("MEM0_API_KEY", "key-for-account-a")
+    with patch.object(telemetry, "_resolve_email", lambda key: "a@example.com"):
+        identified, alias = telemetry.resolve_distinct_id()
+    assert identified == "a@example.com"
+    assert alias == merged, "the anonymous id was merged into this account"
+
+    monkeypatch.delenv("MEM0_API_KEY", raising=False)
+    after_logout, logout_alias = telemetry.resolve_distinct_id()
+
+    assert after_logout.startswith("code-anon-")
+    assert after_logout != merged, "reused an id already merged into the previous account"
+    assert logout_alias == ""
+    assert "aliased" not in telemetry._read_identity(), "rotated id must be aliasable again"
+
+
+def test_a_changed_key_that_will_not_resolve_rotates_the_anonymous_id(isolated_env, monkeypatch):
+    """Same leak by the other route: fingerprint disagrees and the lookup fails."""
+    merged = telemetry.anonymous_id()
+    monkeypatch.setenv("MEM0_API_KEY", "key-for-account-a")
+    with patch.object(telemetry, "_resolve_email", lambda key: "a@example.com"):
+        telemetry.resolve_distinct_id()
+
+    monkeypatch.setenv("MEM0_API_KEY", "key-for-account-b")
+    with patch.object(telemetry, "_resolve_email", lambda key: ""):
+        after, alias = telemetry.resolve_distinct_id()
+
+    assert after.startswith("code-anon-")
+    assert after != merged
+    assert alias == ""
+    assert "email" not in telemetry._read_identity()
+
+
+def test_a_legacy_cached_email_is_verified_before_the_key_is_bound(isolated_env, monkeypatch):
+    """Review finding: a key changed before upgrading bound the wrong account.
+
+    Rows written before fingerprints existed carry an email and no fingerprint.
+    Adopting the current key without checking pinned that key to the previous
+    account's email, and every run after that agreed with itself.
+    """
+    telemetry._write_identity({"email": "old@example.com", "anonymous_id": "code-anon-seed"})
+    monkeypatch.setenv("MEM0_API_KEY", "key-for-account-b")
+
+    with patch.object(telemetry, "_resolve_email", lambda key: "new@example.com"):
+        resolved, alias = telemetry.resolve_distinct_id()
+
+    assert resolved == "new@example.com"
+    assert alias == "", "email to email must never alias; it merges two real people"
+    stored = telemetry._read_identity()
+    assert stored["email"] == "new@example.com"
+    assert stored["key_fingerprint"] == telemetry._digest("key-for-account-b")
+
+
+def test_a_legacy_row_keeps_working_when_the_account_cannot_be_checked(isolated_env, monkeypatch):
+    """Firewalled users must not lose attribution, and must not bind unverified.
+
+    The same network that fails /v1/ping/ fails the PostHog POST, so nothing is
+    delivered under the unverified identity while this holds.
+    """
+    telemetry._write_identity({"email": "old@example.com"})
+    monkeypatch.setenv("MEM0_API_KEY", "key-for-account-b")
+
+    with patch.object(telemetry, "_resolve_email", lambda key: ""):
+        resolved, _ = telemetry.resolve_distinct_id()
+
+    assert resolved == "old@example.com"
+    assert "key_fingerprint" not in telemetry._read_identity(), "bound an unverified key"
+
+
+def test_a_failed_upgrade_claim_can_be_retried(isolated_env, monkeypatch):
+    """Review finding: a failed rewrite left the sentinel and suppressed forever.
+
+    claim_version_change returns early on FileExistsError, and the marker still
+    holds the old version, so the upgrade for that version was never recorded
+    again on that machine.
+    """
+    telemetry.claim_install()
+    state_path = memory_core.data_dir() / "install-state.json"
+    state = json.loads(state_path.read_text())
+    state["plugin_version"] = "0.0.1-old"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    real_replace = Path.replace
+
+    def failing_replace(self, target):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "replace", failing_replace)
+    assert telemetry.claim_version_change() is None
+
+    monkeypatch.setattr(Path, "replace", real_replace)
+    assert telemetry.claim_version_change() == "0.0.1-old", "sentinel suppressed the retry"
+
+
 def test_first_run_is_not_flipped_by_writing_the_identity_file(isolated_env):
     """The identity file is written by a successful flush, not by recording.
 
@@ -350,14 +453,59 @@ def test_salt_does_not_touch_the_identity_file(isolated_env):
     assert not telemetry._identity_path().exists()
 
 
-def test_salt_is_stable_when_it_cannot_be_persisted(isolated_env, monkeypatch):
-    """A read-only data dir must degrade to a weaker salt, not to random-per-call.
+def test_no_salt_means_no_hash_rather_than_an_unsalted_one(isolated_env, monkeypatch):
+    """A read-only data dir drops the property; it must not emit a weak digest.
 
-    Random per call is unbounded cardinality in PostHog, which is worse than no
-    salt at all.
+    The previous fallback was a digest of the salt file's own path, which an
+    attacker can compute, memoized for the whole process. A property named
+    repo_hash carrying an effectively unsalted digest is worse than no property:
+    it reads as protected and is not.
     """
     telemetry._salt_cache = ""
     monkeypatch.setattr(telemetry.os, "open", lambda *a, **k: (_ for _ in ()).throw(OSError("read-only")))
-    first = telemetry._install_salt()
+
+    assert telemetry._install_salt() == ""
+    assert telemetry._scoped_digest("git@github.com:acme/secret.git") == ""
+
+
+def test_a_half_written_salt_is_never_visible_to_another_process(isolated_env, monkeypatch):
+    """The window this closes: file created, value not yet written.
+
+    O_CREAT|O_EXCL then write leaves the name present and empty in between. A
+    hook reading it there used to get "", fall back to the path digest and cache
+    that for its whole run, so the same repo hashed two ways depending on timing.
+    Publishing by link means the name either does not exist or is complete.
+    """
     telemetry._salt_cache = ""
-    assert telemetry._install_salt() == first
+    salt_path = telemetry._salt_path()
+    observed = []
+
+    real_link = telemetry.os.link
+
+    def observing_link(source, target):
+        # Stand where the racing reader stands: after the temp file is written,
+        # before the real name exists.
+        observed.append(salt_path.exists())
+        return real_link(source, target)
+
+    monkeypatch.setattr(telemetry.os, "link", observing_link)
+    salt = telemetry._install_salt()
+
+    assert observed == [False], "the salt name existed before it held a value"
+    assert len(salt) == 32
+    assert salt_path.read_text(encoding="utf-8").strip() == salt
+
+
+def test_a_concurrent_writer_does_not_clobber_the_published_salt(isolated_env):
+    """Second process to finish must adopt the first one's salt, not replace it.
+
+    os.link rather than os.replace is what makes losing the race harmless.
+    """
+    telemetry._salt_cache = ""
+    first = telemetry._install_salt()
+
+    telemetry._salt_cache = ""
+    second = telemetry._install_salt()
+
+    assert second == first
+    assert not list(telemetry._salt_path().parent.glob("telemetry-salt.*.tmp")), "temp file left behind"
