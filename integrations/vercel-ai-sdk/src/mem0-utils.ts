@@ -1,4 +1,9 @@
-const PROVIDER_VERSION = "3.0.2";
+declare const __MEM0_PROVIDER_VERSION__: string | undefined;
+
+// Replaced at build time by tsup `define`. The fallback only applies when the
+// source is run unbundled, such as in tests.
+const PROVIDER_VERSION =
+  typeof __MEM0_PROVIDER_VERSION__ !== "undefined" ? __MEM0_PROVIDER_VERSION__ : "dev";
 
 import { LanguageModelV3Prompt } from '@ai-sdk/provider';
 import { Mem0ConfigSettings } from './mem0-types';
