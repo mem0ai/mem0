@@ -105,6 +105,11 @@ MAX_CLAIM_ATTEMPTS = 3
 # Parked claims drained per run, after the live spool. Bounded so a long backlog
 # cannot turn one flush into an unbounded send loop.
 MAX_PARKED_PER_RUN = 3
+# Added to the wait before a released claim becomes reclaimable, per attempt
+# already spent. Releasing straight to "reclaimable now" let two senders burn the
+# whole budget within seconds of one another on a single momentary failure, and
+# discard a batch a retry a minute later would have delivered.
+RETRY_COOLDOWN_SECONDS = 60
 
 
 def is_enabled() -> bool:
@@ -365,6 +370,14 @@ def claim_install(was_empty: bool | None = None) -> str | None:
                 },
                 stream,
             )
+            # Durable before this returns. The O_EXCL open is what makes the
+            # claim exclusive, so it cannot be replaced by a temp-and-rename
+            # without losing that, which leaves the content as the thing to make
+            # safe. A kill between the open and this fsync used to leave a marker
+            # that exists but parses to nothing: is_first_run reads it as claimed
+            # and claim_version_change cannot read a version out of it.
+            stream.flush()
+            os.fsync(stream.fileno())
     except OSError:
         pass
     return "upgrade" if upgrading else "install"
@@ -715,7 +728,11 @@ def _release_claim(claim: Path, remaining: list[dict[str, Any]]) -> None:
     if not _rewrite_claim(claim, remaining):
         return
     try:
-        released = time.time() - CLAIM_STALE_SECONDS - 1
+        # Backdate past the stale threshold so the next flush can pick it up,
+        # minus a cooldown that grows with the attempts already spent. Clamped so
+        # the mtime never lands in the future, which would read as a live lease.
+        cooldown = min(_claim_attempt(claim) * RETRY_COOLDOWN_SECONDS, CLAIM_STALE_SECONDS)
+        released = time.time() - CLAIM_STALE_SECONDS - 1 + cooldown
         os.utime(claim, (released, released))
     except OSError:
         pass
@@ -852,11 +869,13 @@ def _drain(claim: Path | None) -> tuple[int, bool]:
         return 0, True
     try:
         lines = claim.read_text(encoding="utf-8").splitlines()
-    except (OSError, ValueError):
-        # ValueError covers UnicodeDecodeError from a torn write. Quarantine
-        # rather than retry: flush() runs from a bare `finally:` in
+    except ValueError:
+        # UnicodeDecodeError from a torn write: the content is unrecoverable, so
+        # quarantine rather than retry. flush() runs from a bare `finally:` in
         # flush_worker, so raising here also skips the handoff cleanup, and an
         # undecodable file would otherwise be re-read on every flush forever.
+        # Reported as delivered because there is nothing left to deliver and the
+        # rest of the run should continue.
         try:
             claim.replace(claim.with_suffix(".corrupt"))
         except OSError:
@@ -865,6 +884,13 @@ def _drain(claim: Path | None) -> tuple[int, bool]:
             except OSError:
                 pass
         return 0, True
+    except OSError:
+        # Could not read it, which is not the same as having nothing to send.
+        # The file is left exactly where it is: a vanished or briefly unreadable
+        # claim is retryable, and quarantining it here would discard events over
+        # a transient filesystem error. Reported as undelivered so the run stops
+        # instead of counting a batch nothing was posted from as delivered.
+        return 0, False
     events = []
     for line in lines:
         try:
