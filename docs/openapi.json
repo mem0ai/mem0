@@ -8078,7 +8078,7 @@
 				],
 				"operationId": "profiles_read",
 				"summary": "Get an entity's profile",
-				"description": "Return the memory profile for one user or agent.\n\nGeneration is asynchronous, so a known entity that has no profile yet is a normal 200 carrying a `status`. A 404 means only that no such entity exists.",
+				"description": "Return the memory profile for one user.\n\nGeneration is asynchronous, so a known entity that has no profile yet is a normal 200 carrying a `status`. A 404 means only that no such entity exists.",
 				"parameters": [
 					{
 						"name": "entity_type",
@@ -8087,8 +8087,7 @@
 						"schema": {
 							"type": "string",
 							"enum": [
-								"user",
-								"agent"
+								"user"
 							]
 						},
 						"description": "The kind of entity that carries the profile."
@@ -8130,8 +8129,7 @@
 										"entity_type": {
 											"type": "string",
 											"enum": [
-												"user",
-												"agent"
+												"user"
 											]
 										},
 										"entity_id": {
@@ -8272,12 +8270,12 @@
 				],
 				"operationId": "profiles_create_job",
 				"summary": "Generate profiles",
-				"description": "Start one generation. `operation` says what to build:\n\n- `sample` — up to 10 real entities, so a schema can be judged before it is used widely. These are real profiles: they are saved to those entities and count toward usage.\n- `trigger` — one entity, named by `entity_id`.\n- `regenerate` — every entity in the project. Not available yet; returns 501 `not_yet_available` and creates nothing. Check `capabilities.full_rebuild` on the settings route first.\n\nSend an `Idempotency-Key` header. Replaying the same key returns the same job instead of charging twice. Poll `status_url` from the response until the status is terminal.",
+				"description": "Start one generation. `operation` says what to build:\n\n- `sample` — up to 10 real entities, so a schema can be judged before it is used widely. These are real profiles: they are saved to those entities and count toward usage.\n- `trigger` — one entity, named by `entity_id`.\n\nSend an `Idempotency-Key` header. Replaying the same key returns the same job instead of charging twice. Poll `status_url` from the response until the status is terminal.",
 				"parameters": [
 					{
 						"in": "header",
 						"name": "Idempotency-Key",
-						"required": false,
+						"required": true,
 						"schema": {
 							"type": "string",
 							"minLength": 8,
@@ -8300,16 +8298,14 @@
 										"type": "string",
 										"enum": [
 											"sample",
-											"trigger",
-											"regenerate"
+											"trigger"
 										],
 										"description": "What to generate. Optional only when `entity_id` is set, which means `trigger`."
 									},
 									"entity_type": {
 										"type": "string",
 										"enum": [
-											"user",
-											"agent"
+											"user"
 										],
 										"default": "user"
 									},
@@ -8387,9 +8383,6 @@
 					},
 					"429": {
 						"description": "Cooldown. `retry_after_seconds` sits inside `error`."
-					},
-					"501": {
-						"description": "`not_yet_available` — this operation does not exist yet. Nothing is created or charged."
 					},
 					"503": {
 						"description": "`jobs_unavailable` — generation is switched off for this project."

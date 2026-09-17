@@ -1,6 +1,6 @@
 ---
 title: Profiles
-description: "Build a structured, always-current summary of each user or agent from their memories, shaped by a JSON Schema you define."
+description: "Build a structured, always-current summary of each user from their memories, shaped by a JSON Schema you define."
 icon: "id-card"
 ---
 
@@ -16,8 +16,6 @@ Search answers "what did this user say about X". A profile answers "who is this 
   - You need a compact object to drop into a prompt instead of a list of memories.
   - You want the same fields for every user, so your code can rely on their shape.
 </Info>
-
-Profiles cover **users and agents**. An agent profile summarizes how an agent behaves, in the same way a user profile summarizes a person.
 
 Profiles are a **Pro-plan feature** — see [Plan availability](#plan-availability) for the details.
 
@@ -137,9 +135,12 @@ A response looks like this:
   "status": "succeeded",
   "entity_type": "user",
   "entity_id": "alice",
-  "updated_at": "2026-02-08T10:30:00Z"
+  "updated_at": "2026-02-08T10:30:00Z",
+  "generation_count": 3
 }
 ```
+
+`generation_count` is how many times this profile has been (re)generated — `0` before the first generation completes.
 
 ### Always branch on `status`
 
@@ -154,18 +155,6 @@ A response looks like this:
 | `failed` | The last generation did not complete | Retry, or trigger a new one |
 
 A `404` means only that no such entity exists in your project.
-
-For an agent, pass the entity type:
-
-<CodeGroup>
-```python Python
-client.get_profile("support-bot", entity_type="agent")
-```
-
-```typescript TypeScript
-await client.getProfile({ entityId: "support-bot", entityType: "agent" });
-```
-</CodeGroup>
 
 ## Generate a profile on demand
 
@@ -185,42 +174,38 @@ The call returns as soon as the work is queued. Poll the read endpoint and branc
 
 ## Test a schema before applying it
 
-A schema that reads well can still produce disappointing profiles. Sample a few real entities and inspect the output before committing to it:
+A schema that reads well can still produce disappointing profiles. Sample a few real entities and inspect the output before committing to it.
+
+Sampling is asynchronous: the call returns a job as soon as it is queued. Poll `status_url` until the job is terminal, then read each sampled entity's profile:
 
 <CodeGroup>
 ```python Python
-result = client.sample_profiles(limit=5)
+job = client.sample_profiles(limit=5)
 
-for row in result["results"]:
+# Poll until the sample job finishes.
+status = client.get_profile_job(job["status_url"])["job"]
+print(status["status"], status["succeeded"], "of", status["total"])
+
+# Each result names one sampled entity; read its saved profile.
+for row in status["results"]:
     print(client.get_profile(row["entity_id"]))
 ```
 
 ```typescript TypeScript
-const result = await client.sampleProfiles({ limit: 5 });
+const job = await client.sampleProfiles({ limit: 5 });
 
-for (const row of result.results) {
+// Poll until the sample job finishes.
+const { job: status } = await client.getProfileJob(job.statusUrl);
+console.log(status.status, status.succeeded, "of", status.total);
+
+// Each result names one sampled entity; read its saved profile.
+for (const row of status.results ?? []) {
   console.log(await client.getProfile({ entityId: row.entityId }));
 }
 ```
 </CodeGroup>
 
 These are real generations. The profiles are saved to those entities and count toward your usage, so sampling is not wasted work and not a free dry run. A sample covers up to 10 entities and cannot be repeated immediately.
-
-Both calls return as soon as the job is queued. Poll `status_url` to see how it went:
-
-<CodeGroup>
-```python Python
-job = client.sample_profiles(limit=5)
-status = client.get_profile_job(job["status_url"])["job"]
-print(status["status"], status["succeeded"], "of", status["total"])
-```
-
-```typescript TypeScript
-const job = await client.sampleProfiles({ limit: 5 });
-const { job: status } = await client.getProfileJob(job.statusUrl);
-console.log(status.status, status.succeeded, "of", status.total);
-```
-</CodeGroup>
 
 ## Apply a new schema to existing entities
 
@@ -229,7 +214,7 @@ A new schema shapes the next generation. Profiles that already exist keep their 
 Each entity picks the new schema up as it sends more memories, and you can generate one now with `generate_profile`.
 
 <Note>
-Rebuilding a whole project in one call is not available yet. `regenerate_profiles()` returns `501 not_yet_available` and creates nothing. Check `capabilities.full_rebuild` in the settings response before you offer it.
+Rebuilding every profile in a project at once is not available yet. Refresh profiles one entity at a time with `generate_profile`, or let each one update on its own as its entity sends more memories.
 </Note>
 
 ## When profiles update
@@ -242,7 +227,7 @@ You never call an "update profile" endpoint — Mem0 keeps each profile current 
 Generation is **asynchronous and incremental**. A refresh runs in the background a short while after its trigger, so a read taken immediately after an `add` may still show the previous profile (or `pending`). Branch on `status` rather than assuming the latest memory is already reflected.
 
 <Note>
-  Updates are **incremental**, not a full rebuild each time — Mem0 merges what it newly learns into the stored profile and keeps the fields your schema still defines. To rebuild every profile from scratch after a schema change, use [regenerate](#apply-a-new-schema-to-existing-entities).
+  Updates are **incremental**, not a full rebuild each time — Mem0 merges what it newly learns into the stored profile and keeps the fields your schema still defines. After a schema change, existing profiles pick it up as their entities send more memories, or when you call `generate_profile` — see [Apply a new schema to existing entities](#apply-a-new-schema-to-existing-entities).
 </Note>
 
 ## Use a profile in a prompt
@@ -281,13 +266,13 @@ else:
 | Capability | Free | Starter | Pro | Enterprise |
 |---|:---:|:---:|:---:|:---:|
 | **Profiles** (define a schema, generate, read) | — | — | ✓ | ✓ |
-| **Profiles dashboard** (schema editor, samples, regenerate) | — | — | ✓ | ✓ |
+| **Profiles dashboard** (schema editor, samples) | — | — | ✓ | ✓ |
 
 Profiles require a **Pro plan or higher**. For an individual entity to get a profile, three things must hold:
 
 - the project is on **Pro or above**,
 - profiles are **enabled** with a schema for the project (see [Define the schema](#define-the-schema)), and
-- the memory is scoped to an entity — a `user_id`, or an `agent_id` for agent profiles.
+- the memory is scoped to an entity — a `user_id`.
 
 On a project where profiles are turned off, a read returns `status: not_enabled` rather than an error, so you can call it unconditionally and branch on the status.
 
@@ -319,9 +304,6 @@ No. A schema change applies to the next generation. An existing profile keeps it
 
 **What happens to a field I remove from the schema?**
 It stops being maintained. On an entity's next generation, fields your schema no longer defines are pruned from the stored profile — so keep a field in the schema for as long as you want its value kept.
-
-**Can I have profiles for agents, not just users?**
-Yes. Pass `entity_type="agent"` to `get_profile` / `generate_profile`. An agent profile summarizes an agent the same way a user profile summarizes a person.
 
 **How current is a profile?**
 It refreshes automatically as memories accumulate (about every 10 messages for an entity), plus any on-demand `generate_profile` calls. Because refreshes run in the background, expect a short delay after the triggering `add` rather than an instant update.
