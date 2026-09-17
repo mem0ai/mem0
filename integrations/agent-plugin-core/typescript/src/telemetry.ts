@@ -84,10 +84,15 @@ export function errorKind(error: unknown): string {
 // and lease machinery a correct cross-process spool needs. What that leaves
 // uncovered is narrow: a session that both starts and ends with no connectivity.
 const RETRY_BACKOFF_CEILING_MS = 60_000;
-// Attempts before a batch is given up on, mirroring the Python core's budget.
-// Without one, a payload the server will never accept is retried for the whole
-// session and, now that the backlog is preferred over new events, would block
-// everything behind it.
+// Consecutive failed flushes before the queue is dropped. Deliberately NOT the
+// same thing as Python's budget, which rides in the claim filename and so
+// follows one batch: this counter lives in the closure and counts the outage,
+// not the payload. Events captured between attempts join the same queue and go
+// with it. Per-batch accounting would need an attempt count on every event, and
+// the queue is already bounded, so the simpler rule is the one in force here.
+// Without any bound a payload the server will never accept is retried for the
+// whole session and, now that the backlog is preferred over new events, holds
+// the queue against everything behind it.
 const MAX_DELIVERY_ATTEMPTS = 5;
 
 export function createTelemetry(config: TelemetryConfig) {
@@ -136,7 +141,9 @@ export function createTelemetry(config: TelemetryConfig) {
       //
       consecutiveFailures += 1;
       if (consecutiveFailures >= MAX_DELIVERY_ATTEMPTS) {
-        // Give up on this batch so it cannot hold the queue for the session.
+        // Give up on the queue so a failing outage cannot hold it for the
+        // session. This drops whatever is queued now, which includes events
+        // captured during the outage, not only the batch that kept failing.
         consecutiveFailures = 0;
         retryNotBefore = 0;
         return;
