@@ -2165,6 +2165,13 @@ class Memory(MemoryBase):
             self.db.close()
             self.db = None
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
 
@@ -3863,6 +3870,13 @@ class AsyncMemory(MemoryBase):
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
