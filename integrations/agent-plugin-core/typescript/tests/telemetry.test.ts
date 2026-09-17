@@ -214,3 +214,46 @@ test("a long outage costs the oldest events, not unbounded memory", async () => 
   assert.ok(telemetry.queueForTesting().length <= 3, "queue grew past maxQueueSize");
   telemetry.resetForTesting();
 });
+
+test("an HTTP error response is a failure, not a delivery", async () => {
+  // fetch only rejects on a network-level failure, so a 500 used to resolve
+  // normally and the batch was dropped as delivered. Exercises the real default
+  // delivery path rather than an injected one, which is where this hid.
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return new Response("upstream is unwell", { status: 503 });
+  }) as typeof fetch;
+
+  const telemetry = createTelemetry({
+    host: "h", source: "S", version: "1", distinctId: "d", flushThreshold: 1000,
+  });
+  try {
+    telemetry.capture("during.outage");
+    await telemetry.flush();
+
+    assert.equal(calls, 1, "never reached the network");
+    assert.equal(telemetry.queueForTesting().length, 1, "a 503 was counted as delivered");
+  } finally {
+    globalThis.fetch = realFetch;
+    telemetry.resetForTesting();
+  }
+});
+
+test("a 2xx is a delivery", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response("ok", { status: 200 })) as typeof fetch;
+
+  const telemetry = createTelemetry({
+    host: "h", source: "S", version: "1", distinctId: "d", flushThreshold: 1000,
+  });
+  try {
+    telemetry.capture("fine");
+    await telemetry.flush();
+    assert.equal(telemetry.queueForTesting().length, 0, "a good response did not clear the queue");
+  } finally {
+    globalThis.fetch = realFetch;
+    telemetry.resetForTesting();
+  }
+});

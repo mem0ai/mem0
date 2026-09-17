@@ -94,12 +94,19 @@ export function createTelemetry(config: TelemetryConfig) {
   const maxQueueSize = config.maxQueueSize ?? 100;
 
   const deliver = config.delivery ?? (async (batch: Record<string, unknown>[]) => {
-    await fetch(POSTHOG_BATCH_URL, {
+    const response = await fetch(POSTHOG_BATCH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ api_key: POSTHOG_API_KEY, batch }),
       signal: AbortSignal.timeout(3_000),
     });
+    // fetch only rejects on a network-level failure. Without this check a 500,
+    // a 503 or a 429 resolved normally and the batch was counted as delivered
+    // and dropped, which is the likelier outage than a refused connection.
+    // Any non-2xx is retried, matching the Python core: the backoff and the
+    // queue bound contain a payload that will never be accepted, because the
+    // re-queued batch sits at the front and is the first thing evicted.
+    if (!response.ok) throw new Error(`posthog responded ${response.status}`);
   });
 
   async function flush(): Promise<void> {
