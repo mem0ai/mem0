@@ -344,3 +344,28 @@ test("the exit flush is attempted once, not until the budget is spent", async ()
   assert.equal(attempts, 1, `exit flush ran ${attempts} times`);
   telemetry.resetForTesting();
 });
+
+test("overlapping flushes do not reorder the backlog behind newer events", async () => {
+  // Each flush detaches the queue and prepends its own batch back on failure, so
+  // two in flight at once put the LATER batch in front of the earlier one. The
+  // truncation then drops the older events first, inverting the priority the
+  // failure path exists to establish.
+  let release: (() => void)[] = [];
+  const telemetry = createTelemetry({
+    host: "h", source: "S", version: "1", distinctId: "d", flushThreshold: 1000,
+    delivery: () => new Promise((_resolve, reject) => { release.push(() => reject(new Error("down"))); }),
+  });
+
+  telemetry.capture("first");
+  const a = telemetry.flush();
+  telemetry.capture("second");
+  const b = telemetry.flush();
+
+  release.forEach((fn) => fn());
+  await Promise.all([a, b]);
+
+  const events = telemetry.queueForTesting().map((e) => (e as any).event);
+  assert.equal(release.length, 1, "a second delivery started while one was in flight");
+  assert.deepEqual(events, ["first", "second"], `backlog reordered: ${events.join(",")}`);
+  telemetry.resetForTesting();
+});

@@ -137,6 +137,9 @@ export function readPluginAuth(): PluginAuthConfig {
     autoCapture: cfg.autoCapture as boolean | undefined,
     topK: cfg.topK as number | undefined,
     anonymousTelemetryId: cfg.anonymousTelemetryId as string | undefined,
+    // Without this the reader silently drops it, every fingerprint comparison
+    // fails against undefined, and the resolved email is never used again.
+    keyFingerprint: cfg.keyFingerprint as string | undefined,
   };
 }
 

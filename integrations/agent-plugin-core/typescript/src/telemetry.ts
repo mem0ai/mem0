@@ -101,6 +101,7 @@ export function createTelemetry(config: TelemetryConfig) {
   let consecutiveFailures = 0;
   let retryNotBefore = 0;
   let exitFlushAttempted = false;
+  let flushing = false;
   const flushThreshold = config.flushThreshold ?? 10;
   const maxQueueSize = config.maxQueueSize ?? 100;
 
@@ -121,6 +122,12 @@ export function createTelemetry(config: TelemetryConfig) {
   });
 
   async function flush(force = false): Promise<void> {
+    // One at a time. Two overlapping flushes each detach the queue and each
+    // prepend their own batch back on failure, so the later batch lands in front
+    // of the earlier one and the truncation then drops the OLDER events first,
+    // inverting the priority the failure path exists to establish. A second
+    // caller returns immediately; the queue waits for the next flush.
+    if (flushing) return;
     if (!queue.length) return;
     // `force` skips the cooldown. beforeExit is the last chance this process
     // gets, and gating it on the same backoff meant that after any failure the
@@ -129,6 +136,7 @@ export function createTelemetry(config: TelemetryConfig) {
     if (!force && Date.now() < retryNotBefore) return;
     const batch = queue;
     queue = [];
+    flushing = true;
     try {
       await deliver(batch);
       consecutiveFailures = 0;
@@ -155,6 +163,8 @@ export function createTelemetry(config: TelemetryConfig) {
       // retry exists to save.
       queue = [...batch, ...queue].slice(0, maxQueueSize);
       retryNotBefore = Date.now() + Math.min(2 ** consecutiveFailures * 1_000, RETRY_BACKOFF_CEILING_MS);
+    } finally {
+      flushing = false;
     }
   }
 
