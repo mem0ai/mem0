@@ -430,3 +430,17 @@ def test_quarantined_batches_are_eventually_collected(telemetry):
 
     assert fresh.exists(), "a recent quarantine was discarded before anyone could look at it"
     assert not old.exists(), "an expired quarantine was left on disk forever"
+
+
+def test_temp_files_orphaned_by_a_kill_are_collected(telemetry):
+    """_write_identity and _install_salt unlink in a finally, which SIGKILL skips."""
+    directory = telemetry.memory_core.data_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    orphan = directory / "telemetry-salt.999.tmp"
+    orphan.write_text("abandoned", encoding="utf-8")
+    stale = time.time() - (telemetry.CLAIM_STALE_SECONDS + 60)
+    os.utime(orphan, (stale, stale))
+
+    telemetry._sweep_debris(directory)
+
+    assert not orphan.exists(), "a killed process left a temp file on disk forever"

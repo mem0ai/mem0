@@ -486,6 +486,15 @@ def _sweep_debris(directory: Path) -> None:
                 quarantined.unlink()
         except OSError:
             continue
+    # The same reasoning covers *.tmp. _write_identity and _install_salt both
+    # create one and unlink it in a finally, which a SIGKILL skips, and no glob
+    # in this module matches the leftovers either.
+    for temporary in directory.glob("telemetry-*.tmp"):
+        try:
+            if now - temporary.stat().st_mtime > CLAIM_STALE_SECONDS:
+                temporary.unlink()
+        except OSError:
+            continue
 
 
 def _claim_parked(directory: Path) -> Path | None:
