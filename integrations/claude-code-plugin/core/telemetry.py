@@ -167,6 +167,18 @@ def _install_salt() -> str:
         return _salt_cache
 
     path = _salt_path()
+    # Read before writing. Hooks are separate processes firing on every tool
+    # call, so all but the first find the salt already published; going straight
+    # to create-fsync-link-unlink meant every one of them paid an fsync to
+    # discover that, on a path whose whole promise is appending a line and
+    # returning.
+    try:
+        _salt_cache = path.read_text(encoding="utf-8").strip()
+        if _salt_cache:
+            return _salt_cache
+    except OSError:
+        pass
+
     temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -617,16 +629,28 @@ def _claim_spool() -> Path | None:
 
 
 def _sweep_debris(directory: Path) -> None:
-    """Remove temp files orphaned by a crash between write and rename.
+    """Remove files nothing else will ever pick up again.
 
-    Neither glob in this module matches *.partial, so nothing else would ever
-    clean them up.
+    *.partial is a temp file orphaned by a crash between write and rename.
+    *.corrupt is a batch quarantined for undecodable content. No glob in this
+    module matches either, so without this they accumulate on disk for the life
+    of the install.
+
+    Quarantined batches are kept far longer than debris: they are the only
+    evidence left of events that could not be delivered, and someone diagnosing
+    a report of missing telemetry has to be able to find one.
     """
     now = time.time()
     for debris in directory.glob("telemetry-*.partial"):
         try:
             if now - debris.stat().st_mtime > CLAIM_STALE_SECONDS:
                 debris.unlink()
+        except OSError:
+            continue
+    for quarantined in directory.glob("telemetry-*.corrupt"):
+        try:
+            if now - quarantined.stat().st_mtime > CLAIM_EXPIRY_SECONDS:
+                quarantined.unlink()
         except OSError:
             continue
 
