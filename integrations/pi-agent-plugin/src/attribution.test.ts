@@ -51,3 +51,30 @@ describe("applySurfaceHeaders", () => {
     expect(headers["X-Mem0-Client"].length).toBeLessThanOrEqual(200);
   });
 });
+
+describe("client stack bounding", () => {
+  it("keeps our own entry when the caller already filled the stack", () => {
+    // The defect: pushing then trimming to four dropped exactly the entry this
+    // function exists to add, so we vanished from our own stack.
+    const mem0 = client({ "X-Mem0-Client": "a/1, b/2, c/3, d/4" });
+    applySurfaceHeaders(mem0);
+    const stack = (mem0 as unknown as { headers: Record<string, string> }).headers["X-Mem0-Client"];
+
+    expect(stack).toMatch(/mem0-pi-agent\//);
+    expect(stack.split(",").length).toBeLessThanOrEqual(4);
+  });
+
+  it("drops whole entries at the character cap, never a fragment", () => {
+    const long = `${"n".repeat(90)}/1.0, ${"m".repeat(90)}/1.0, ${"o".repeat(90)}/1.0`;
+    const mem0 = client({ "X-Mem0-Client": long });
+    applySurfaceHeaders(mem0);
+    const stack = (mem0 as unknown as { headers: Record<string, string> }).headers["X-Mem0-Client"];
+
+    expect(stack.length).toBeLessThanOrEqual(200);
+    expect(stack.endsWith("/0.0.0") || /mem0-pi-agent\/[\w.\-]+$/.test(stack)).toBe(true);
+    // Every surviving entry is whole: name/version, no severed tail.
+    for (const entry of stack.split(",")) {
+      expect(entry.trim()).toMatch(/^[^/]+\/[^/]+$/);
+    }
+  });
+});

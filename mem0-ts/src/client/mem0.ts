@@ -103,6 +103,30 @@ declare const __MEM0_SDK_VERSION__: string | undefined;
 const SDK_VERSION =
   typeof __MEM0_SDK_VERSION__ !== "undefined" ? __MEM0_SDK_VERSION__ : "dev";
 
+const MAX_STACK_ENTRIES = 4;
+const MAX_STACK_CHARS = 200;
+
+/**
+ * Append our own entry and bound the result, dropping WHOLE entries.
+ *
+ * Neither cap cuts characters: slicing the joined string severs an identifier
+ * and leaves a fragment the platform parses as a real client name. And the
+ * reserved slot is ours. Pushing first and then trimming to four dropped exactly
+ * the entry this exists to add whenever a caller already sent four, so we
+ * vanished from our own stack while every caller claim survived.
+ */
+function boundedStack(callerEntries: string[], own: string): string {
+  const kept: string[] = [];
+  let budget = MAX_STACK_CHARS - own.length;
+  for (const entry of callerEntries.slice(0, MAX_STACK_ENTRIES - 1)) {
+    const cost = entry.length + ", ".length;
+    if (cost > budget) break;
+    budget -= cost;
+    kept.push(entry);
+  }
+  return [...kept, own].join(", ");
+}
+
 /**
  * Surface-identity headers.
  *
@@ -121,10 +145,8 @@ function surfaceHeaders(): Record<string, string> {
         .map((part) => part.trim())
         .filter(Boolean)
     : [];
-  entries.push(`mem0-js/${SDK_VERSION}`);
-
   const headers: Record<string, string> = {
-    "X-Mem0-Client": entries.slice(0, 4).join(", ").slice(0, 200),
+    "X-Mem0-Client": boundedStack(entries, `mem0-js/${SDK_VERSION}`),
   };
   const source = (env.MEM0_SOURCE ?? "").trim();
   if (source) headers["X-Mem0-Source"] = source;

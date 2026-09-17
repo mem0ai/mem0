@@ -18,7 +18,26 @@ const PLUGIN_VERSION = (() => {
 })();
 
 const MAX_STACK_ENTRIES = 4;
-const MAX_HEADER_CHARS = 200;
+const MAX_STACK_CHARS = 200;
+
+/**
+ * Append our own entry and bound the result, dropping WHOLE entries.
+ *
+ * Neither cap cuts characters: slicing the joined string severs an identifier
+ * and leaves a fragment the platform parses as a real client name. And the
+ * reserved slot is ours, since it is the only entry this layer can vouch for.
+ */
+function boundedStack(callerEntries: string[], own: string): string {
+  const kept: string[] = [];
+  let budget = MAX_STACK_CHARS - own.length;
+  for (const entry of callerEntries.slice(0, MAX_STACK_ENTRIES - 1)) {
+    const cost = entry.length + ", ".length;
+    if (cost > budget) break;
+    budget -= cost;
+    kept.push(entry);
+  }
+  return [...kept, own].join(", ");
+}
 
 /**
  * Stamp surface identity onto the shared client, once, at construction.
@@ -42,9 +61,5 @@ export function applySurfaceHeaders(client: MemoryClient): void {
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
-  existing.push(`mem0-pi-agent/${PLUGIN_VERSION}`);
-  headers["X-Mem0-Client"] = existing
-    .slice(0, MAX_STACK_ENTRIES)
-    .join(", ")
-    .slice(0, MAX_HEADER_CHARS);
+  headers["X-Mem0-Client"] = boundedStack(existing, `mem0-pi-agent/${PLUGIN_VERSION}`);
 }

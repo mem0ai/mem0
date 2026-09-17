@@ -103,8 +103,7 @@ def _apply_client_headers(client: Any, api_key: str, user_id: str) -> None:
     outer_stack = existing.get("X-Mem0-Client")
     if outer_stack:
         entries = [part.strip() for part in str(outer_stack).split(",") if part.strip()]
-        entries.append(f"mem0-python/{_sdk_version()}")
-        mine["X-Mem0-Client"] = _bounded_stack(entries)
+        mine["X-Mem0-Client"] = _bounded_stack(entries, f"mem0-python/{_sdk_version()}")
 
     for name, value in mine.items():
         if name in ("X-Mem0-Source", "X-Application") and existing.get(name):
@@ -112,19 +111,29 @@ def _apply_client_headers(client: Any, api_key: str, user_id: str) -> None:
         existing[name] = value
 
 
-def _bounded_stack(entries) -> str:
-    """Join stack entries within the cap, dropping whole entries not characters.
+MAX_STACK_ENTRIES = 4
+MAX_STACK_CHARS = 200
 
-    A blunt slice cut mid-identifier and left a fragment that parses as a real
-    client name.
+
+def _bounded_stack(caller_entries, own: str) -> str:
+    """Append our own entry and bound the result, dropping WHOLE entries.
+
+    Two rules, and the second is the one that was wrong. Neither cap cuts
+    characters: a blunt slice severs an identifier and leaves a fragment that
+    parses as a real client name. And the reserved slot is OURS. Appending first
+    and then trimming to four dropped exactly the entry this function exists to
+    add, every time a caller already sent four, so the SDK vanished from its own
+    stack while the caller's claims all survived.
     """
-    out = []
-    for entry in list(entries)[:4]:
-        candidate = ", ".join(out + [entry])
-        if len(candidate) > 200:
+    kept = []
+    budget = MAX_STACK_CHARS - len(own)
+    for entry in list(caller_entries)[: MAX_STACK_ENTRIES - 1]:
+        cost = len(entry) + len(", ")
+        if cost > budget:
             break
-        out.append(entry)
-    return ", ".join(out)
+        budget -= cost
+        kept.append(entry)
+    return ", ".join(kept + [own])
 
 
 def _client_headers(api_key: str, user_id: str) -> Dict[str, str]:
