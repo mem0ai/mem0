@@ -256,13 +256,23 @@ export interface ProfileResponse {
   generationCount: number;
 }
 
-export interface ProfileTriggerResponse {
-  message: string;
-  entityType: ProfileEntityType;
-  entityId: string;
-  profileId: string;
+/** Every accepted generation. `statusUrl` is the server's own poll path. */
+export interface ProfileJobResponse {
+  jobId: string;
   status: string;
+  statusUrl: string;
+  operation: string;
+  entityType: ProfileEntityType;
+  usageUnits?: number;
+  eventId?: string;
+  replayed?: boolean;
+  /** Sample runs only. */
+  sampled?: number;
+  results?: Array<ProfileSampleResult>;
 }
+
+/** @deprecated Use {@link ProfileJobResponse}. */
+export type ProfileTriggerResponse = ProfileJobResponse;
 
 export interface ProfileSettings {
   enabled?: boolean;
@@ -278,15 +288,28 @@ export interface ProfileSampleResult {
   [key: string]: any;
 }
 
-export interface ProfileSamplesResponse {
-  message: string;
-  sampled: number;
-  results: Array<ProfileSampleResult>;
-}
+/** @deprecated Use {@link ProfileJobResponse}. */
+export type ProfileSamplesResponse = ProfileJobResponse;
 
-export interface ProfileRegenerateResponse {
-  status: string;
-  message: string;
-  projectId: string;
-  existingProfileCount: number;
+/** @deprecated Use {@link ProfileJobResponse}. */
+export type ProfileRegenerateResponse = ProfileJobResponse;
+
+/** `GET /v2/profiles/jobs/{id}/`. The job nests under `job`. */
+export interface ProfileJobStatus {
+  job: {
+    id: string;
+    operation: string;
+    entityType: ProfileEntityType;
+    status: string;
+    /** Null until `enumerationComplete`. */
+    total: number | null;
+    enumerationComplete: boolean;
+    /** succeeded + failed + skipped. */
+    completed: number;
+    succeeded: number;
+    failed: number;
+    skipped: number;
+    results?: Array<ProfileSampleResult>;
+    [key: string]: any;
+  };
 }

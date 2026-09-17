@@ -8265,14 +8265,27 @@
 				}
 			}
 		},
-		"/v2/profiles/trigger/": {
+		"/v2/profiles/jobs/": {
 			"post": {
 				"tags": [
 					"profiles"
 				],
-				"operationId": "profiles_trigger",
-				"summary": "Generate one entity's profile now",
-				"description": "Generate or refresh the profile for a single entity immediately.\n\nProfiles are otherwise built once an entity crosses an internal message threshold, so a new entity has none for its first few memories. Returns 202: poll the read endpoint and branch on `status`.",
+				"operationId": "profiles_create_job",
+				"summary": "Generate profiles",
+				"description": "Start one generation. `operation` says what to build:\n\n- `sample` — up to 10 real entities, so a schema can be judged before it is used widely. These are real profiles: they are saved to those entities and count toward usage.\n- `trigger` — one entity, named by `entity_id`.\n- `regenerate` — every entity in the project. Not available yet; returns 501 `not_yet_available` and creates nothing. Check `capabilities.full_rebuild` on the settings route first.\n\nSend an `Idempotency-Key` header. Replaying the same key returns the same job instead of charging twice. Poll `status_url` from the response until the status is terminal.",
+				"parameters": [
+					{
+						"in": "header",
+						"name": "Idempotency-Key",
+						"required": false,
+						"schema": {
+							"type": "string",
+							"minLength": 8,
+							"maxLength": 128
+						},
+						"description": "Makes a retry safe: the same key returns the same job."
+					}
+				],
 				"requestBody": {
 					"required": true,
 					"content": {
@@ -8280,9 +8293,18 @@
 							"schema": {
 								"type": "object",
 								"required": [
-									"entity_id"
+									"operation"
 								],
 								"properties": {
+									"operation": {
+										"type": "string",
+										"enum": [
+											"sample",
+											"trigger",
+											"regenerate"
+										],
+										"description": "What to generate. Optional only when `entity_id` is set, which means `trigger`."
+									},
 									"entity_type": {
 										"type": "string",
 										"enum": [
@@ -8292,65 +8314,9 @@
 										"default": "user"
 									},
 									"entity_id": {
-										"type": "string"
-									}
-								}
-							}
-						}
-					}
-				},
-				"responses": {
-					"202": {
-						"description": "Generation queued.",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"message": {
-											"type": "string"
-										},
-										"entity_type": {
-											"type": "string"
-										},
-										"entity_id": {
-											"type": "string"
-										},
-										"profile_id": {
-											"type": "string"
-										},
-										"status": {
-											"type": "string"
-										}
-									}
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "Unsupported entity type, or profiles are not enabled and configured."
-					},
-					"404": {
-						"description": "No such entity in this project."
-					}
-				}
-			}
-		},
-		"/v2/profiles/samples/": {
-			"post": {
-				"tags": [
-					"profiles"
-				],
-				"operationId": "profiles_samples",
-				"summary": "Sample profiles to check a schema",
-				"description": "Generate profiles for a handful of real entities so a schema can be judged before it is applied project-wide.\n\nThese are real generations and the results are kept, so the work counts toward a later regenerate.",
-				"requestBody": {
-					"required": false,
-					"content": {
-						"application/json": {
-							"schema": {
-								"type": "object",
-								"properties": {
+										"type": "string",
+										"description": "One entity, for `trigger`."
+									},
 									"limit": {
 										"type": "integer",
 										"minimum": 1,
@@ -8364,23 +8330,141 @@
 				},
 				"responses": {
 					"202": {
-						"description": "Sampling queued.",
+						"description": "Job accepted.",
 						"content": {
 							"application/json": {
 								"schema": {
 									"type": "object",
 									"properties": {
-										"message": {
+										"job_id": {
 											"type": "string"
 										},
-										"sampled": {
+										"status": {
+											"type": "string"
+										},
+										"status_url": {
+											"type": "string",
+											"description": "Poll this. Building the path yourself breaks on a route change."
+										},
+										"operation": {
+											"type": "string"
+										},
+										"entity_type": {
+											"type": "string"
+										},
+										"usage_units": {
 											"type": "integer"
+										},
+										"replayed": {
+											"type": "boolean",
+											"description": "True when an Idempotency-Key returned an existing job."
+										},
+										"sampled": {
+											"type": "integer",
+											"description": "`sample` only."
 										},
 										"results": {
 											"type": "array",
 											"items": {
 												"type": "object",
 												"additionalProperties": true
+											},
+											"description": "`sample` only."
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Unknown or missing `operation`, or profiles are not configured."
+					},
+					"402": {
+						"description": "Payment required."
+					},
+					"409": {
+						"description": "A job is already running, or the Idempotency-Key was used for a different request. Branch on `error.code`."
+					},
+					"429": {
+						"description": "Cooldown. `retry_after_seconds` sits inside `error`."
+					},
+					"501": {
+						"description": "`not_yet_available` — this operation does not exist yet. Nothing is created or charged."
+					},
+					"503": {
+						"description": "`jobs_unavailable` — generation is switched off for this project."
+					}
+				}
+			}
+		},
+		"/v2/profiles/jobs/{job_id}/": {
+			"get": {
+				"tags": [
+					"profiles"
+				],
+				"operationId": "profiles_get_job",
+				"summary": "Read a generation job",
+				"description": "The job nests under `job`. `total` is null until `enumeration_complete`, and `completed` is `succeeded + failed + skipped`.",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "job_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The job.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"job": {
+											"type": "object",
+											"properties": {
+												"id": {
+													"type": "string"
+												},
+												"operation": {
+													"type": "string"
+												},
+												"entity_type": {
+													"type": "string"
+												},
+												"status": {
+													"type": "string",
+													"enum": [
+														"QUEUED",
+														"RUNNING",
+														"SUCCEEDED",
+														"PARTIALLY_SUCCEEDED",
+														"FAILED",
+														"CANCELLED"
+													]
+												},
+												"total": {
+													"type": "integer",
+													"nullable": true
+												},
+												"enumeration_complete": {
+													"type": "boolean"
+												},
+												"completed": {
+													"type": "integer"
+												},
+												"succeeded": {
+													"type": "integer"
+												},
+												"failed": {
+													"type": "integer"
+												},
+												"skipped": {
+													"type": "integer"
+												}
 											}
 										}
 									}
@@ -8388,56 +8472,8 @@
 							}
 						}
 					},
-					"400": {
-						"description": "Profiles are not enabled and configured."
-					},
-					"429": {
-						"description": "A sample run was already started for this project very recently."
-					}
-				}
-			}
-		},
-		"/v2/profiles/regenerate/": {
-			"post": {
-				"tags": [
-					"profiles"
-				],
-				"operationId": "profiles_regenerate",
-				"summary": "Rebuild every profile in the project",
-				"description": "Rebuild the profile of every entity in the project. This is how a new schema reaches entities that already have a profile.\n\nReturns 202 immediately; the rebuild runs in the background.",
-				"responses": {
-					"202": {
-						"description": "Regenerate queued.",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"status": {
-											"type": "string"
-										},
-										"message": {
-											"type": "string"
-										},
-										"project_id": {
-											"type": "string"
-										},
-										"existing_profile_count": {
-											"type": "integer"
-										}
-									}
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "Profiles are not enabled and configured."
-					},
-					"409": {
-						"description": "A regenerate is already running for this project."
-					},
-					"429": {
-						"description": "A regenerate already ran for this project within the last hour."
+					"404": {
+						"description": "No such job in this project."
 					}
 				}
 			}

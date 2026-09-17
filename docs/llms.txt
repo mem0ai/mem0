@@ -364,11 +364,10 @@ All API Reference docs describe Mem0 Platform REST endpoints (requires API key).
 - [Get Users](https://docs.mem0.ai/api-reference/entities/get-users) [Platform]: Use when listing users, agents, or apps known to a project.
 - [Delete User](https://docs.mem0.ai/api-reference/entities/delete-user) [Platform]: Use when removing an entity and all its memories.
 - [Get Profile](https://docs.mem0.ai/api-reference/profiles/get-profile) [Platform]: Use when reading a user's or agent's structured profile and branching on its generation status.
-- [Generate Profile](https://docs.mem0.ai/api-reference/profiles/trigger-profile) [Platform]: Use when a profile is needed before the entity reaches the automatic message threshold.
 - [Get Profile Settings](https://docs.mem0.ai/api-reference/profiles/get-profile-settings) [Platform]: Use when checking the project's profile schema, instructions, or enabled flag.
 - [Update Profile Settings](https://docs.mem0.ai/api-reference/profiles/update-profile-settings) [Platform]: Use when defining or changing the JSON Schema that shapes profiles for a project.
-- [Sample Profiles](https://docs.mem0.ai/api-reference/profiles/sample-profiles) [Platform]: Use when validating a profile schema against a few real entities before applying it project-wide.
-- [Regenerate Profiles](https://docs.mem0.ai/api-reference/profiles/regenerate-profiles) [Platform]: Use when a new schema must be applied to entities that already have a profile.
+- [Generate Profiles](https://docs.mem0.ai/api-reference/profiles/generate-profiles) [Platform]: Use when building profiles now: a sample of ten, one entity, or the whole project.
+- [Get Generation Job](https://docs.mem0.ai/api-reference/profiles/get-profile-job) [Platform]: Use when checking how far a generation has got, and whether it finished.
 
 ### Organizations
 - [Create Organization](https://docs.mem0.ai/api-reference/organization/create-org) [Platform]: Use when setting up a new org.

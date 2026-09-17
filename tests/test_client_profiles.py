@@ -31,6 +31,15 @@ def mock_memory_client():
             yield client
 
 
+def _assert_job_call(post_mock, expected_json):
+    """One jobs collection, operation in the body, idempotency key per attempt."""
+    post_mock.assert_called_once()
+    args, kwargs = post_mock.call_args
+    assert args[0] == "/v2/profiles/jobs/"
+    assert kwargs["json"] == expected_json
+    assert kwargs["headers"]["Idempotency-Key"]
+
+
 def _mock_response(payload):
     response = MagicMock()
     response.json.return_value = payload
@@ -84,9 +93,9 @@ class TestGenerateProfile:
 
         mock_memory_client.generate_profile("alice")
 
-        mock_memory_client.client.post.assert_called_once_with(
-            "/v2/profiles/trigger/",
-            json={"entity_type": "user", "entity_id": "alice"},
+        _assert_job_call(
+            mock_memory_client.client.post,
+            {"operation": "trigger", "entity_type": "user", "entity_id": "alice"},
         )
 
     def test_agent_entity_type(self, mock_memory_client):
@@ -94,9 +103,9 @@ class TestGenerateProfile:
 
         mock_memory_client.generate_profile("support-bot", entity_type="agent")
 
-        mock_memory_client.client.post.assert_called_once_with(
-            "/v2/profiles/trigger/",
-            json={"entity_type": "agent", "entity_id": "support-bot"},
+        _assert_job_call(
+            mock_memory_client.client.post,
+            {"operation": "trigger", "entity_type": "agent", "entity_id": "support-bot"},
         )
 
 
@@ -148,14 +157,14 @@ class TestSampleAndRegenerate:
 
         mock_memory_client.sample_profiles()
 
-        mock_memory_client.client.post.assert_called_once_with("/v2/profiles/samples/", json={})
+        _assert_job_call(mock_memory_client.client.post, {"operation": "sample"})
 
     def test_sample_with_limit(self, mock_memory_client):
         mock_memory_client.client.post.return_value = _mock_response({"sampled": 3, "results": []})
 
         mock_memory_client.sample_profiles(limit=3)
 
-        mock_memory_client.client.post.assert_called_once_with("/v2/profiles/samples/", json={"limit": 3})
+        _assert_job_call(mock_memory_client.client.post, {"operation": "sample", "limit": 3})
 
     def test_regenerate(self, mock_memory_client):
         mock_memory_client.client.post.return_value = _mock_response(
@@ -164,7 +173,7 @@ class TestSampleAndRegenerate:
 
         mock_memory_client.regenerate_profiles()
 
-        mock_memory_client.client.post.assert_called_once_with("/v2/profiles/regenerate/", json={})
+        _assert_job_call(mock_memory_client.client.post, {"operation": "regenerate"})
 
 
 class TestAsyncClientParity:
@@ -201,9 +210,9 @@ class TestAsyncClientParity:
 
         asyncio.run(async_client.generate_profile("alice", entity_type="agent"))
 
-        async_client.async_client.post.assert_called_once_with(
-            "/v2/profiles/trigger/",
-            json={"entity_type": "agent", "entity_id": "alice"},
+        _assert_job_call(
+            async_client.async_client.post,
+            {"operation": "trigger", "entity_type": "agent", "entity_id": "alice"},
         )
 
     def test_update_settings_partial(self, async_client):
@@ -221,4 +230,4 @@ class TestAsyncClientParity:
 
         asyncio.run(async_client.regenerate_profiles())
 
-        async_client.async_client.post.assert_called_once_with("/v2/profiles/regenerate/", json={})
+        _assert_job_call(async_client.async_client.post, {"operation": "regenerate"})

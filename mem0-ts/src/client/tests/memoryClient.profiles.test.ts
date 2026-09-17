@@ -67,9 +67,9 @@ describe("MemoryClient - getProfile()", () => {
 });
 
 describe("MemoryClient - generateProfile()", () => {
-  test("posts entity_type and entity_id to the trigger route", async () => {
+  test("sends operation trigger with the entity to the jobs collection", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/profiles/trigger/", {
+    extra.set("/v2/profiles/jobs/", {
       status: 202,
       body: {
         message: "Profile generation started.",
@@ -84,9 +84,10 @@ describe("MemoryClient - generateProfile()", () => {
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     const result = await client.generateProfile({ entityId: "alice" });
 
-    const call = findFetchCall(mock, "/v2/profiles/trigger/", "POST");
+    const call = findFetchCall(mock, "/v2/profiles/jobs/", "POST");
     expect(call).toBeDefined();
     const body = getFetchBody(call!);
+    expect(body.operation).toBe("trigger");
     expect(body.entity_type).toBe("user");
     expect(body.entity_id).toBe("alice");
     expect(result.profileId).toBe("p_1");
@@ -184,44 +185,62 @@ describe("MemoryClient - profile settings", () => {
 describe("MemoryClient - sampleProfiles() / regenerateProfiles()", () => {
   test("sampleProfiles omits limit when unset", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/profiles/samples/", {
+    extra.set("/v2/profiles/jobs/", {
       status: 202,
-      body: { message: "Sampling 5 users.", sampled: 5, results: [] },
+      body: {
+        job_id: "job_1",
+        status: "QUEUED",
+        status_url: "/v2/profiles/jobs/job_1/",
+        operation: "sample",
+        entity_type: "user",
+        sampled: 5,
+        results: [],
+      },
     });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.sampleProfiles();
 
-    const call = findFetchCall(mock, "/v2/profiles/samples/", "POST");
-    expect(getFetchBody(call!)).toEqual({});
+    const call = findFetchCall(mock, "/v2/profiles/jobs/", "POST");
+    expect(getFetchBody(call!)).toEqual({ operation: "sample" });
   });
 
   test("sampleProfiles passes an explicit limit", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/profiles/samples/", {
+    extra.set("/v2/profiles/jobs/", {
       status: 202,
-      body: { message: "Sampling 3 users.", sampled: 3, results: [] },
+      body: {
+        job_id: "job_2",
+        status: "QUEUED",
+        status_url: "/v2/profiles/jobs/job_2/",
+        operation: "sample",
+        entity_type: "user",
+        sampled: 3,
+        results: [],
+      },
     });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     const result = await client.sampleProfiles({ limit: 3 });
 
-    const call = findFetchCall(mock, "/v2/profiles/samples/", "POST");
+    const call = findFetchCall(mock, "/v2/profiles/jobs/", "POST");
+    expect(getFetchBody(call!).operation).toBe("sample");
     expect(getFetchBody(call!).limit).toBe(3);
     expect(result.sampled).toBe(3);
   });
 
-  test("regenerateProfiles posts to the regenerate route", async () => {
+  test("sends operation regenerate to the jobs collection", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/profiles/regenerate/", {
+    extra.set("/v2/profiles/jobs/", {
       status: 202,
       body: {
-        status: "accepted",
-        message: "Regenerating profiles.",
-        project_id: "proj_abc",
-        existing_profile_count: 12,
+        job_id: "job_3",
+        status: "QUEUED",
+        status_url: "/v2/profiles/jobs/job_3/",
+        operation: "regenerate",
+        entity_type: "user",
       },
     });
     const mock = setupMockFetch(extra);
@@ -230,9 +249,9 @@ describe("MemoryClient - sampleProfiles() / regenerateProfiles()", () => {
     const result = await client.regenerateProfiles();
 
     expect(
-      findFetchCall(mock, "/v2/profiles/regenerate/", "POST"),
+      findFetchCall(mock, "/v2/profiles/jobs/", "POST"),
     ).toBeDefined();
-    expect(result.existingProfileCount).toBe(12);
-    expect(result.projectId).toBe("proj_abc");
+    expect(result.jobId).toBe("job_3");
+    expect(result.statusUrl).toBe("/v2/profiles/jobs/job_3/");
   });
 });

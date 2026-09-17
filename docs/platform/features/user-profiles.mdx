@@ -204,23 +204,33 @@ for (const row of result.results) {
 ```
 </CodeGroup>
 
-These are real generations against real memories, and the results are kept — sampling is not wasted work. Sampling is limited to 10 entities per call and cannot be repeated immediately.
+These are real generations. The profiles are saved to those entities and count toward your usage, so sampling is not wasted work and not a free dry run. A sample covers up to 10 entities and cannot be repeated immediately.
 
-## Apply a new schema to existing entities
-
-Changing the schema does not retroactively rewrite profiles that already exist. To rebuild every profile in the project:
+Both calls return as soon as the job is queued. Poll `status_url` to see how it went:
 
 <CodeGroup>
 ```python Python
-client.regenerate_profiles()
+job = client.sample_profiles(limit=5)
+status = client.get_profile_job(job["status_url"])["job"]
+print(status["status"], status["succeeded"], "of", status["total"])
 ```
 
 ```typescript TypeScript
-await client.regenerateProfiles();
+const job = await client.sampleProfiles({ limit: 5 });
+const { job: status } = await client.getProfileJob(job.statusUrl);
+console.log(status.status, status.succeeded, "of", status.total);
 ```
 </CodeGroup>
 
-This returns immediately and runs in the background; a large project takes a while. It is limited to one run per project per day, so sample first and regenerate once you are satisfied.
+## Apply a new schema to existing entities
+
+A new schema shapes the next generation. Profiles that already exist keep their values until their entity is generated again.
+
+Each entity picks the new schema up as it sends more memories, and you can generate one now with `generate_profile`.
+
+<Note>
+Rebuilding a whole project in one call is not available yet. `regenerate_profiles()` returns `501 not_yet_available` and creates nothing. Check `capabilities.full_rebuild` in the settings response before you offer it.
+</Note>
 
 ## When profiles update
 
@@ -305,7 +315,7 @@ Generation is asynchronous and needs enough to work with. Branch on `status`: `p
 No. `sample_profiles` runs real generations against real memories and **keeps** the profiles it produces, so it counts toward your usage like any other generation. It exists to check a schema on a few entities before you commit to it — not as a zero-cost dry run.
 
 **Does changing the schema rewrite existing profiles?**
-No. A schema change applies to future generations. To apply a new schema to entities that already have a profile, call `regenerate_profiles` (rate-limited to once per project per day).
+No. A schema change applies to the next generation. An existing profile keeps its values until its entity is generated again, which happens as that entity sends more memories, or when you call `generate_profile` for it.
 
 **What happens to a field I remove from the schema?**
 It stops being maintained. On an entity's next generation, fields your schema no longer defines are pruned from the stored profile — so keep a field in the schema for as long as you want its value kept.

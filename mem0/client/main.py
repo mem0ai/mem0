@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import uuid
 import warnings
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
@@ -38,6 +39,9 @@ setup_config()
 
 # Entity parameters that must be passed via filters, not top-level
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
+
+# One collection for every generation; the operation is a body field.
+PROFILE_JOBS_PATH = "/v2/profiles/jobs/"
 
 
 def _validate_and_trim_search_query(query: str) -> str:
@@ -734,8 +738,9 @@ class MemoryClient:
         """
 
         response = self.client.post(
-            "/v2/profiles/trigger/",
-            json={"entity_type": entity_type, "entity_id": entity_id},
+            PROFILE_JOBS_PATH,
+            json={"operation": "trigger", "entity_type": entity_type, "entity_id": entity_id},
+            headers={"Idempotency-Key": uuid.uuid4().hex},
         )
         response.raise_for_status()
         capture_client_event("client.generate_profile", self, {"entity_type": entity_type, "sync_type": "sync"})
@@ -792,20 +797,28 @@ class MemoryClient:
     def sample_profiles(self, limit: Optional[int] = None) -> Dict[str, Any]:
         """Generate profiles for a few real entities, to check a schema.
 
-        Real generations against real memories, and the results are kept.
+        Real generations against real memories, and the results are kept. The
+        profiles are written to those entities and count toward usage.
 
         Args:
             limit: How many entities to sample, 1-10. Defaults to the server value.
 
         Returns:
-            Dict containing ``sampled`` and one ``results`` row per entity.
+            Dict containing ``job_id``, ``status`` and ``status_url``. Poll
+            :meth:`get_profile_job` with ``status_url`` until the status is terminal.
 
         Raises:
             ValidationError: If profiles are not enabled and configured.
             RateLimitError: If a sample run was already started very recently.
         """
 
-        response = self.client.post("/v2/profiles/samples/", json=self._prepare_params({"limit": limit}))
+        payload = self._prepare_params({"limit": limit})
+        payload["operation"] = "sample"
+        response = self.client.post(
+            PROFILE_JOBS_PATH,
+            json=payload,
+            headers={"Idempotency-Key": uuid.uuid4().hex},
+        )
         response.raise_for_status()
         capture_client_event("client.sample_profiles", self, {"sync_type": "sync"})
         return response.json()
@@ -814,21 +827,45 @@ class MemoryClient:
     def regenerate_profiles(self) -> Dict[str, Any]:
         """Rebuild the profile of every entity in the current project.
 
-        This is how a new schema reaches entities that already have a profile.
-        Returns as soon as the work is queued.
+        Not available yet: the server answers 501 with ``not_yet_available`` and
+        creates nothing. Use :meth:`sample_profiles` or :meth:`generate_profile`
+        until ``capabilities.full_rebuild`` in :meth:`get_profile_settings` is true.
 
         Returns:
-            Dict containing ``status``, ``message``, ``project_id`` and
-            ``existing_profile_count``.
+            Dict containing ``job_id``, ``status`` and ``status_url``.
 
         Raises:
             ValidationError: If profiles are not enabled and configured.
             RateLimitError: If a regenerate already ran for this project recently.
         """
 
-        response = self.client.post("/v2/profiles/regenerate/", json={})
+        response = self.client.post(
+            PROFILE_JOBS_PATH,
+            json={"operation": "regenerate"},
+            headers={"Idempotency-Key": uuid.uuid4().hex},
+        )
         response.raise_for_status()
         capture_client_event("client.regenerate_profiles", self, {"sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
+    def get_profile_job(self, job_id_or_status_url: str) -> Dict[str, Any]:
+        """Read one generation job.
+
+        Accepts the ``status_url`` from a create call, or a bare job id. Prefer
+        passing ``status_url`` so a route change needs no client update.
+
+        Returns:
+            Dict whose ``job`` key holds the job: ``status``, ``total``,
+            ``completed``, ``succeeded``, ``failed`` and ``skipped``. ``total`` is
+            null until ``enumeration_complete``.
+        """
+
+        path = job_id_or_status_url
+        if not path.startswith("/"):
+            path = f"{PROFILE_JOBS_PATH}{path}/"
+        response = self.client.get(path)
+        response.raise_for_status()
         return response.json()
 
     @api_error_handler
@@ -1789,8 +1826,9 @@ class AsyncMemoryClient:
         """
 
         response = await self.async_client.post(
-            "/v2/profiles/trigger/",
-            json={"entity_type": entity_type, "entity_id": entity_id},
+            PROFILE_JOBS_PATH,
+            json={"operation": "trigger", "entity_type": entity_type, "entity_id": entity_id},
+            headers={"Idempotency-Key": uuid.uuid4().hex},
         )
         response.raise_for_status()
         capture_client_event("client.generate_profile", self, {"entity_type": entity_type, "sync_type": "async"})
@@ -1847,20 +1885,28 @@ class AsyncMemoryClient:
     async def sample_profiles(self, limit: Optional[int] = None) -> Dict[str, Any]:
         """Generate profiles for a few real entities, to check a schema.
 
-        Real generations against real memories, and the results are kept.
+        Real generations against real memories, and the results are kept. The
+        profiles are written to those entities and count toward usage.
 
         Args:
             limit: How many entities to sample, 1-10. Defaults to the server value.
 
         Returns:
-            Dict containing ``sampled`` and one ``results`` row per entity.
+            Dict containing ``job_id``, ``status`` and ``status_url``. Poll
+            :meth:`get_profile_job` with ``status_url`` until the status is terminal.
 
         Raises:
             ValidationError: If profiles are not enabled and configured.
             RateLimitError: If a sample run was already started very recently.
         """
 
-        response = await self.async_client.post("/v2/profiles/samples/", json=self._prepare_params({"limit": limit}))
+        payload = self._prepare_params({"limit": limit})
+        payload["operation"] = "sample"
+        response = await self.async_client.post(
+            PROFILE_JOBS_PATH,
+            json=payload,
+            headers={"Idempotency-Key": uuid.uuid4().hex},
+        )
         response.raise_for_status()
         capture_client_event("client.sample_profiles", self, {"sync_type": "async"})
         return response.json()
@@ -1869,21 +1915,45 @@ class AsyncMemoryClient:
     async def regenerate_profiles(self) -> Dict[str, Any]:
         """Rebuild the profile of every entity in the current project.
 
-        This is how a new schema reaches entities that already have a profile.
-        Returns as soon as the work is queued.
+        Not available yet: the server answers 501 with ``not_yet_available`` and
+        creates nothing. Use :meth:`sample_profiles` or :meth:`generate_profile`
+        until ``capabilities.full_rebuild`` in :meth:`get_profile_settings` is true.
 
         Returns:
-            Dict containing ``status``, ``message``, ``project_id`` and
-            ``existing_profile_count``.
+            Dict containing ``job_id``, ``status`` and ``status_url``.
 
         Raises:
             ValidationError: If profiles are not enabled and configured.
             RateLimitError: If a regenerate already ran for this project recently.
         """
 
-        response = await self.async_client.post("/v2/profiles/regenerate/", json={})
+        response = await self.async_client.post(
+            PROFILE_JOBS_PATH,
+            json={"operation": "regenerate"},
+            headers={"Idempotency-Key": uuid.uuid4().hex},
+        )
         response.raise_for_status()
         capture_client_event("client.regenerate_profiles", self, {"sync_type": "async"})
+        return response.json()
+
+    @api_error_handler
+    async def get_profile_job(self, job_id_or_status_url: str) -> Dict[str, Any]:
+        """Read one generation job.
+
+        Accepts the ``status_url`` from a create call, or a bare job id. Prefer
+        passing ``status_url`` so a route change needs no client update.
+
+        Returns:
+            Dict whose ``job`` key holds the job: ``status``, ``total``,
+            ``completed``, ``succeeded``, ``failed`` and ``skipped``. ``total`` is
+            null until ``enumeration_complete``.
+        """
+
+        path = job_id_or_status_url
+        if not path.startswith("/"):
+            path = f"{PROFILE_JOBS_PATH}{path}/"
+        response = await self.async_client.get(path)
+        response.raise_for_status()
         return response.json()
 
     @api_error_handler

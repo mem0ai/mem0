@@ -22,6 +22,8 @@ import {
   GetMemoryExportPayload,
   ProfileEntityType,
   ProfileResponse,
+  ProfileJobResponse,
+  ProfileJobStatus,
   ProfileTriggerResponse,
   ProfileSettings,
   ProfileSamplesResponse,
@@ -98,6 +100,9 @@ interface ClientIdentity {
 }
 
 // Shares one ping per (host, api key) across clients; FIFO-capped.
+// One collection for every generation; the operation is a body field.
+const PROFILE_JOBS_PATH = "/v2/profiles/jobs/";
+
 const IDENTITY_CACHE_MAX_DEFAULT = 50;
 const identityByCredentials = new Map<string, Promise<ClientIdentity>>();
 
@@ -803,11 +808,12 @@ export default class MemoryClient {
     await this._awaitIdentity();
 
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v2/profiles/trigger/`,
+      `${this.host}${PROFILE_JOBS_PATH}`,
       {
         method: "POST",
-        headers: this.headers,
+        headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify({
+          operation: "trigger",
           entity_type: data.entityType ?? "user",
           entity_id: data.entityId,
         }),
@@ -862,20 +868,24 @@ export default class MemoryClient {
   /**
    * Generate profiles for a few real entities, to check a schema.
    *
-   * Real generations against real memories, and the results are kept.
+   * Real generations against real memories, and the results are kept: the
+   * profiles are written to those entities and count toward usage.
    */
   async sampleProfiles(data?: {
     limit?: number;
-  }): Promise<ProfileSamplesResponse> {
+  }): Promise<ProfileJobResponse> {
     this._captureEvent("sample_profiles", []);
     await this._awaitIdentity();
 
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v2/profiles/samples/`,
+      `${this.host}${PROFILE_JOBS_PATH}`,
       {
         method: "POST",
-        headers: this.headers,
-        body: JSON.stringify(this._prepareParams({ limit: data?.limit })),
+        headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          operation: "sample",
+          ...this._prepareParams({ limit: data?.limit }),
+        }),
       },
     );
     return response;
@@ -884,21 +894,39 @@ export default class MemoryClient {
   /**
    * Rebuild the profile of every entity in the project.
    *
-   * This is how a new schema reaches entities that already have a profile.
+   * Not available yet: the server answers 501 `not_yet_available` and creates
+   * nothing. Use {@link sampleProfiles} or {@link generateProfile} until
+   * `capabilities.full_rebuild` from {@link getProfileSettings} is true.
    */
-  async regenerateProfiles(): Promise<ProfileRegenerateResponse> {
+  async regenerateProfiles(): Promise<ProfileJobResponse> {
     this._captureEvent("regenerate_profiles", []);
     await this._awaitIdentity();
 
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v2/profiles/regenerate/`,
+      `${this.host}${PROFILE_JOBS_PATH}`,
       {
         method: "POST",
-        headers: this.headers,
-        body: JSON.stringify({}),
+        headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({ operation: "regenerate" }),
       },
     );
     return response;
+  }
+
+  /**
+   * Read one generation job. Accepts the `statusUrl` from a create call, or a
+   * bare job id. Prefer `statusUrl` so a route change needs no client update.
+   */
+  async getProfileJob(jobIdOrStatusUrl: string): Promise<ProfileJobStatus> {
+    await this._awaitIdentity();
+
+    const path = jobIdOrStatusUrl.startsWith("/")
+      ? jobIdOrStatusUrl
+      : `${PROFILE_JOBS_PATH}${jobIdOrStatusUrl}/`;
+    return this._fetchWithErrorHandling(`${this.host}${path}`, {
+      method: "GET",
+      headers: this.headers,
+    });
   }
 
   async createMemoryExport(
