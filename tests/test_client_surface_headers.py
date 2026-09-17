@@ -8,8 +8,6 @@ TypeError, and the whole suite stayed green because nothing built one.
 import os
 from unittest.mock import patch
 
-import pytest
-
 from mem0.client.main import _bounded_stack, _client_headers, _client_stack
 
 
