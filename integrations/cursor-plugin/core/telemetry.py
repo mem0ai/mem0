@@ -167,6 +167,18 @@ def _install_salt() -> str:
         return _salt_cache
 
     path = _salt_path()
+    # Read before writing. Hooks are separate processes firing on every tool
+    # call, so all but the first find the salt already published; going straight
+    # to create-fsync-link-unlink meant every one of them paid an fsync to
+    # discover that, on a path whose whole promise is appending a line and
+    # returning.
+    try:
+        _salt_cache = path.read_text(encoding="utf-8").strip()
+        if _salt_cache:
+            return _salt_cache
+    except OSError:
+        pass
+
     temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
