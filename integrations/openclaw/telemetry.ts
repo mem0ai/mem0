@@ -58,7 +58,15 @@ function distinctId(apiKey?: string): string {
       // apiKey guard the comparison is `undefined === ""` for any call that
       // simply omits the key, so a capture with no context wiped a perfectly
       // good account out of openclaw.json.
-      if (apiKey) clearResolvedAccount();
+      //
+      // A row with an email and NO fingerprint is the legacy shape, from an
+      // install predating this field. Clearing it here deleted a real account
+      // before anything had replaced it, and if the re-resolve then failed
+      // because the user was offline the email was gone from disk for good. The
+      // Python core refuses the same trade: verify, and keep what you have until
+      // the verification succeeds. resolveEmail below overwrites both fields
+      // when it does, so there is nothing to clear first.
+      if (apiKey && auth.keyFingerprint) clearResolvedAccount();
     }
   } catch {
     // Fall through to the API key or anonymous identity.
@@ -94,6 +102,11 @@ function resolveEmail(apiKey: string): void {
   const fingerprint = keyFingerprint(apiKey);
   if (resolutionAttemptedFor === fingerprint) return;
   resolutionAttemptedFor = fingerprint;
+  const releaseLatch = () => {
+    // A failed lookup must not pin the fallback identity for the rest of the
+    // process. Released so the next capture tries again.
+    if (resolutionAttemptedFor === fingerprint) resolutionAttemptedFor = "";
+  };
   fetch(`${getBaseUrl().replace(/\/+$/, "")}/v1/ping/`, {
     method: "GET",
     headers: { Authorization: `Token ${apiKey}`, "Content-Type": "application/json" },
@@ -110,7 +123,8 @@ function resolveEmail(apiKey: string): void {
       }
     })
     .catch(() => {
-      // The API-key hash remains a stable fallback.
+      // The API-key hash remains a stable fallback, and the next capture retries.
+      releaseLatch();
     });
 }
 

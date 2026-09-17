@@ -95,6 +95,7 @@ export function createTelemetry(config: TelemetryConfig) {
   let timer: ReturnType<typeof setInterval> | undefined;
   let consecutiveFailures = 0;
   let retryNotBefore = 0;
+  let exitFlushAttempted = false;
   const flushThreshold = config.flushThreshold ?? 10;
   const maxQueueSize = config.maxQueueSize ?? 100;
 
@@ -151,6 +152,14 @@ export function createTelemetry(config: TelemetryConfig) {
   }
 
   function beforeExit(): void {
+    // Once, and only once. Node re-emits beforeExit whenever the handler
+    // schedules more async work, so an unconditional forced flush looped until
+    // the attempt budget was spent: five attempts against a 3s delivery timeout
+    // is fifteen seconds added to the shutdown of whatever editor or CLI is
+    // hosting this. The backoff used to end that loop after one attempt, and
+    // removing it for the forced path removed the only thing bounding it.
+    if (exitFlushAttempted) return;
+    exitFlushAttempted = true;
     void flush(true);
   }
 

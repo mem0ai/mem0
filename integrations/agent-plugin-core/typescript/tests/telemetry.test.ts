@@ -207,16 +207,19 @@ test("a full queue drops the new event and keeps the batch being retried", async
     delivery: async () => { throw new Error("down"); },
   });
 
+  // Fill past the cap BEFORE the flush, so the re-queue actually has to truncate.
+  // Capturing only two left the queue empty at re-queue time and the slice on the
+  // failure path never ran, which is the half that decides the direction.
   telemetry.capture("a");
   telemetry.capture("b");
-  await telemetry.flush();
   telemetry.capture("c");
+  await telemetry.flush();
   telemetry.capture("d");
   telemetry.capture("e");
 
   const events = telemetry.queueForTesting().map((e) => (e as any).event);
-  assert.ok(events.length <= 3, "queue grew past maxQueueSize");
-  assert.deepEqual(events.slice(0, 2), ["a", "b"], "the retried batch was evicted instead of the new events");
+  assert.equal(events.length, 3, "queue grew past maxQueueSize");
+  assert.deepEqual(events, ["a", "b", "c"], "the retried batch was evicted instead of the new events");
   telemetry.resetForTesting();
 });
 
@@ -318,4 +321,26 @@ test("a 2xx is a delivery", async () => {
     globalThis.fetch = realFetch;
     telemetry.resetForTesting();
   }
+});
+
+test("the exit flush is attempted once, not until the budget is spent", async () => {
+  // Node re-emits beforeExit whenever the handler schedules async work, so an
+  // unconditional forced flush looped until MAX_DELIVERY_ATTEMPTS. Against the
+  // real 3s delivery timeout that is fifteen seconds added to a host's shutdown.
+  let attempts = 0;
+  const telemetry = createTelemetry({
+    host: "h", source: "S", version: "1", distinctId: "d", flushThreshold: 1000,
+    delivery: async () => { attempts += 1; throw new Error("down"); },
+  });
+
+  telemetry.capture("a");
+  const handlers = process.listeners("beforeExit");
+  const ours = handlers[handlers.length - 1] as () => void;
+  ours();
+  ours();
+  ours();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  assert.equal(attempts, 1, `exit flush ran ${attempts} times`);
+  telemetry.resetForTesting();
 });
