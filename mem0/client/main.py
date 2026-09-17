@@ -164,10 +164,8 @@ def _client_headers(api_key: str, user_id: str) -> Dict[str, str]:
 def _client_stack() -> str:
     """This SDK appended to any stack an outer layer already declared."""
     existing = os.getenv("MEM0_CLIENT_STACK", "").strip()
-    mine = f"mem0-python/{_sdk_version()}"
     entries = [part.strip() for part in existing.split(",") if part.strip()] if existing else []
-    entries.append(mine)
-    return _bounded_stack(entries)
+    return _bounded_stack(entries, f"mem0-python/{_sdk_version()}")
 
 
 class MemoryClient:
