@@ -141,7 +141,7 @@ describe("ConfigManager", () => {
       expect(config.llm.config.url).toBe("http://my-ollama-host:11434");
     });
 
-    it("should use default baseURL when no url or baseURL provided", () => {
+    it("does not inject default OpenAI baseURL when no url or baseURL provided for Ollama", () => {
       const config = ConfigManager.mergeConfig({
         embedder: baseEmbedder,
         vectorStore: baseVectorStore,
@@ -152,7 +152,7 @@ describe("ConfigManager", () => {
       });
 
       expect(config.llm.config.url).toBeUndefined();
-      expect(config.llm.config.baseURL).toBe("https://api.openai.com/v1");
+      expect(config.llm.config.baseURL).toBeUndefined();
     });
 
     it("normalizes vllm_base_url to baseURL for vLLM", () => {
@@ -367,14 +367,14 @@ describe("ConfigManager", () => {
       expect(cfg.llm.config.baseURL).toBe("http://camel:1234/v1");
     });
 
-    it("falls back to default baseURL when neither is provided for LLM", () => {
+    it("does not inject default OpenAI baseURL when neither is provided for LLM", () => {
       const cfg = ConfigManager.mergeConfig({
         embedder: baseEmbedder,
         vectorStore: { provider: "memory", config: {} },
         llm: { provider: "lmstudio", config: { model: "test-model" } },
       });
 
-      expect(cfg.llm.config.baseURL).toBe("https://api.openai.com/v1");
+      expect(cfg.llm.config.baseURL).toBeUndefined();
     });
   });
 
@@ -548,6 +548,72 @@ describe("ConfigManager", () => {
       });
 
       expect(config.vectorStore.provider).toBe("memory");
+    });
+  });
+
+  describe("mergeConfig - provider-scoped LLM defaults (issue #7349)", () => {
+    const baseEmbedder = { provider: "openai", config: { apiKey: "test-key" } };
+    const baseVectorStore = { provider: "memory", config: { collectionName: "test" } };
+
+    it("applies OpenAI default model and baseURL to openai provider", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: { provider: "openai", config: {} },
+      });
+
+      expect(cfg.llm.config.baseURL).toBe("https://api.openai.com/v1");
+      expect(cfg.llm.config.model).toBe("gpt-5-mini");
+    });
+
+    it("applies OpenAI default model and baseURL to openai_structured provider", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: { provider: "openai_structured", config: {} },
+      });
+
+      expect(cfg.llm.config.baseURL).toBe("https://api.openai.com/v1");
+      expect(cfg.llm.config.model).toBe("gpt-5-mini");
+    });
+
+    it.each([
+      "deepseek",
+      "xai",
+      "anthropic",
+      "ollama",
+      "lmstudio",
+      "groq",
+      "mistral",
+    ])("does not leak OpenAI baseURL, model, or apiKey to %p", (provider) => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: { provider, config: {} },
+      });
+
+      expect(cfg.llm.config.baseURL).toBeUndefined();
+      expect(cfg.llm.config.model).toBeUndefined();
+      expect(cfg.llm.config.apiKey).toBeUndefined();
+    });
+
+    it("preserves explicit user-specified baseURL and model for non-OpenAI provider", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "deepseek",
+          config: {
+            baseURL: "https://custom.deepseek.endpoint/v1",
+            model: "deepseek-coder",
+            apiKey: "ds-secret-key",
+          },
+        },
+      });
+
+      expect(cfg.llm.config.baseURL).toBe("https://custom.deepseek.endpoint/v1");
+      expect(cfg.llm.config.model).toBe("deepseek-coder");
+      expect(cfg.llm.config.apiKey).toBe("ds-secret-key");
     });
   });
 });
