@@ -244,7 +244,11 @@ export type ProfileEntityType = "user" | "agent";
 
 /** `succeeded` is the only state in which `profile` is guaranteed to hold content. */
 export type ProfileStatus =
-  "succeeded" | "pending" | "failed" | "notEnabled" | "insufficientData";
+  | "succeeded"
+  | "pending"
+  | "failed"
+  | "notEnabled"
+  | "insufficientData";
 
 export interface ProfileResponse {
   /** Shaped by the project's schema; keys are not camel-cased. */

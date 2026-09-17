@@ -871,9 +871,7 @@ export default class MemoryClient {
    * Real generations against real memories, and the results are kept: the
    * profiles are written to those entities and count toward usage.
    */
-  async sampleProfiles(data?: {
-    limit?: number;
-  }): Promise<ProfileJobResponse> {
+  async sampleProfiles(data?: { limit?: number }): Promise<ProfileJobResponse> {
     this._captureEvent("sample_profiles", []);
     await this._awaitIdentity();
 

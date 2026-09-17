@@ -248,9 +248,7 @@ describe("MemoryClient - sampleProfiles() / regenerateProfiles()", () => {
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     const result = await client.regenerateProfiles();
 
-    expect(
-      findFetchCall(mock, "/v2/profiles/jobs/", "POST"),
-    ).toBeDefined();
+    expect(findFetchCall(mock, "/v2/profiles/jobs/", "POST")).toBeDefined();
     expect(result.jobId).toBe("job_3");
     expect(result.statusUrl).toBe("/v2/profiles/jobs/job_3/");
   });
