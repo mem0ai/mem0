@@ -51,12 +51,13 @@ async function getBackendAndConfig(
 	const backend = getBackend(config);
 
 	// Validate the API key upfront with a fast timeout
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
 	try {
 		const pingData = (await Promise.race([
 			backend.ping(),
-			new Promise<never>((_, reject) =>
-				setTimeout(() => reject(new Error("timeout")), 5000),
-			),
+			new Promise<never>((_, reject) => {
+				timeoutId = setTimeout(() => reject(new Error("timeout")), 5000);
+			}),
 		])) as Record<string, unknown>;
 
 		const email = pingData?.user_email as string | undefined;
@@ -83,6 +84,8 @@ async function getBackendAndConfig(
 		printWarning(
 			"Could not validate API key (network issue). Proceeding anyway.",
 		);
+	} finally {
+		if (timeoutId) clearTimeout(timeoutId);
 	}
 
 	return { backend, config };
