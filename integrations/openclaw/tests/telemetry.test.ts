@@ -55,11 +55,31 @@ describe("telemetry", () => {
     expect(() => captureEvent("test_event")).not.toThrow();
   });
 
-  it("uses userEmail as distinct ID when available", () => {
-    (readPluginAuth as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+  it("uses userEmail as distinct ID when it belongs to the current key", async () => {
+    // Previously asserted only not.toThrow(), which passed whatever the identity
+    // turned out to be, and under the fingerprint gate the no-context path does
+    // not use the email at all. Pin the real condition instead.
+    (readPluginAuth as ReturnType<typeof vi.fn>).mockReturnValue({
       userEmail: "test@example.com",
+      keyFingerprint: await fingerprintOf("key-a"),
     });
-    expect(() => captureEvent("test_event")).not.toThrow();
+
+    captureEvent("test_event", {}, { apiKey: "key-a" });
+
+    expect(clearResolvedAccount).not.toHaveBeenCalled();
+  });
+
+  it("a capture with no apiKey leaves a resolved account alone", async () => {
+    // `undefined === ""` made every keyless capture look like a key change, so
+    // one context-free call wiped a good account out of openclaw.json.
+    (readPluginAuth as ReturnType<typeof vi.fn>).mockReturnValue({
+      userEmail: "test@example.com",
+      keyFingerprint: await fingerprintOf("key-a"),
+    });
+
+    captureEvent("test_event");
+
+    expect(clearResolvedAccount).not.toHaveBeenCalled();
   });
 
   it("falls back to a generated anonymous id when no apiKey", () => {

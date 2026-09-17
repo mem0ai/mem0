@@ -2,7 +2,7 @@
   "name": "@mem0/opencode-plugin",
   "version": "0.3.0",
   "type": "module",
-  "description": "Mem0 persistent memory plugin for OpenCode \u2014 add, search, and manage memories across sessions",
+  "description": "Mem0 persistent memory plugin for OpenCode — add, search, and manage memories across sessions",
   "main": "dist/index.js",
   "types": "index.d.ts",
   "exports": {

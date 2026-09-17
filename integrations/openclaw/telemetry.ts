@@ -54,7 +54,11 @@ function distinctId(apiKey?: string): string {
       if (auth.keyFingerprint === keyFingerprint(apiKey)) {
         return createHash("sha256").update(auth.userEmail).digest("hex");
       }
-      clearResolvedAccount();
+      // Only a REAL key that disagrees means the account changed. Without the
+      // apiKey guard the comparison is `undefined === ""` for any call that
+      // simply omits the key, so a capture with no context wiped a perfectly
+      // good account out of openclaw.json.
+      if (apiKey) clearResolvedAccount();
     }
   } catch {
     // Fall through to the API key or anonymous identity.

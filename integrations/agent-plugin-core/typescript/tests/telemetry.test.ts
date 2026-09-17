@@ -197,7 +197,10 @@ test("repeated failures back off instead of retrying every flush", async () => {
   telemetry.resetForTesting();
 });
 
-test("a long outage costs the oldest events, not unbounded memory", async () => {
+test("a full queue drops the new event and keeps the batch being retried", async () => {
+  // Python's record() refuses new events once the spool is full rather than
+  // evicting the backlog. Keeping the newest here would throw away exactly the
+  // events the retry exists to save.
   const telemetry = createTelemetry({
     host: "h", source: "S", version: "1", distinctId: "d",
     flushThreshold: 1000, maxQueueSize: 3,
@@ -211,7 +214,66 @@ test("a long outage costs the oldest events, not unbounded memory", async () => 
   telemetry.capture("d");
   telemetry.capture("e");
 
-  assert.ok(telemetry.queueForTesting().length <= 3, "queue grew past maxQueueSize");
+  const events = telemetry.queueForTesting().map((e) => (e as any).event);
+  assert.ok(events.length <= 3, "queue grew past maxQueueSize");
+  assert.deepEqual(events.slice(0, 2), ["a", "b"], "the retried batch was evicted instead of the new events");
+  telemetry.resetForTesting();
+});
+
+test("the exit-time flush ignores the backoff", async () => {
+  // beforeExit is the last chance the process gets. Gating it on the same
+  // cooldown meant that after any failure it did nothing and the queue died.
+  let attempts = 0;
+  let failing = true;
+  const telemetry = createTelemetry({
+    host: "h", source: "S", version: "1", distinctId: "d", flushThreshold: 1000,
+    delivery: async () => { attempts += 1; if (failing) throw new Error("down"); },
+  });
+
+  telemetry.capture("a");
+  await telemetry.flush();
+  assert.equal(attempts, 1);
+
+  failing = false;
+  await telemetry.flush();
+  assert.equal(attempts, 1, "the backoff should still hold for an ordinary flush");
+
+  await telemetry.flush(true);
+  assert.equal(attempts, 2, "the exit flush was suppressed by the backoff");
+  assert.equal(telemetry.queueForTesting().length, 0);
+  telemetry.resetForTesting();
+});
+
+test("every event carries a capture-time timestamp", async () => {
+  const sent: Record<string, unknown>[][] = [];
+  const telemetry = createTelemetry({
+    host: "h", source: "S", version: "1", distinctId: "d", flushThreshold: 1000,
+    delivery: async (batch) => { sent.push(batch); },
+  });
+
+  telemetry.capture("a");
+  const capturedAt = Date.now();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  await telemetry.flush();
+
+  const stamped = sent[0][0].timestamp as string;
+  assert.ok(stamped, "no timestamp, so PostHog would record delivery time");
+  assert.ok(Math.abs(Date.parse(stamped) - capturedAt) < 1_000, "not capture time");
+  telemetry.resetForTesting();
+});
+
+test("a batch the server will never accept is eventually given up on", async () => {
+  let attempts = 0;
+  const telemetry = createTelemetry({
+    host: "h", source: "S", version: "1", distinctId: "d", flushThreshold: 1000,
+    delivery: async () => { attempts += 1; throw new Error("permanently bad"); },
+  });
+
+  telemetry.capture("doomed");
+  for (let i = 0; i < 8; i += 1) await telemetry.flush(true);
+
+  assert.ok(attempts <= 6, `retried ${attempts} times with no cap`);
+  assert.equal(telemetry.queueForTesting().length, 0, "a doomed batch held the queue forever");
   telemetry.resetForTesting();
 });
 

@@ -25,7 +25,9 @@ const PLUGIN_VERSION = (() => {
 let currentDistinctId = "";
 const telemetry = createTelemetry({
   host: "opencode",
-  source: "plugin",
+  // Shaped like the platform's EventSource values, as every other surface is.
+  // "plugin" said nothing about which plugin and matched no vocabulary.
+  source: "OPENCODE_PLUGIN",
   version: PLUGIN_VERSION,
   distinctId: () => currentDistinctId,
   eventName: (event) => `plugin.${event}`,

@@ -84,6 +84,11 @@ export function errorKind(error: unknown): string {
 // and lease machinery a correct cross-process spool needs. What that leaves
 // uncovered is narrow: a session that both starts and ends with no connectivity.
 const RETRY_BACKOFF_CEILING_MS = 60_000;
+// Attempts before a batch is given up on, mirroring the Python core's budget.
+// Without one, a payload the server will never accept is retried for the whole
+// session and, now that the backlog is preferred over new events, would block
+// everything behind it.
+const MAX_DELIVERY_ATTEMPTS = 5;
 
 export function createTelemetry(config: TelemetryConfig) {
   let queue: Record<string, unknown>[] = [];
@@ -109,9 +114,13 @@ export function createTelemetry(config: TelemetryConfig) {
     if (!response.ok) throw new Error(`posthog responded ${response.status}`);
   });
 
-  async function flush(): Promise<void> {
+  async function flush(force = false): Promise<void> {
     if (!queue.length) return;
-    if (Date.now() < retryNotBefore) return;
+    // `force` skips the cooldown. beforeExit is the last chance this process
+    // gets, and gating it on the same backoff meant that after any failure the
+    // exit flush did nothing and the queue died with the process, which is the
+    // loss this whole mechanism exists to prevent.
+    if (!force && Date.now() < retryNotBefore) return;
     const batch = queue;
     queue = [];
     try {
@@ -124,16 +133,25 @@ export function createTelemetry(config: TelemetryConfig) {
       // recording that it had happened. Every event carries a uuid, so a retry
       // that duplicates one PostHog already accepted is collapsed there.
       //
-      // Bounded by maxQueueSize and biased to the newest, matching capture():
-      // a long outage costs the oldest events rather than unbounded memory.
-      queue = [...batch, ...queue].slice(-maxQueueSize);
       consecutiveFailures += 1;
+      if (consecutiveFailures >= MAX_DELIVERY_ATTEMPTS) {
+        // Give up on this batch so it cannot hold the queue for the session.
+        consecutiveFailures = 0;
+        retryNotBefore = 0;
+        return;
+      }
+      // Keep the FRONT on overflow, so the batch being retried survives and a
+      // new event is what gets dropped. Matches the Python core, where record()
+      // refuses new events once the spool is full rather than evicting the
+      // backlog. Keeping the newest would throw away exactly the events this
+      // retry exists to save.
+      queue = [...batch, ...queue].slice(0, maxQueueSize);
       retryNotBefore = Date.now() + Math.min(2 ** consecutiveFailures * 1_000, RETRY_BACKOFF_CEILING_MS);
     }
   }
 
   function beforeExit(): void {
-    void flush();
+    void flush(true);
   }
 
   function build(event: string, properties: Record<string, unknown> = {}): Record<string, unknown> | null {
@@ -148,6 +166,11 @@ export function createTelemetry(config: TelemetryConfig) {
         // re-sent after a failure carries the same ids, so PostHog collapses
         // anything it already accepted instead of counting it twice.
         uuid: randomUUID(),
+        // Capture time, not ingestion time. Events now sit through backoff and
+        // across a whole outage, so without this PostHog records them whenever
+        // delivery happened to succeed. It also matters for the uuid dedupe
+        // above, whose key includes the event date.
+        timestamp: new Date().toISOString(),
         properties: {
           ...safeProperties(properties),
           ...safeProperties(config.commonProperties ?? {}),
@@ -170,8 +193,10 @@ export function createTelemetry(config: TelemetryConfig) {
     try {
       const payload = build(event, properties);
       if (!payload) return;
+      // Full means drop this event, not evict the backlog. Same rule as the
+      // failure path above and as Python's record().
+      if (queue.length >= maxQueueSize) return;
       queue.push(payload);
-      if (queue.length > maxQueueSize) queue = queue.slice(-maxQueueSize);
       if (!timer) {
         timer = setInterval(() => void flush(), config.flushIntervalMs ?? 5_000);
         timer.unref?.();

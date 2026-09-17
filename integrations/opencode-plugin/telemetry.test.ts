@@ -15,7 +15,10 @@ describe("opencode telemetry", () => {
     expect(payload).not.toBeNull();
     const props = payload!.properties as Record<string, unknown>;
     expect(payload!.event).toBe("plugin.session_start");
-    expect(props.source).toBe("plugin");
+    // Was "plugin", which named no particular plugin and matched no vocabulary.
+    // Now shaped like every other surface. Any saved PostHog insight filtering
+    // source = "plugin" needs repointing; historical data is untouched.
+    expect(props.source).toBe("OPENCODE_PLUGIN");
     expect(props.platform).toBe("opencode");
     expect(props.memory_count).toBe(5);
     expect(props.$process_person_profile).toBe(false);
@@ -32,7 +35,7 @@ describe("opencode telemetry", () => {
     const props = buildEvent("x", { platform: "HACK", source: "HACK" }, KEY)!
       .properties as Record<string, unknown>;
     expect(props.platform).toBe("opencode");
-    expect(props.source).toBe("plugin");
+    expect(props.source).toBe("OPENCODE_PLUGIN");
   });
 
   test("returns null without an API key (no anonymous events)", () => {
