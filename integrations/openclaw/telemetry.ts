@@ -1,14 +1,20 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { createTelemetry } from "../agent-plugin-core/typescript/src/telemetry.ts";
-import { clearAnonymousTelemetryId, getBaseUrl, readPluginAuth, writePluginAuth } from "./cli/config-file.ts";
+import {
+  clearAnonymousTelemetryId,
+  clearResolvedAccount,
+  getBaseUrl,
+  readPluginAuth,
+  writePluginAuth,
+} from "./cli/config-file.ts";
 
 declare const __OPENCLAW_PLUGIN_VERSION__: string;
 export const PLUGIN_VERSION: string = __OPENCLAW_PLUGIN_VERSION__;
 
 let cachedAnonymousId: string | undefined;
 let aliasCheckDone = false;
-let emailResolutionAttempted = false;
+let resolutionAttemptedFor = "";
 let currentDistinctId = "";
 
 function enabled(): boolean {
@@ -33,10 +39,23 @@ function anonymousId(): string {
   return (cachedAnonymousId = created);
 }
 
+/** SHA-256 prefix of the key an account was resolved for. */
+function keyFingerprint(apiKey?: string): string {
+  return apiKey ? createHash("sha256").update(apiKey).digest("hex").slice(0, 16) : "";
+}
+
 function distinctId(apiKey?: string): string {
   try {
-    const email = readPluginAuth().userEmail;
-    if (email) return createHash("sha256").update(email).digest("hex");
+    const auth = readPluginAuth();
+    if (auth.userEmail) {
+      // Only when it belongs to the key in hand. Without this check a cached
+      // email was used forever: switch to a different account and every event
+      // kept reporting under the previous one, with nothing to notice it by.
+      if (auth.keyFingerprint === keyFingerprint(apiKey)) {
+        return createHash("sha256").update(auth.userEmail).digest("hex");
+      }
+      clearResolvedAccount();
+    }
   } catch {
     // Fall through to the API key or anonymous identity.
   }
@@ -66,8 +85,11 @@ function identifyAnonymous(id: string): void {
 }
 
 function resolveEmail(apiKey: string): void {
-  if (emailResolutionAttempted) return;
-  emailResolutionAttempted = true;
+  // Latched per key, not once per process. A single boolean meant a key changed
+  // mid-session was never looked up, so the fallback identity stuck until restart.
+  const fingerprint = keyFingerprint(apiKey);
+  if (resolutionAttemptedFor === fingerprint) return;
+  resolutionAttemptedFor = fingerprint;
   fetch(`${getBaseUrl().replace(/\/+$/, "")}/v1/ping/`, {
     method: "GET",
     headers: { Authorization: `Token ${apiKey}`, "Content-Type": "application/json" },
@@ -76,7 +98,7 @@ function resolveEmail(apiKey: string): void {
     .then((response) => response.json())
     .then((data: any) => {
       if (!data?.user_email) return;
-      writePluginAuth({ userEmail: data.user_email });
+      writePluginAuth({ userEmail: data.user_email, keyFingerprint: fingerprint });
       const oldId = createHash("sha256").update(apiKey).digest("hex");
       const newId = createHash("sha256").update(data.user_email).digest("hex");
       for (const event of telemetry.queueForTesting()) {
@@ -96,13 +118,15 @@ export function captureEvent(
   if (!enabled()) return;
   try {
     currentDistinctId = distinctId(context?.apiKey);
-    let hasEmail = false;
+    let resolvedForThisKey = false;
     try {
-      hasEmail = Boolean(readPluginAuth().userEmail);
+      const auth = readPluginAuth();
+      resolvedForThisKey =
+        Boolean(auth.userEmail) && auth.keyFingerprint === keyFingerprint(context?.apiKey);
     } catch {
       // Resolve it below when possible.
     }
-    if (context?.apiKey && !hasEmail) resolveEmail(context.apiKey);
+    if (context?.apiKey && !resolvedForThisKey) resolveEmail(context.apiKey);
     identifyAnonymous(currentDistinctId);
     telemetry.capture(eventName, {
       mode: context?.mode,

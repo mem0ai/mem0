@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { redactSecrets } from "./lifecycle.ts";
 
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
@@ -74,9 +76,20 @@ export function errorKind(error: unknown): string {
   return error instanceof Error ? error.constructor.name : "other";
 }
 
+// Delivery is retried in memory, not spooled to disk, and that is a decision
+// rather than an omission. The Python core spools because its hooks are separate
+// processes that fire per tool call and exit immediately, so nothing survives
+// without a file. These plugins are loaded into a host that lives for a whole
+// session, so re-queueing covers the same transient failures without the claim
+// and lease machinery a correct cross-process spool needs. What that leaves
+// uncovered is narrow: a session that both starts and ends with no connectivity.
+const RETRY_BACKOFF_CEILING_MS = 60_000;
+
 export function createTelemetry(config: TelemetryConfig) {
   let queue: Record<string, unknown>[] = [];
   let timer: ReturnType<typeof setInterval> | undefined;
+  let consecutiveFailures = 0;
+  let retryNotBefore = 0;
   const flushThreshold = config.flushThreshold ?? 10;
   const maxQueueSize = config.maxQueueSize ?? 100;
 
@@ -91,12 +104,24 @@ export function createTelemetry(config: TelemetryConfig) {
 
   async function flush(): Promise<void> {
     if (!queue.length) return;
+    if (Date.now() < retryNotBefore) return;
     const batch = queue;
     queue = [];
     try {
       await deliver(batch);
+      consecutiveFailures = 0;
+      retryNotBefore = 0;
     } catch {
-      // Telemetry must never affect plugin behavior.
+      // Put it back. Detaching the batch and swallowing the error deleted the
+      // events outright, so any blip silently dropped telemetry with nothing
+      // recording that it had happened. Every event carries a uuid, so a retry
+      // that duplicates one PostHog already accepted is collapsed there.
+      //
+      // Bounded by maxQueueSize and biased to the newest, matching capture():
+      // a long outage costs the oldest events rather than unbounded memory.
+      queue = [...batch, ...queue].slice(-maxQueueSize);
+      consecutiveFailures += 1;
+      retryNotBefore = Date.now() + Math.min(2 ** consecutiveFailures * 1_000, RETRY_BACKOFF_CEILING_MS);
     }
   }
 
@@ -112,6 +137,10 @@ export function createTelemetry(config: TelemetryConfig) {
       return {
         event: config.eventName?.(event) ?? event,
         distinct_id: distinctId,
+        // Stamped once, at capture. This is what makes retrying safe: a batch
+        // re-sent after a failure carries the same ids, so PostHog collapses
+        // anything it already accepted instead of counting it twice.
+        uuid: randomUUID(),
         properties: {
           ...safeProperties(properties),
           ...safeProperties(config.commonProperties ?? {}),
@@ -149,6 +178,8 @@ export function createTelemetry(config: TelemetryConfig) {
 
   function resetForTesting(): void {
     queue = [];
+    consecutiveFailures = 0;
+    retryNotBefore = 0;
     if (timer) clearInterval(timer);
     timer = undefined;
     process.off("beforeExit", beforeExit);

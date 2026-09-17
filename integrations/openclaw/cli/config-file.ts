@@ -35,6 +35,8 @@ export interface PluginAuthConfig {
   autoCapture?: boolean;
   topK?: number;
   anonymousTelemetryId?: string;
+  /** SHA-256 prefix of the API key userEmail was resolved for. */
+  keyFingerprint?: string;
 }
 
 // ============================================================================
@@ -234,6 +236,21 @@ export function enableSkillsConfig(userId: string): void {
 export function getBaseUrl(): string {
   const auth = readPluginAuth();
   return auth.baseUrl || DEFAULT_BASE_URL;
+}
+
+/** Forget the resolved account, so the next capture re-resolves for the current key. */
+export function clearResolvedAccount(): void {
+  const full = readFullConfig() as any;
+  const cfg = full?.plugins?.entries?.[PLUGIN_ID]?.config;
+  if (!cfg) return;
+  let changed = false;
+  for (const key of ["userEmail", "keyFingerprint"]) {
+    if (key in cfg) {
+      delete cfg[key];
+      changed = true;
+    }
+  }
+  if (changed) writeFullConfig(full);
 }
 
 /** Remove anonymousTelemetryId from config (after PostHog aliasing) */

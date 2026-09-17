@@ -122,3 +122,95 @@ test("error classification does not expose messages", () => {
   assert.equal(errorKind(new Error("request timeout")), "timeout");
   assert.equal(errorKind(new Error("fetch failed")), "network");
 });
+
+test("a failed delivery keeps the batch instead of deleting it", async () => {
+  // The defect: the queue was detached before the await and the error swallowed,
+  // so one blip destroyed the events with nothing recording that it happened.
+  const attempts: Record<string, unknown>[][] = [];
+  let failNext = true;
+  const telemetry = createTelemetry({
+    host: "h", source: "S", version: "1", distinctId: "d",
+    flushThreshold: 1000,
+    delivery: async (batch) => {
+      attempts.push(batch);
+      if (failNext) throw new Error("network down");
+    },
+  });
+
+  telemetry.capture("one");
+  telemetry.capture("two");
+  await telemetry.flush();
+
+  assert.equal(attempts.length, 1);
+  assert.equal(telemetry.queueForTesting().length, 2, "events were dropped on failure");
+
+  failNext = false;
+  // Backoff is in force, so wait it out the way wall time would.
+  await new Promise((resolve) => setTimeout(resolve, 2_100));
+  await telemetry.flush();
+
+  assert.equal(attempts.length, 2, "never retried");
+  assert.equal(telemetry.queueForTesting().length, 0);
+  telemetry.resetForTesting();
+});
+
+test("a retried event carries the same uuid so PostHog can collapse it", async () => {
+  const attempts: Record<string, unknown>[][] = [];
+  let failNext = true;
+  const telemetry = createTelemetry({
+    host: "h", source: "S", version: "1", distinctId: "d",
+    flushThreshold: 1000,
+    delivery: async (batch) => {
+      attempts.push(batch);
+      if (failNext) throw new Error("network down");
+    },
+  });
+
+  telemetry.capture("once");
+  await telemetry.flush();
+  failNext = false;
+  await new Promise((resolve) => setTimeout(resolve, 2_100));
+  await telemetry.flush();
+
+  assert.equal(attempts.length, 2);
+  const first = attempts[0][0].uuid;
+  assert.ok(first, "events carry no uuid, so a retry would double count");
+  assert.equal(attempts[1][0].uuid, first, "retry minted a new uuid");
+  telemetry.resetForTesting();
+});
+
+test("repeated failures back off instead of retrying every flush", async () => {
+  let calls = 0;
+  const telemetry = createTelemetry({
+    host: "h", source: "S", version: "1", distinctId: "d",
+    flushThreshold: 1000,
+    delivery: async () => { calls += 1; throw new Error("blocked"); },
+  });
+
+  telemetry.capture("one");
+  await telemetry.flush();
+  await telemetry.flush();
+  await telemetry.flush();
+
+  assert.equal(calls, 1, "a blocked host was hammered on every flush");
+  assert.equal(telemetry.queueForTesting().length, 1, "the event was lost while backing off");
+  telemetry.resetForTesting();
+});
+
+test("a long outage costs the oldest events, not unbounded memory", async () => {
+  const telemetry = createTelemetry({
+    host: "h", source: "S", version: "1", distinctId: "d",
+    flushThreshold: 1000, maxQueueSize: 3,
+    delivery: async () => { throw new Error("down"); },
+  });
+
+  telemetry.capture("a");
+  telemetry.capture("b");
+  await telemetry.flush();
+  telemetry.capture("c");
+  telemetry.capture("d");
+  telemetry.capture("e");
+
+  assert.ok(telemetry.queueForTesting().length <= 3, "queue grew past maxQueueSize");
+  telemetry.resetForTesting();
+});
