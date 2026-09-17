@@ -409,3 +409,24 @@ def test_partial_files_are_swept(telemetry):
 
     telemetry.flush()
     assert not debris.exists()
+
+
+def test_quarantined_batches_are_eventually_collected(telemetry):
+    """Nothing re-globs .corrupt, so without a sweep they live on disk forever.
+
+    Kept much longer than .partial debris on purpose: a quarantined batch is the
+    only remaining evidence of events that could not be delivered.
+    """
+    directory = telemetry.memory_core.data_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    fresh = directory / "telemetry-1-aaaaaaaa-a0.corrupt"
+    old = directory / "telemetry-2-bbbbbbbb-a0.corrupt"
+    for path in (fresh, old):
+        path.write_text("torn", encoding="utf-8")
+    expired = time.time() - (telemetry.CLAIM_EXPIRY_SECONDS + 60)
+    os.utime(old, (expired, expired))
+
+    telemetry._sweep_debris(directory)
+
+    assert fresh.exists(), "a recent quarantine was discarded before anyone could look at it"
+    assert not old.exists(), "an expired quarantine was left on disk forever"

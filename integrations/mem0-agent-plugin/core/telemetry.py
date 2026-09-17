@@ -462,16 +462,28 @@ def _claim_spool() -> Path | None:
 
 
 def _sweep_debris(directory: Path) -> None:
-    """Remove temp files orphaned by a crash between write and rename.
+    """Remove files nothing else will ever pick up again.
 
-    Neither glob in this module matches *.partial, so nothing else would ever
-    clean them up.
+    *.partial is a temp file orphaned by a crash between write and rename.
+    *.corrupt is a batch quarantined for undecodable content. No glob in this
+    module matches either, so without this they accumulate on disk for the life
+    of the install.
+
+    Quarantined batches are kept far longer than debris: they are the only
+    evidence left of events that could not be delivered, and someone diagnosing
+    a report of missing telemetry has to be able to find one.
     """
     now = time.time()
     for debris in directory.glob("telemetry-*.partial"):
         try:
             if now - debris.stat().st_mtime > CLAIM_STALE_SECONDS:
                 debris.unlink()
+        except OSError:
+            continue
+    for quarantined in directory.glob("telemetry-*.corrupt"):
+        try:
+            if now - quarantined.stat().st_mtime > CLAIM_EXPIRY_SECONDS:
+                quarantined.unlink()
         except OSError:
             continue
 
