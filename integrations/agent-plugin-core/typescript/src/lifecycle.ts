@@ -149,7 +149,7 @@ export async function buildRecallContext(
     if (!unseen.length) return "";
 
     const prefix =
-      "<mem0-relevant-memories>\nRetrieved automatically for the current request. This is a shallow first pass — search mem0_memory for more if you need it.\n";
+      "<mem0-relevant-memories>\nRetrieved automatically for the current request. This is a shallow first pass — use the available memory search tool for more if you need it.\n";
     const suffix = "\n</mem0-relevant-memories>";
     const maxChars = options.maxChars ?? DEFAULT_MAX_CONTEXT_CHARS;
     const lines: string[] = [];
