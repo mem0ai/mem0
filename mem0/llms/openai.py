@@ -3,6 +3,7 @@ import logging
 import os
 from typing import Dict, List, Optional, Union
 
+import openai
 from openai import OpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
@@ -29,9 +30,9 @@ class OpenAILLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
-                reasoning_effort=getattr(config, 'reasoning_effort', None),
+                reasoning_effort=getattr(config, "reasoning_effort", None),
                 http_client_proxies=config.http_client_proxies,
-                is_reasoning_model=getattr(config, 'is_reasoning_model', None),
+                is_reasoning_model=getattr(config, "is_reasoning_model", None),
             )
 
         super().__init__(config)
@@ -39,7 +40,13 @@ class OpenAILLM(LLMBase):
         if not self.config.model:
             self.config.model = "gpt-5-mini"
 
-        if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
+        openai_api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
+        openai_base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL")
+
+        # OpenRouter fallback only if no OpenAI config/env is present and OPENROUTER_API_KEY is present
+        self.is_openrouter = False
+        if not openai_api_key and not openai_base_url and os.getenv("OPENROUTER_API_KEY"):
+            self.is_openrouter = True
             self.client = OpenAI(
                 api_key=os.environ.get("OPENROUTER_API_KEY"),
                 base_url=self.config.openrouter_base_url
@@ -47,9 +54,8 @@ class OpenAILLM(LLMBase):
                 or "https://openrouter.ai/api/v1",
             )
         else:
-            api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
-            base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
-
+            api_key = openai_api_key
+            base_url = openai_base_url or "https://api.openai.com/v1"
             self.client = OpenAI(api_key=api_key, base_url=base_url)
 
     def _parse_response(self, response, tools):
@@ -104,13 +110,15 @@ class OpenAILLM(LLMBase):
             json: The generated response.
         """
         params = self._get_supported_params(messages=messages, **kwargs)
-        
-        params.update({
-            "model": self.config.model,
-            "messages": messages,
-        })
 
-        if os.getenv("OPENROUTER_API_KEY"):
+        params.update(
+            {
+                "model": self.config.model,
+                "messages": messages,
+            }
+        )
+
+        if self.is_openrouter:
             openrouter_params = {}
             if self.config.models:
                 openrouter_params["models"] = self.config.models
@@ -125,7 +133,7 @@ class OpenAILLM(LLMBase):
                 openrouter_params["extra_headers"] = extra_headers
 
             params.update(**openrouter_params)
-        
+
         else:
             # Only send OpenAI-specific parameters when the user has explicitly
             # configured them. OpenAI-compatible backends (Gemini, Groq, vLLM, etc.)
@@ -138,7 +146,17 @@ class OpenAILLM(LLMBase):
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
-        response = self.client.chat.completions.create(**params)
+
+        try:
+            response = self.client.chat.completions.create(**params)
+        except openai.BadRequestError as e:
+            # Graceful retry without response_format when an upstream gateway rejects response_format=json_object with a 400
+            if response_format and "response_format" in params:
+                params.pop("response_format")
+                response = self.client.chat.completions.create(**params)
+            else:
+                raise e
+
         parsed_response = self._parse_response(response, tools)
         if self.config.response_callback:
             try:
