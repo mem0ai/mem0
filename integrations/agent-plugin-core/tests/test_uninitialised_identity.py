@@ -179,6 +179,33 @@ def test_source_tag_defaults_agree_between_the_two_modules():
     assert left == right == "KIMI_PLUGIN"
 
 
+def test_the_plugin_declares_its_surface_in_the_body_and_the_headers():
+    """Body and headers both, because only the body works on every backend."""
+    core = _core_dir("claude-code-plugin")
+    if not core.exists():
+        pytest.skip("claude-code-plugin is not built in this tree")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = _run(
+            core,
+            Path(tmp),
+            "import json, memory_core\n"
+            "h = memory_core.platform_headers('k')\n"
+            "print(json.dumps({'source': h.get('X-Mem0-Source'),"
+            " 'app': h.get('X-Application'),"
+            " 'client': h.get('X-Mem0-Client'),"
+            " 'auth': h.get('Authorization'),"
+            " 'ctype': h.get('Content-Type')}))",
+        )
+    headers = json.loads(out)
+    assert headers["source"] == "MEM0_PLUGIN"
+    assert headers["app"] == "claude-code"
+    assert headers["client"].startswith("mem0-plugin/")
+    # The transport headers the three call sites relied on must survive.
+    assert headers["auth"] == "Token k"
+    assert headers["ctype"] == "application/json"
+
+
 def _session_start(core: Path, data_dir: Path) -> list[str]:
     """Drive the real hook_runner session-start path and return lifecycle events."""
     recorded = "\n".join(

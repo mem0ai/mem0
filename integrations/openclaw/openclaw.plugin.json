@@ -209,6 +209,10 @@
         "type": "string",
         "description": "Persistent anonymous telemetry identifier"
       },
+      "keyFingerprint": {
+        "type": "string",
+        "description": "Digest of the API key userEmail was resolved for. Set automatically; a mismatch re-resolves the account."
+      },
       "oss": {
         "type": "object",
         "properties": {

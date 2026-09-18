@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { afterEach, describe, expect, test } from "bun:test";
 import { buildEvent, captureEvent, isTelemetryEnabled } from "./telemetry";
 
@@ -13,7 +15,10 @@ describe("opencode telemetry", () => {
     expect(payload).not.toBeNull();
     const props = payload!.properties as Record<string, unknown>;
     expect(payload!.event).toBe("plugin.session_start");
-    expect(props.source).toBe("plugin");
+    // Was "plugin", which named no particular plugin and matched no vocabulary.
+    // Now shaped like every other surface. Any saved PostHog insight filtering
+    // source = "plugin" needs repointing; historical data is untouched.
+    expect(props.source).toBe("OPENCODE_PLUGIN");
     expect(props.platform).toBe("opencode");
     expect(props.memory_count).toBe(5);
     expect(props.$process_person_profile).toBe(false);
@@ -30,7 +35,7 @@ describe("opencode telemetry", () => {
     const props = buildEvent("x", { platform: "HACK", source: "HACK" }, KEY)!
       .properties as Record<string, unknown>;
     expect(props.platform).toBe("opencode");
-    expect(props.source).toBe("plugin");
+    expect(props.source).toBe("OPENCODE_PLUGIN");
   });
 
   test("returns null without an API key (no anonymous events)", () => {
@@ -56,9 +61,12 @@ describe("opencode telemetry", () => {
     expect(typeof props.os_version).toBe("string");
   });
 
-  test("project_hash is sha256(projectId) when a project id is supplied", async () => {
+  test("project_hash is a salted digest of the project id", async () => {
+    // Previously asserted the bare sha256(projectId), which is the defect: that
+    // digest is reversible by anyone who can guess a project id. Salted with the
+    // API key, which is already in play here and is high entropy.
     const { createHash } = await import("node:crypto");
-    const expected = createHash("sha256").update("acme-repo").digest("hex");
+    const expected = createHash("sha256").update(`${KEY}:acme-repo`).digest("hex");
     const props = buildEvent("session_start", {}, KEY, "acme-repo")!
       .properties as Record<string, unknown>;
     expect(props.project_hash).toBe(expected);
@@ -74,5 +82,40 @@ describe("opencode telemetry", () => {
     for (const ev of ["user_prompt", "bash_error", "pre_compact", "session_stop"]) {
       expect(buildEvent(ev, {}, KEY)!.event).toBe(`plugin.${ev}`);
     }
+  });
+});
+
+describe("project_hash salting", () => {
+  const PROJECT = "my-project";
+
+  test("is not a bare digest of the project id", () => {
+    // The defect: an unsalted SHA-256 over a guessable identifier is reversible
+    // by anyone who can enumerate project ids.
+    const unsalted = createHash("sha256").update(PROJECT).digest("hex");
+    const payload = buildEvent("session_start", {}, KEY, PROJECT) as Record<string, any>;
+
+    expect(payload.properties.project_hash).toBeDefined();
+    expect(payload.properties.project_hash).not.toBe(unsalted);
+  });
+
+  test("differs per account for the same project", () => {
+    const a = buildEvent("session_start", {}, "m0-account-a", PROJECT) as Record<string, any>;
+    const b = buildEvent("session_start", {}, "m0-account-b", PROJECT) as Record<string, any>;
+
+    expect(a.properties.project_hash).not.toBe(b.properties.project_hash);
+  });
+
+  test("is stable for one account, so joins still work", () => {
+    const first = buildEvent("session_start", {}, KEY, PROJECT) as Record<string, any>;
+    const second = buildEvent("session_end", {}, KEY, PROJECT) as Record<string, any>;
+
+    expect(first.properties.project_hash).toBe(second.properties.project_hash);
+  });
+
+  test("is omitted rather than unsalted when there is no key", () => {
+    const payload = buildEvent("session_start", {}, undefined, PROJECT);
+
+    // No key means no event at all, so there is no unsalted hash to leak.
+    expect(payload).toBeNull();
   });
 });

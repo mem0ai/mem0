@@ -31,7 +31,8 @@ export class PlatformBackend implements Backend {
 		this.headers = {
 			Authorization: `Token ${config.apiKey}`,
 			"Content-Type": "application/json",
-			"X-Mem0-Source": "cli",
+			"X-Mem0-Source": "CLI",
+			"X-Mem0-Client": `mem0-cli-node/${CLI_VERSION}`,
 			"X-Mem0-Client-Language": "node",
 			"X-Mem0-Client-Version": CLI_VERSION,
 		};

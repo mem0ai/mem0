@@ -70,6 +70,38 @@ def test_portable_bundle_is_conformant_and_self_contained(tmp_path: Path) -> Non
     assert not any(path.is_symlink() for path in root.rglob("*"))
 
 
+def _harness_identity(root: Path) -> dict[str, str]:
+    """Read the generated core/_harness_id.py without importing it."""
+    values: dict[str, str] = {}
+    for line in (root / "core" / "_harness_id.py").read_text(encoding="utf-8").splitlines():
+        if "=" in line and not line.lstrip().startswith("#"):
+            name, _, raw = line.partition("=")
+            values[name.strip()] = raw.strip().strip('"')
+    return values
+
+
+def test_the_portable_bundle_declares_no_host_application(tmp_path: Path) -> None:
+    """It runs in whatever editor a user drops it into, so it cannot know the host.
+
+    X-Application is allowlisted server-side. A guessed value is silently dropped
+    there, which is the worst outcome: the wire says we know the host and the
+    stored event says we do not.
+    """
+    identity = _harness_identity(build("mem0-agent-plugin", "portable", tmp_path / "portable"))
+
+    assert identity["PLATFORM_APPLICATION"] == ""
+    # The PostHog-side label is still useful for grouping and stays populated.
+    assert identity["HARNESS_ID"] == "coding-agent"
+    assert identity["PLATFORM_SOURCE"] == "MEM0_PLUGIN"
+
+
+@pytest.mark.parametrize("host", ["claude-code", "cursor", "codex", "kimi", "antigravity"])
+def test_a_native_bundle_names_the_host_it_was_built_for(host: str, tmp_path: Path) -> None:
+    identity = _harness_identity(build(host, "native", tmp_path / host))
+
+    assert identity["PLATFORM_APPLICATION"] == host
+
+
 @pytest.mark.parametrize("host", ["claude-code", "cursor", "codex", "kimi", "antigravity"])
 def test_native_bundle_is_self_contained(host: str, tmp_path: Path) -> None:
     root = build(host, "native", tmp_path / host)
