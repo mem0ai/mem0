@@ -39,9 +39,7 @@ def mock_llm(mocker):
 
 def test_initialization_creates_resources(mock_boto_client):
     """Test that bucket and index are created if they don't exist."""
-    not_found_error = ClientError(
-        {"Error": {"Code": "NotFoundException"}}, "OperationName"
-    )
+    not_found_error = ClientError({"Error": {"Code": "NotFoundException"}}, "OperationName")
     mock_boto_client.get_vector_bucket.side_effect = not_found_error
     mock_boto_client.get_index.side_effect = not_found_error
 
@@ -52,9 +50,7 @@ def test_initialization_creates_resources(mock_boto_client):
         region_name=REGION,
     )
 
-    mock_boto_client.create_vector_bucket.assert_called_once_with(
-        vectorBucketName=BUCKET_NAME
-    )
+    mock_boto_client.create_vector_bucket.assert_called_once_with(vectorBucketName=BUCKET_NAME)
     mock_boto_client.create_index.assert_called_once_with(
         vectorBucketName=BUCKET_NAME,
         indexName=INDEX_NAME,
@@ -188,9 +184,7 @@ def test_search(mock_boto_client):
 
 def test_get(mock_boto_client):
     """Test retrieving a vector by ID."""
-    mock_boto_client.get_vectors.return_value = {
-        "vectors": [{"key": "id1", "metadata": {"meta": "data1"}}]
-    }
+    mock_boto_client.get_vectors.return_value = {"vectors": [{"key": "id1", "metadata": {"meta": "data1"}}]}
     store = S3Vectors(
         vector_bucket_name=BUCKET_NAME,
         collection_name=INDEX_NAME,
@@ -226,9 +220,7 @@ def test_delete(mock_boto_client):
 def test_reset(mock_boto_client):
     """Test resetting the vector index."""
     # GIVEN: The index does not exist, so it gets created on init and reset
-    not_found_error = ClientError(
-        {"Error": {"Code": "NotFoundException"}}, "OperationName"
-    )
+    not_found_error = ClientError({"Error": {"Code": "NotFoundException"}}, "OperationName")
     mock_boto_client.get_index.side_effect = not_found_error
 
     # WHEN: The store is initialized
@@ -245,9 +237,7 @@ def test_reset(mock_boto_client):
     store.reset()
 
     # THEN: The index is deleted and then created again
-    mock_boto_client.delete_index.assert_called_once_with(
-        vectorBucketName=BUCKET_NAME, indexName=INDEX_NAME
-    )
+    mock_boto_client.delete_index.assert_called_once_with(vectorBucketName=BUCKET_NAME, indexName=INDEX_NAME)
     assert mock_boto_client.create_index.call_count == 2
 
 
@@ -272,3 +262,37 @@ def test_list_filters_metadata_client_side(mock_boto_client):
     [results] = store.list(filters={"user_id": "alice", "category": "work"})
 
     assert [result.id for result in results] == ["id1"]
+
+
+def test_search_euclidean_score_uses_reciprocal(mock_boto_client):
+    """Regression test for #6546: euclidean distance must use 1/(1+d), not 1-d."""
+    mock_boto_client.query_vectors.return_value = {
+        "vectors": [{"key": "id1", "distance": 4.0, "metadata": {"meta": "data1"}}]
+    }
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+        distance_metric="euclidean",
+    )
+    results = store.search(query="test", vectors=[0.1, 0.2], top_k=1)
+
+    assert len(results) == 1
+    assert results[0].score == pytest.approx(0.2)
+
+
+def test_search_cosine_score_unchanged(mock_boto_client):
+    """Regression test for #6546: cosine scoring must remain max(0, 1-d)."""
+    mock_boto_client.query_vectors.return_value = {
+        "vectors": [{"key": "id1", "distance": 0.3, "metadata": {"meta": "data1"}}]
+    }
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+        distance_metric="cosine",
+    )
+    results = store.search(query="test", vectors=[0.1, 0.2], top_k=1)
+
+    assert len(results) == 1
+    assert results[0].score == pytest.approx(0.7)
