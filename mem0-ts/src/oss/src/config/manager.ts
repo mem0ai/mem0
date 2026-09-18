@@ -113,7 +113,10 @@ export class ConfigManager {
           const userConf = userConfig.llm?.config;
           const provider =
             userConfig.llm?.provider || DEFAULT_MEMORY_CONFIG.llm.provider;
-          let finalModel: string | any = defaultConf.model;
+          const usesOpenAIDefaults =
+            provider.toLowerCase() === "openai" ||
+            provider.toLowerCase() === "openai_structured";
+          let finalModel: string | any = usesOpenAIDefaults ? defaultConf.model : undefined;
 
           if (userConf?.model && typeof userConf.model === "object") {
             finalModel = userConf.model;
@@ -131,9 +134,7 @@ export class ConfigManager {
               | string
               | undefined) ??
             userConf?.url ??
-            (provider.toLowerCase() === "vllm"
-              ? undefined
-              : defaultConf.baseURL);
+            (usesOpenAIDefaults ? defaultConf.baseURL : undefined);
           const temperature =
             userConf?.temperature ??
             (llmRaw?.temperature as number | undefined);

@@ -152,7 +152,7 @@ describe("ConfigManager", () => {
       });
 
       expect(config.llm.config.url).toBeUndefined();
-      expect(config.llm.config.baseURL).toBe("https://api.openai.com/v1");
+      expect(config.llm.config.baseURL).toBeUndefined();
     });
 
     it("normalizes vllm_base_url to baseURL for vLLM", () => {
@@ -374,7 +374,7 @@ describe("ConfigManager", () => {
         llm: { provider: "lmstudio", config: { model: "test-model" } },
       });
 
-      expect(cfg.llm.config.baseURL).toBe("https://api.openai.com/v1");
+      expect(cfg.llm.config.baseURL).toBeUndefined();
     });
   });
 
