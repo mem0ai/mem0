@@ -8,70 +8,27 @@ from typing import Any
 from hermes_constants import get_hermes_home
 
 LLM_PROVIDERS: dict[str, dict[str, Any]] = {
-    "openai": {
-        "label": "OpenAI",
-        "needs_key": True,
-        "env_var": "OPENAI_API_KEY",
-        "default_model": "gpt-5-mini",
-        "base_url_key": "openai_base_url",
-    },
-    "ollama": {
-        "label": "Ollama (local)",
-        "needs_key": False,
-        "default_model": "llama3.1:8b",
-        "default_url": "http://localhost:11434",
-        "base_url_key": "ollama_base_url",
-        "pip_dep": "ollama",
-    },
+    "openai": {"label": "OpenAI", "needs_key": True, "env_var": "OPENAI_API_KEY", "default_model": "gpt-5-mini", "base_url_key": "openai_base_url"},
+    "ollama": {"label": "Ollama (local)", "needs_key": False, "default_model": "llama3.1:8b", "default_url": "http://localhost:11434", "base_url_key": "ollama_base_url", "pip_dep": "ollama"},
 }
 
 EMBEDDER_PROVIDERS: dict[str, dict[str, Any]] = {
-    "openai": {
-        "label": "OpenAI",
-        "needs_key": True,
-        "env_var": "OPENAI_API_KEY",
-        "default_model": "text-embedding-3-small",
-        "base_url_key": "openai_base_url",
-        "dims": 1536,
-    },
-    "ollama": {
-        "label": "Ollama (local)",
-        "needs_key": False,
-        "default_model": "nomic-embed-text",
-        "default_url": "http://localhost:11434",
-        "base_url_key": "ollama_base_url",
-        "dims": 768,
-        "pip_dep": "ollama",
-    },
+    "openai": {"label": "OpenAI", "needs_key": True, "env_var": "OPENAI_API_KEY", "default_model": "text-embedding-3-small", "base_url_key": "openai_base_url", "dims": 1536},
+    "ollama": {"label": "Ollama (local)", "needs_key": False, "default_model": "nomic-embed-text", "default_url": "http://localhost:11434", "base_url_key": "ollama_base_url", "dims": 768, "pip_dep": "ollama"},
 }
 
 VECTOR_PROVIDERS: dict[str, dict[str, Any]] = {
     # Resolved lazily (see ``vector_default_config``): the profile home is a ContextVar at call time,
     # not an import-time constant, and ``~/.hermes`` is wrong on Windows and under profiles.
-    "qdrant": {
-        "label": "Qdrant",
-        "default_config": {"path": lambda: str(get_hermes_home() / "mem0_qdrant")},
-        "pip_dep": "qdrant-client",
-    },
+    "qdrant": {"label": "Qdrant", "default_config": {"path": lambda: str(get_hermes_home() / "mem0_qdrant")}, "pip_dep": "qdrant-client"},
     "pgvector": {
         "label": "PGVector",
-        "default_config": {
-            "host": "localhost",
-            "port": 5432,
-            "user": os.getenv("USER", "postgres"),
-            "dbname": "postgres",
-        },
+        "default_config": {"host": "localhost", "port": 5432, "user": os.getenv("USER", "postgres"), "dbname": "postgres"},
         "pip_dep": "psycopg2-binary",
     },
 }
 
-KNOWN_DIMS: dict[str, int] = {
-    "text-embedding-3-small": 1536,
-    "text-embedding-3-large": 3072,
-    "text-embedding-ada-002": 1536,
-    "nomic-embed-text": 768,
-}
-
+KNOWN_DIMS: dict[str, int] = {"text-embedding-3-small": 1536, "text-embedding-3-large": 3072, "text-embedding-ada-002": 1536, "nomic-embed-text": 768}
 
 def vector_default_config(provider_id: str) -> dict[str, Any]:
     """A vector store's ``default_config`` with callable defaults resolved for the active profile."""
@@ -89,9 +46,7 @@ def validate_oss_config(oss_config: dict) -> list[str]:
         if not block or not isinstance(block, dict):
             errors.append(f"Missing required section: {section}")
         elif block.get("provider", "") not in registry:
-            errors.append(
-                f"Unknown {section} provider '{block.get('provider', '')}'. Valid: {', '.join(registry.keys())}"
-            )
+            errors.append(f"Unknown {section} provider '{block.get('provider', '')}'. Valid: {', '.join(registry.keys())}")
     vs = oss_config.get("vector_store", {})
     if vs.get("provider") == "pgvector" and not vs.get("config", {}).get("user"):
         errors.append("PGVector requires 'user' in vector_store.config")

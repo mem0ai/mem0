@@ -6,7 +6,7 @@ Agent and editor integrations. Most packages are self-contained; coding-agent pl
 |-----------|---------|-------|------|------|
 | `vercel-ai-sdk/` | `@mem0/vercel-ai-provider` | tsup (CJS+ESM) | ESLint + Prettier | jest + vitest (edge/node) |
 | `openclaw/` | `@mem0/openclaw-mem0` | tsup (ESM) | none | vitest |
-| `hermes-plugin-mem0/` | Standalone Hermes memory provider | none | ruff + isort | pytest with `--confcutdir=integrations/hermes-plugin-mem0/tests` |
+| `hermes-plugin-mem0/` | Verbatim Nous Research Hermes memory provider | none | none declared upstream | none included upstream |
 | `agent-plugin-core/` | Shared Python/TypeScript behavior, skill templates, builds, and conformance | Python build script | ruff + tsc | pytest + node:test |
 | `mem0-agent-plugin/` | One portable Agent Plugins v1 package | Python | ruff | shared conformance |
 | `claude-code-plugin/`, `cursor-plugin/`, `codex-plugin/`, `kimi-plugin/`, `antigravity-plugin/` | Self-contained native plugins generated from the shared Python core | Python | ruff | pytest |
@@ -49,7 +49,6 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 - **`n8n-nodes-mem0/`** is an n8n community node: add, search, get, update, delete.
 - **`zapier-mem0/`** is a Zapier Platform CLI app: add, search, get, delete. It deploys to Zapier, not npm, so it is **not** in the release router. Deploy it with `gh workflow run zapier-mem0-cd.yml --ref main` (needs the `ZAPIER_DEPLOY_KEY` secret).
 - **`mem0-strands/`** is a native Strands `MemoryStore` (Python, published to PyPI as `mem0-strands`). It plugs into the Strands `MemoryManager` for automatic recall and server-side extraction, over the hosted Mem0 platform or self-hosted Mem0 OSS. The package lives under `mem0-strands/python/`.
-- **`hermes-plugin-mem0/`** is the standalone Hermes memory provider migrated from Nous Research. It owns its runtime helpers and cloud/HTTP/OSS backends locally; no shared build or generated bundle is used. See its README for offline tests and host smoke checks.
 
 ## Adding an integration
 

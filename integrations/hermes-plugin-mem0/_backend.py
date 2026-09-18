@@ -7,14 +7,8 @@ from contextlib import closing, suppress
 from typing import Any
 
 
-def _add_kwargs(user_id: str, agent_id: str, infer: bool, metadata: dict | None, run_id: str = "") -> dict[str, Any]:
-    return {
-        "user_id": user_id,
-        "agent_id": agent_id,
-        "infer": infer,
-        **({"metadata": metadata} if metadata else {}),
-        **({"run_id": run_id} if run_id else {}),
-    }
+def _add_kwargs(user_id: str, agent_id: str, infer: bool, metadata: dict | None) -> dict[str, Any]:
+    return {"user_id": user_id, "agent_id": agent_id, "infer": infer, **({"metadata": metadata} if metadata else {})}
 
 
 def _unwrap_results(response: Any) -> list:
@@ -29,16 +23,7 @@ class Mem0Backend(ABC):
     @abstractmethod
     def search(self, query: str, *, filters: dict, top_k: int = 10, rerank: bool = False) -> list[dict]: ...
     @abstractmethod
-    def add(
-        self,
-        messages: list,
-        *,
-        user_id: str,
-        agent_id: str,
-        infer: bool = False,
-        metadata: dict | None = None,
-        run_id: str = "",
-    ) -> dict: ...
+    def add(self, messages: list, *, user_id: str, agent_id: str, infer: bool = False, metadata: dict | None = None) -> dict: ...
     @abstractmethod
     def _update(self, memory_id: str, text: str) -> None: ...
     @abstractmethod
@@ -61,23 +46,13 @@ class PlatformBackend(Mem0Backend):
 
     def __init__(self, api_key: str):
         from mem0 import MemoryClient
-
         self._client = MemoryClient(api_key=api_key)
 
     def search(self, query: str, *, filters: dict, top_k: int = 10, rerank: bool = False) -> list[dict]:
         return _unwrap_results(self._client.search(query, filters=filters, top_k=top_k, rerank=rerank))
 
-    def add(
-        self,
-        messages: list,
-        *,
-        user_id: str,
-        agent_id: str,
-        infer: bool = False,
-        metadata: dict | None = None,
-        run_id: str = "",
-    ) -> dict:
-        return self._client.add(messages, **_add_kwargs(user_id, agent_id, infer, metadata, run_id))
+    def add(self, messages: list, *, user_id: str, agent_id: str, infer: bool = False, metadata: dict | None = None) -> dict:
+        return self._client.add(messages, **_add_kwargs(user_id, agent_id, infer, metadata))
 
     def _update(self, memory_id: str, text: str) -> None:
         self._client.update(memory_id=memory_id, text=text)
@@ -93,18 +68,9 @@ class SelfHostedBackend(Mem0Backend):
 
     def __init__(self, api_key: str, host: str, transport=None):
         import httpx
-
-        headers = {
-            "Content-Type": "application/json",
-            **({"X-API-Key": api_key} if api_key else {}),
-        }  # key omitted only for AUTH_DISABLED servers
+        headers = {"Content-Type": "application/json", **({"X-API-Key": api_key} if api_key else {})}  # key omitted only for AUTH_DISABLED servers
         # Connect-level retries keep one dropped SYN from counting toward the breaker. ``transport`` is injectable for tests.
-        self._client = httpx.Client(
-            base_url=host.rstrip("/"),
-            headers=headers,
-            timeout=30.0,
-            transport=transport or httpx.HTTPTransport(retries=2),
-        )
+        self._client = httpx.Client(base_url=host.rstrip("/"), headers=headers, timeout=30.0, transport=transport or httpx.HTTPTransport(retries=2))
 
     def _json(self, method: str, path: str, **kwargs) -> Any:
         resp = self._client.request(method, path, **kwargs)
@@ -113,25 +79,10 @@ class SelfHostedBackend(Mem0Backend):
 
     def search(self, query: str, *, filters: dict, top_k: int = 10, rerank: bool = False) -> list[dict]:
         # rerank is platform-only; the self-hosted /search ignores it. user_id belongs in filters (top-level is deprecated).
-        return _unwrap_results(
-            self._json(
-                "POST", "/search", json={"query": query, "top_k": top_k, **({"filters": filters} if filters else {})}
-            )
-        )
+        return _unwrap_results(self._json("POST", "/search", json={"query": query, "top_k": top_k, **({"filters": filters} if filters else {})}))
 
-    def add(
-        self,
-        messages: list,
-        *,
-        user_id: str,
-        agent_id: str,
-        infer: bool = False,
-        metadata: dict | None = None,
-        run_id: str = "",
-    ) -> dict:
-        return self._json(
-            "POST", "/memories", json={"messages": messages, **_add_kwargs(user_id, agent_id, infer, metadata, run_id)}
-        )
+    def add(self, messages: list, *, user_id: str, agent_id: str, infer: bool = False, metadata: dict | None = None) -> dict:
+        return self._json("POST", "/memories", json={"messages": messages, **_add_kwargs(user_id, agent_id, infer, metadata)})
 
     def _update(self, memory_id: str, text: str) -> None:
         self._json("PUT", f"/memories/{memory_id}", json={"text": text})
@@ -152,13 +103,10 @@ def _register_direct_openai_provider() -> None:
     """Register Hermes' OpenAI-only Mem0 LLM provider once per factory."""
     from mem0.configs.llms.openai import OpenAIConfig
     from mem0.utils.factory import LlmFactory
-
     provider_map = getattr(LlmFactory, "provider_to_class", None)
     register_provider = getattr(LlmFactory, "register_provider", None)
     if not isinstance(provider_map, dict) or not callable(register_provider):
-        raise RuntimeError(
-            "mem0 LlmFactory does not support the provider registration required for the Hermes OpenAI OSS backend"
-        )
+        raise RuntimeError("mem0 LlmFactory does not support the provider registration required for the Hermes OpenAI OSS backend")
     if provider_map.get(_DIRECT_OPENAI_PROVIDER) != (_DIRECT_OPENAI_CLASS_PATH, OpenAIConfig):
         register_provider(_DIRECT_OPENAI_PROVIDER, _DIRECT_OPENAI_CLASS_PATH, OpenAIConfig)
 
@@ -168,9 +116,7 @@ class OSSBackend(Mem0Backend):
 
     def __init__(self, oss_config: dict):
         import os
-
         from mem0 import Memory
-
         from ._oss_providers import EMBEDDER_PROVIDERS, KNOWN_DIMS, LLM_PROVIDERS
 
         def _provider_block(name: str, registry: dict) -> dict:
@@ -194,37 +140,27 @@ class OSSBackend(Mem0Backend):
             vs_config["embedding_model_dims"] = dims
             self._recreate_collection_if_dims_changed(vector_store.get("provider", "qdrant"), vs_config, dims)
         vector_store["config"] = vs_config
-        config = {
-            "vector_store": vector_store,
-            "llm": _provider_block("llm", LLM_PROVIDERS),
-            "embedder": _provider_block("embedder", EMBEDDER_PROVIDERS),
-            "version": "v1.1",
-        }
+        config = {"vector_store": vector_store, "llm": _provider_block("llm", LLM_PROVIDERS), "embedder": _provider_block("embedder", EMBEDDER_PROVIDERS), "version": "v1.1"}
         if str(config["llm"].get("provider") or "").strip().lower() == "openai":
             # mem0 validates LlmConfig.provider before its factory lookup: build the supported OpenAI config, then swap the provider.
             _register_direct_openai_provider()
             from mem0.configs.base import MemoryConfig
-
             memory_config = MemoryConfig(**config)
             try:
                 memory_config.llm.provider = _DIRECT_OPENAI_PROVIDER
             except (AttributeError, TypeError) as exc:
-                raise RuntimeError(
-                    "mem0 MemoryConfig does not expose a mutable llm.provider for the Hermes OpenAI OSS backend"
-                ) from exc
+                raise RuntimeError("mem0 MemoryConfig does not expose a mutable llm.provider for the Hermes OpenAI OSS backend") from exc
             self._memory = Memory(memory_config)
         else:
             self._memory = Memory.from_config(config)
 
     @staticmethod
     def _recreate_collection_if_dims_changed(provider: str, vs_config: dict, expected_dims: int) -> None:
-        """Reject dimension changes without deleting existing memories (legacy method name)."""
+        """Delete stale vector collection when embedding dimensions change."""
         collection_name = vs_config.get("collection_name", "mem0")
-        current_dims = None
         with suppress(Exception):
             if provider == "qdrant":
                 from qdrant_client import QdrantClient
-
                 path, url = vs_config.get("path"), vs_config.get("url")
                 if path:
                     client = QdrantClient(path=path)
@@ -240,44 +176,25 @@ class OSSBackend(Mem0Backend):
                     if isinstance(vectors, dict):
                         vectors = next(iter(vectors.values()), None)
                     current_dims = getattr(vectors, "size", None)
+                    if current_dims is not None and current_dims != expected_dims:
+                        client.delete_collection(collection_name)
             elif provider == "pgvector":
                 import psycopg2
-
-                conn_params = {
-                    k: vs_config[k]
-                    for k in ("host", "port", "user", "password", "dbname", "sslmode")
-                    if vs_config.get(k)
-                }
+                from psycopg2 import sql as pgsql
+                conn_params = {k: vs_config[k] for k in ("host", "port", "user", "password", "dbname", "sslmode") if vs_config.get(k)}
                 with closing(psycopg2.connect(**conn_params)) as conn:
                     conn.autocommit = True
                     with closing(conn.cursor()) as cur:
-                        cur.execute(
-                            "SELECT atttypmod FROM pg_attribute WHERE attrelid = %s::regclass AND attname = 'vector'",
-                            (collection_name,),
-                        )
+                        cur.execute("SELECT atttypmod FROM pg_attribute WHERE attrelid = %s::regclass AND attname = 'vector'", (collection_name,))
                         row = cur.fetchone()
-                        current_dims = row[0] if row and row[0] > 0 else None
-        if current_dims is not None and current_dims != expected_dims:
-            raise ValueError(
-                f"Collection {collection_name!r} has {current_dims} embedding dimensions, but {expected_dims} are configured. "
-                "Existing memories were preserved. Restore the previous embedder or choose a new collection_name "
-                "and migrate your memories explicitly."
-            )
+                        if row and row[0] > 0 and row[0] != expected_dims:
+                            cur.execute(pgsql.SQL("DROP TABLE IF EXISTS {}").format(pgsql.Identifier(collection_name)))
 
     def search(self, query: str, *, filters: dict, top_k: int = 10, rerank: bool = False) -> list[dict]:
         return _unwrap_results(self._memory.search(query, filters=filters, top_k=top_k))
 
-    def add(
-        self,
-        messages: list,
-        *,
-        user_id: str,
-        agent_id: str,
-        infer: bool = False,
-        metadata: dict | None = None,
-        run_id: str = "",
-    ) -> dict:
-        return self._memory.add(messages, **_add_kwargs(user_id, agent_id, infer, metadata, run_id))
+    def add(self, messages: list, *, user_id: str, agent_id: str, infer: bool = False, metadata: dict | None = None) -> dict:
+        return self._memory.add(messages, **_add_kwargs(user_id, agent_id, infer, metadata))
 
     def _update(self, memory_id: str, text: str) -> None:
         self._memory.update(memory_id, data=text)

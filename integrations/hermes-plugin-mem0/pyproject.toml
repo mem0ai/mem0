@@ -1,9 +1,9 @@
 [project]
 name = "hermes-plugin-mem0"
-version = "1.4.0"
+version = "1.3.0"
 description = "Hermes Agent memory provider plugin: mem0"
 requires-python = ">=3.11"
-license = { text = "MIT AND Apache-2.0" }
+license = { text = "MIT" }
 # Installed into the Hermes venv by `hermes plugins install` / `enable` and re-applied after
 # every `hermes update` (hermes-agent#113851). Keep upper bounds: Hermes pins its own deps exactly
 # and refuses a plugin whose requirements cannot resolve against them.

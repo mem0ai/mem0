@@ -11,25 +11,6 @@ You can run Mem0 in three ways:
 - **Self-hosted server mode**: point the plugin at a Mem0 server you run yourself (the Docker-shipped server). The plugin only talks HTTP to your server.
 - **OSS mode**: run Mem0 in-process with your own LLM, embedder, and vector store. No Mem0 server required.
 
-## Requirements and compatibility
-
-Use Python 3.11+ and a recent Hermes release. The host contract was checked against
-Hermes `v0.21.3` (`v2026.9.14`) and main at
-`c62bd9f2078a946108f1c9d9b24bf118963277ef`. Earlier host versions have not been validated.
-
-<Warning>
-Both checked Hermes revisions still bundle Mem0. Hermes gives bundled memory providers
-precedence over a same-named user plugin. Installing or enabling this plugin does not
-replace that bundled copy. Use the isolated preview instructions in the
-[plugin README](https://github.com/mem0ai/mem0/tree/main/integrations/hermes-plugin-mem0#local-worktree-preview)
-to try this version in a separate Hermes checkout. Once Hermes removes its bundled Mem0
-provider, the user-installed copy loads directly.
-</Warning>
-
-Keep `memory.provider: mem0`, `$HERMES_HOME/mem0.json`, and your existing `MEM0_*` variables.
-There is no memory migration. An explicitly configured user ID continues to share memories
-across hosts; otherwise the provider uses the gateway user ID, then `hermes-user`.
-
 ## How It Works
 
 Hermes runs a built-in memory system (file-based `MEMORY.md` and `USER.md`) alongside one external provider. When Mem0 is active, it works additively with the built-in system at two points in every conversation turn.
@@ -40,9 +21,7 @@ When you send a message, Hermes searches your stored memories for the current qu
 
 ### 2. Background fact extraction (sync)
 
-Once the model finishes, Hermes sends the `(user message, assistant response)` pair to Mem0 in a background thread. Mem0 extracts facts automatically (for example, "user prefers Python" or "user works at Acme Corp"), so you never have to tell it what to remember. Each write is tagged with the gateway channel it came from and the Hermes session as top-level `run_id`. Recall remains scoped to the user across sessions.
-
-The standalone plugin owns its redaction and token-aware batching. Full non-empty user and assistant text is preserved after known-secret redaction; oversized messages are split across requests instead of truncated. Raw tool results and the full historical transcript are not captured. Pattern-based redaction cannot recognize every possible secret.
+Once the model finishes, Hermes sends the `(user message, assistant response)` pair to Mem0 in a background thread. Mem0 extracts facts automatically (for example, "user prefers Python" or "user works at Acme Corp"), so you never have to tell it what to remember. Each write is tagged with the gateway channel it came from.
 
 ## Agent Tools
 
@@ -51,7 +30,7 @@ When Mem0 is active, the model gets four tools it can call during a conversation
 | Tool | Description | Parameters |
 |------|-------------|------------|
 | `mem0_search` | Semantic search by meaning, ranked by relevance | `query` (required), `top_k` (default 10, max 50), `rerank` (default `false`, Platform mode only) |
-| `mem0_add` | Store a fact after known-secret redaction, with no LLM extraction | `content` (required) |
+| `mem0_add` | Store a fact verbatim, with no LLM extraction | `content` (required) |
 | `mem0_update` | Update a memory's text by ID | `memory_id`, `text` (both required) |
 | `mem0_delete` | Delete a memory by ID | `memory_id` (required) |
 
@@ -64,27 +43,7 @@ curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scri
 source ~/.bashrc
 ```
 
-After this integration is published to the Mem0 repository:
-
-```bash
-hermes plugins install mem0ai/mem0/integrations/hermes-plugin-mem0
-hermes plugins enable mem0
-hermes memory setup
-hermes memory status
-```
-
-For unpublished worktree changes, use the README's local installation instructions instead.
-The bundled-provider precedence described above applies to both installation methods.
-
-Recent Hermes development versions install the plugin's declared dependencies automatically.
-On Hermes `v0.21.3`, install them into the environment that runs Hermes:
-
-```bash
-HERMES_REPO=/path/to/hermes-agent
-uv pip install --python "$HERMES_REPO/.venv/bin/python" 'mem0ai>=2.0.10,<3' 'httpx>=0.27,<1'
-```
-
-OSS providers may need extra packages such as `qdrant-client`, `psycopg2-binary`, or `ollama`, which the setup flow installs when you select them.
+The `mem0ai` package is installed automatically when you enable the Mem0 provider, so there is no manual pip step. OSS providers may need extra packages (for example `qdrant-client`, `psycopg2-binary`, or `ollama`), which the setup flow installs for you when you pick them.
 
 ## Platform Setup
 
@@ -237,10 +196,9 @@ Behavioral settings live in `~/.hermes/mem0.json` and are written for you by `he
 | `mode` | `platform` | `platform` (Mem0 Cloud) or `oss` (self-managed, in-process). Self-hosted server routing is set via `host` |
 | `host` | none | Self-hosted Mem0 server URL. When set, the plugin talks HTTP to your server instead of the cloud |
 | `api_key` | none | Mem0 Platform API key, or the admin key of a self-hosted server. Stored in `.env` as `MEM0_API_KEY` |
-| `user_id` | Gateway user ID, then `hermes-user` | Identifier that scopes memories. See cross-channel behavior below |
+| `user_id` | `hermes-user` | Identifier that scopes memories. See cross-channel behavior below |
 | `agent_id` | `hermes` | Agent identifier attached to writes |
 | `rerank` | `false` | Rerank search results for relevance (Platform mode only) |
-| `sync_max_chars` | Uncapped for platform/HTTP; `450` for OSS | Positive maximum per chunk; longer text is split without dropping its tail. `0` disables the character cap |
 
 ### Cross-channel memories
 
@@ -255,8 +213,7 @@ Either way, every write is tagged with `metadata.channel` (for example `telegram
 
 - **Circuit breaker**: if Mem0 fails five times in a row, Hermes pauses calls for two minutes, then retries. The agent keeps working without memory during that window. Expected client errors, like a 404 on a missing memory id, do not count toward tripping the breaker.
 - **Non-blocking**: fact extraction runs in a background daemon thread, and current-turn recall waits at most 3 seconds, so a slow or failed call never blocks your conversation.
-- **Capture queue**: overlapping turns are queued in memory instead of skipped while an earlier turn is syncing. Failed requests are logged without durable retries. Shutdown waits at most five seconds; a process exit can lose pending turns.
-- **Existing collections**: an OSS embedding-dimension mismatch fails initialization without deleting vectors. Restore the original embedding configuration or select a new collection name.
+- **Thread-safe**: the client uses lazy initialization with locking, and the background sync and recall threads are guarded so concurrent gateway messages cannot produce duplicate memories.
 
 ## Troubleshooting
 
@@ -289,7 +246,7 @@ curl http://localhost:11434/api/tags
 
 ### Memories not appearing
 
-- `mem0_add` stores text after known-secret redaction with no extraction. Ordinary conversation turns are extracted automatically by the background sync.
+- `mem0_add` stores text verbatim with no extraction. Ordinary conversation turns are extracted automatically by the background sync.
 - Search is semantic, so try a broader query.
 - Confirm `user_id` is the same across sessions (check `~/.hermes/mem0.json`).
 

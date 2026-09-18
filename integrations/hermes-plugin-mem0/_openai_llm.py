@@ -11,17 +11,7 @@ from mem0.llms.base import LLMBase
 from mem0.llms.openai import OpenAILLM
 
 # BaseLlmConfig fields copied into OpenAIConfig; the last two may be absent on older mem0.
-_COPIED_FIELDS = (
-    "model",
-    "temperature",
-    "api_key",
-    "max_tokens",
-    "top_p",
-    "top_k",
-    "enable_vision",
-    "vision_details",
-    "http_client_proxies",
-)
+_COPIED_FIELDS = ("model", "temperature", "api_key", "max_tokens", "top_p", "top_k", "enable_vision", "vision_details", "http_client_proxies")
 _OPTIONAL_FIELDS = ("reasoning_effort", "is_reasoning_model")
 
 
@@ -50,25 +40,13 @@ class DirectOpenAILLM(OpenAILLM):
         # scope, never raw os.environ, or a multiplexed secondary's memory extraction runs on the
         # default profile's OpenAI account (and its proxy).
         from agent.secret_scope import get_secret
-
         api_key = self.config.api_key or get_secret("OPENAI_API_KEY", "")
         if not api_key:
             raise ValueError("OpenAI API key is required for the Hermes Mem0 OSS provider")
         from openai import OpenAI
+        self.client = OpenAI(api_key=api_key, base_url=self.config.openai_base_url or get_secret("OPENAI_BASE_URL", "") or "https://api.openai.com/v1")
 
-        self.client = OpenAI(
-            api_key=api_key,
-            base_url=self.config.openai_base_url or get_secret("OPENAI_BASE_URL", "") or "https://api.openai.com/v1",
-        )
-
-    def generate_response(
-        self,
-        messages: List[Dict[str, str]],
-        response_format=None,
-        tools: Optional[List[Dict]] = None,
-        tool_choice: str = "auto",
-        **kwargs,
-    ):
+    def generate_response(self, messages: List[Dict[str, str]], response_format=None, tools: Optional[List[Dict]] = None, tool_choice: str = "auto", **kwargs):
         params = self._get_supported_params(messages=messages, **kwargs)
         params.update({"model": self.config.model, "messages": messages})
         # No OpenRouter-only fields; ``store`` is opt-in so OpenAI-compatible endpoints never receive unknown fields.

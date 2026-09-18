@@ -256,7 +256,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Agno](https://docs.mem0.ai/integrations/agno) [Platform]: Use when the user is on Agno.
 - [Camel AI](https://docs.mem0.ai/integrations/camel-ai) [Both]: Use when the user is on Camel AI.
 - [ChatDev](https://docs.mem0.ai/integrations/chatdev) [Platform]: Use when the user is on ChatDev.
-- [Hermes Agent](https://docs.mem0.ai/integrations/hermes) [Both]: Use when adding the native Mem0 memory provider to Hermes Agent, preserving existing configuration, or checking bundled-provider precedence.
+- [Hermes](https://docs.mem0.ai/integrations/hermes) [Both]: Use when the user is on Hermes.
 - [Pi Agent](https://docs.mem0.ai/integrations/pi-agent) [Platform]: Use when adding automatic capture, prompt recall, scoped memory, and six memory commands to Pi Agent.
 - [DeepSeek Harness](https://docs.mem0.ai/integrations/deepseek-plugin) [Platform]: Use when adding automatic recall, completed-turn capture, and native search/add tools to DeepSeek Harness.
 - [OpenAI Agents SDK](https://docs.mem0.ai/integrations/openai-agents-sdk) [Platform]: Use when the user is on the OpenAI Agents SDK.
