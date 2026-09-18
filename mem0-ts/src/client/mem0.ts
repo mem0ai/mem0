@@ -26,6 +26,7 @@ import {
   ProfileJobStatus,
   ProfileTriggerResponse,
   ProfileSettings,
+  ProfileSettingsResponse,
   ProfileSamplesResponse,
   ProfileRegenerateResponse,
 } from "./mem0.types";
@@ -823,7 +824,7 @@ export default class MemoryClient {
   }
 
   /** Get the profile settings for the current project. */
-  async getProfileSettings(): Promise<ProfileSettings> {
+  async getProfileSettings(): Promise<ProfileSettingsResponse> {
     this._captureEvent("get_profile_settings", []);
     await this._awaitIdentity();
 
@@ -833,28 +834,78 @@ export default class MemoryClient {
     return this._settingsWithVerbatimSchema(raw);
   }
 
-  /** The envelope keys are ours; the schema's property names are the customer's. */
-  private _settingsWithVerbatimSchema(raw: any): ProfileSettings {
-    const settings = snakeToCamelKeys(raw) as ProfileSettings;
-    if (raw && typeof raw === "object" && "schema" in raw) {
+  /**
+   * The envelope keys are ours; the schema's property names are the customer's.
+   *
+   * Each entity type carries its own schema, so every one has to be restored
+   * from the raw body — otherwise camel-casing rewrites the customer's field
+   * names and a profile comes back under keys they never chose.
+   */
+  private _settingsWithVerbatimSchema(raw: any): ProfileSettingsResponse {
+    const settings = snakeToCamelKeys(raw) as ProfileSettingsResponse;
+    if (!raw || typeof raw !== "object") {
+      return settings;
+    }
+
+    if ("schema" in raw) {
       settings.schema = raw.schema;
     }
+
+    const rawEntities = raw.entities;
+    if (rawEntities && typeof rawEntities === "object") {
+      for (const [entityType, entitySettings] of Object.entries(rawEntities)) {
+        if (
+          entitySettings &&
+          typeof entitySettings === "object" &&
+          "schema" in entitySettings &&
+          settings.entities?.[entityType as ProfileEntityType]
+        ) {
+          settings.entities[entityType as ProfileEntityType]!.schema = (
+            entitySettings as Record<string, any>
+          ).schema;
+        }
+      }
+    }
+
     return settings;
   }
 
-  /** Update profile settings. Only the fields you pass are written. */
+  /**
+   * Update profile settings. Only the fields you pass are written.
+   *
+   * `schema` and `customInstructions` are per entity type and are nested under
+   * `entities` for the API; only `enabled` is project-wide. Sending them flat
+   * is rejected with `Unsupported settings`.
+   */
   async updateProfileSettings(
     settings: ProfileSettings,
-  ): Promise<ProfileSettings> {
+  ): Promise<ProfileSettingsResponse> {
     const payloadKeys = Object.keys(settings || {});
     this._captureEvent("update_profile_settings", [payloadKeys]);
     await this._awaitIdentity();
 
+    const {
+      schema,
+      customInstructions,
+      enabled,
+      entityType = "user",
+    } = settings || {};
+
+    const body: Record<string, any> = {};
+    if (enabled !== undefined) {
+      body.enabled = enabled;
+    }
+
+    const entitySettings: Record<string, any> = {};
     // The schema's property names are the customer's and must reach the API verbatim.
-    const { schema, ...rest } = settings;
-    const body: Record<string, any> = camelToSnakeKeys(rest);
     if (schema !== undefined) {
-      body.schema = schema;
+      entitySettings.schema = schema;
+    }
+    if (customInstructions !== undefined) {
+      entitySettings.custom_instructions = customInstructions;
+    }
+    if (Object.keys(entitySettings).length > 0) {
+      body.entities = { [entityType]: entitySettings };
     }
 
     const raw = await this._fetchRawJson(`${this.host}/v2/profiles/settings/`, {
@@ -871,7 +922,10 @@ export default class MemoryClient {
    * Real generations against real memories, and the results are kept: the
    * profiles are written to those entities and count toward usage.
    */
-  async sampleProfiles(data?: { limit?: number }): Promise<ProfileJobResponse> {
+  async sampleProfiles(data?: {
+    limit?: number;
+    entityType?: ProfileEntityType;
+  }): Promise<ProfileJobResponse> {
     this._captureEvent("sample_profiles", []);
     await this._awaitIdentity();
 
@@ -882,6 +936,8 @@ export default class MemoryClient {
         headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify({
           operation: "sample",
+          // Required: the API refuses a job that does not name an entity kind.
+          entity_type: data?.entityType ?? "user",
           ...this._prepareParams({ limit: data?.limit }),
         }),
       },
@@ -890,13 +946,15 @@ export default class MemoryClient {
   }
 
   /**
-   * Rebuild the profile of every entity in the project.
+   * Rebuild the profile of every entity of one kind in the project.
    *
-   * Not available yet: the server answers 501 `not_yet_available` and creates
+   * Not available yet: the server answers 409 `not_yet_available` and creates
    * nothing. Use {@link sampleProfiles} or {@link generateProfile} until
    * `capabilities.full_rebuild` from {@link getProfileSettings} is true.
    */
-  async regenerateProfiles(): Promise<ProfileJobResponse> {
+  async regenerateProfiles(data?: {
+    entityType?: ProfileEntityType;
+  }): Promise<ProfileJobResponse> {
     this._captureEvent("regenerate_profiles", []);
     await this._awaitIdentity();
 
@@ -905,7 +963,10 @@ export default class MemoryClient {
       {
         method: "POST",
         headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({ operation: "regenerate" }),
+        body: JSON.stringify({
+          operation: "regenerate",
+          entity_type: data?.entityType ?? "user",
+        }),
       },
     );
     return response;

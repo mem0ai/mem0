@@ -112,7 +112,7 @@ class TestGenerateProfile:
 class TestProfileSettings:
     def test_get_reads_v2(self, mock_memory_client):
         mock_memory_client.client.get.return_value = _mock_response(
-            {"enabled": True, "schema": None, "custom_instructions": None}
+            {"enabled": True, "entities": {"user": {"schema": None, "custom_instructions": None}}}
         )
 
         mock_memory_client.get_profile_settings()
@@ -130,6 +130,30 @@ class TestProfileSettings:
             json={"enabled": False},
         )
 
+    def test_update_nests_schema_under_entities(self, mock_memory_client):
+        """The API takes only ``enabled`` and ``entities`` at the top level.
+
+        A flat body is rejected with ``Unsupported settings``, so this nesting is
+        what makes the call work at all.
+        """
+        schema = {"type": "object", "properties": {"x": {"type": "string", "description": "d"}}}
+        mock_memory_client.client.post.return_value = _mock_response({"enabled": True})
+
+        mock_memory_client.update_profile_settings(enabled=True, schema=schema)
+
+        _, kwargs = mock_memory_client.client.post.call_args
+        assert set(kwargs["json"]) == {"enabled", "entities"}
+        assert "schema" not in kwargs["json"]
+
+    def test_update_targets_the_named_entity_type(self, mock_memory_client):
+        schema = {"type": "object", "properties": {"x": {"type": "string", "description": "d"}}}
+        mock_memory_client.client.post.return_value = _mock_response({"enabled": True})
+
+        mock_memory_client.update_profile_settings(schema=schema, entity_type="agent")
+
+        _, kwargs = mock_memory_client.client.post.call_args
+        assert kwargs["json"] == {"entities": {"agent": {"schema": schema}}}
+
     def test_update_passes_schema_verbatim(self, mock_memory_client):
         schema = {
             "type": "object",
@@ -141,30 +165,44 @@ class TestProfileSettings:
                 }
             },
         }
-        mock_memory_client.client.post.return_value = _mock_response({"enabled": True, "schema": schema})
+        mock_memory_client.client.post.return_value = _mock_response({"enabled": True})
 
         mock_memory_client.update_profile_settings(enabled=True, schema=schema, custom_instructions="Keep it durable")
 
         mock_memory_client.client.post.assert_called_once_with(
             "/v2/profiles/settings/",
-            json={"enabled": True, "schema": schema, "custom_instructions": "Keep it durable"},
+            json={
+                "enabled": True,
+                "entities": {"user": {"schema": schema, "custom_instructions": "Keep it durable"}},
+            },
         )
 
 
 class TestSampleAndRegenerate:
     def test_sample_without_limit(self, mock_memory_client):
-        mock_memory_client.client.post.return_value = _mock_response({"sampled": 5, "results": []})
+        mock_memory_client.client.post.return_value = _mock_response({"sampled": 5, "entity_ids": []})
 
         mock_memory_client.sample_profiles()
 
-        _assert_job_call(mock_memory_client.client.post, {"operation": "sample"})
+        _assert_job_call(mock_memory_client.client.post, {"operation": "sample", "entity_type": "user"})
 
     def test_sample_with_limit(self, mock_memory_client):
-        mock_memory_client.client.post.return_value = _mock_response({"sampled": 3, "results": []})
+        mock_memory_client.client.post.return_value = _mock_response({"sampled": 3, "entity_ids": []})
 
         mock_memory_client.sample_profiles(limit=3)
 
-        _assert_job_call(mock_memory_client.client.post, {"operation": "sample", "limit": 3})
+        _assert_job_call(
+            mock_memory_client.client.post,
+            {"operation": "sample", "limit": 3, "entity_type": "user"},
+        )
+
+    def test_sample_names_the_entity_type(self, mock_memory_client):
+        """Every job names an entity kind: the API refuses one that does not."""
+        mock_memory_client.client.post.return_value = _mock_response({"sampled": 1, "entity_ids": []})
+
+        mock_memory_client.sample_profiles(entity_type="agent")
+
+        _assert_job_call(mock_memory_client.client.post, {"operation": "sample", "entity_type": "agent"})
 
     def test_regenerate(self, mock_memory_client):
         mock_memory_client.client.post.return_value = _mock_response(
@@ -173,7 +211,7 @@ class TestSampleAndRegenerate:
 
         mock_memory_client.regenerate_profiles()
 
-        _assert_job_call(mock_memory_client.client.post, {"operation": "regenerate"})
+        _assert_job_call(mock_memory_client.client.post, {"operation": "regenerate", "entity_type": "user"})
 
 
 class TestAsyncClientParity:
@@ -225,9 +263,21 @@ class TestAsyncClientParity:
             json={"enabled": True},
         )
 
+    def test_update_settings_nests_schema(self, async_client):
+        """The async client builds the same body as the sync one."""
+        schema = {"type": "object", "properties": {"x": {"type": "string", "description": "d"}}}
+        async_client.async_client.post = AsyncMock(return_value=_mock_response({"enabled": True}))
+
+        asyncio.run(async_client.update_profile_settings(enabled=True, schema=schema))
+
+        async_client.async_client.post.assert_called_once_with(
+            "/v2/profiles/settings/",
+            json={"enabled": True, "entities": {"user": {"schema": schema}}},
+        )
+
     def test_regenerate(self, async_client):
         async_client.async_client.post = AsyncMock(return_value=_mock_response({"status": "accepted"}))
 
         asyncio.run(async_client.regenerate_profiles())
 
-        _assert_job_call(async_client.async_client.post, {"operation": "regenerate"})
+        _assert_job_call(async_client.async_client.post, {"operation": "regenerate", "entity_type": "user"})

@@ -242,13 +242,14 @@ export interface GetMemoryExportPayload {
 /** Entity kinds that can carry a profile. */
 export type ProfileEntityType = "user" | "agent";
 
-/** `succeeded` is the only state in which `profile` is guaranteed to hold content. */
+/**
+ * `succeeded` is the only state in which `profile` is guaranteed to hold content.
+ *
+ * These are values, not keys, so the client does not camel-case them: the wire
+ * spelling is what a comparison has to match.
+ */
 export type ProfileStatus =
-  | "succeeded"
-  | "pending"
-  | "failed"
-  | "notEnabled"
-  | "insufficientData";
+  "succeeded" | "pending" | "failed" | "not_enabled" | "insufficient_data";
 
 export interface ProfileResponse {
   /** Shaped by the project's schema; keys are not camel-cased. */
@@ -270,19 +271,45 @@ export interface ProfileJobResponse {
   usageUnits?: number;
   eventId?: string;
   replayed?: boolean;
-  /** Sample runs only. */
+  /** Sample runs only: how many entities were picked. */
   sampled?: number;
+  /** Sample runs only: the entity ids picked. Read each one with `getProfile`. */
+  entityIds?: string[];
+  /** @deprecated The API returns `entityIds`; this is never populated. */
   results?: Array<ProfileSampleResult>;
 }
 
 /** @deprecated Use {@link ProfileJobResponse}. */
 export type ProfileTriggerResponse = ProfileJobResponse;
 
+/** The settings to write. `schema` and `customInstructions` apply to one entity type. */
 export interface ProfileSettings {
+  /** Turn profile generation on or off. Project-wide. */
   enabled?: boolean;
   /** JSON Schema for the profile. Every property needs a `description`. */
   schema?: Record<string, any> | null;
   customInstructions?: string | null;
+  /** Which entity kind `schema` and `customInstructions` belong to. Defaults to "user". */
+  entityType?: ProfileEntityType;
+}
+
+/** One entity type's stored configuration. */
+export interface EntityProfileSettings {
+  /** The customer's JSON Schema, with its property names verbatim. */
+  schema?: Record<string, any> | null;
+  customInstructions?: string | null;
+  [key: string]: any;
+}
+
+/**
+ * The settings as stored. `schema` and `customInstructions` are per entity
+ * type and nest under `entities`; only `enabled` is project-wide.
+ */
+export interface ProfileSettingsResponse {
+  enabled?: boolean;
+  entities?: Partial<Record<ProfileEntityType, EntityProfileSettings>>;
+  capabilities?: Record<string, any>;
+  [key: string]: any;
 }
 
 export interface ProfileSampleResult {

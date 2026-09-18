@@ -4,6 +4,7 @@
  * profile/schema keys, not mock response echo.
  */
 import { MemoryClient } from "../mem0";
+import type { ProfileStatus } from "../mem0.types";
 import { TEST_API_KEY } from "./helpers";
 import {
   setupMockFetch,
@@ -48,6 +49,31 @@ describe("MemoryClient - getProfile()", () => {
     expect(result.entityId).toBe("alice");
     expect(result.generationCount).toBe(3);
     expect(result.status).toBe("succeeded");
+  });
+
+  test("status keeps its wire spelling", async () => {
+    // A status is a VALUE, not a key, so the client does not camel-case it.
+    // Declaring the union as `insufficientData` made tsc reject the comparison
+    // that works and accept one that can never be true.
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v2/entities/user/bob/profile/", {
+      status: 200,
+      body: {
+        profile: {},
+        status: "insufficient_data",
+        entity_type: "user",
+        entity_id: "bob",
+      },
+    });
+    setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    const result = await client.getProfile({ entityId: "bob" });
+
+    expect(result.status).toBe("insufficient_data");
+    // Assignable without a cast: the declared union must contain the wire value.
+    const status: ProfileStatus = result.status;
+    expect(status).not.toBe("insufficientData");
   });
 
   test("defaults to user and encodes the entity id", async () => {
@@ -116,8 +142,12 @@ describe("MemoryClient - profile settings", () => {
       status: 200,
       body: {
         enabled: true,
-        schema,
-        custom_instructions: "Focus on durable preferences",
+        entities: {
+          user: {
+            schema,
+            custom_instructions: "Focus on durable preferences",
+          },
+        },
       },
     });
     const mock = setupMockFetch(extra);
@@ -133,19 +163,50 @@ describe("MemoryClient - profile settings", () => {
     expect(call).toBeDefined();
     const body = getFetchBody(call!);
 
-    // Mixed casing goes out exactly as written.
-    expect(body.schema).toEqual(schema);
-    expect(body.custom_instructions).toBe("Focus on durable preferences");
+    // Mixed casing goes out exactly as written, nested under the entity type.
+    expect(body.entities.user.schema).toEqual(schema);
+    expect(body.entities.user.custom_instructions).toBe(
+      "Focus on durable preferences",
+    );
     expect(body.enabled).toBe(true);
-    expect(result.schema).toEqual(schema);
-    expect(result.customInstructions).toBe("Focus on durable preferences");
+    // A flat schema is rejected by the API with "Unsupported settings".
+    expect("schema" in body).toBe(false);
+
+    // And the customer's property names survive the round trip.
+    expect(result.entities?.user?.schema).toEqual(schema);
+    expect(result.entities?.user?.customInstructions).toBe(
+      "Focus on durable preferences",
+    );
+  });
+
+  test("targets the entity type the caller named", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v2/profiles/settings/", {
+      status: 200,
+      body: { enabled: true },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.updateProfileSettings({
+      schema: { type: "object", properties: {} },
+      entityType: "agent",
+    });
+
+    const body = getFetchBody(
+      findFetchCall(mock, "/v2/profiles/settings/", "POST")!,
+    );
+    expect(Object.keys(body.entities)).toEqual(["agent"]);
   });
 
   test("omits fields the caller did not set", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v2/profiles/settings/", {
       status: 200,
-      body: { enabled: false, schema: null, custom_instructions: null },
+      body: {
+        enabled: false,
+        entities: { user: { schema: null, custom_instructions: null } },
+      },
     });
     const mock = setupMockFetch(extra);
 
@@ -155,6 +216,8 @@ describe("MemoryClient - profile settings", () => {
     const call = findFetchCall(mock, "/v2/profiles/settings/", "POST");
     const body = getFetchBody(call!);
     expect(body.enabled).toBe(false);
+    // Nothing entity-scoped was passed, so no entities key is sent at all.
+    expect("entities" in body).toBe(false);
     expect("schema" in body).toBe(false);
     expect("custom_instructions" in body).toBe(false);
   });
@@ -165,8 +228,13 @@ describe("MemoryClient - profile settings", () => {
       status: 200,
       body: {
         enabled: true,
-        schema: { properties: { favorite_topics: { type: "array" } } },
-        custom_instructions: null,
+        entities: {
+          user: {
+            schema: { properties: { favorite_topics: { type: "array" } } },
+            custom_instructions: null,
+          },
+        },
+        capabilities: { full_rebuild: false },
       },
     });
     const mock = setupMockFetch(extra);
@@ -176,9 +244,10 @@ describe("MemoryClient - profile settings", () => {
 
     expect(findFetchCall(mock, "/v2/profiles/settings/")).toBeDefined();
     expect(result.enabled).toBe(true);
-    expect(result.schema).toEqual({
+    expect(result.entities?.user?.schema).toEqual({
       properties: { favorite_topics: { type: "array" } },
     });
+    expect(result.capabilities?.fullRebuild).toBe(false);
   });
 });
 
@@ -203,7 +272,11 @@ describe("MemoryClient - sampleProfiles() / regenerateProfiles()", () => {
     await client.sampleProfiles();
 
     const call = findFetchCall(mock, "/v2/profiles/jobs/", "POST");
-    expect(getFetchBody(call!)).toEqual({ operation: "sample" });
+    // Every job names an entity kind: the API refuses one that does not.
+    expect(getFetchBody(call!)).toEqual({
+      operation: "sample",
+      entity_type: "user",
+    });
   });
 
   test("sampleProfiles passes an explicit limit", async () => {
@@ -228,7 +301,23 @@ describe("MemoryClient - sampleProfiles() / regenerateProfiles()", () => {
     const call = findFetchCall(mock, "/v2/profiles/jobs/", "POST");
     expect(getFetchBody(call!).operation).toBe("sample");
     expect(getFetchBody(call!).limit).toBe(3);
+    expect(getFetchBody(call!).entity_type).toBe("user");
     expect(result.sampled).toBe(3);
+  });
+
+  test("sampleProfiles targets the entity type the caller named", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v2/profiles/jobs/", {
+      status: 202,
+      body: { job_id: "job_4", status: "QUEUED", entity_type: "agent" },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.sampleProfiles({ entityType: "agent" });
+
+    const call = findFetchCall(mock, "/v2/profiles/jobs/", "POST");
+    expect(getFetchBody(call!).entity_type).toBe("agent");
   });
 
   test("sends operation regenerate to the jobs collection", async () => {
@@ -248,7 +337,12 @@ describe("MemoryClient - sampleProfiles() / regenerateProfiles()", () => {
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     const result = await client.regenerateProfiles();
 
-    expect(findFetchCall(mock, "/v2/profiles/jobs/", "POST")).toBeDefined();
+    const call = findFetchCall(mock, "/v2/profiles/jobs/", "POST");
+    expect(call).toBeDefined();
+    expect(getFetchBody(call!)).toEqual({
+      operation: "regenerate",
+      entity_type: "user",
+    });
     expect(result.jobId).toBe("job_3");
     expect(result.statusUrl).toBe("/v2/profiles/jobs/job_3/");
   });

@@ -42,6 +42,38 @@ ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
 
 # One collection for every generation; the operation is a body field.
 PROFILE_JOBS_PATH = "/v2/profiles/jobs/"
+PROFILE_SETTINGS_PATH = "/v2/profiles/settings/"
+
+
+def _profile_settings_payload(
+    enabled: Optional[bool],
+    schema: Optional[Dict[str, Any]],
+    custom_instructions: Optional[str],
+    entity_type: str,
+) -> Dict[str, Any]:
+    """Build the settings body the API accepts.
+
+    ``schema`` and ``custom_instructions`` are per entity type and nest under
+    ``entities``; only ``enabled`` is project-wide. This mirrors what
+    ``get_profile_settings`` returns, so the two round-trip.
+
+    Sending them flat is rejected with ``Unsupported settings``, so this shape is
+    not cosmetic.
+    """
+
+    payload: Dict[str, Any] = {}
+    if enabled is not None:
+        payload["enabled"] = enabled
+
+    entity_settings: Dict[str, Any] = {}
+    if schema is not None:
+        entity_settings["schema"] = schema
+    if custom_instructions is not None:
+        entity_settings["custom_instructions"] = custom_instructions
+
+    if entity_settings:
+        payload["entities"] = {entity_type: entity_settings}
+    return payload
 
 
 def _validate_and_trim_search_query(query: str) -> str:
@@ -751,10 +783,12 @@ class MemoryClient:
         """Get the profile settings for the current project.
 
         Returns:
-            Dict with ``enabled``, ``schema`` and ``custom_instructions``.
+            Dict with ``enabled`` and ``capabilities`` at the top level, and
+            ``entities`` holding each entity type's ``schema`` and
+            ``custom_instructions``.
         """
 
-        response = self.client.get("/v2/profiles/settings/")
+        response = self.client.get(PROFILE_SETTINGS_PATH)
         response.raise_for_status()
         capture_client_event("client.get_profile_settings", self, {"sync_type": "sync"})
         return response.json()
@@ -765,36 +799,41 @@ class MemoryClient:
         enabled: Optional[bool] = None,
         schema: Optional[Dict[str, Any]] = None,
         custom_instructions: Optional[str] = None,
+        entity_type: str = "user",
     ) -> Dict[str, Any]:
         """Update the profile settings for the current project.
 
         Only the arguments you pass are written.
 
         Args:
-            enabled: Turn profile generation on or off.
+            enabled: Turn profile generation on or off. Project-wide.
             schema: JSON Schema for the profile. Every property needs a
-                ``description``.
+                ``description``. Applies to ``entity_type``.
             custom_instructions: Extra guidance for the extraction step.
+                Applies to ``entity_type``.
+            entity_type: Which entity kind ``schema`` and
+                ``custom_instructions`` belong to. Defaults to "user".
 
         Returns:
-            Dict with the settings as stored after the update.
+            Dict with the settings as stored after the update, in the same
+            shape :meth:`get_profile_settings` returns.
 
         Raises:
             ValidationError: If the schema is not a valid profile schema.
         """
 
-        payload = self._prepare_params(
-            {"enabled": enabled, "schema": schema, "custom_instructions": custom_instructions}
-        )
-        response = self.client.post("/v2/profiles/settings/", json=payload)
+        payload = _profile_settings_payload(enabled, schema, custom_instructions, entity_type)
+        response = self.client.post(PROFILE_SETTINGS_PATH, json=payload)
         response.raise_for_status()
         capture_client_event(
-            "client.update_profile_settings", self, {"keys": list(payload.keys()), "sync_type": "sync"}
+            "client.update_profile_settings",
+            self,
+            {"keys": list(payload.keys()), "entity_type": entity_type, "sync_type": "sync"},
         )
         return response.json()
 
     @api_error_handler
-    def sample_profiles(self, limit: Optional[int] = None) -> Dict[str, Any]:
+    def sample_profiles(self, limit: Optional[int] = None, entity_type: str = "user") -> Dict[str, Any]:
         """Generate profiles for a few real entities, to check a schema.
 
         Real generations against real memories, and the results are kept. The
@@ -802,9 +841,11 @@ class MemoryClient:
 
         Args:
             limit: How many entities to sample, 1-10. Defaults to the server value.
+            entity_type: Which entity kind to sample. Defaults to "user".
 
         Returns:
-            Dict containing ``job_id``, ``status`` and ``status_url``. Poll
+            Dict containing ``job_id``, ``status``, ``status_url``, ``sampled``
+            and the ``entity_ids`` that were picked. Poll
             :meth:`get_profile_job` with ``status_url`` until the status is terminal.
 
         Raises:
@@ -814,22 +855,26 @@ class MemoryClient:
 
         payload = self._prepare_params({"limit": limit})
         payload["operation"] = "sample"
+        payload["entity_type"] = entity_type
         response = self.client.post(
             PROFILE_JOBS_PATH,
             json=payload,
             headers={"Idempotency-Key": uuid.uuid4().hex},
         )
         response.raise_for_status()
-        capture_client_event("client.sample_profiles", self, {"sync_type": "sync"})
+        capture_client_event("client.sample_profiles", self, {"entity_type": entity_type, "sync_type": "sync"})
         return response.json()
 
     @api_error_handler
-    def regenerate_profiles(self) -> Dict[str, Any]:
-        """Rebuild the profile of every entity in the current project.
+    def regenerate_profiles(self, entity_type: str = "user") -> Dict[str, Any]:
+        """Rebuild the profile of every entity of one kind in the project.
 
-        Not available yet: the server answers 501 with ``not_yet_available`` and
+        Not available yet: the server answers 409 with ``not_yet_available`` and
         creates nothing. Use :meth:`sample_profiles` or :meth:`generate_profile`
         until ``capabilities.full_rebuild`` in :meth:`get_profile_settings` is true.
+
+        Args:
+            entity_type: Which entity kind to rebuild. Defaults to "user".
 
         Returns:
             Dict containing ``job_id``, ``status`` and ``status_url``.
@@ -841,11 +886,11 @@ class MemoryClient:
 
         response = self.client.post(
             PROFILE_JOBS_PATH,
-            json={"operation": "regenerate"},
+            json={"operation": "regenerate", "entity_type": entity_type},
             headers={"Idempotency-Key": uuid.uuid4().hex},
         )
         response.raise_for_status()
-        capture_client_event("client.regenerate_profiles", self, {"sync_type": "sync"})
+        capture_client_event("client.regenerate_profiles", self, {"entity_type": entity_type, "sync_type": "sync"})
         return response.json()
 
     @api_error_handler
@@ -1839,10 +1884,12 @@ class AsyncMemoryClient:
         """Get the profile settings for the current project.
 
         Returns:
-            Dict with ``enabled``, ``schema`` and ``custom_instructions``.
+            Dict with ``enabled`` and ``capabilities`` at the top level, and
+            ``entities`` holding each entity type's ``schema`` and
+            ``custom_instructions``.
         """
 
-        response = await self.async_client.get("/v2/profiles/settings/")
+        response = await self.async_client.get(PROFILE_SETTINGS_PATH)
         response.raise_for_status()
         capture_client_event("client.get_profile_settings", self, {"sync_type": "async"})
         return response.json()
@@ -1853,36 +1900,41 @@ class AsyncMemoryClient:
         enabled: Optional[bool] = None,
         schema: Optional[Dict[str, Any]] = None,
         custom_instructions: Optional[str] = None,
+        entity_type: str = "user",
     ) -> Dict[str, Any]:
         """Update the profile settings for the current project.
 
         Only the arguments you pass are written.
 
         Args:
-            enabled: Turn profile generation on or off.
+            enabled: Turn profile generation on or off. Project-wide.
             schema: JSON Schema for the profile. Every property needs a
-                ``description``.
+                ``description``. Applies to ``entity_type``.
             custom_instructions: Extra guidance for the extraction step.
+                Applies to ``entity_type``.
+            entity_type: Which entity kind ``schema`` and
+                ``custom_instructions`` belong to. Defaults to "user".
 
         Returns:
-            Dict with the settings as stored after the update.
+            Dict with the settings as stored after the update, in the same
+            shape :meth:`get_profile_settings` returns.
 
         Raises:
             ValidationError: If the schema is not a valid profile schema.
         """
 
-        payload = self._prepare_params(
-            {"enabled": enabled, "schema": schema, "custom_instructions": custom_instructions}
-        )
-        response = await self.async_client.post("/v2/profiles/settings/", json=payload)
+        payload = _profile_settings_payload(enabled, schema, custom_instructions, entity_type)
+        response = await self.async_client.post(PROFILE_SETTINGS_PATH, json=payload)
         response.raise_for_status()
         capture_client_event(
-            "client.update_profile_settings", self, {"keys": list(payload.keys()), "sync_type": "async"}
+            "client.update_profile_settings",
+            self,
+            {"keys": list(payload.keys()), "entity_type": entity_type, "sync_type": "async"},
         )
         return response.json()
 
     @api_error_handler
-    async def sample_profiles(self, limit: Optional[int] = None) -> Dict[str, Any]:
+    async def sample_profiles(self, limit: Optional[int] = None, entity_type: str = "user") -> Dict[str, Any]:
         """Generate profiles for a few real entities, to check a schema.
 
         Real generations against real memories, and the results are kept. The
@@ -1890,9 +1942,11 @@ class AsyncMemoryClient:
 
         Args:
             limit: How many entities to sample, 1-10. Defaults to the server value.
+            entity_type: Which entity kind to sample. Defaults to "user".
 
         Returns:
-            Dict containing ``job_id``, ``status`` and ``status_url``. Poll
+            Dict containing ``job_id``, ``status``, ``status_url``, ``sampled``
+            and the ``entity_ids`` that were picked. Poll
             :meth:`get_profile_job` with ``status_url`` until the status is terminal.
 
         Raises:
@@ -1902,22 +1956,26 @@ class AsyncMemoryClient:
 
         payload = self._prepare_params({"limit": limit})
         payload["operation"] = "sample"
+        payload["entity_type"] = entity_type
         response = await self.async_client.post(
             PROFILE_JOBS_PATH,
             json=payload,
             headers={"Idempotency-Key": uuid.uuid4().hex},
         )
         response.raise_for_status()
-        capture_client_event("client.sample_profiles", self, {"sync_type": "async"})
+        capture_client_event("client.sample_profiles", self, {"entity_type": entity_type, "sync_type": "async"})
         return response.json()
 
     @api_error_handler
-    async def regenerate_profiles(self) -> Dict[str, Any]:
-        """Rebuild the profile of every entity in the current project.
+    async def regenerate_profiles(self, entity_type: str = "user") -> Dict[str, Any]:
+        """Rebuild the profile of every entity of one kind in the project.
 
-        Not available yet: the server answers 501 with ``not_yet_available`` and
+        Not available yet: the server answers 409 with ``not_yet_available`` and
         creates nothing. Use :meth:`sample_profiles` or :meth:`generate_profile`
         until ``capabilities.full_rebuild`` in :meth:`get_profile_settings` is true.
+
+        Args:
+            entity_type: Which entity kind to rebuild. Defaults to "user".
 
         Returns:
             Dict containing ``job_id``, ``status`` and ``status_url``.
@@ -1929,11 +1987,13 @@ class AsyncMemoryClient:
 
         response = await self.async_client.post(
             PROFILE_JOBS_PATH,
-            json={"operation": "regenerate"},
+            json={"operation": "regenerate", "entity_type": entity_type},
             headers={"Idempotency-Key": uuid.uuid4().hex},
         )
         response.raise_for_status()
-        capture_client_event("client.regenerate_profiles", self, {"sync_type": "async"})
+        capture_client_event(
+            "client.regenerate_profiles", self, {"entity_type": entity_type, "sync_type": "async"}
+        )
         return response.json()
 
     @api_error_handler

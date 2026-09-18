@@ -28,6 +28,8 @@ export type {
   ProfileResponse,
   ProfileTriggerResponse,
   ProfileSettings,
+  ProfileSettingsResponse,
+  EntityProfileSettings,
   ProfileSampleResult,
   ProfileSamplesResponse,
   ProfileRegenerateResponse,
