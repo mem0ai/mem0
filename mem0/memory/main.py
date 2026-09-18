@@ -451,6 +451,46 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
         return False
 
 
+def _simple_filter_values_equal(actual: Any, expected: Any) -> bool:
+    if actual is None or expected is None:
+        return actual is None and expected is None
+    if isinstance(actual, bool) or isinstance(expected, bool):
+        return isinstance(actual, bool) and isinstance(expected, bool) and actual == expected
+    if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
+        return actual == expected
+    return type(actual) is type(expected) and actual == expected
+
+
+def _matches_simple_rescue_filters(payload: Any, filters: Dict[str, Any]) -> bool:
+    """Recheck scalar equality filters without reproducing backend semantics."""
+    if not isinstance(payload, dict) or not isinstance(filters, dict):
+        return False
+
+    for key, expected in filters.items():
+        if key in {"$or", "$and", "$not", "OR", "AND", "NOT"}:
+            return False
+        if expected == "*" or isinstance(expected, (dict, list)):
+            return False
+        if key not in payload or not _simple_filter_values_equal(payload[key], expected):
+            return False
+    return True
+
+
+def _entity_rescue_ids(
+    entity_boosts: Dict[str, float], candidate_ids: set, limit: int
+) -> list[str]:
+    return [
+        memory_id
+        for memory_id, boost in sorted(
+            entity_boosts.items(), key=lambda item: (-item[1], item[0])
+        )
+        if boost > 0 and memory_id not in candidate_ids
+    ][:limit]
+
+
+_MAX_ENTITY_RESCUE_FETCHES = 60
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
@@ -1665,16 +1705,48 @@ class Memory(MemoryBase):
 
         # Step 7: Build candidate set from semantic results
         candidates = []
+        candidate_ids = set()
         for mem in semantic_results:
             payload = mem.payload if hasattr(mem, 'payload') else {}
             if not show_expired and _payload_is_expired(payload):
                 continue
             mem_id = str(mem.id)
+            if not mem_id or mem_id in candidate_ids:
+                continue
+            candidate_ids.add(mem_id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
                 "payload": payload,
             })
+
+        rescue_limit = min(internal_limit, _MAX_ENTITY_RESCUE_FETCHES)
+        for memory_id in _entity_rescue_ids(entity_boosts, candidate_ids, rescue_limit):
+            try:
+                fetched = self.vector_store.get(vector_id=memory_id)
+            except Exception as e:
+                logger.warning("Entity-linked point fetch failed for %s: %s", memory_id, e)
+                continue
+
+            if hasattr(fetched, "payload"):
+                payload = fetched.payload
+            elif isinstance(fetched, dict):
+                payload = fetched.get("payload")
+            else:
+                payload = None
+            if (
+                not isinstance(payload, dict)
+                or not isinstance(payload.get("data"), str)
+                or not payload["data"]
+                or not _matches_simple_rescue_filters(payload, filters)
+                or (not show_expired and _payload_is_expired(payload))
+            ):
+                continue
+
+            candidates.append(
+                {"id": memory_id, "score": None, "payload": payload, "is_entity_rescue": True}
+            )
+            candidate_ids.add(memory_id)
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
@@ -3329,16 +3401,48 @@ class AsyncMemory(MemoryBase):
 
         # Step 7: Build candidate set from semantic results
         candidates = []
+        candidate_ids = set()
         for mem in semantic_results:
             payload = mem.payload if hasattr(mem, 'payload') else {}
             if not show_expired and _payload_is_expired(payload):
                 continue
             mem_id = str(mem.id)
+            if not mem_id or mem_id in candidate_ids:
+                continue
+            candidate_ids.add(mem_id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
                 "payload": payload,
             })
+
+        rescue_limit = min(internal_limit, _MAX_ENTITY_RESCUE_FETCHES)
+        for memory_id in _entity_rescue_ids(entity_boosts, candidate_ids, rescue_limit):
+            try:
+                fetched = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+            except Exception as e:
+                logger.warning("Entity-linked point fetch failed for %s: %s", memory_id, e)
+                continue
+
+            if hasattr(fetched, "payload"):
+                payload = fetched.payload
+            elif isinstance(fetched, dict):
+                payload = fetched.get("payload")
+            else:
+                payload = None
+            if (
+                not isinstance(payload, dict)
+                or not isinstance(payload.get("data"), str)
+                or not payload["data"]
+                or not _matches_simple_rescue_filters(payload, filters)
+                or (not show_expired and _payload_is_expired(payload))
+            ):
+                continue
+
+            candidates.append(
+                {"id": memory_id, "score": None, "payload": payload, "is_entity_rescue": True}
+            )
+            candidate_ids.add(memory_id)
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
