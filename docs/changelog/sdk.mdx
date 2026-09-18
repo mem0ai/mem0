@@ -7,6 +7,14 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-09-18" description="v2.1.0">
+
+**Improvements:**
+- **Client:** Requests now carry three surface-identity headers so the platform can tell which product made a call. `X-Mem0-Source` names the surface and `X-Application` the host app it runs inside, both set-once so a wrapper that already declared its identity keeps it. `X-Mem0-Client` is append-only and carries `name/version` per layer, outermost first, so a plugin calling this SDK reports the whole chain rather than only the last speaker. `MEM0_SOURCE`, `MEM0_APPLICATION` and `MEM0_CLIENT_STACK` set them from the environment for wrappers that cannot pass options ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+- **Client:** The client stack is bounded by dropping whole entries rather than slicing characters, and this SDK's own entry is the reserved one. Truncating the joined string could sever an identifier mid-name and the platform parsed the fragment as a real client ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
+
 <Update label="2026-09-02" description="v2.0.20">
 
 **Improvements:**
@@ -1227,6 +1235,14 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="TypeScript">
 
+<Update label="2026-09-18" description="v3.2.0">
+
+**Improvements:**
+- **Client:** Requests now carry `X-Mem0-Source`, `X-Application` and `X-Mem0-Client`, matching the Python SDK. The first two are set-once so an outer wrapper keeps its identity; the third is append-only and reports the whole layer chain. Read from `MEM0_SOURCE`, `MEM0_APPLICATION` and `MEM0_CLIENT_STACK` when set ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+- **Client:** The SDK version in `X-Mem0-Client` is injected at build time rather than hardcoded, so it cannot go stale at the next release ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
+
 <Update label="2026-09-02" description="v3.1.8">
 
 **Improvements:**
@@ -1864,6 +1880,13 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="CLI">
 
+<Update label="2026-09-18" description="Python v0.2.13 / Node v0.2.14">
+
+**Improvements:**
+- **Client:** Requests now carry the three surface-identity headers (`X-Mem0-Source`, `X-Application`, `X-Mem0-Client`) introduced in the Python and TypeScript SDKs, so the platform can attribute calls made through the CLI to the correct surface and version ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
+
 <Update label="2026-08-24" description="Python v0.2.12 / Node v0.2.13">
 
 **New Features:**
@@ -2076,7 +2099,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 - New Git repository writes use a hash of the remote identity in `agent_id`. Search and explicit shared-memory deletion include both current and legacy repository IDs within the repository's `app_id`. Existing memories are not rewritten. Legacy IDs retain their original ambiguity for matching owner/repository names on different Git hosts.
 
 **Packaging:**
-- Claude Code, Cursor, Codex, Kimi, Antigravity, and the portable Python bundle are versioned at `0.3.1`. OpenCode, Pi Agent, and DeepSeek Harness are `0.3.0`; OpenClaw is `1.1.0`. Each host's changes and upgrade considerations are listed in its tab.
+- Claude Code, Cursor, Codex, Kimi, Antigravity, and the portable Python bundle are versioned at `0.3.1`. OpenCode and DeepSeek Harness are `0.3.0`; Pi Agent is `0.3.0`; OpenClaw is `1.1.0`. Each host's changes and upgrade considerations are listed in its tab.
 - Python and TypeScript CI run their respective runtime suites. Package checks build the installable artifacts, check generated-file consistency, and reject TypeScript output that still imports monorepo source.
 
 [#7203](https://github.com/mem0ai/mem0/pull/7203)
@@ -2371,9 +2394,14 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Claude Code">
 
-<Update label="Unreleased" description="Sidekick availability">
+<Update label="2026-09-18" description="Claude Code plugin v0.3.2">
 
-Sidekick is now available only in Claude Code, with Sonnet, worktree isolation, and parent memories.
+**Improvements:**
+- **Telemetry:** `PLUGIN_VERSION` bumped to `0.3.2`. The `mem0-plugin/<version>` wire header and `plugin_version` telemetry field now reflect the fixes from #7322 through #7358 ([#7373](https://github.com/mem0ai/mem0/pull/7373))
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+**Changes:**
+- **Sidekick:** Sidekick is now available only in Claude Code, with Sonnet, worktree isolation, and parent memories.
 
 </Update>
 
@@ -2396,9 +2424,14 @@ Sidekick is now available only in Claude Code, with Sonnet, worktree isolation, 
 
 <Tab title="Cursor">
 
-<Update label="Unreleased" description="Sidekick availability">
+<Update label="2026-09-18" description="Cursor plugin v0.3.2">
 
-Removes Sidekick and its start/stop hooks. Memory capture, search, and six skills remain available.
+**Improvements:**
+- **Telemetry:** `PLUGIN_VERSION` bumped to `0.3.2`. The `mem0-plugin/<version>` wire header and `plugin_version` telemetry field now reflect the fixes from #7322 through #7358 ([#7373](https://github.com/mem0ai/mem0/pull/7373))
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+**Changes:**
+- **Sidekick:** Removes Sidekick and its start/stop hooks. Memory capture, search, and six skills remain available.
 
 </Update>
 
@@ -2421,9 +2454,14 @@ Removes Sidekick and its start/stop hooks. Memory capture, search, and six skill
 
 <Tab title="Codex">
 
-<Update label="Unreleased" description="Sidekick availability">
+<Update label="2026-09-18" description="Codex plugin v0.3.2">
 
-Renames shared tracking to use subagent terminology. Native subagent memory support remains available.
+**Improvements:**
+- **Telemetry:** `PLUGIN_VERSION` bumped to `0.3.2`. The `mem0-plugin/<version>` wire header and `plugin_version` telemetry field now reflect the fixes from #7322 through #7358 ([#7373](https://github.com/mem0ai/mem0/pull/7373))
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+**Changes:**
+- **Sidekick:** Renames shared tracking to use subagent terminology. Native subagent memory support remains available.
 
 </Update>
 
@@ -2443,31 +2481,15 @@ Renames shared tracking to use subagent terminology. Native subagent memory supp
 
 </Tab>
 
-<Tab title="Agent Plugins v1">
-
-<Update label="Unreleased" description="Sidekick availability">
-
-Sidekick is available only in Claude Code, not in the portable package.
-
-</Update>
-
-<Update label="2026-09-08" description="Portable Mem0 plugin v0.3.1">
-
-**Added:**
-- One portable package at `integrations/mem0-agent-plugin/`, using the Agent Plugins 1.0.0 root `plugin.json`, `mcp.json`, and fixed `skills/` locations.
-- Ships a local, read-only `search_memories` server and the six shared memory skills. Uses `PLUGIN_ROOT` for bundled files and `PLUGIN_DATA` for persistent plugin state; all package files remain inside the installable directory.
-
-**Packaging:**
-- Generated from the shared Python runtime and skill templates. Builds validate the manifest, MCP configuration, skills, and generated-file consistency.
-- Host lifecycle hooks and native Sidekick declarations remain in the native plugin packages; the portable package does not provide automatic lifecycle capture or host-specific subagent isolation. Its bundled remember skill cannot persist a new memory on its own because the portable package has no capture hooks or write tool.
-
-[#7203](https://github.com/mem0ai/mem0/pull/7203)
-
-</Update>
-
-</Tab>
-
 <Tab title="OpenCode">
+
+<Update label="2026-09-18" description="OpenCode plugin v0.4.0">
+
+**Changes:**
+- **Telemetry:** The PostHog `source` tag changed from the literal `"plugin"` to `OPENCODE_PLUGIN`, and `project_hash` is now salted. Saved PostHog insights filtering on `source = "plugin"` will stop matching new events; historical data is unaffected ([#7322](https://github.com/mem0ai/mem0/pull/7322))
+- **Config:** A new `keyFingerprint` key appears in the install-count deduplication logic; installs are now counted once per key rather than on every activation ([#7325](https://github.com/mem0ai/mem0/pull/7325))
+
+</Update>
 
 <Update label="2026-09-08" description="OpenCode plugin v0.3.0">
 
@@ -2567,9 +2589,14 @@ Sidekick is available only in Claude Code, not in the portable package.
 
 <Tab title="Antigravity">
 
-<Update label="Unreleased" description="Sidekick availability">
+<Update label="2026-09-18" description="Antigravity plugin v0.3.2">
 
-Removes Sidekick. Memory capture, search, and six skills remain available.
+**Improvements:**
+- **Telemetry:** `PLUGIN_VERSION` bumped to `0.3.2`. The `mem0-plugin/<version>` wire header and `plugin_version` telemetry field now reflect the fixes from #7322 through #7358 ([#7373](https://github.com/mem0ai/mem0/pull/7373))
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+**Changes:**
+- **Sidekick:** Removes Sidekick. Memory capture, search, and six skills remain available.
 
 </Update>
 
@@ -2665,9 +2692,14 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Kimi">
 
-<Update label="Unreleased" description="Sidekick availability">
+<Update label="2026-09-18" description="Kimi Code plugin v0.3.2">
 
-Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skills remain available.
+**Improvements:**
+- **Telemetry:** `PLUGIN_VERSION` bumped to `0.3.2`. The `mem0-plugin/<version>` wire header and `plugin_version` telemetry field now reflect the fixes from #7322 through #7358 ([#7373](https://github.com/mem0ai/mem0/pull/7373))
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+**Changes:**
+- **Sidekick:** Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skills remain available.
 
 </Update>
 
@@ -2704,6 +2736,14 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 </Tab>
 
 <Tab title="OpenClaw">
+
+<Update label="2026-09-18" description="openclaw-mem0 v1.2.0">
+
+**Changes:**
+- **Config:** Added `keyFingerprint` to the config schema for install-count deduplication; installs are now counted once per key rather than on every activation ([#7325](https://github.com/mem0ai/mem0/pull/7325))
+- **Telemetry:** Events are no longer delivered twice, and the `plugin_version` field now reflects the plugin that produced the event ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+</Update>
 
 <Update label="2026-09-08" description="openclaw-mem0 v1.1.0">
 
@@ -2993,6 +3033,13 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 
 <Tab title="Pi Agent">
 
+<Update label="2026-09-18" description="Pi Agent plugin v0.3.1">
+
+**Improvements:**
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events, and now attribute each event to the plugin that produced it. The `plugin_version` wire field reflects the fixed release ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+</Update>
+
 <Update label="2026-09-08" description="Pi Agent plugin v0.3.0">
 
 **Changed:**
@@ -3106,6 +3153,13 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 
 <Tab title="DeepSeek Harness">
 
+<Update label="2026-09-18" description="deepseek-plugin v0.3.1">
+
+**Improvements:**
+- **Telemetry:** Rebuild with the fixed shared telemetry core from `agent-plugin-core`. Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+</Update>
+
 <Update label="2026-09-08" description="deepseek-plugin v0.3.0">
 
 **Added:**
@@ -3149,6 +3203,13 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 </Tab>
 
 <Tab title="Vercel AI SDK">
+
+<Update label="2026-09-18" description="Vercel AI SDK v3.0.3">
+
+**Improvements:**
+- **Client:** Inherits the three surface-identity headers (`X-Mem0-Source`, `X-Application`, `X-Mem0-Client`) from the TypeScript SDK bump, so platform calls made through the Vercel AI SDK provider are now correctly attributed ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
 
 <Update label="2026-08-24" description="Vercel AI SDK v3.0.2">
 
