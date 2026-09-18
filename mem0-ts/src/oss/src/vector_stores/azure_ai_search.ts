@@ -610,6 +610,34 @@ export class AzureAISearch implements VectorStore {
    * Get user ID from memory_migrations collection
    * Required by VectorStore interface
    */
+
+  private async getMigrationsClient(): Promise<any> {
+    const searchSdk = await loadPeer(
+      "@azure/search-documents",
+      "Azure AI Search vector store",
+      () => import("@azure/search-documents"),
+    );
+
+    const serviceEndpoint = `https://${this.serviceName}.search.windows.net`;
+
+    let credential: any;
+    if (this.apiKey && this.apiKey !== "" && this.apiKey !== "your-api-key") {
+      credential = new searchSdk.AzureKeyCredential(this.apiKey);
+    } else {
+      const identitySdk = await loadPeer(
+        "@azure/identity",
+        "Azure AI Search without an apiKey",
+        () => import("@azure/identity"),
+      );
+      credential = new identitySdk.DefaultAzureCredential();
+    }
+
+    return new searchSdk.SearchClient(
+      serviceEndpoint,
+      "memory_migrations",
+      credential,
+    );
+  }
   async getUserId(): Promise<string> {
     await this.initialize();
     try {
@@ -639,7 +667,8 @@ export class AzureAISearch implements VectorStore {
       }
 
       // Try to get existing user_id
-      const searchResults = await this.searchClient.search("*", {
+      const migrationsClient = await this.getMigrationsClient();
+      const searchResults = await migrationsClient.search("*", {
         top: 1,
       });
 
@@ -655,7 +684,7 @@ export class AzureAISearch implements VectorStore {
         Math.random().toString(36).substring(2, 15) +
         Math.random().toString(36).substring(2, 15);
 
-      await this.searchClient.uploadDocuments([
+      await migrationsClient.uploadDocuments([
         {
           id: this.generateUUID(),
           user_id: randomUserId,
@@ -677,7 +706,8 @@ export class AzureAISearch implements VectorStore {
     await this.initialize();
     try {
       // Get existing point ID or generate new one
-      const searchResults = await this.searchClient.search("*", {
+      const migrationsClient = await this.getMigrationsClient();
+      const searchResults = await migrationsClient.search("*", {
         top: 1,
       });
 
@@ -688,7 +718,7 @@ export class AzureAISearch implements VectorStore {
         break;
       }
 
-      await this.searchClient.mergeOrUploadDocuments([
+      await migrationsClient.mergeOrUploadDocuments([
         {
           id: pointId,
           user_id: userId,
