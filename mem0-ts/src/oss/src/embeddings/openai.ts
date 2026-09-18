@@ -11,6 +11,7 @@ export class OpenAIEmbedder implements Embedder {
     this.openai = new OpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseURL || config.url,
+      fetch: globalThis.fetch,
     });
     this.model = config.model || "text-embedding-3-small";
     this.embeddingDims = config.embeddingDims;

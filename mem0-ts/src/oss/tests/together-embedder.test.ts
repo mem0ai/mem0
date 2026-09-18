@@ -40,6 +40,7 @@ describe("TogetherEmbedder (unit)", () => {
     expect(mockOpenAI).toHaveBeenCalledWith({
       apiKey: "test-key",
       baseURL: "https://api.together.ai/v1",
+      fetch: globalThis.fetch,
     });
     expect(mockEmbeddingsCreate).toHaveBeenCalledWith({
       model: "intfloat/multilingual-e5-large-instruct",
@@ -58,6 +59,7 @@ describe("TogetherEmbedder (unit)", () => {
     expect(mockOpenAI).toHaveBeenCalledWith({
       apiKey: "env-key",
       baseURL: "https://api.together.ai/v1",
+      fetch: globalThis.fetch,
     });
   });
 
@@ -66,6 +68,7 @@ describe("TogetherEmbedder (unit)", () => {
       apiKey: "test-key",
       model: "custom-together-embed",
       baseURL: "https://proxy.example.com/v1",
+      fetch: globalThis.fetch,
       embeddingDims: 512,
     });
 
@@ -74,6 +77,7 @@ describe("TogetherEmbedder (unit)", () => {
     expect(mockOpenAI).toHaveBeenCalledWith({
       apiKey: "test-key",
       baseURL: "https://proxy.example.com/v1",
+      fetch: globalThis.fetch,
     });
     expect(mockEmbeddingsCreate).toHaveBeenCalledWith({
       model: "custom-together-embed",
@@ -92,6 +96,7 @@ describe("TogetherEmbedder (unit)", () => {
     expect(mockOpenAI).toHaveBeenCalledWith({
       apiKey: "test-key",
       baseURL: "https://gateway.example/v1",
+      fetch: globalThis.fetch,
     });
   });
 
@@ -101,6 +106,7 @@ describe("TogetherEmbedder (unit)", () => {
     const embedder = new TogetherEmbedder({
       apiKey: "test-key",
       baseURL: "https://explicit.example/v1",
+      fetch: globalThis.fetch,
     });
 
     await embedder.embed("hello");
@@ -108,6 +114,7 @@ describe("TogetherEmbedder (unit)", () => {
     expect(mockOpenAI).toHaveBeenCalledWith({
       apiKey: "test-key",
       baseURL: "https://explicit.example/v1",
+      fetch: globalThis.fetch,
     });
   });
 
@@ -122,6 +129,7 @@ describe("TogetherEmbedder (unit)", () => {
     expect(mockOpenAI).toHaveBeenCalledWith({
       apiKey: "test-key",
       baseURL: "https://url-fallback.example.com/v1",
+      fetch: globalThis.fetch,
     });
   });
 

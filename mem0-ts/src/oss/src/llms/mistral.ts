@@ -23,7 +23,10 @@ export class MistralLLM implements LLM {
       "Mistral LLM",
       () => import("@mistralai/mistralai"),
     );
-    this.client = new sdk.Mistral({ apiKey: this.apiKey });
+    this.client = new sdk.Mistral({
+      apiKey: this.apiKey,
+      fetch: globalThis.fetch,
+    });
   }
 
   // Helper function to convert content to string

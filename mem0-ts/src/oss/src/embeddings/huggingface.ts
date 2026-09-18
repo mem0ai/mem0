@@ -38,6 +38,7 @@ export class HuggingFaceEmbedder implements Embedder {
     this.openai = new OpenAI({
       apiKey: config.apiKey || process.env.HUGGINGFACE_API_KEY || "hf",
       baseURL,
+      fetch: globalThis.fetch,
     });
     // TEI ignores the model field; default mirrors the Python provider.
     this.model = config.model || "tei";

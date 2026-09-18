@@ -5,7 +5,11 @@ import { loadPeer } from "../utils/load_peer";
 
 export class AnthropicLLM implements LLM {
   private client!: Anthropic;
-  private readonly clientArgs: { apiKey: string; baseURL?: string };
+  private readonly clientArgs: {
+    apiKey: string;
+    baseURL?: string;
+    fetch?: typeof fetch;
+  };
   private model: string;
   private maxTokens: number;
   private temperature?: number;
@@ -18,7 +22,11 @@ export class AnthropicLLM implements LLM {
     }
     // Forward baseURL to the client when set so proxy/gateway users are
     // honored (parity with the OpenAI provider and the Python fix in #5626).
-    const clientArgs: { apiKey: string; baseURL?: string } = { apiKey };
+    const clientArgs: {
+      apiKey: string;
+      baseURL?: string;
+      fetch?: typeof fetch;
+    } = { apiKey, fetch: globalThis.fetch };
     if (config.baseURL) {
       clientArgs.baseURL = config.baseURL;
     }
