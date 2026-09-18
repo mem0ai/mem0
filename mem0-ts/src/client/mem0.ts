@@ -95,6 +95,66 @@ interface ClientIdentity {
 const IDENTITY_CACHE_MAX_DEFAULT = 50;
 const identityByCredentials = new Map<string, Promise<ClientIdentity>>();
 
+declare const __MEM0_SDK_VERSION__: string | undefined;
+
+// Injected by tsup (see mem0-ts/tsup.config.ts `define`), the same mechanism
+// telemetry.ts already uses. A hardcoded literal goes stale at the next release
+// bump and then misreports the client version forever.
+const SDK_VERSION =
+  typeof __MEM0_SDK_VERSION__ !== "undefined" ? __MEM0_SDK_VERSION__ : "dev";
+
+const MAX_STACK_ENTRIES = 4;
+const MAX_STACK_CHARS = 200;
+
+/**
+ * Append our own entry and bound the result, dropping WHOLE entries.
+ *
+ * Neither cap cuts characters: slicing the joined string severs an identifier
+ * and leaves a fragment the platform parses as a real client name. And the
+ * reserved slot is ours. Pushing first and then trimming to four dropped exactly
+ * the entry this exists to add whenever a caller already sent four, so we
+ * vanished from our own stack while every caller claim survived.
+ */
+function boundedStack(callerEntries: string[], own: string): string {
+  const kept: string[] = [];
+  let budget = MAX_STACK_CHARS - own.length;
+  for (const entry of callerEntries.slice(0, MAX_STACK_ENTRIES - 1)) {
+    const cost = entry.length + ", ".length;
+    if (cost > budget) break;
+    budget -= cost;
+    kept.push(entry);
+  }
+  return [...kept, own].join(", ");
+}
+
+/**
+ * Surface-identity headers.
+ *
+ * X-Mem0-Source and X-Application are SET-ONCE by contract: whichever layer is
+ * outermost sets them and nothing below overwrites, so a plugin wrapping this
+ * SDK keeps its own identity. X-Mem0-Client is APPEND-ONLY - every layer adds
+ * itself, so the platform sees the whole stack and not just the last speaker.
+ */
+function surfaceHeaders(): Record<string, string> {
+  const env: Record<string, string | undefined> =
+    typeof process !== "undefined" && process.env ? process.env : {};
+  const existing = (env.MEM0_CLIENT_STACK ?? "").trim();
+  const entries = existing
+    ? existing
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean)
+    : [];
+  const headers: Record<string, string> = {
+    "X-Mem0-Client": boundedStack(entries, `mem0-js/${SDK_VERSION}`),
+  };
+  const source = (env.MEM0_SOURCE ?? "").trim();
+  if (source) headers["X-Mem0-Source"] = source;
+  const application = (env.MEM0_APPLICATION ?? "").trim();
+  if (application) headers["X-Application"] = application;
+  return headers;
+}
+
 export default class MemoryClient {
   apiKey: string;
   host: string;
@@ -129,6 +189,7 @@ export default class MemoryClient {
     this.headers = {
       Authorization: `Token ${this.apiKey}`,
       "Content-Type": "application/json",
+      ...surfaceHeaders(),
     };
 
     this.client = axios.create({

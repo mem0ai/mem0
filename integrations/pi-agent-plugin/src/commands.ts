@@ -1,3 +1,4 @@
+import type { SearchMemoryOptions } from "mem0ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type MemoryClient from "mem0ai";
 import type { Mem0Config, ScopeContext, Scope } from "./types.ts";
@@ -5,6 +6,12 @@ import { DEFAULT_CUSTOM_CATEGORIES } from "./types.ts";
 import { resolveSearchFilters, resolveAddParams } from "./memory/scoping.ts";
 import { formatMemoryList, formatMemoryCompact, groupByCategory } from "./memory/formatting.ts";
 import { captureCommandEvent } from "./telemetry.ts";
+import { PLATFORM_SOURCE } from "./attribution.ts";
+
+// Wire identity is set once on the shared client in entry.ts, which covers
+// every path including recall, capture, tools and deletion. It stays in the
+// body of the two calls below as well: body `source` is what the backend reads
+// when the header is absent.
 
 const SEARCH_TOP_K = 10;
 
@@ -29,7 +36,12 @@ export function registerCommands(
       threshold: config.searchThreshold,
       topK: SEARCH_TOP_K,
       rerank: true,
-    });
+      source: PLATFORM_SOURCE,
+      // Widened by exactly this one property. `source` reaches the wire via the
+      // SDK's camelToSnakeKeys spread, but it is absent from SearchMemoryOptions
+      // in the published mem0ai types. A blanket `as never` would also disable
+      // checking of filters, threshold, topK and rerank above.
+    } as SearchMemoryOptions & { source: string });
     return result.results ?? [];
   };
 
@@ -45,7 +57,7 @@ export function registerCommands(
       const addParams = resolveAddParams(config.defaultScope, getScopeCtx());
       const result = await mem0.add(
         [{ role: "user", content: text }],
-        { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
+        { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false, source: PLATFORM_SOURCE },
       );
       captureCommandEvent("mem0-remember", {}, telemetryCtx);
 

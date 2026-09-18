@@ -49,6 +49,48 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 - **`zapier-mem0/`** is a Zapier Platform CLI app: add, search, get, delete. It deploys to Zapier, not npm, so it is **not** in the release router. Deploy it with `gh workflow run zapier-mem0-cd.yml --ref main` (needs the `ZAPIER_DEPLOY_KEY` secret).
 - **`mem0-strands/`** is a native Strands `MemoryStore` (Python, published to PyPI as `mem0-strands`). It plugs into the Strands `MemoryManager` for automatic recall and server-side extraction, over the hosted Mem0 platform or self-hosted Mem0 OSS. The package lives under `mem0-strands/python/`.
 
+## Surface attribution
+
+Every integration tells the Mem0 platform which surface it is. Three headers,
+and the rules on them are what keep one layer from erasing another:
+
+| Header | Carries | Rule |
+|--------|---------|------|
+| `X-Mem0-Source` | one canonical source value | **set-once** — write only if absent |
+| `X-Application` | the host app it runs inside | **set-once** — write only if absent |
+| `X-Mem0-Client` | `name/version`, outermost first | **append-only** — add yourself, never replace |
+
+Set-once means check-then-set, never assignment. An integration that wraps the
+SDK is the outermost layer and sets the source; the SDK underneath defers to it.
+Assignment is exactly how every agent plugin came to be indistinguishable from
+every other one at the platform.
+
+How to declare it from an integration, in order of preference:
+
+1. Send the headers yourself, if you make the HTTP call directly.
+2. Pass `source` in the call options, if you go through an SDK.
+3. Set `MEM0_SOURCE` / `MEM0_APPLICATION` / `MEM0_CLIENT_STACK` in the
+   environment before constructing the client. The SDKs read these and defer to
+   anything already present.
+
+Append-only applies where a stack can actually form: an SDK handed a client that
+already carries `X-Mem0-Client` appends itself rather than replacing. An SDK
+constructed with no outer context simply reports itself, which is correct — it
+is the outermost layer in that process.
+
+The backend recognizes a fixed list of source values and buckets everything else
+into `OTHERS`. A new value has to land in the platform's `EventSource` enum, so
+do not invent one without that change going in too.
+
+`X-Application` is allowlisted the same way, and this one has a rule of its own:
+**omit the header when you do not know the host.** A value outside the allowlist
+is discarded server-side, so guessing produces an event that claims an
+attribution we do not actually have. The portable bundle is the case that
+matters. It runs in whatever editor a user drops it into, so its build leaves
+`PLATFORM_APPLICATION` empty and `memory_core` sends no header at all, while the
+native bundles each name the host they were generated for. If you add a build
+target, decide which of those two it is.
+
 ## Adding an integration
 
 1. For a native coding-agent host, add `integrations/<name>-plugin/` with `plugin-build.json`, its manifest, and a thin adapter, then generate its shared runtime. Portable clients use the single `mem0-agent-plugin/` package. Independent TypeScript integrations stay self-contained and import shared lifecycle behavior from `agent-plugin-core/typescript/`.
@@ -59,3 +101,4 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 5. If it is a Claude Code or editor marketplace plugin, register the generated native bundle path in the applicable marketplace files. Preserve the existing public plugin name.
 6. Document it under `docs/integrations/` and add the page to `docs/docs.json` and `docs/llms.txt`.
 7. Add rows to the table above and to the CI/CD tables in [`../.github/AGENTS.md`](../.github/AGENTS.md).
+8. Send the three headers in [Surface attribution](#surface-attribution), and land the matching `EventSource` value on the platform in the same week. Until it exists, your traffic reports as `OTHERS`.

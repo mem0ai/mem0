@@ -26,8 +26,9 @@ export const name = "mem0";
 export const inject = ["tools", "systemPrompt"];
 
 // Tags writes so Mem0's backend attributes them to this integration in
-// telemetry. The backend's KNOWN_EVENT_SOURCES allowlist recognizes this value;
-// anything outside it buckets into "OTHERS".
+// telemetry. Values outside the backend's KNOWN_EVENT_SOURCES allowlist bucket
+// into "OTHERS"; this one is added by mem0ai/platform#3602 and reads as OTHERS
+// until that ships.
 const SOURCE = "DEEPSEEK_HARNESS";
 
 const DEFAULT_SEARCH_LIMIT = 10;
