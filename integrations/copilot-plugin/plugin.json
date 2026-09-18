@@ -1,0 +1,13 @@
+{
+  "name": "mem0",
+  "version": "0.3.1",
+  "description": "Cross-session memory and token savings for GitHub Copilot CLI.",
+  "keywords": ["memory", "coding-agents", "continual-learning", "token-efficiency", "copilot"],
+  "author": { "name": "Mem0", "email": "support@mem0.ai" },
+  "homepage": "https://docs.mem0.ai/integrations/copilot",
+  "license": "Apache-2.0",
+  "interface": {
+    "displayName": "Mem0",
+    "shortDescription": "Cross-session memory for Copilot CLI"
+  }
+}

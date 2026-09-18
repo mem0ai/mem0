@@ -25,6 +25,7 @@ NATIVE_PLUGINS = {
     "codex": INTEGRATIONS_ROOT / "codex-plugin",
     "kimi": INTEGRATIONS_ROOT / "kimi-plugin",
     "antigravity": INTEGRATIONS_ROOT / "antigravity-plugin",
+    "copilot": INTEGRATIONS_ROOT / "copilot-plugin",
 }
 PROTECTED_OUTPUTS = {
     REPOSITORY_ROOT,
@@ -109,11 +110,14 @@ def _bundle_python(
         target.parent.mkdir(parents=True)
         rendered = render_template(source.read_text(encoding="utf-8"), values)
         if portable:
-            rendered = "\n".join(
-                line
-                for line in rendered.splitlines()
-                if not line.startswith(("argument-hint:", "disable-model-invocation:"))
-            ) + "\n"
+            rendered = (
+                "\n".join(
+                    line
+                    for line in rendered.splitlines()
+                    if not line.startswith(("argument-hint:", "disable-model-invocation:"))
+                )
+                + "\n"
+            )
         target.write_text(rendered, encoding="utf-8")
 
 
@@ -196,11 +200,7 @@ def bundle_drift(host: str, kind: str) -> list[str]:
         generated = build(host, kind, Path(temporary) / "bundle")
         errors: list[str] = []
         for directory in ("core", "skills"):
-            expected = {
-                path.relative_to(generated)
-                for path in (generated / directory).rglob("*")
-                if path.is_file()
-            }
+            expected = {path.relative_to(generated) for path in (generated / directory).rglob("*") if path.is_file()}
             actual = {
                 path.relative_to(target)
                 for path in (target / directory).rglob("*")

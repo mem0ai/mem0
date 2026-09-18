@@ -1,0 +1,9 @@
+{
+  "hooks": [
+    { "event": "sessionStart", "command": "python3 ./hooks/adapter.py sessionStart", "timeout": 5 },
+    { "event": "userPromptSubmitted", "command": "python3 ./hooks/adapter.py userPromptSubmitted", "timeout": 6 },
+    { "event": "postToolUse", "command": "python3 ./hooks/adapter.py postToolUse", "timeout": 3 },
+    { "event": "agentStop", "command": "python3 ./hooks/adapter.py agentStop", "timeout": 3 },
+    { "event": "sessionEnd", "command": "python3 ./hooks/adapter.py sessionEnd", "timeout": 5 }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "mem0",
+  "version": "0.3.1",
+  "homepage": "https://docs.mem0.ai/integrations/copilot",
+  "native": {
+    "pluginRoot": "${COPILOT_PLUGIN_ROOT}",
+    "files": {
+      "plugin.json": "plugin.json",
+      "mcp.json": "mcp.json",
+      "hooks.json": "hooks.json",
+      "hooks/adapter.py": "hooks/adapter.py"
+    }
+  }
+}
