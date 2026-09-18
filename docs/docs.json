@@ -41,6 +41,7 @@
                     "pages": [
                       "platform/quickstart",
                       "platform/overview",
+                      "platform/copilot",
                       "platform/agent-signup",
                       "vibecoding",
                       "platform/cli",
