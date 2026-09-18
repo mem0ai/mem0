@@ -246,24 +246,82 @@ class TestAddPrompt:
 
 
 # ===========================================================================
+# MemoryCreate: include_usage parameter
+# ===========================================================================
+
+class TestAddIncludeUsage:
+    """Verify that the include_usage parameter is accepted and forwarded."""
+
+    def test_include_usage_true_forwarded(self, client, mock_memory):
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "I like pizza"}],
+            "user_id": "u1",
+            "include_usage": True,
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.add.call_args
+        assert kwargs["include_usage"] is True
+
+    def test_include_usage_false_forwarded(self, client, mock_memory):
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "I like pizza"}],
+            "user_id": "u1",
+            "include_usage": False,
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.add.call_args
+        assert kwargs["include_usage"] is False
+
+    def test_include_usage_omitted(self, client, mock_memory):
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "hello"}],
+            "user_id": "u1",
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.add.call_args
+        assert "include_usage" not in kwargs
+
+    def test_usage_is_preserved_in_top_level_response(self, client, mock_memory):
+        mock_memory.add.return_value = {
+            "results": [{"id": "mem-1", "memory": "I like pizza", "event": "ADD"}],
+            "usage": {"prompt_tokens": 4, "completion_tokens": 2, "total_tokens": 6},
+        }
+
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "I like pizza"}],
+            "user_id": "u1",
+            "include_usage": True,
+        })
+
+        assert resp.status_code == 200
+        assert resp.json()["usage"] == {
+            "prompt_tokens": 4,
+            "completion_tokens": 2,
+            "total_tokens": 6,
+        }
+
+
+# ===========================================================================
 # MemoryCreate: all new params together
 # ===========================================================================
 
 class TestAddAllNewParams:
 
-    def test_infer_memory_type_and_prompt_together(self, client, mock_memory):
+    def test_infer_memory_type_prompt_and_include_usage_together(self, client, mock_memory):
         resp = client.post("/memories", json={
             "messages": [{"role": "user", "content": "I like pizza"}],
             "user_id": "u1",
             "infer": False,
             "memory_type": "core",
             "prompt": "Custom extraction prompt.",
+            "include_usage": True,
         })
         assert resp.status_code == 200
         _, kwargs = mock_memory.add.call_args
         assert kwargs["infer"] is False
         assert kwargs["memory_type"] == "core"
         assert kwargs["prompt"] == "Custom extraction prompt."
+        assert kwargs["include_usage"] is True
 
 
 # ===========================================================================
@@ -384,6 +442,11 @@ class TestOpenAPISchema:
         add_props = schema["components"]["schemas"]["MemoryCreate"]["properties"]
         assert "prompt" in add_props
 
+    def test_add_schema_includes_include_usage(self, client):
+        schema = client.get("/openapi.json").json()
+        add_props = schema["components"]["schemas"]["MemoryCreate"]["properties"]
+        assert "include_usage" in add_props
+
 
 # ===========================================================================
 # Pydantic type validation: invalid types return 422
@@ -475,6 +538,16 @@ class TestExplicitNull:
         _, kwargs = mock_memory.add.call_args
         assert "prompt" not in kwargs
 
+    def test_include_usage_null_uses_memory_default(self, client, mock_memory):
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "test"}],
+            "user_id": "u1",
+            "include_usage": None,
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.add.call_args
+        assert "include_usage" not in kwargs
+
 
 # ===========================================================================
 # Verify exact call signatures match Memory method params
@@ -507,12 +580,22 @@ class TestCallSignatureMatch:
             "messages": [{"role": "user", "content": "hi"}],
             "user_id": "u1", "agent_id": "a1", "run_id": "r1",
             "metadata": {"k": "v"},
-            "infer": False, "memory_type": "core", "prompt": "custom",
+            "infer": False, "memory_type": "core", "prompt": "custom", "include_usage": True,
         })
         assert resp.status_code == 200
         # The handler passes messages= as a keyword arg, so it appears in kwargs too
         _, kwargs = mock_memory.add.call_args
-        valid_params = {"messages", "user_id", "agent_id", "run_id", "metadata", "infer", "memory_type", "prompt"}
+        valid_params = {
+            "messages",
+            "user_id",
+            "agent_id",
+            "run_id",
+            "metadata",
+            "infer",
+            "memory_type",
+            "prompt",
+            "include_usage",
+        }
         for key in kwargs:
             assert key in valid_params, f"Unexpected kwarg '{key}' forwarded to Memory.add()"
 
@@ -609,20 +692,20 @@ class TestGetMemories:
 
     def test_get_memories_entity_filters_routing(self, client, mock_memory):
         """
-        Issue #4955: Test that the GET /memories route correctly handles 
+        Issue #4955: Test that the GET /memories route correctly handles
         top-level entity parameters by mapping them to the filters dictionary
         instead of passing them as direct kwargs to get_all()
         """
         # Send a request with a valid top-level entity parameter
         response = client.get("/memories?user_id=test_routing_user")
-        
+
         # 1. Verify the endpoint doesn't crash with a 500 error
         assert response.status_code == 200
-        
+
         # 2. Verify the response is structured correctly
         data = response.json()
         assert isinstance(data, list)
-        
+
         # 3. Verify the core logic: the param was mapped to the filters dict!
         _, kwargs = mock_memory.get_all.call_args
         assert kwargs["filters"] == {"user_id": "test_routing_user"}
