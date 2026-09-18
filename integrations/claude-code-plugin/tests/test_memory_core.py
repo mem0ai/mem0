@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import os
 import sqlite3
 import subprocess
@@ -3460,7 +3461,12 @@ def test_automatic_flush_can_be_disabled_for_external_harnesses(isolated_env):
 def test_version_is_single_sourced():
     manifest = json.loads((PLUGIN_ROOT / ".claude-plugin" / "plugin.json").read_text())
     assert manifest["name"] == "mem0"
-    assert manifest["version"] == memory_core.PLUGIN_VERSION == "0.3.1"
+    # Compared against PLUGIN_VERSION, never a literal. A hardcoded version here
+    # was one more place to edit on every release, inside the test asserting the
+    # version is single-sourced, and it caught nothing that the agreement checks
+    # below do not: fifteen places set to the same wrong value would still pass.
+    assert re.fullmatch(r"\d+\.\d+\.\d+", memory_core.PLUGIN_VERSION), memory_core.PLUGIN_VERSION
+    assert manifest["version"] == memory_core.PLUGIN_VERSION
     root = REPOSITORY_ROOT
     for mp in (root / "marketplace.json", root / ".claude-plugin" / "marketplace.json"):
         entry = next(p for p in json.loads(mp.read_text())["plugins"] if p["name"] == "mem0")
