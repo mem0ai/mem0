@@ -1880,6 +1880,13 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="CLI">
 
+<Update label="2026-09-18" description="Python v0.2.13 / Node v0.2.14">
+
+**Improvements:**
+- **Client:** Requests now carry the three surface-identity headers (`X-Mem0-Source`, `X-Application`, `X-Mem0-Client`) introduced in the Python and TypeScript SDKs, so the platform can attribute calls made through the CLI to the correct surface and version ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
+
 <Update label="2026-08-24" description="Python v0.2.12 / Node v0.2.13">
 
 **New Features:**
@@ -2075,6 +2082,14 @@ A full-featured command-line interface for Mem0, available in both Python and No
 
 <Tabs>
 <Tab title="Mem0 Plugin">
+
+<Update label="2026-09-18" description="Agent plugins v0.3.2">
+
+**Improvements:**
+- **Telemetry:** `PLUGIN_VERSION` bumped to `0.3.2` across all six Python plugin bundles (Claude Code, Cursor, Codex, Kimi, Antigravity, and the portable package). Telemetry events and the `mem0-plugin/<version>` wire header now reflect the fixes shipped in #7322 through #7358 ([#7373](https://github.com/mem0ai/mem0/pull/7373))
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it rather than the one that sent it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7325](https://github.com/mem0ai/mem0/pull/7325), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+</Update>
 
 <Update label="2026-09-08" description="Shared agent plugin runtime">
 
@@ -2485,6 +2500,14 @@ Sidekick is available only in Claude Code, not in the portable package.
 
 <Tab title="OpenCode">
 
+<Update label="2026-09-18" description="OpenCode plugin v0.4.0">
+
+**Changes:**
+- **Telemetry:** The PostHog `source` tag changed from the literal `"plugin"` to `OPENCODE_PLUGIN`, and `project_hash` is now salted. Saved PostHog insights filtering on `source = "plugin"` will stop matching new events; historical data is unaffected ([#7322](https://github.com/mem0ai/mem0/pull/7322))
+- **Config:** A new `keyFingerprint` key appears in the install-count deduplication logic; installs are now counted once per key rather than on every activation ([#7325](https://github.com/mem0ai/mem0/pull/7325))
+
+</Update>
+
 <Update label="2026-09-08" description="OpenCode plugin v0.3.0">
 
 **Changed:**
@@ -2720,6 +2743,14 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 </Tab>
 
 <Tab title="OpenClaw">
+
+<Update label="2026-09-18" description="openclaw-mem0 v1.2.0">
+
+**Changes:**
+- **Config:** Added `keyFingerprint` to the config schema for install-count deduplication; installs are now counted once per key rather than on every activation ([#7325](https://github.com/mem0ai/mem0/pull/7325))
+- **Telemetry:** Events are no longer delivered twice, and the `plugin_version` field now reflects the plugin that produced the event ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+</Update>
 
 <Update label="2026-09-08" description="openclaw-mem0 v1.1.0">
 
@@ -3009,6 +3040,13 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 
 <Tab title="Pi Agent">
 
+<Update label="2026-09-18" description="Pi Agent plugin v0.3.1">
+
+**Improvements:**
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events, and now attribute each event to the plugin that produced it. The `plugin_version` wire field reflects the fixed release ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+</Update>
+
 <Update label="2026-09-08" description="Pi Agent plugin v0.3.0">
 
 **Changed:**
@@ -3165,6 +3203,13 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 </Tab>
 
 <Tab title="Vercel AI SDK">
+
+<Update label="2026-09-18" description="Vercel AI SDK v3.0.3">
+
+**Improvements:**
+- **Client:** Inherits the three surface-identity headers (`X-Mem0-Source`, `X-Application`, `X-Mem0-Client`) from the TypeScript SDK bump, so platform calls made through the Vercel AI SDK provider are now correctly attributed ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
 
 <Update label="2026-08-24" description="Vercel AI SDK v3.0.2">
 
