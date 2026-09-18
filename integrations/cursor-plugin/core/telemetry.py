@@ -34,9 +34,24 @@ from typing import Any
 
 import memory_core
 
+# Seeded from the per-host module the build generates into core/. Two processes
+# in this pipeline never call init() — mcp_server.py, and the detached
+# `python3 telemetry.py` sender that spawn_flush() starts — so a module default
+# was what every one of their events got labelled with.
+try:  # pragma: no cover - absent only in the un-built shared source tree
+    from _harness_id import HARNESS_ID as _DEFAULT_HARNESS
+    from _harness_id import PLATFORM_APPLICATION as _PLATFORM_APPLICATION
+    from _harness_id import PLATFORM_SOURCE as _PLATFORM_SOURCE
+    from _harness_id import SOURCE_TAG as _DEFAULT_SOURCE_TAG
+except ImportError:
+    _DEFAULT_HARNESS = "generic"
+    _DEFAULT_SOURCE_TAG = "MEM0_PLUGIN"
+    _PLATFORM_SOURCE = "MEM0_PLUGIN"
+    _PLATFORM_APPLICATION = ""
+
 _salt_cache: str = ""
-_harness: str = "generic"
-_source_tag: str = "MEM0_PLUGIN"
+_harness: str = _DEFAULT_HARNESS
+_source_tag: str = _DEFAULT_SOURCE_TAG
 _PRIVATE_KEYS = {
     "apikey",
     "authorization",
@@ -62,10 +77,19 @@ _PRIVATE_KEYS = {
 }
 
 
-def init(harness: str = "generic", source_tag: str = "") -> None:
+def init(harness: str = "", source_tag: str = "") -> None:
+    """Override the generated identity. Optional — core/_harness_id.py is the default.
+
+    The fallback shape matches memory_core.configure_harness's (``<HOST>_PLUGIN``).
+    It used to be ``MEM0_<HOST>_PLUGIN`` here and ``<host>_plugin`` there, which
+    meant one plugin could emit three different source values depending on which
+    process happened to send the batch.
+    """
     global _harness, _source_tag
-    _harness = harness
-    _source_tag = source_tag or f"MEM0_{harness.upper().replace('-', '_')}_PLUGIN"
+    _harness = harness or _DEFAULT_HARNESS
+    _source_tag = source_tag or (
+        f"{_harness.upper().replace('-', '_')}_PLUGIN" if harness else _DEFAULT_SOURCE_TAG
+    )
 
 POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
 POSTHOG_CAPTURE_URL = "https://us.i.posthog.com/i/v0/e/"
@@ -291,8 +315,13 @@ def record(
         except OSError:
             pass
         properties = _safe_value(properties)
+        # Stamped in the RECORDING process, beside harness. `source` used to be
+        # read in the sending process from a module global, so whichever process
+        # drained the spool named every event in it. flush() spreads per-event
+        # properties last, so this now wins over any sender's default.
         properties.update(
             harness=_harness,
+            source=_source_tag,
             plugin_version=memory_core.PLUGIN_VERSION,
             os=sys.platform,
             python_version=platform.python_version(),
@@ -311,6 +340,7 @@ def record(
         line = json.dumps(
             {
                 "event": f"{EVENT_PREFIX}.{event}",
+                "uuid": str(uuid.uuid4()),
                 "timestamp": memory_core.utc_now(),
                 "properties": {
                     key: value for key, value in properties.items() if value is not None
@@ -496,6 +526,8 @@ def flush() -> int:
                 "distinct_id": distinct_id,
                 "timestamp": event.get("timestamp"),
                 "properties": {
+                    # Fallback only: events recorded by a build before source
+                    # moved into record() have none of their own.
                     "source": _source_tag,
                     "language": "python",
                     "$process_person_profile": False,
