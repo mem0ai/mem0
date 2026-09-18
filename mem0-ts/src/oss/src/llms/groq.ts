@@ -24,7 +24,10 @@ export class GroqLLM implements LLM {
       "Groq LLM",
       () => import("groq-sdk"),
     );
-    this.client = new sdk.Groq({ apiKey: this.apiKey });
+    this.client = new sdk.Groq({
+      apiKey: this.apiKey,
+      fetch: globalThis.fetch,
+    });
   }
 
   async generateResponse(

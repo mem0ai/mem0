@@ -16,6 +16,7 @@ export class AzureOpenAILLM implements LLM {
     this.client = new AzureOpenAI({
       apiKey: config.apiKey,
       endpoint: endpoint as string,
+      fetch: globalThis.fetch,
       ...rest,
     });
     this.model = config.model || "gpt-5-mini";

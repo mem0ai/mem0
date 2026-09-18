@@ -34,13 +34,17 @@ describe("VllmLLM", () => {
   });
 
   it("uses vLLM defaults with a configured baseURL", async () => {
-    const llm = new VllmLLM({ baseURL: "http://localhost:8000/v1" });
+    const llm = new VllmLLM({
+      baseURL: "http://localhost:8000/v1",
+      fetch: globalThis.fetch,
+    });
 
     await llm.generateChat([{ role: "user", content: "Hi" }]);
 
     expect(MockOpenAI).toHaveBeenCalledWith({
       apiKey: "vllm-api-key",
       baseURL: "http://localhost:8000/v1",
+      fetch: globalThis.fetch,
     });
     expect(createMock).toHaveBeenCalledWith({
       messages: [{ role: "user", content: "Hi" }],
@@ -57,6 +61,7 @@ describe("VllmLLM", () => {
     expect(MockOpenAI).toHaveBeenCalledWith({
       apiKey: "env-key",
       baseURL: "http://vllm.example/v1",
+      fetch: globalThis.fetch,
     });
   });
 
@@ -66,12 +71,14 @@ describe("VllmLLM", () => {
     expect(MockOpenAI).toHaveBeenCalledWith({
       apiKey: "vllm-api-key",
       baseURL: "http://localhost:8001/v1",
+      fetch: globalThis.fetch,
     });
   });
 
   it("registers the vllm provider with LLMFactory", () => {
     const llm = LLMFactory.create("vllm", {
       baseURL: "http://localhost:8000/v1",
+      fetch: globalThis.fetch,
     });
 
     expect(llm).toBeInstanceOf(VllmLLM);
@@ -83,6 +90,7 @@ describe("VllmLLM", () => {
     expect(MockOpenAI).toHaveBeenCalledWith({
       apiKey: "vllm-api-key",
       baseURL: "http://localhost:8000/v1",
+      fetch: globalThis.fetch,
     });
   });
 
@@ -94,12 +102,16 @@ describe("VllmLLM", () => {
     expect(MockOpenAI).toHaveBeenCalledWith({
       apiKey: "vllm-api-key",
       baseURL: "http://env-vllm.example/v1",
+      fetch: globalThis.fetch,
     });
   });
 
   it("wraps OpenAI-compatible client errors with provider context", async () => {
     createMock.mockRejectedValueOnce(new Error("network down"));
-    const llm = new VllmLLM({ baseURL: "http://localhost:8000/v1" });
+    const llm = new VllmLLM({
+      baseURL: "http://localhost:8000/v1",
+      fetch: globalThis.fetch,
+    });
 
     await expect(
       llm.generateResponse([{ role: "user", content: "Hi" }]),
