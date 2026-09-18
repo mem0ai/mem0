@@ -90,41 +90,18 @@ Write in the third person about the user, not about the repository, the assistan
 Never save that the user has no preferences or that nothing was learned. If nothing was learned about the user, return no memories."""
 
 CODING_MEMORY_CATEGORIES = [
-    {
-        "project_knowledge": (
-            "What the project is and how its code, APIs, data, files, and "
-            "components work."
-        )
-    },
+    {"project_knowledge": ("What the project is and how its code, APIs, data, files, and components work.")},
     {
         "decisions_and_constraints": (
-            "Why an approach was chosen, what must remain true, and rules future "
-            "work must follow."
+            "Why an approach was chosen, what must remain true, and rules future work must follow."
         )
     },
-    {
-        "workflows": (
-            "How to run, test, debug, deploy, configure, or otherwise work on the "
-            "project."
-        )
-    },
-    {
-        "problems_and_fixes": (
-            "Bugs, failures, known pitfalls, their causes, and how to fix or avoid "
-            "them."
-        )
-    },
-    {
-        "results": (
-            "Outcomes and measurements from tests, benchmarks, experiments, or "
-            "investigations."
-        )
-    },
+    {"workflows": ("How to run, test, debug, deploy, configure, or otherwise work on the project.")},
+    {"problems_and_fixes": ("Bugs, failures, known pitfalls, their causes, and how to fix or avoid them.")},
+    {"results": ("Outcomes and measurements from tests, benchmarks, experiments, or investigations.")},
 ]
 CODING_MEMORY_CATEGORY_NAMES = tuple(
-    category_name
-    for category in CODING_MEMORY_CATEGORIES
-    for category_name in category
+    category_name for category in CODING_MEMORY_CATEGORIES for category_name in category
 )
 
 TEST_COMMAND_RE = re.compile(
@@ -141,9 +118,7 @@ BUILD_COMMAND_RE = re.compile(
 
 SECRET_PATTERNS = [
     re.compile(r"(?i)(authorization\s*[:=]\s*(?:bearer|token)\s+)[^\s\"']+"),
-    re.compile(
-        r"(?i)((?:api[_-]?key|secret[_-]?access[_-]?key|session[_-]?token)\s*[:=]\s*)[^\s\"']+"
-    ),
+    re.compile(r"(?i)((?:api[_-]?key|secret[_-]?access[_-]?key|session[_-]?token)\s*[:=]\s*)[^\s\"']+"),
     re.compile(
         r"(?i)((?:access[_-]?token|refresh[_-]?token|password|credential)"
         r"\s*[:=]\s*)[^\s&\"']+"
@@ -157,7 +132,7 @@ SECRET_PATTERNS = [
     ),
     re.compile(
         r'(?i)("(?:api[_-]?key|password|secret(?:[_-]?access[_-]?key)?'
-        r'|(?:access|refresh|session)[_-]?token|token|authorization|credential'
+        r"|(?:access|refresh|session)[_-]?token|token|authorization|credential"
         r')"\s*:\s*")(?:\\.|[^"\\])*'
     ),
 ]
@@ -168,11 +143,7 @@ def utc_now() -> str:
 
 
 def redact(value: Any) -> str:
-    text = (
-        value
-        if isinstance(value, str)
-        else json.dumps(value, ensure_ascii=False, default=str)
-    )
+    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, default=str)
     for pattern in SECRET_PATTERNS:
         if pattern.groups:
             text = pattern.sub(r"\1[REDACTED]", text)
@@ -214,9 +185,7 @@ def _normalize_remote(remote: str) -> str:
         hostname = parsed.hostname or ""
         if parsed.port:
             hostname = f"{hostname}:{parsed.port}"
-        remote = urllib.parse.urlunsplit(
-            (parsed.scheme, hostname, parsed.path, parsed.query, parsed.fragment)
-        )
+        remote = urllib.parse.urlunsplit((parsed.scheme, hostname, parsed.path, parsed.query, parsed.fragment))
     return remote.rstrip("/")
 
 
@@ -231,6 +200,7 @@ def _scope_value(raw: str | None) -> str:
 
 SEARCH_SCOPES = ("repo", "dir", "mine")
 DEFAULT_SEARCH_SCOPE = "repo"
+
 
 def directory_app_id(repo: RepoContext) -> str:
     """The app_id of the directory this session runs in: the repository at the root, repository/path below it."""
@@ -264,9 +234,7 @@ def _search_filters(user: str, repo: RepoContext, scope: str) -> dict[str, Any]:
 
 
 def search_scope() -> str:
-    configured = (
-        _plugin_option("search_scope", "MEM0_CODE_SEARCH_SCOPE") or ""
-    ).strip().lower()
+    configured = (_plugin_option("search_scope", "MEM0_CODE_SEARCH_SCOPE") or "").strip().lower()
     return configured if configured in SEARCH_SCOPES else DEFAULT_SEARCH_SCOPE
 
 
@@ -393,7 +361,17 @@ def api_key() -> str:
     try:
         return (data_dir() / "api-key").read_text(encoding="utf-8").strip()
     except OSError:
-        return ""
+        pass
+
+    try:
+        config_path = Path.home() / ".mem0" / "config.json"
+        if config_path.exists():
+            config_data = json.loads(config_path.read_text(encoding="utf-8"))
+            return config_data.get("platform", {}).get("api_key", "").strip()
+    except Exception:
+        pass
+
+    return ""
 
 
 def cache_plugin_api_key() -> bool:
@@ -453,10 +431,7 @@ def clear_stale_api_key_cache() -> bool:
 def detached_process_kwargs(platform: str | None = None) -> dict:
     """Keep a spawned worker alive after the coding agent exits, on POSIX and Windows."""
     if (platform or sys.platform) == "win32":
-        return {
-            "creationflags": subprocess.DETACHED_PROCESS
-            | subprocess.CREATE_NEW_PROCESS_GROUP
-        }
+        return {"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
     return {"start_new_session": True}
 
 
@@ -487,9 +462,7 @@ def data_dir() -> Path:
         or os.environ.get("PLUGIN_DATA")
         or os.environ.get("CLAUDE_PLUGIN_DATA")
     )
-    return (
-        Path(configured).expanduser() if configured else Path.home() / ".mem0" / _harness_data_dir_name
-    )
+    return Path(configured).expanduser() if configured else Path.home() / ".mem0" / _harness_data_dir_name
 
 
 def _bool_option(name: str, fallback: str, default: bool = False) -> bool:
@@ -505,7 +478,6 @@ def _int_option(name: str, fallback: str, default: int) -> int:
         return int(value) if value else default
     except ValueError:
         return default
-
 
 
 def _checkpoint_message(event: dict[str, Any]) -> str:
@@ -536,9 +508,7 @@ def checkpoint_stats(events: list[dict[str, Any]]) -> tuple[int, int, int]:
     return completed, len(contents), sum(len(content) for content in contents)
 
 
-def select_checkpoint_events(
-    events: list[dict[str, Any]], *, force: bool
-) -> list[dict[str, Any]]:
+def select_checkpoint_events(events: list[dict[str, Any]], *, force: bool) -> list[dict[str, Any]]:
     """Select one ordered extraction block without splitting an exchange."""
     for index, event in enumerate(events):
         if event.get("kind") != "assistant_stop":
@@ -707,10 +677,7 @@ class EvidenceStore:
         self.conn.commit()
 
     def _ensure_column(self, table: str, column: str, declaration: str) -> None:
-        columns = {
-            str(row["name"])
-            for row in self.conn.execute(f"PRAGMA table_info({table})").fetchall()
-        }
+        columns = {str(row["name"]) for row in self.conn.execute(f"PRAGMA table_info({table})").fetchall()}
         if column not in columns:
             self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
 
@@ -778,12 +745,8 @@ class EvidenceStore:
                     current.directory,
                 ),
             )
-        scope = self.conn.execute(
-            "SELECT * FROM session_scopes WHERE session_id = ?", (session_id,)
-        ).fetchone()
-        same_git_repo = (
-            current.identity == scope["repo_id"] and bool(current.head_sha)
-        )
+        scope = self.conn.execute("SELECT * FROM session_scopes WHERE session_id = ?", (session_id,)).fetchone()
+        same_git_repo = current.identity == scope["repo_id"] and bool(current.head_sha)
         pinned = current if same_git_repo else resolve_repo(str(scope["root"]))
         return RepoContext(
             cwd=current.cwd,
@@ -796,9 +759,7 @@ class EvidenceStore:
             directory=str(scope["directory"] or ""),
         )
 
-    def prepare_flush(
-        self, repo: RepoContext, session_id: str, reason: str
-    ) -> tuple[str, list[dict[str, Any]]] | None:
+    def prepare_flush(self, repo: RepoContext, session_id: str, reason: str) -> tuple[str, list[dict[str, Any]]] | None:
         with self.conn:
             self.conn.execute("BEGIN IMMEDIATE")
             existing = self.conn.execute(
@@ -890,8 +851,7 @@ class EvidenceStore:
             event_ids = [event["id"] for event in events]
             placeholders = ", ".join("?" for _ in event_ids)
             self.conn.execute(
-                f"UPDATE events SET flush_id = ? "
-                f"WHERE id IN ({placeholders}) AND flush_id IS NULL",
+                f"UPDATE events SET flush_id = ? WHERE id IN ({placeholders}) AND flush_id IS NULL",
                 (packet_id, *event_ids),
             )
             return packet_id, events
@@ -929,9 +889,7 @@ class EvidenceStore:
         )
 
     def flush_record(self, packet_id: str) -> dict[str, Any] | None:
-        row = self.conn.execute(
-            "SELECT * FROM flushes WHERE packet_id = ?", (packet_id,)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM flushes WHERE packet_id = ?", (packet_id,)).fetchone()
         return dict(row) if row else None
 
     def has_unflushed_events(self, repo_id: str, session_id: str) -> bool:
@@ -945,9 +903,7 @@ class EvidenceStore:
             is not None
         )
 
-    def unflushed_starts_with_session_start(
-        self, repo_id: str, session_id: str
-    ) -> bool:
+    def unflushed_starts_with_session_start(self, repo_id: str, session_id: str) -> bool:
         row = self.conn.execute(
             """SELECT kind FROM events
                WHERE repo_id = ? AND session_id = ? AND flush_id IS NULL
@@ -975,9 +931,7 @@ class EvidenceStore:
                 [*updates.values(), packet_id],
             )
 
-    def unseen(
-        self, session_id: str, repo_id: str, memories: Iterable[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def unseen(self, session_id: str, repo_id: str, memories: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
         seen = {
             row["memory_id"]
             for row in self.conn.execute(
@@ -987,9 +941,7 @@ class EvidenceStore:
         }
         return [memory for memory in memories if str(memory.get("id", "")) not in seen]
 
-    def mark_injected(
-        self, session_id: str, repo_id: str, memories: Iterable[dict[str, Any]]
-    ) -> None:
+    def mark_injected(self, session_id: str, repo_id: str, memories: Iterable[dict[str, Any]]) -> None:
         now = utc_now()
         with self.conn:
             for rank, memory in enumerate(memories, start=1):
@@ -1020,9 +972,7 @@ class EvidenceStore:
                         ),
                     )
 
-    def injected_memories(
-        self, session_id: str, repo_id: str
-    ) -> list[dict[str, Any]]:
+    def injected_memories(self, session_id: str, repo_id: str) -> list[dict[str, Any]]:
         """Return the exact memories already supplied to the main conversation."""
         rows = self.conn.execute(
             """SELECT memory_id, rank, score, memory_text
@@ -1165,9 +1115,7 @@ class EvidenceStore:
         ).fetchone()
         return row is not None
 
-    def latest_event_payload(
-        self, repo_id: str, session_id: str, kind: str
-    ) -> dict[str, Any]:
+    def latest_event_payload(self, repo_id: str, session_id: str, kind: str) -> dict[str, Any]:
         row = self.conn.execute(
             """SELECT payload_json FROM events
                WHERE repo_id = ? AND session_id = ? AND kind = ?
@@ -1183,9 +1131,7 @@ class EvidenceStore:
         return payload if isinstance(payload, dict) else {}
 
     def setting(self, key: str, default: str = "") -> str:
-        row = self.conn.execute(
-            "SELECT value FROM settings WHERE key = ?", (key,)
-        ).fetchone()
+        row = self.conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
         return str(row["value"]) if row else default
 
     def set_setting(self, key: str, value: str) -> None:
@@ -1219,19 +1165,13 @@ class EvidenceStore:
         removed: dict[str, int] = {}
         with self.conn:
             for table, column in tables.items():
-                cursor = self.conn.execute(
-                    f"DELETE FROM {table} WHERE {column} = ?", (repo_id,)
-                )
+                cursor = self.conn.execute(f"DELETE FROM {table} WHERE {column} = ?", (repo_id,))
                 removed[table] = max(int(cursor.rowcount), 0)
         return removed
 
     def status(self, repo_id: str) -> dict[str, Any]:
         def count(table: str) -> int:
-            return int(
-                self.conn.execute(
-                    f"SELECT COUNT(*) FROM {table} WHERE repo_id = ?", (repo_id,)
-                ).fetchone()[0]
-            )
+            return int(self.conn.execute(f"SELECT COUNT(*) FROM {table} WHERE repo_id = ?", (repo_id,)).fetchone()[0])
 
         last_operation = self.conn.execute(
             """SELECT created_at, operation, duration_ms, success, item_count, error
@@ -1285,9 +1225,7 @@ def record_session_start(store: EvidenceStore, hook_input: dict[str, Any]) -> No
     )
 
 
-def record_user_prompt(
-    store: EvidenceStore, hook_input: dict[str, Any]
-) -> tuple[RepoContext, str, str, bool]:
+def record_user_prompt(store: EvidenceStore, hook_input: dict[str, Any]) -> tuple[RepoContext, str, str, bool]:
     session_id = _session_id(hook_input)
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
     prompt = redact(hook_input.get("prompt", "")).strip()
@@ -1337,22 +1275,15 @@ def tool_payload(hook_input: dict[str, Any], *, failed: bool | None = False) -> 
             payload["path"] = bounded(path, 1000)
         if name in {"Write", "Edit", "MultiEdit", "NotebookEdit"}:
             payload["mutation_chars"] = sum(
-                len(str(tool_input.get(key, "")))
-                for key in ("content", "new_string", "new_source", "edits")
+                len(str(tool_input.get(key, ""))) for key in ("content", "new_string", "new_source", "edits")
             )
     elif name == "Bash" or "command" in tool_input:
         command = bounded(tool_input.get("command", ""), MAX_COMMAND_CHARS)
         payload["command"] = command
         payload["command_kind"] = (
-            "test"
-            if TEST_COMMAND_RE.search(command)
-            else "build"
-            if BUILD_COMMAND_RE.search(command)
-            else "shell"
+            "test" if TEST_COMMAND_RE.search(command) else "build" if BUILD_COMMAND_RE.search(command) else "shell"
         )
-        response = (
-            hook_input.get("error") if failed else hook_input.get("tool_response")
-        )
+        response = hook_input.get("error") if failed else hook_input.get("tool_response")
         payload["result_preview"] = _tool_result_preview(response)
     elif name in {"Grep", "Glob", "WebSearch", "WebFetch"}:
         for key in ("pattern", "path", "query", "url"):
@@ -1368,9 +1299,7 @@ def tool_payload(hook_input: dict[str, Any], *, failed: bool | None = False) -> 
     return payload
 
 
-def record_tool(
-    store: EvidenceStore, hook_input: dict[str, Any], *, failed: bool | None = False
-) -> None:
+def record_tool(store: EvidenceStore, hook_input: dict[str, Any], *, failed: bool | None = False) -> None:
     session_id = _session_id(hook_input)
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
     payload = tool_payload(hook_input, failed=failed)
@@ -1384,22 +1313,16 @@ def record_tool(
     )
 
 
-def record_sidekick_start(
-    store: EvidenceStore, hook_input: dict[str, Any], *, inject_context: bool = True
-) -> str:
+def record_sidekick_start(store: EvidenceStore, hook_input: dict[str, Any], *, inject_context: bool = True) -> str:
     """Record a native sidekick and reuse the main turn's retrieved memories."""
     session_id = _session_id(hook_input)
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
     agent_id = bounded(hook_input.get("agent_id", "unknown-agent"), 200)
     agent_type = bounded(hook_input.get("agent_type", "mem0:sidekick"), 200)
-    context = combine_context(
-        format_context(store.injected_memories(session_id, repo.identity))
-    )
+    context = combine_context(format_context(store.injected_memories(session_id, repo.identity)))
     if not inject_context:
         context = ""
-    first_start = store.start_sidekick(
-        repo, session_id, agent_id, agent_type, len(context)
-    )
+    first_start = store.start_sidekick(repo, session_id, agent_id, agent_type, len(context))
     store.record_event(
         repo,
         session_id,
@@ -1519,8 +1442,9 @@ def build_episode(
         if e["kind"] == "sidekick_stop" and e["payload"].get("final_message")
     ]
     tools = [
-        e["payload"] for e in events if e["kind"] in {"tool_result", "tool_failure"}
-        and e["payload"].get("agent_role", "main") == "main"
+        e["payload"]
+        for e in events
+        if e["kind"] in {"tool_result", "tool_failure"} and e["payload"].get("agent_role", "main") == "main"
     ]
     read_paths = _ordered_unique(
         _repo_relative_path(repo, str(t.get("repo_path") or t.get("path", "")))
@@ -1573,9 +1497,7 @@ def build_episode(
                     if isinstance(message, dict) and message.get("role") == "user"
                 }
                 extraction_messages.extend(
-                    message
-                    for message in pending_user_messages
-                    if message["content"].strip() not in transcript_users
+                    message for message in pending_user_messages if message["content"].strip() not in transcript_users
                 )
                 extraction_messages.extend(
                     {
@@ -1624,9 +1546,7 @@ def build_episode(
     if task:
         lines.extend(["", "Task:", task])
     if modified_paths:
-        lines.extend(
-            ["", "Files modified:", *[f"- {path}" for path in modified_paths[:50]]]
-        )
+        lines.extend(["", "Files modified:", *[f"- {path}" for path in modified_paths[:50]]])
     if read_paths:
         lines.extend(["", "Files read:", *[f"- {path}" for path in read_paths[:50]]])
     if commands:
@@ -1638,10 +1558,7 @@ def build_episode(
             [
                 "",
                 "Observed searches:",
-                *[
-                    f"- {json.dumps(item, ensure_ascii=False, sort_keys=True)}"
-                    for item in searches[-20:]
-                ],
+                *[f"- {json.dumps(item, ensure_ascii=False, sort_keys=True)}" for item in searches[-20:]],
             ]
         )
     if conclusion:
@@ -1665,9 +1582,7 @@ def build_semantic_evidence(structured: dict[str, Any]) -> str:
     but are not useful repository knowledge by default and should not steer
     memory extraction toward transient verification details.
     """
-    modified_paths = [
-        bounded(path, 500) for path in structured.get("files_modified", [])[:20]
-    ]
+    modified_paths = [bounded(path, 500) for path in structured.get("files_modified", [])[:20]]
     commands = structured.get("commands") or []
     if not any(command.get("status") == "failed" for command in commands):
         commands = []
@@ -1719,15 +1634,11 @@ def _message_tokens(messages: list[dict[str, str]]) -> int:
 
 
 def _is_agent_assignment(message: dict[str, str]) -> bool:
-    return message.get("role") == "assistant" and message.get(
-        "content", ""
-    ).startswith("Subagent assignment (")
+    return message.get("role") == "assistant" and message.get("content", "").startswith("Subagent assignment (")
 
 
 def _is_agent_response(message: dict[str, str]) -> bool:
-    return message.get("role") == "assistant" and message.get(
-        "content", ""
-    ).startswith("Subagent response (")
+    return message.get("role") == "assistant" and message.get("content", "").startswith("Subagent response (")
 
 
 def extraction_message_batches(
@@ -1757,11 +1668,7 @@ def extraction_message_batches(
         index = 0
         while index < len(exchange):
             message = exchange[index]
-            if (
-                _is_agent_assignment(message)
-                and index + 1 < len(exchange)
-                and _is_agent_response(exchange[index + 1])
-            ):
+            if _is_agent_assignment(message) and index + 1 < len(exchange) and _is_agent_response(exchange[index + 1]):
                 units.append(exchange[index : index + 2])
                 index += 2
             else:
@@ -1831,9 +1738,7 @@ def _request_json_with_network_retry(
         return _request_json(url, key, payload, timeout)
 
 
-def _get_json(
-    url: str, key: str, timeout: float
-) -> tuple[dict[str, Any] | list[Any], int]:
+def _get_json(url: str, key: str, timeout: float) -> tuple[dict[str, Any] | list[Any], int]:
     request = urllib.request.Request(
         url,
         headers={"Authorization": f"Token {key}", "Content-Type": "application/json"},
@@ -1904,11 +1809,7 @@ def _wait_for_event(api_url: str, key: str, event_id: str) -> tuple[str, int, in
             time.sleep(poll_seconds)
             continue
         response_chars += size
-        status = (
-            str(response.get("status", "UNKNOWN"))
-            if isinstance(response, dict)
-            else "UNKNOWN"
-        )
+        status = str(response.get("status", "UNKNOWN")) if isinstance(response, dict) else "UNKNOWN"
         if status in {"SUCCEEDED", "FAILED"}:
             return status, response_chars, _result_count(response)
         time.sleep(poll_seconds)
@@ -1935,9 +1836,7 @@ def _record_flush(
     )
 
 
-def flush_session(
-    store: EvidenceStore, hook_input: dict[str, Any], reason: str
-) -> dict[str, Any]:
+def flush_session(store: EvidenceStore, hook_input: dict[str, Any], reason: str) -> dict[str, Any]:
     key = api_key()
     if not key:
         telemetry.record("flush", reason=reason, status="local-only", success=False)
@@ -1992,13 +1891,9 @@ def flush_session(
     started = time.perf_counter()
     try:
         stored_events = _stored_event_ids(existing_flush.get("semantic_event_id"))
-        existing_event = (
-            "" if stored_events else str(existing_flush.get("semantic_event_id") or "")
-        )
+        existing_event = "" if stored_events else str(existing_flush.get("semantic_event_id") or "")
         if existing_event:
-            existing_status, existing_resp, existing_items = _wait_for_event(
-                api_url, key, existing_event
-            )
+            existing_status, existing_resp, existing_items = _wait_for_event(api_url, key, existing_event)
             if existing_status == "SUCCEEDED":
                 elapsed = (time.perf_counter() - started) * 1000
                 store.update_flush(
@@ -2025,18 +1920,11 @@ def flush_session(
                     memory_count=existing_items,
                     resumed=True,
                 )
-                effective_reason = str(
-                    (store.flush_record(packet_id) or {}).get("reason") or reason
-                )
+                effective_reason = str((store.flush_record(packet_id) or {}).get("reason") or reason)
                 if (
                     store.has_unflushed_events(repo.identity, session_id)
-                    and not store.unflushed_starts_with_session_start(
-                        repo.identity, session_id
-                    )
-                    and (
-                        effective_reason != "periodic"
-                        or store.checkpoint_due(repo.identity, session_id)
-                    )
+                    and not store.unflushed_starts_with_session_start(repo.identity, session_id)
+                    and (effective_reason != "periodic" or store.checkpoint_due(repo.identity, session_id))
                 ):
                     return flush_session(store, hook_input, effective_reason)
                 return {
@@ -2079,11 +1967,7 @@ def flush_session(
                 }
 
         message_batches = [
-            batch
-            for batch in extraction_message_batches(
-                build_extraction_messages(structured)
-            )
-            if batch
+            batch for batch in extraction_message_batches(build_extraction_messages(structured)) if batch
         ]
         batches = [(body, messages) for messages in message_batches]
         if not batches:
@@ -2118,9 +2002,7 @@ def flush_session(
         semantic_items = 0
         failed_event = semantic_event
         for index, queued_event in enumerate(semantic_events):
-            status, response_chars, item_count = _wait_for_event(
-                api_url, key, queued_event
-            )
+            status, response_chars, item_count = _wait_for_event(api_url, key, queued_event)
             event_resp += response_chars
             semantic_items += item_count
             if status != "SUCCEEDED":
@@ -2128,16 +2010,12 @@ def flush_session(
                 failed_event = queued_event
                 if status in {"FAILED", "MISSING"}:
                     semantic_events[index] = ""
-                    store.update_flush(
-                        packet_id, semantic_event_id=json.dumps(semantic_events)
-                    )
+                    store.update_flush(packet_id, semantic_event_id=json.dumps(semantic_events))
                 break
         if semantic_status != "SUCCEEDED":
             elapsed = (time.perf_counter() - started) * 1000
             error = f"semantic extraction event {semantic_status.lower()}"
-            store.update_flush(
-                packet_id, status=f"semantic-{semantic_status.lower()}", error=error
-            )
+            store.update_flush(packet_id, status=f"semantic-{semantic_status.lower()}", error=error)
             store.operation(
                 repo,
                 session_id,
@@ -2194,18 +2072,11 @@ def flush_session(
             batch_count=len(batches),
             request_chars=semantic_req,
         )
-        effective_reason = str(
-            (store.flush_record(packet_id) or {}).get("reason") or reason
-        )
+        effective_reason = str((store.flush_record(packet_id) or {}).get("reason") or reason)
         if (
             store.has_unflushed_events(repo.identity, session_id)
-            and not store.unflushed_starts_with_session_start(
-                repo.identity, session_id
-            )
-            and (
-                effective_reason != "periodic"
-                or store.checkpoint_due(repo.identity, session_id)
-            )
+            and not store.unflushed_starts_with_session_start(repo.identity, session_id)
+            and (effective_reason != "periodic" or store.checkpoint_due(repo.identity, session_id))
         ):
             return flush_session(store, hook_input, effective_reason)
         return {
@@ -2232,12 +2103,9 @@ def flush_session(
         return {"status": "error", "packet_id": packet_id, "error": error}
 
 
-def checkpoint_session(
-    store: EvidenceStore, hook_input: dict[str, Any], reason: str
-) -> dict[str, Any]:
+def checkpoint_session(store: EvidenceStore, hook_input: dict[str, Any], reason: str) -> dict[str, Any]:
     """Run remote extraction at a durable boundary."""
     return flush_session(store, hook_input, reason)
-
 
 
 def search_memories(
@@ -2256,27 +2124,19 @@ def search_memories(
     key = api_key()
     if not key or not query.strip():
         return MemorySearchResult(False, 0, 0, [])
-    search_once = os.environ.get(
-        "MEM0_CODE_SEARCH_ONCE_PER_SESSION", "false"
-    ).lower() in {
+    search_once = os.environ.get("MEM0_CODE_SEARCH_ONCE_PER_SESSION", "false").lower() in {
         "1",
         "true",
         "yes",
         "on",
     }
     track_session = store is not None and bool(session_id)
-    if (
-        search_once
-        and track_session
-        and store.has_operation(repo.identity, session_id, "search")
-    ):
+    if search_once and track_session and store.has_operation(repo.identity, session_id, "search"):
         return MemorySearchResult(False, 0, 0, [])
 
     result_limit = min(
         max(
-            top_k
-            if top_k is not None
-            else _int_option("top_k", "MEM0_CODE_TOP_K", 3),
+            top_k if top_k is not None else _int_option("top_k", "MEM0_CODE_TOP_K", 3),
             1,
         ),
         20,
@@ -2299,23 +2159,15 @@ def search_memories(
         "rerank": False,
         "latest_only": True,
     }
-    url = (
-        os.environ.get("MEM0_API_URL", DEFAULT_API_URL).rstrip("/")
-        + "/v3/memories/search/"
-    )
+    url = os.environ.get("MEM0_API_URL", DEFAULT_API_URL).rstrip("/") + "/v3/memories/search/"
     started = time.perf_counter()
     try:
-        response, request_chars, response_chars = _request_json_with_network_retry(
-            url, key, payload, timeout
-        )
-        memories = (
-            response if isinstance(response, list) else response.get("results", [])
-        )
+        response, request_chars, response_chars = _request_json_with_network_retry(url, key, payload, timeout)
+        memories = response if isinstance(response, list) else response.get("results", [])
         memories = [
             memory
             for memory in memories
-            if isinstance(memory, dict)
-            and (memory.get("metadata") or {}).get("record_kind") != "task_episode"
+            if isinstance(memory, dict) and (memory.get("metadata") or {}).get("record_kind") != "task_episode"
         ][:result_limit]
         if track_session:
             returned_memories = store.unseen(session_id, repo.identity, memories)
@@ -2415,13 +2267,7 @@ def format_context(
         if not lines or (heading and len(lines) == 1):
             prefix = f"{number}. "
             suffix = f"…{branch_label}"
-            available = (
-                limit
-                - len("\n".join(lines))
-                - (1 if lines else 0)
-                - len(prefix)
-                - len(suffix)
-            )
+            available = limit - len("\n".join(lines)) - (1 if lines else 0) - len(prefix) - len(suffix)
             if available > 0:
                 lines.append(prefix + text[:available].rstrip() + suffix)
         break
@@ -2465,21 +2311,27 @@ def combine_context(*contexts: str) -> str:
     return bounded("\n".join(lines), limit) if lines else ""
 
 
-def _scoped_memory_ids(
-    api_url: str, key: str, user: str, repo: RepoContext, include_project: bool
-) -> list[str]:
+def _scoped_memory_ids(api_url: str, key: str, user: str, repo: RepoContext, include_project: bool) -> list[str]:
     """List this user's memory ids for this repository, plus the shared project memory when asked."""
     ids: list[str] = []
     seen: set[str] = set()
     prefix = repo.app_id
     _collect_memory_ids(
-        api_url, key, {"user_id": user}, ids, seen,
+        api_url,
+        key,
+        {"user_id": user},
+        ids,
+        seen,
         app_id_prefix=prefix,
     )
     if include_project:
         for project_id in _shared_project_ids(repo):
             _collect_memory_ids(
-                api_url, key, {"agent_id": project_id}, ids, seen,
+                api_url,
+                key,
+                {"agent_id": project_id},
+                ids,
+                seen,
                 app_id_prefix=prefix,
             )
     return ids
@@ -2535,9 +2387,7 @@ def _delete_memory(api_url: str, key: str, memory_id: str) -> bool:
         return False
 
 
-def forget_remote_repo(
-    repo: RepoContext, *, include_project_memory: bool = False
-) -> dict[str, Any]:
+def forget_remote_repo(repo: RepoContext, *, include_project_memory: bool = False) -> dict[str, Any]:
     """Delete this user's memories for this repository; project memory is shared, so only on request."""
     key = api_key()
     if not key:
@@ -2554,9 +2404,7 @@ def forget_remote_repo(
     try:
         memory_ids = _scoped_memory_ids(api_url, key, user, repo, include_project_memory)
     except Exception as exc:
-        telemetry.record(
-            "forget", repo=repo, success=False, error_kind=telemetry.error_kind(exc)
-        )
+        telemetry.record("forget", repo=repo, success=False, error_kind=telemetry.error_kind(exc))
         return {"status": "error", "error": bounded(str(exc), 1000)}
     deleted = sum(_delete_memory(api_url, key, memory_id) for memory_id in memory_ids)
     failed = len(memory_ids) - deleted
@@ -2600,9 +2448,7 @@ def _doctor_mem0_authentication(repo: RepoContext) -> dict[str, Any]:
 
 def _doctor_user_id() -> dict[str, Any]:
     """Flag a configured user ID the plugin refuses, since the silent fallback surprises people."""
-    configured = _plugin_option("user_id", "MEM0_CODE_USER_ID") or os.environ.get(
-        "MEM0_USER_ID", ""
-    )
+    configured = _plugin_option("user_id", "MEM0_CODE_USER_ID") or os.environ.get("MEM0_USER_ID", "")
     if configured and not _scope_value(configured):
         return {
             "ok": False,
