@@ -314,15 +314,23 @@ This is what a company brain is *for*. Dana joins, and her identity comes from *
 
 ```python
 # onboarding.py
+from brain import client, person
 from ask import ask
 
 # In a real app these come from sb.auth.get_user(jwt) and the employees table.
 dana_uid, dana_team = "8f3c...-dana", "payments"
 
+# Dana also tells the brain how *she* works. This is personal, so it goes to her
+# user_id, not the shared agent, and stays scoped to her.
+client.add(
+    [{"role": "user", "content": "I prefer early returns over nested ifs, and I review PRs in the morning."}],
+    user_id=person(dana_uid),
+)
+
 for q in [
-    "Who owns billing and who do I talk to?",
+    "Who owns billing and who do I talk to?",   # company (agent) knowledge
     "When are deploys, and are there hard rules?",
-    "Where does customer data have to live?",
+    "How do I like to write code?",             # Dana's own (user) knowledge
 ]:
     print(f"Q: {q}\nA: {ask(q, uid=dana_uid, user_team=dana_team)}\n")
 ```
@@ -334,9 +342,11 @@ A: - Billing is owned by the Payments team; Alice is the Payments tech lead
 Q: When are deploys, and are there hard rules?
 A: - The company's production deploys go out Tuesday and Thursday, never on Fridays
 
-Q: Where does customer data have to live?
-A: - Customer data must stay in the EU region for GDPR compliance
+Q: How do I like to write code?
+A: - User prefers early returns over nested ifs
 ```
+
+The same `ask()` blends the shared company facts with Dana's own preference, because the `OR` filter spans both her `user_id` and the org and team `agent_id`s.
 
 Dana onboarded herself by asking, drawing on the shared brain the rest of the team had been filling.
 
