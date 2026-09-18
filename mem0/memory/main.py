@@ -132,12 +132,18 @@ _SENSITIVE_SUFFIXES = (
 )
 
 # Entity parameters that must be passed via filters, not top-level kwargs
-ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
+_ENTITY_SCOPE_KEYS = ("user_id", "agent_id", "run_id")
+ENTITY_PARAMS = frozenset(_ENTITY_SCOPE_KEYS)
 DELETE_ALL_BATCH_SIZE = 1000
 
 # Tenant-scoping fields that caller-supplied metadata must never set, on either the
 # creation or the update path (issues #4490, #6277, #6655).
 _IDENTITY_KEYS = ENTITY_PARAMS | {"actor_id"}
+
+
+def _extract_entity_scope(payload):
+    payload = payload or {}
+    return {key: payload[key] for key in _ENTITY_SCOPE_KEYS if payload.get(key)}
 
 
 def _strip_identity_keys(
@@ -620,6 +626,8 @@ class Memory(MemoryBase):
 
             semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
             match = exact_match or semantic_match
+            if match and _extract_entity_scope(match.payload) != search_filters:
+                match = None
             if match:
                 # Update existing entity's linked_memory_ids
                 payload = match.payload or {}
@@ -1151,6 +1159,8 @@ class Memory(MemoryBase):
 
                         semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
                         match = exact_match or semantic_match
+                        if match and _extract_entity_scope(match.payload) != search_filters:
+                            match = None
                         if match:
                             # Update existing entity
                             payload = match.payload or {}
@@ -2287,6 +2297,8 @@ class AsyncMemory(MemoryBase):
 
             semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
             match = exact_match or semantic_match
+            if match and _extract_entity_scope(match.payload) != search_filters:
+                match = None
             if match:
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
@@ -2809,6 +2821,8 @@ class AsyncMemory(MemoryBase):
 
                         semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
                         match = exact_match or semantic_match
+                        if match and _extract_entity_scope(match.payload) != search_filters:
+                            match = None
                         if match:
                             payload = match.payload or {}
                             linked = set(payload.get("linked_memory_ids", []))
