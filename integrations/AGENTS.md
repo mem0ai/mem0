@@ -7,6 +7,7 @@ Agent and editor integrations. Most packages are self-contained; coding-agent pl
 | `vercel-ai-sdk/` | `@mem0/vercel-ai-provider` | tsup (CJS+ESM) | ESLint + Prettier | jest + vitest (edge/node) |
 | `openclaw/` | `@mem0/openclaw-mem0` | tsup (ESM) | none | vitest |
 | `agent-plugin-core/` | Shared Python/TypeScript behavior, skill templates, builds, and conformance | Python build script | ruff + tsc | pytest + node:test |
+| `hermes-plugin/` | Native Hermes memory provider; generated shared redaction and batching | Python build script | ruff | pytest with `--confcutdir=integrations/hermes-plugin/tests` |
 | `mem0-agent-plugin/` | One portable Agent Plugins v1 package | Python | ruff | shared conformance |
 | `claude-code-plugin/`, `cursor-plugin/`, `codex-plugin/`, `kimi-plugin/`, `antigravity-plugin/` | Self-contained native plugins generated from the shared Python core | Python | ruff | pytest |
 | `opencode-plugin/` | `@mem0/opencode-plugin` (Bun/TypeScript) | tsup (via Bun) | tsc | bun test |
@@ -43,6 +44,7 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 
 - **`vercel-ai-sdk/`** wraps the Vercel AI SDK through a `createMem0` provider. Integrations for AI-SDK repos go through this wrapper, not raw `MemoryClient`.
 - **`agent-plugin-core/`** owns the shared Python memory runtime, TypeScript lifecycle utilities, skill templates, builds, and conformance runner. Claude Code is the behavioral source of truth. Native manifests and adapters live in sibling plugin directories; do not hand-edit their generated `core/` or `skills/` trees. Build and validation details are in [`agent-plugin-core/README.md`](agent-plugin-core/README.md).
+- **`hermes-plugin/`** preserves the upstream Hermes memory-provider API, setup, and cloud/HTTP/OSS backends. Only `core/message_utils.py` is generated; no MCP server or generic skills are installed. Its offline tests use a separate pytest invocation with `--confcutdir=integrations/hermes-plugin/tests` to avoid importing the host entry point during collection.
 - **`opencode-plugin/`** is a Bun/TypeScript plugin for OpenCode (`@mem0/opencode-plugin` on npm). It registers Mem0 memory tools as an OpenCode plugin with its own skills and telemetry.
 - **`openclaw/`**, **`pi-agent-plugin/`**, **`deepseek-plugin/`** are editor and agent plugins with the same shape. `deepseek-plugin/` registers Mem0 search/add tools as a native DeepSeek Harness (Cordis) plugin.
 - **`n8n-nodes-mem0/`** is an n8n community node: add, search, get, update, delete.

@@ -1,0 +1,17 @@
+[project]
+name = "hermes-plugin-mem0"
+version = "1.4.0"
+description = "Hermes Agent memory provider plugin: mem0"
+requires-python = ">=3.11"
+license = { text = "MIT AND Apache-2.0" }
+# Installed into the Hermes venv by `hermes plugins install` / `enable` and re-applied after
+# every `hermes update` (hermes-agent#113851). Keep upper bounds: Hermes pins its own deps exactly
+# and refuses a plugin whose requirements cannot resolve against them.
+dependencies = [
+    "mem0ai>=2.0.10,<3",
+    "httpx>=0.27,<1",
+]
+
+[project.optional-dependencies]
+postgres = ['psycopg2-binary>=2.9,<3']
+qdrant = ['qdrant-client>=1.9,<2']

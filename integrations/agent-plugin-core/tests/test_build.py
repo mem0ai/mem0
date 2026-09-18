@@ -15,6 +15,7 @@ from build.build import (  # noqa: E402
     bundle_drift,
     render_template,
     replace_output,
+    sync_generated,
 )
 from build.validate import validate_bundle  # noqa: E402
 
@@ -113,6 +114,7 @@ def test_native_control_skills_select_the_host_store(host: str, tmp_path: Path) 
         ("codex", "native"),
         ("kimi", "native"),
         ("antigravity", "native"),
+        ("hermes", "native"),
     ],
 )
 def test_installable_plugin_directories_are_current(host: str, kind: str) -> None:
@@ -133,3 +135,91 @@ def test_marketplaces_keep_public_names_and_reference_real_plugins() -> None:
     assert [plugin["name"] for plugin in codex_marketplace["plugins"]] == ["mem0"]
     codex = codex_marketplace["plugins"][0]
     assert codex["source"]["path"] == "./integrations/codex-plugin"
+
+
+def test_native_bundle_can_select_runtime_without_skills(tmp_path: Path, monkeypatch) -> None:
+    from build import build as builder
+
+    source = tmp_path / "plugin"
+    source.mkdir()
+    (source / "__init__.py").write_text("# Native plugin adapter\n", encoding="utf-8")
+    (source / "plugin-build.json").write_text(
+        json.dumps(
+            {
+                "native": {
+                    "pluginRoot": "${PLUGIN_ROOT}",
+                    "pythonFiles": ["message_utils.py"],
+                    "skills": False,
+                    "files": {"__init__.py": "__init__.py"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(builder.NATIVE_PLUGINS, "test-host", source)
+    stale_skill = source / "skills" / "remember" / "SKILL.md"
+    stale_skill.parent.mkdir(parents=True)
+    stale_skill.write_text("stale generated skill", encoding="utf-8")
+
+    root = build("test-host", "native", tmp_path / "output")
+
+    assert {path.name for path in (root / "core").iterdir()} == {"message_utils.py"}
+    assert not (root / "skills").exists()
+    assert (root / "__init__.py").read_text(encoding="utf-8") == "# Native plugin adapter\n"
+    sync_generated("test-host", "native")
+    assert bundle_drift("test-host", "native") == []
+    assert not (source / "skills").exists()
+
+
+@pytest.mark.parametrize("files", ["message_utils.py", ["../README.md"], ["/tmp/source.py"], [7], ["missing.py"]])
+def test_native_runtime_selection_rejects_invalid_sources(files, tmp_path: Path) -> None:
+    from build.build import _build_native
+
+    with pytest.raises(ValueError, match="pythonFiles|native source file"):
+        _build_native(
+            "test",
+            tmp_path,
+            tmp_path,
+            {
+                "native": {
+                    "pluginRoot": "${PLUGIN_ROOT}",
+                    "pythonFiles": files,
+                }
+            },
+        )
+
+
+def test_native_runtime_selection_rejects_escaping_symlink(tmp_path: Path, monkeypatch) -> None:
+    from build import build as builder
+
+    source = tmp_path / "shared" / "python"
+    source.mkdir(parents=True)
+    secret = tmp_path / "outside.py"
+    secret.write_text("secret", encoding="utf-8")
+    (source / "message_utils.py").symlink_to(secret)
+    monkeypatch.setattr(builder, "CORE_ROOT", source.parent)
+    staged = tmp_path / "bundle"
+    staged.mkdir()
+
+    with pytest.raises(ValueError, match="inside their roots"):
+        builder._build_native(
+            "test",
+            tmp_path,
+            staged,
+            {
+                "native": {
+                    "pluginRoot": "${PLUGIN_ROOT}",
+                    "pythonFiles": ["message_utils.py"],
+                }
+            },
+        )
+
+
+def test_hermes_bundle_uses_only_host_independent_runtime(tmp_path: Path) -> None:
+    root = build("hermes", "native", tmp_path / "hermes")
+
+    assert {path.name for path in (root / "core").iterdir()} == {"message_utils.py"}
+    assert (root / "__init__.py").is_file()
+    assert (root / "plugin.yaml").is_file()
+    assert not (root / "skills").exists()
+    assert not (root / "agents").exists()

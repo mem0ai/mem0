@@ -1,0 +1,25 @@
+{
+  "id": "mem0",
+  "version": "1.4.0",
+  "homepage": "https://docs.mem0.ai/integrations/hermes",
+  "native": {
+    "pluginRoot": "",
+    "pythonFiles": [
+      "message_utils.py"
+    ],
+    "skills": false,
+    "files": {
+      "plugin.yaml": "plugin.yaml",
+      "pyproject.toml": "pyproject.toml",
+      "__init__.py": "__init__.py",
+      "_backend.py": "_backend.py",
+      "_setup.py": "_setup.py",
+      "_openai_llm.py": "_openai_llm.py",
+      "_oss_providers.py": "_oss_providers.py",
+      "README.md": "README.md",
+      "HANDOFF.md": "HANDOFF.md",
+      "LICENSE": "LICENSE",
+      "LICENSE-APACHE-2.0": "LICENSE-APACHE-2.0"
+    }
+  }
+}

@@ -10,10 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from conformance import run as conformance_run  # noqa: E402
 from conformance.run import _command_check  # noqa: E402
 
-
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 RUNNER = PLUGIN_ROOT / "conformance" / "run.py"
-PYTHON_HOSTS = {"claude-code", "cursor", "codex", "kimi", "antigravity"}
+PYTHON_HOSTS = {"claude-code", "cursor", "codex", "kimi", "antigravity", "hermes"}
 
 
 def test_python_bundle_conformance_builds_every_host(tmp_path: Path) -> None:
@@ -78,6 +77,12 @@ def test_conformance_plan_covers_every_runtime(tmp_path: Path) -> None:
         "deepseek",
     }
     assert all(entry["status"] == "planned" for entry in payload["checks"])
+    python_commands = [entry["command"] for entry in payload["checks"] if entry["group"] == "python-tests"]
+    assert any(
+        "integrations/hermes-plugin/tests" in command
+        and "--confcutdir=integrations/hermes-plugin/tests" in command
+        for command in python_commands
+    )
     assert {
         entry["group"]
         for entry in payload["checks"]

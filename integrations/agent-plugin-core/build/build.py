@@ -25,6 +25,7 @@ NATIVE_PLUGINS = {
     "codex": INTEGRATIONS_ROOT / "codex-plugin",
     "kimi": INTEGRATIONS_ROOT / "kimi-plugin",
     "antigravity": INTEGRATIONS_ROOT / "antigravity-plugin",
+    "hermes": INTEGRATIONS_ROOT / "hermes-plugin",
 }
 PROTECTED_OUTPUTS = {
     REPOSITORY_ROOT,
@@ -88,13 +89,26 @@ def _bundle_python(
     *,
     plugin_data: str = "",
     portable: bool = False,
+    python_files: list[str] | None = None,
+    skills: bool = True,
 ) -> None:
     core = staged / "core"
     core.mkdir()
-    for source in sorted((CORE_ROOT / "python").glob("*.py")):
-        if portable and source.name in {"flush_worker.py", "hook_runner.py"}:
-            continue
-        shutil.copy2(source, core / source.name)
+    if python_files is None:
+        python_files = sorted(source.name for source in (CORE_ROOT / "python").glob("*.py"))
+    if not isinstance(python_files, list) or any(
+        not isinstance(name, str) or Path(name).name != name or Path(name).suffix != ".py" for name in python_files
+    ):
+        raise ValueError("pythonFiles must be a list of Python source filenames")
+    _copy_declared_files(
+        core,
+        CORE_ROOT / "python",
+        {name: name for name in python_files if not portable or name not in {"flush_worker.py", "hook_runner.py"}},
+    )
+    if not isinstance(skills, bool):
+        raise ValueError("native skills must be a boolean")
+    if not skills:
+        return
 
     values = {
         "PLUGIN_ROOT": plugin_root,
@@ -150,6 +164,8 @@ def _build_native(host: str, source_root: Path, staged: Path, descriptor: dict) 
         host,
         native["pluginRoot"],
         plugin_data=str(native.get("pluginData") or ""),
+        python_files=native.get("pythonFiles"),
+        skills=native.get("skills", True),
     )
     _copy_declared_files(staged, source_root, native.get("files", {}))
 
@@ -221,7 +237,10 @@ def sync_generated(host: str, kind: str) -> Path:
     with tempfile.TemporaryDirectory(prefix=f"mem0-sync-{host}-") as temporary:
         generated = build(host, kind, Path(temporary) / "bundle")
         for directory in ("core", "skills"):
-            replace_output(generated / directory, target / directory)
+            if (generated / directory).is_dir():
+                replace_output(generated / directory, target / directory)
+            elif (target / directory).exists():
+                shutil.rmtree(target / directory)
     return target
 
 

@@ -18,10 +18,11 @@ integrations/
 ├── cursor-plugin/           # Native Cursor package and adapter
 ├── codex-plugin/            # Native Codex package and adapter
 ├── kimi-plugin/             # Native Kimi package and adapter
-└── antigravity-plugin/      # Native Antigravity package and adapter
+├── antigravity-plugin/      # Native Antigravity package and adapter
+└── hermes-plugin/           # Native Hermes provider; shared message helpers only
 ```
 
-Each native directory owns only its manifest, native hooks or adapter, tests, and `plugin-build.json`. Its `core/` and `skills/` directories are generated from this module. They are committed because clients install a self-contained plugin directory and the Agent Plugins specification forbids package files from resolving outside the plugin root.
+Each native directory owns its manifest, native hooks or adapter, tests, and `plugin-build.json`. Hermes also retains its upstream setup wizard and backend adapters. Its `core/` and `skills/` directories are generated from this module. They are committed because clients install a self-contained plugin directory and the Agent Plugins specification forbids package files from resolving outside the plugin root.
 
 Sidekick belongs only to Claude Code. Its agent definition is in `claude-code-plugin/agents/sidekick.md`; its hooks are in `claude-code-plugin/adapters/claude/hook.py`. Other plugins must not register Sidekick. The shared core handles memory and native subagent tracking for Claude Code and Codex.
 
@@ -29,7 +30,7 @@ TypeScript integrations (`openclaw`, `opencode-plugin`, `pi-agent-plugin`, and `
 
 ## Shared memory behavior
 
-The six Python packages use the same `search_memories` MCP tool and six skill templates. Native hooks collect conversations and flush them to Mem0 in the background. The portable package uses the Agent Plugins v1 layout so compatible hosts can load its MCP server and skills. It has no lifecycle hooks or flush worker; its bundled `remember` skill assumes automatic capture and cannot save a memory on its own.
+The six MCP-based Python packages use the same `search_memories` MCP tool and six skill templates. Native hooks collect conversations and flush them to Mem0 in the background. The portable package uses the Agent Plugins v1 layout so compatible hosts can load its MCP server and skills. It has no lifecycle hooks or flush worker; its bundled `remember` skill assumes automatic capture and cannot save a memory on its own.
 
 Python search accepts `query`, `top_k`, `category`, `scope`, and optional `run_id`:
 
@@ -49,6 +50,8 @@ TypeScript hosts reuse redaction and lifecycle utilities but retain their own to
 
 For installation, follow the host guides: [Claude Code](../../docs/integrations/claude-code.mdx), [Cursor](../../docs/integrations/cursor.mdx), [Codex](../../docs/integrations/codex.mdx), [Kimi](../../docs/integrations/kimi.mdx), and [Antigravity](../../docs/integrations/antigravity.mdx).
 
+Hermes bundles only `python/message_utils.py`, sharing the same secret redaction and lossless token batching. It retains Hermes user-wide recall, four native tools, three backend modes, and legacy configuration. Completed turns are queued in memory, with session `run_id` on writes; network failures are logged and are not durably retried. Explicit `sync_max_chars` values split text instead of truncating it. It does not install the generic MCP skills, repository scopes, or Sidekick.
+
 ## Build and verify
 
 From the repository root:
@@ -58,7 +61,7 @@ python3.11 -m venv /tmp/mem0-agent-plugins
 /tmp/mem0-agent-plugins/bin/pip install \
   -r integrations/agent-plugin-core/requirements-dev.txt
 
-for host in claude-code cursor codex kimi antigravity; do
+for host in claude-code cursor codex kimi antigravity hermes; do
   /tmp/mem0-agent-plugins/bin/python \
     integrations/agent-plugin-core/build/build.py "$host" \
     --kind native --check
@@ -99,7 +102,7 @@ Do not put a real key in source files, command history shared with others, or pu
 For another native Python host:
 
 1. Add `integrations/<host>-plugin/` with its native manifest and the smallest adapter that translates host events.
-2. Add `plugin-build.json` declaring the plugin-root variable and runtime files.
+2. Add `plugin-build.json` declaring the plugin-root variable and runtime files. Native providers can select `native.pythonFiles` and set `native.skills: false` when they expose host-native tools instead of MCP.
 3. Add one adapter contract test.
 4. Register the host in `build/build.py` and `conformance/run.py`.
 5. Run `--sync`, `--check`, and the conformance command above.
@@ -117,6 +120,7 @@ For a TypeScript host, import the shared lifecycle modules directly and keep onl
 | Codex | Native prompt and final-response fields | Structured failure indicators when present; otherwise unknown | Parent context; native agent ID |
 | Kimi | Prompt hooks and completed v2 wire output | Native success/failure hooks | No plugin subagent hooks or agent declaration |
 | Antigravity | Incremental completed transcript messages, including later prompts | Native tool errors | No plugin subagent hooks or agent declaration |
+| Hermes | Completed turns via `sync_turn`, split without truncation | No separate tool-evidence capture | No plugin subagent hooks or agent declaration |
 | Portable v1 | Explicit memory skills | No native lifecycle hooks | No native subagent declaration |
 
 Python status uses `subagent_runs` and `last_subagent`. Legacy SQLite names and event handling keep existing records and running workers compatible.

@@ -13,10 +13,9 @@ import time
 from pathlib import Path
 from typing import Any
 
-
 CORE_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = CORE_ROOT.parents[1]
-PYTHON_HOSTS = ("claude-code", "cursor", "codex", "kimi", "antigravity")
+PYTHON_HOSTS = ("claude-code", "cursor", "codex", "kimi", "antigravity", "hermes")
 GROUPS = (
     "python-bundles",
     "python-tests",
@@ -30,9 +29,14 @@ LIVE_GROUP = "live-platform"
 
 sys.path.insert(0, str(CORE_ROOT))
 sys.path.insert(0, str(CORE_ROOT / "python"))
-from memory_core import redact  # noqa: E402
 from build.build import build  # noqa: E402
-from conformance.artifacts import TYPESCRIPT_ARTIFACTS, verify_artifact as _typescript_artifact_check  # noqa: E402
+from conformance.artifacts import (  # noqa: E402
+    TYPESCRIPT_ARTIFACTS,
+)
+from conformance.artifacts import (  # noqa: E402
+    verify_artifact as _typescript_artifact_check,
+)
+from message_utils import redact  # noqa: E402
 
 
 def _package_directories() -> dict[str, Path]:
@@ -61,6 +65,14 @@ def _runtime_commands() -> dict[str, list[list[str]]]:
                 "-q",
                 "--ignore=integrations/agent-plugin-core/tests/test_conformance.py",
                 "--ignore=integrations/claude-code-plugin/tests/integration",
+            ],
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "integrations/hermes-plugin/tests",
+                "--confcutdir=integrations/hermes-plugin/tests",
+                "-q",
             ]
         ],
         "typescript-core": [["pnpm", "test"], ["pnpm", "typecheck"]],
