@@ -116,7 +116,9 @@ class OSSBackend(Mem0Backend):
 
     def __init__(self, oss_config: dict):
         import os
+
         from mem0 import Memory
+
         from ._oss_providers import EMBEDDER_PROVIDERS, KNOWN_DIMS, LLM_PROVIDERS
 
         def _provider_block(name: str, registry: dict) -> dict:
@@ -156,8 +158,9 @@ class OSSBackend(Mem0Backend):
 
     @staticmethod
     def _recreate_collection_if_dims_changed(provider: str, vs_config: dict, expected_dims: int) -> None:
-        """Delete stale vector collection when embedding dimensions change."""
+        """Reject embedding dimension changes without deleting existing memories."""
         collection_name = vs_config.get("collection_name", "mem0")
+        current_dims = None
         with suppress(Exception):
             if provider == "qdrant":
                 from qdrant_client import QdrantClient
@@ -176,19 +179,20 @@ class OSSBackend(Mem0Backend):
                     if isinstance(vectors, dict):
                         vectors = next(iter(vectors.values()), None)
                     current_dims = getattr(vectors, "size", None)
-                    if current_dims is not None and current_dims != expected_dims:
-                        client.delete_collection(collection_name)
             elif provider == "pgvector":
                 import psycopg2
-                from psycopg2 import sql as pgsql
                 conn_params = {k: vs_config[k] for k in ("host", "port", "user", "password", "dbname", "sslmode") if vs_config.get(k)}
                 with closing(psycopg2.connect(**conn_params)) as conn:
                     conn.autocommit = True
                     with closing(conn.cursor()) as cur:
                         cur.execute("SELECT atttypmod FROM pg_attribute WHERE attrelid = %s::regclass AND attname = 'vector'", (collection_name,))
                         row = cur.fetchone()
-                        if row and row[0] > 0 and row[0] != expected_dims:
-                            cur.execute(pgsql.SQL("DROP TABLE IF EXISTS {}").format(pgsql.Identifier(collection_name)))
+                        current_dims = row[0] if row and row[0] > 0 else None
+        if current_dims is not None and current_dims != expected_dims:
+            raise ValueError(
+                f"Collection {collection_name!r} has {current_dims} embedding dimensions, but {expected_dims} are configured. "
+                "Existing memories were preserved. Restore the previous embedder or use a new collection_name."
+            )
 
     def search(self, query: str, *, filters: dict, top_k: int = 10, rerank: bool = False) -> list[dict]:
         return _unwrap_results(self._memory.search(query, filters=filters, top_k=top_k))

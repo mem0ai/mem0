@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import getpass
 import json
-from contextlib import suppress
 import os
 import shutil
 import socket
@@ -13,12 +12,21 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
 from hermes_constants import get_hermes_home  # noqa: F401 — patched by tests
 
-from ._oss_providers import EMBEDDER_PROVIDERS, KNOWN_DIMS, LLM_PROVIDERS, SECTION_REGISTRIES, VECTOR_PROVIDERS, validate_oss_config, vector_default_config
+from ._oss_providers import (
+    EMBEDDER_PROVIDERS,
+    KNOWN_DIMS,
+    LLM_PROVIDERS,
+    SECTION_REGISTRIES,
+    VECTOR_PROVIDERS,
+    validate_oss_config,
+    vector_default_config,
+)
 
 _OLLAMA_URL = "http://localhost:11434"
 _PGVECTOR_CONTAINER, _PGVECTOR_IMAGE, _PGVECTOR_PASSWORD = "hermes-pgvector", "pgvector/pgvector:pg17", "hermes"
@@ -144,7 +152,9 @@ def _write_env(env_path: Path, env_writes: dict[str, str]) -> None:
     keys = [line.split("=", 1)[0].strip() if "=" in line and not line.startswith("#") else None for line in existing_lines]
     new_lines = [f"{k}={env_writes[k]}" if k in env_writes else line for k, line in zip(keys, existing_lines)]
     new_lines += [f"{k}={v}" for k, v in env_writes.items() if k not in keys]
-    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    from utils import atomic_write_text
+
+    atomic_write_text(env_path, "\n".join(new_lines) + "\n", mode=0o600)
 
 
 def _activate_provider(config: dict) -> None:
@@ -238,11 +248,12 @@ def _print_oss_summary(oss_config: dict, env_writes: dict, dry_run: bool = False
 
 def _finish_oss(hermes_home: str, config: dict, oss_config: dict, env_writes: dict[str, str], user_id: str, agent_id: str, pgvector_config: dict | None = None) -> None:
     """Shared OSS tail: write secrets + mem0.json, install deps, activate, check, summarize."""
-    from utils import read_json_or_empty
+    from . import Mem0MemoryProvider
     if env_writes:
         _write_env(Path(hermes_home) / ".env", env_writes)
-    config_path = Path(hermes_home) / "mem0.json"  # merge-write, plain text (platform path uses save_config's 0600 atomic write)
-    config_path.write_text(json.dumps({**read_json_or_empty(config_path), "mode": "oss", "user_id": user_id, "agent_id": agent_id, "oss": oss_config}, indent=2) + "\n", encoding="utf-8")
+    Mem0MemoryProvider().save_config(
+        {"mode": "oss", "user_id": user_id, "agent_id": agent_id, "oss": oss_config}, hermes_home
+    )
     _install_provider_deps(oss_config["llm"]["provider"], oss_config["embedder"]["provider"], oss_config["vector_store"]["provider"])
     if pgvector_config:
         _ensure_pgvector_extension(pgvector_config)
@@ -502,8 +513,8 @@ def post_setup(hermes_home: str, config: dict) -> None:
     with suppress(ImportError):  # mem0ai must meet the minimum version from plugin.yaml
         import mem0
         installed_ver = getattr(mem0, "__version__", None)
-        if installed_ver and tuple(int(x) for x in installed_ver.split(".")[:3]) < (2, 0, 7):
-            print(f"\n  ⚠ mem0ai {installed_ver} installed but >=2.0.7 required.\n  Run: uv pip install --python {sys.executable} 'mem0ai>=2.0.7'")
+        if installed_ver and tuple(int(x) for x in installed_ver.split(".")[:3]) < (2, 0, 10):
+            print(f"\n  ⚠ mem0ai {installed_ver} installed but >=2.0.10 required.\n  Run: uv pip install --python {sys.executable} 'mem0ai>=2.0.10'")
     flags = parse_flags(sys.argv[1:])
     handler = _MODE_HANDLERS.get(flags["mode"])
     flags["_mode_from_flag"] = handler is not None

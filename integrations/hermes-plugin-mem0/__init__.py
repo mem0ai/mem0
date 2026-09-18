@@ -78,6 +78,7 @@ def _load_config() -> dict:
     Layering avoids a silent failure when the JSON file exists but lacks fields
     like ``api_key`` that the user set in ``.env``."""
     from hermes_constants import get_hermes_home
+
     # Identity (user/agent id), host and mode are .env values like the key: read them through the
     # profile scope too, or a secondary profile's memories land in the default profile's account.
     # A scope-less multiplex caller raises here on purpose — that is a spawn-site bug, and
@@ -152,7 +153,8 @@ class Mem0MemoryProvider(MemoryProvider):
         atomic_json_write(config_path, {**read_json_or_empty(config_path), **values}, mode=0o600)
 
     def get_config_schema(self):
-        api_key_required = _load_config().get("mode", "platform") != "oss"
+        cfg = _load_config()
+        api_key_required = cfg.get("mode", "platform") != "oss" and not cfg.get("host")
         return [
             {"key": "api_key", "description": "Mem0 Platform API key", "secret": True, "required": api_key_required, "env_var": "MEM0_API_KEY", "url": "https://app.mem0.ai"},
             {"key": "host", "description": "Self-hosted Mem0 server URL (leave blank for cloud)", "required": False, "env_var": "MEM0_HOST"},
@@ -272,9 +274,9 @@ class Mem0MemoryProvider(MemoryProvider):
             return
 
         def _run():
-            results = self._try(lambda: self._search(query, backend=backend), logger.debug, "Mem0 prefetch failed: %s")
+            results = self._try(lambda: self._search(query, rerank=self._rerank_default, backend=backend), logger.debug, "Mem0 prefetch failed: %s")
             lines = [r.get("memory", "") for r in (results or []) if r.get("memory")]
-            body = "## Mem0 Memory\n" + "\n".join(f"- {l}" for l in lines) if lines else ""
+            body = "## Mem0 Memory\n" + "\n".join(f"- {line}" for line in lines) if lines else ""
             with self._prefetch_lock:
                 if self._prefetch_query == query:
                     self._prefetch_result, self._prefetch_done = body, True
@@ -360,8 +362,15 @@ class Mem0MemoryProvider(MemoryProvider):
         if tool_name not in self._TOOL_HANDLERS:
             return tool_error(f"Unknown tool: {tool_name}")
         required, label, body, on_client_error = self._TOOL_HANDLERS[tool_name]
-        if missing := next((k for k in required if not args.get(k, "")), None):
-            return tool_error(f"Missing required parameter: {missing}")
+        if not isinstance(args, dict):
+            return tool_error("Tool arguments must be an object")
+        if missing := next((k for k in required if not isinstance(args.get(k), str) or not args[k].strip()), None):
+            return tool_error(f"Missing or invalid required parameter: {missing}")
+        if tool_name == "mem0_search":
+            try:
+                int(args.get("top_k", 10))
+            except (TypeError, ValueError, OverflowError):
+                return tool_error("top_k must be an integer")
         try:
             result = body(self, args)
         except Exception as e:

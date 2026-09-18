@@ -1,6 +1,6 @@
-> **Handoff repository.** This is the standalone copy of the `mem0` memory provider formerly bundled with Hermes Agent, published so its upstream maintainers can take it over. Not an official Nous Research plugin. See [HANDOFF.md](HANDOFF.md).
-
 # Mem0 Memory Provider
+
+Standalone copy of the [Nous Research provider](https://github.com/NousResearch/hermes-plugin-mem0/tree/3fc36950b2b7c19cdd81c6de99f10d2cbed850af), maintained in this subdirectory. The original MIT license is retained.
 
 Server-side LLM fact extraction with semantic search and hybrid multi-signal retrieval via the Mem0 Platform v3 API.
 
@@ -8,6 +8,30 @@ Server-side LLM fact extraction with semantic search and hybrid multi-signal ret
 
 - `pip install mem0ai`
 - Mem0 API key from [app.mem0.ai](https://app.mem0.ai)
+
+## Install
+
+After this directory is merged to Mem0's main branch:
+
+```bash
+hermes plugins install mem0ai/mem0/integrations/hermes-plugin-mem0
+hermes plugins enable mem0
+```
+
+Hermes versions that still bundle Mem0 prefer the bundled provider. The external copy
+loads once that bundled provider is removed. Keep `memory.provider: mem0`, your existing
+`mem0.json`, `MEM0_*` variables, user ID, and OSS storage paths.
+
+Automatic migration requires Hermes' migration support and an approved catalog entry
+named `mem0`, with `repo: https://github.com/mem0ai/mem0`,
+`subdir: integrations/hermes-plugin-mem0`, and a full reviewed commit SHA.
+Merging this directory does not register that catalog entry. Startup installation also
+requires `security.allow_lazy_installs`; disabled or offline installs require manual action.
+
+The plugin provides `get_config_schema`, `save_config`, and `post_setup` for CLI setup.
+It does not ship a Desktop `config_schema.py` panel or provider-specific `cli.py` commands.
+On Hermes v0.21.3, install the dependencies declared in `pyproject.toml` into the Hermes
+Python environment explicitly; newer Hermes installers handle them automatically.
 
 ## Setup
 
@@ -101,7 +125,7 @@ hermes memory setup mem0 --mode oss \
 
 | Flag | Description |
 |------|-------------|
-| `--mode` | `platform` or `oss` |
+| `--mode` | `platform`, `selfhosted`, or `oss` |
 | `--oss-llm` | LLM provider (default: openai) |
 | `--oss-llm-key` | LLM API key |
 | `--oss-embedder` | Embedder provider (default: openai) |
@@ -188,3 +212,31 @@ curl http://localhost:11434/api/tags
 - `mem0_add` stores verbatim (no extraction). Use `sync_turn` for LLM extraction.
 - Search uses semantic matching — try broader queries.
 - Check `user_id` matches between sessions (`$HERMES_HOME/mem0.json`).
+
+### Existing OSS collection has different embedding dimensions
+
+Initialization now fails without deleting the existing collection. Restore the previous
+embedding model/dimensions or select a new collection name and migrate data explicitly.
+Setup saves credentials and OSS configuration atomically with owner-only permissions.
+
+## Local checks
+
+From the Mem0 repository root, with `pytest` installed:
+
+```bash
+python -m pytest -q --confcutdir=integrations/hermes-plugin-mem0/tests integrations/hermes-plugin-mem0/tests
+ruff check integrations/hermes-plugin-mem0
+isort --check-only --profile black integrations/hermes-plugin-mem0
+```
+
+For the runtime smoke, use an environment containing Hermes dependencies, `mem0ai`, and
+`qdrant-client`:
+
+```bash
+HERMES_SOURCE=/path/to/hermes-agent python integrations/hermes-plugin-mem0/tests/smoke_hermes.py
+```
+
+The smoke uses the real Hermes external loader, Mem0 SDK, and an on-disk Qdrant database
+in a temporary profile. It exercises CLI setup/status, all four tools, recall, background extraction,
+existing user identity, private files, dimension-mismatch protection, shutdown, and persistence across restart. Only the OpenAI-compatible
+model service is simulated locally; this does not test live cloud credentials or model quality.
