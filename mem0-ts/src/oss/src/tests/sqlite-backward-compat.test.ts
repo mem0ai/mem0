@@ -36,7 +36,9 @@ describe("backward compat: ConfigManager.mergeConfig", () => {
     expect(cfg.llm.provider).toBe("openai");
     expect(cfg.historyStore).toBeDefined();
     expect(cfg.historyStore!.provider).toBe("sqlite");
-    expect(cfg.historyStore!.config.historyDbPath).toBe("memory.db");
+    expect(cfg.historyStore!.config.historyDbPath).toBe(
+      path.join(os.homedir(), ".mem0", "history.db"),
+    );
     expect(cfg.disableHistory).toBe(false);
   });
 
