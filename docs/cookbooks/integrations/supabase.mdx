@@ -34,7 +34,7 @@ flowchart LR
   MCP --> B
 ```
 
-Memory is partitioned by **scope** (Mem0's `user_id` entity): company-wide is `org:acme`, a team is `team:growth`, a person is `person:<supabase-user-id>`.
+Memory splits by entity. An individual is a **`user_id`** (their Supabase Auth id). Shared knowledge lives on an **`agent_id`**: the company-wide brain is `org:acme`, and each team is its own agent, e.g. `team:payments`. A person's own facts route to their `user_id`; company and team facts route to the agent. This split is what lets one search return "my" context alongside the shared org knowledge.
 
 ## Prerequisites
 
@@ -65,9 +65,9 @@ create table public.employees (
 -- The company knowledge the brain ingests. `scope` decides who can recall it.
 create table public.knowledge (
   id             bigint generated always as identity primary key,
-  scope          text not null,                    -- 'org:acme' | 'team:growth' | 'person:<uuid>'
+  scope          text not null,                    -- the shared agent this belongs to: 'org:acme' | 'team:payments'
   content        text not null,
-  author         uuid references auth.users (id),
+  author         uuid references auth.users (id),   -- who recorded it (their user_id); null for org seed data
   created_at     timestamptz default now(),
   mem0_synced_at timestamptz                        -- null until ingested into the brain
 );
@@ -88,7 +88,7 @@ Grab your project URL and **service-role** key from **Settings → API** (the in
 
 ```bash
 mkdir company-brain && cd company-brain
-pip install mem0ai supabase requests
+pip install "mem0ai>=2.0.17" supabase requests   # 2.0.17+ for agent_custom_instructions
 ```
 
 ```bash
@@ -99,7 +99,7 @@ export SUPABASE_SERVICE_KEY="<service-role-key>"
 
 ## Step 4: Configure the brain
 
-Create **`brain.py`**. This constructs the Platform client and teaches it what "company knowledge" means with **custom instructions** and **custom categories**, so extraction keeps decisions and ownership, not small talk, and files each memory under a useful label.
+Create **`brain.py`**. This constructs the Platform client and teaches it what to remember. The key is the **two** instruction sets: `custom_instructions` governs a person's own (`user_id`) memories, and `agent_custom_instructions` governs shared (`agent_id`) memories, phrased in the third person so company facts read "The company…", not "The user's organization…". `custom_categories` files each memory under a useful label.
 
 ```python
 # brain.py
@@ -110,9 +110,16 @@ client = MemoryClient(api_key=os.environ["MEM0_API_KEY"])
 
 # Steer extraction (project-wide). Runs server-side; no LLM key needed here.
 client.project.update(
+    # Governs a person's OWN memories (user_id).
     custom_instructions=(
-        "Extract durable organizational knowledge: decisions and their rationale, "
-        "ownership (who owns what), processes, policies, tooling choices, and gotchas. "
+        "Extract the individual's own durable preferences, context, and how they work. "
+        "Ignore greetings and one-off chatter."
+    ),
+    # Governs SHARED memories (agent_id) — write them in the third person.
+    agent_custom_instructions=(
+        "Extract durable company/team knowledge in the third person "
+        "(\"The company...\", \"The team...\"): decisions and their rationale, ownership "
+        "(who owns what), processes, policies, tooling choices, and gotchas. "
         "Ignore greetings, scheduling, and one-off chatter."
     ),
     custom_categories=[
@@ -123,10 +130,10 @@ client.project.update(
     ],
 )
 
-# Scope helpers: the brain is partitioned by audience via Mem0's user_id.
-COMPANY = "org:acme"
-def team(name):   return f"team:{name}"
-def person(uid):  return f"person:{uid}"        # uid = Supabase auth user id
+# Scopes. A person is a user_id; shared brains are agent_ids.
+COMPANY = "org:acme"                       # agent_id: company-wide shared brain
+def team(name):   return f"team:{name}"    # agent_id: a team's shared brain
+def person(uid):  return uid               # user_id: an individual (Supabase auth id)
 ```
 
 Run it once to apply the project settings:
@@ -144,7 +151,7 @@ This is where Supabase and the brain connect. Create **`ingest.py`**: read un-sy
 # ingest.py
 import os, time, requests
 from supabase import create_client
-from brain import client
+from brain import client, person
 
 sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])
 MEM0_HEADERS = {"Authorization": f"Token {os.environ['MEM0_API_KEY']}"}
@@ -162,12 +169,16 @@ def wait_for(event_id, timeout=30):
 rows = sb.table("knowledge").select("*").is_("mem0_synced_at", "null").execute().data
 
 for row in rows:
-    # 2. Add it to the brain under its scope
-    res = client.add(
-        [{"role": "user", "content": row["content"]}],
-        user_id=row["scope"],
-        metadata={"source": "supabase", "knowledge_id": row["id"]},
-    )
+    # 2. Add it. agent_id = the shared scope (org/team); user_id = who recorded it.
+    #    Mem0 routes shared facts to the agent and personal facts to the individual,
+    #    so pass both when there's an author.
+    add_kwargs = {
+        "agent_id": row["scope"],
+        "metadata": {"source": "supabase", "knowledge_id": row["id"]},
+    }
+    if row["author"]:
+        add_kwargs["user_id"] = person(row["author"])
+    res = client.add([{"role": "user", "content": row["content"]}], **add_kwargs)
     # 3. Platform returns an event_id; wait for extraction to finish
     event_id = res.get("event_id") if isinstance(res, dict) else None
     if event_id:
@@ -190,17 +201,22 @@ Re-running is safe, `mem0_synced_at` gates it, so a nightly cron can keep the br
 
 ## Step 6: Ask the brain
 
-Create **`ask.py`**. It searches the brain scoped to the asker, then answers. Note that entity IDs go **inside `filters`**, passing `user_id=` at the top level of `search()` is rejected on Platform.
+Create **`ask.py`**. It searches everything relevant to the asker: their own (`user_id`) memories **plus** the shared company and team (`agent_id`) memories. This has to be an **`OR`**, each memory row belongs to exactly one entity, so a flat filter or an `AND` of a `user_id` and an `agent_id` matches nothing.
 
 ```python
 # ask.py
 import sys
-from brain import client, COMPANY
+from brain import client, COMPANY, team, person
 
-def ask(question: str, scope: str = COMPANY) -> str:
+def ask(question: str, uid: str | None = None, user_team: str | None = None) -> str:
+    scopes = [{"agent_id": COMPANY}]              # company-wide brain
+    if user_team:
+        scopes.append({"agent_id": team(user_team)})   # the asker's team
+    if uid:
+        scopes.append({"user_id": person(uid)})        # the asker's own memories
     hits = client.search(
         query=question,
-        filters={"user_id": scope},   # entity IDs MUST live in filters for search()
+        filters={"OR": scopes},   # OR, never AND — one FK per memory row
         top_k=5,
         rerank=True,
     )
@@ -215,11 +231,11 @@ python ask.py "Why did we pick Postgres, and can I deploy on Friday?"
 ```
 
 ```text
-- We chose Postgres over MongoDB for strong transactional guarantees and relational joins
-- Production deploys go out Tuesday and Thursday, never on Fridays
+- The company chose Postgres over MongoDB for strong transactional guarantees and relational joins
+- The company's production deploys go out Tuesday and Thursday, never on Fridays
 ```
 
-Scoped search returns every relevant memory, so a question resolves across separate facts, here it pulls both the owning team and the person:
+Search returns every relevant memory, so a question resolves across separate facts, here it pulls both the owning team and the person:
 
 ```bash
 python ask.py "Who should I talk to about billing?"
@@ -237,20 +253,20 @@ Platform search is hybrid (semantic + keyword) and filterable. Combine a keyword
 ```python
 client.search(
     query="webhook signing secret",
-    filters={"user_id": "team:payments", "categories": {"in": ["tooling"]}},
+    filters={"agent_id": "team:payments", "categories": {"in": ["tooling"]}},
     keyword_search=True,     # hybrid keyword + semantic
     rerank=True,
     threshold=0.3,
 )
 ```
 
-Filters use keyword operators (`in`, `gte`, `contains`, …) and AND/OR/NOT, so you can scope by date, category, or metadata, for example "policies added this quarter":
+Filters use keyword operators (`in`, `gte`, `contains`, …) and AND/OR/NOT, so you can scope by date, category, or metadata, for example the company's policies added this quarter:
 
 ```python
 client.search(
     query="compliance rules",
     filters={"AND": [
-        {"user_id": "org:acme"},
+        {"agent_id": "org:acme"},
         {"categories": {"in": ["policy"]}},
         {"created_at": {"gte": "2026-01-01"}},
     ]},
@@ -284,7 +300,7 @@ Auth happens via Mem0's OAuth flow on first use, don't paste a static token into
 # authenticate via Mem0's OAuth flow, and pass the company scope on each call.
 await mcp.call_tool("search_memories", {
     "query": user_message,
-    "user_id": "org:acme",
+    "agent_id": "org:acme",
 })
 ```
 </Tab>
@@ -294,29 +310,29 @@ With this, an engineer asks the brain from their editor and a teammate asks it f
 
 ## Step 9: Onboard a new hire (the payoff)
 
-This is what a company brain is *for*. Dana joins, and her identity comes from **Supabase Auth**, which maps straight to her Mem0 scope. She asks the questions every new hire asks and gets real answers on day one, from knowledge no one wrote for her.
+This is what a company brain is *for*. Dana joins, and her identity comes from **Supabase Auth**, which maps straight to her Mem0 `user_id`. She asks the questions every new hire asks and gets real answers on day one, drawn from the shared company (and her team's) brain, plus anything she's told it herself.
 
 ```python
 # onboarding.py
 from ask import ask
 
-# In a real app this uuid comes from sb.auth.get_user(jwt).user.id
-dana_uid = "8f3c...-dana"
+# In a real app these come from sb.auth.get_user(jwt) and the employees table.
+dana_uid, dana_team = "8f3c...-dana", "payments"
 
 for q in [
     "Who owns billing and who do I talk to?",
     "When are deploys, and are there hard rules?",
     "Where does customer data have to live?",
 ]:
-    print(f"Q: {q}\nA: {ask(q)}\n")   # company scope; add person:{dana_uid} for her own context
+    print(f"Q: {q}\nA: {ask(q, uid=dana_uid, user_team=dana_team)}\n")
 ```
 
 ```text
 Q: Who owns billing and who do I talk to?
-A: - Billing is owned by the Payments team; Alice is the tech lead
+A: - Billing is owned by the Payments team; Alice is the Payments tech lead
 
 Q: When are deploys, and are there hard rules?
-A: - Production deploys go out Tuesday and Thursday, never on Fridays
+A: - The company's production deploys go out Tuesday and Thursday, never on Fridays
 
 Q: Where does customer data have to live?
 A: - Customer data must stay in the EU region for GDPR compliance
@@ -327,7 +343,11 @@ Dana onboarded herself by asking, drawing on the shared brain the rest of the te
 ## Production notes
 
 <Warning>
-**Scope discipline.** Company truth → `org:<name>`; team detail → `team:<name>`; personal context → `person:<supabase-uuid>`. Put a secret like a webhook key in a **team** scope, never the company scope, or everyone can recall it. Mirror this in Supabase with a Row Level Security policy on `knowledge` so people only read their own scopes.
+**`user_id` vs `agent_id`.** An individual is a `user_id`; shared brains (company, team) are `agent_id`s. Keeping them separate is what gives you the third-person "The company…" framing and lets a person's own context sit alongside org knowledge. Put a secret like a webhook key on a **team** agent, never the company agent, or everyone can recall it, and mirror the boundary in Supabase with a Row Level Security policy on `knowledge`.
+</Warning>
+
+<Warning>
+**Search must `OR` the scopes.** A memory row belongs to exactly one entity, so `filters={"OR": [{"user_id": ...}, {"agent_id": "org:acme"}, {"agent_id": "team:..."}]}`. A flat filter, or an `AND` of a `user_id` and an `agent_id`, returns nothing.
 </Warning>
 
 <Warning>
@@ -335,13 +355,13 @@ Dana onboarded herself by asking, drawing on the shared brain the rest of the te
 </Warning>
 
 <Note>
-**Where the entity ID goes differs by call.** `search()` and `get_all()` take the scope inside `filters={"user_id": ...}` (a top-level `user_id=` is rejected). `add()` and `delete_all()` are the opposite, they take it as a top-level keyword: `client.delete_all(user_id="team:payments")`. Deletes are asynchronous too, so a `get_all` right after a `delete_all` can still show rows for a few seconds.
+**Where the entity ID goes differs by call.** `search()` and `get_all()` take the scope inside `filters={...}` (a top-level `user_id=`/`agent_id=` is rejected). `add()` and `delete_all()` are the opposite, they take it as a top-level keyword: `client.delete_all(agent_id="team:payments")`. Deletes are asynchronous too, so a `get_all` right after a `delete_all` can still show rows for a few seconds.
 </Note>
 
 ## Where to take it next
 
 - **Auto-feed the brain** from PR descriptions, RFCs, and incident write-ups so it grows without anyone thinking about it, just insert into Supabase `knowledge` and let the cron ingest.
-- **Scope by real identity** end to end: verify the Supabase JWT, read `sb.auth.get_user(jwt).user.id`, and pass `person:<id>` + the user's `team:<name>` on every recall.
+- **Scope by real identity** end to end: verify the Supabase JWT, read `sb.auth.get_user(jwt).user.id` for the `user_id`, look up the person's team, and `OR` their `user_id` with the company and team `agent_id`s on every recall.
 - **Give teams a private view** with Supabase RLS so `team:` knowledge is only readable by that team.
 
 ---
