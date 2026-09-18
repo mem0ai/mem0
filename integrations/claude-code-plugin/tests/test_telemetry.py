@@ -199,9 +199,11 @@ def test_a_stale_claim_is_reclaimed(isolated_env, monkeypatch):
     telemetry.record("search")
     orphan = telemetry._claim_spool()
     assert orphan is not None
-    monkeypatch.setattr(
-        telemetry.time, "time", lambda: orphan.stat().st_mtime + telemetry.CLAIM_STALE_SECONDS + 1
-    )
+    # Frozen rather than re-stat'd per call: flush() drains the live spool and
+    # then looks for parked claims in the same run, so by the second look this
+    # file no longer exists.
+    stale_now = orphan.stat().st_mtime + telemetry.CLAIM_STALE_SECONDS + 1
+    monkeypatch.setattr(telemetry.time, "time", lambda: stale_now)
 
     with patch.object(telemetry, "_post", lambda payload, url: True):
         assert telemetry.flush() == 1
@@ -211,9 +213,13 @@ def test_an_expired_claim_is_dropped(isolated_env, monkeypatch):
     telemetry.record("search")
     orphan = telemetry._claim_spool()
     assert orphan is not None
-    monkeypatch.setattr(
-        telemetry.time, "time", lambda: orphan.stat().st_mtime + telemetry.CLAIM_EXPIRY_SECONDS + 1
-    )
+    expired_now = orphan.stat().st_mtime + telemetry.CLAIM_EXPIRY_SECONDS + 1
+    monkeypatch.setattr(telemetry.time, "time", lambda: expired_now)
+    # Expiry now only discards a batch that was genuinely retried and failed,
+    # so age alone is not enough — age it past the attempt budget too.
+    retried = orphan.parent / orphan.name.replace("-a0.", f"-a{telemetry.MAX_CLAIM_ATTEMPTS}.")
+    orphan.replace(retried)
+    os.utime(retried, (expired_now, expired_now - telemetry.CLAIM_EXPIRY_SECONDS - 1))
     assert telemetry._claim_spool() is None
     assert not list(memory_core.data_dir().glob("telemetry-*.sending"))
 
