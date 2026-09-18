@@ -55,6 +55,15 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    use_input_language: bool = Field(
+        description=(
+            "If True, instruct the extraction LLM to output memories in the same "
+            "language and script as the input conversation. Useful for non-English "
+            "deployments (CJK, Hindi, Arabic, etc.) where the default behavior would "
+            "otherwise translate stored facts into English."
+        ),
+        default=False,
+    )
 
 
 class AzureConfig(BaseModel):
