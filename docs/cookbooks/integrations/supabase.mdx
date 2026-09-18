@@ -115,7 +115,7 @@ client.project.update(
         "Extract the individual's own durable preferences, context, and how they work. "
         "Ignore greetings and one-off chatter."
     ),
-    # Governs SHARED memories (agent_id) — write them in the third person.
+    # Governs SHARED memories (agent_id); write them in the third person.
     agent_custom_instructions=(
         "Extract durable company/team knowledge in the third person "
         "(\"The company...\", \"The team...\"): decisions and their rationale, ownership "
@@ -216,7 +216,7 @@ def ask(question: str, uid: str | None = None, user_team: str | None = None) -> 
         scopes.append({"user_id": person(uid)})        # the asker's own memories
     hits = client.search(
         query=question,
-        filters={"OR": scopes},   # OR, never AND — one FK per memory row
+        filters={"OR": scopes},   # OR, never AND (one FK per memory row)
         top_k=5,
         rerank=True,
     )
