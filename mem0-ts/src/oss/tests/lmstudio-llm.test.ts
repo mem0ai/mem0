@@ -5,16 +5,56 @@
 
 import { LMStudioLLM } from "../src/llms/lmstudio";
 
+let capturedConstructorArgs: any;
 const mockCreate = jest.fn();
 
 jest.mock("openai", () => {
-  return jest.fn().mockImplementation(() => ({
-    chat: { completions: { create: mockCreate } },
-  }));
+  return jest.fn().mockImplementation((args: any) => {
+    capturedConstructorArgs = args;
+    return {
+      chat: { completions: { create: mockCreate } },
+    };
+  });
 });
 
 describe("LMStudioLLM (unit)", () => {
-  beforeEach(() => mockCreate.mockClear());
+  beforeEach(() => {
+    mockCreate.mockClear();
+    capturedConstructorArgs = undefined;
+    delete process.env.LMSTUDIO_BASE_URL;
+  });
+
+  afterEach(() => {
+    delete process.env.LMSTUDIO_BASE_URL;
+  });
+
+  it("uses the default base URL when neither config nor env var is set", () => {
+    new LMStudioLLM({});
+
+    expect(capturedConstructorArgs).toMatchObject({
+      baseURL: "http://localhost:1234/v1",
+    });
+  });
+
+  it("uses LMSTUDIO_BASE_URL when config does not provide a base URL", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://example.test:5678/v1";
+
+    new LMStudioLLM({});
+
+    expect(capturedConstructorArgs).toMatchObject({
+      baseURL: "http://example.test:5678/v1",
+    });
+  });
+
+  it("prefers an explicit config baseURL over LMSTUDIO_BASE_URL", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://example.test:5678/v1";
+
+    new LMStudioLLM({ baseURL: "http://config.test:9999/v1" });
+
+    expect(capturedConstructorArgs).toMatchObject({
+      baseURL: "http://config.test:9999/v1",
+    });
+  });
 
   it("generateResponse() returns a text response", async () => {
     mockCreate.mockResolvedValueOnce({
