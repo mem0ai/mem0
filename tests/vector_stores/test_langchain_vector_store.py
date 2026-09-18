@@ -72,7 +72,7 @@ def test_search_vectors_with_agent_id_run_id_filters(langchain_instance):
     # Mock search results
     mock_docs = [
         Mock(metadata={"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}, id="id1"),
-        Mock(metadata={"user_id": "bob", "agent_id": "agent2", "run_id": "run2"}, id="id2")
+        Mock(metadata={"user_id": "bob", "agent_id": "agent2", "run_id": "run2"}, id="id2"),
     ]
     langchain_instance.client.similarity_search_by_vector.return_value = mock_docs
 
@@ -120,9 +120,7 @@ def test_search_vectors_with_no_filters(langchain_instance):
     results = langchain_instance.search(query="", vectors=vectors, top_k=2, filters=None)
 
     # Verify that no filters were passed to the underlying vector store
-    langchain_instance.client.similarity_search_by_vector.assert_called_once_with(
-        embedding=vectors, k=2
-    )
+    langchain_instance.client.similarity_search_by_vector.assert_called_once_with(embedding=vectors, k=2)
 
     assert len(results) == 1
 
@@ -153,7 +151,7 @@ def test_list_with_filters(langchain_instance):
     mock_collection.get.return_value = {
         "ids": [["id1"]],
         "metadatas": [[{"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}]],
-        "documents": [["test document"]]
+        "documents": [["test document"]],
     }
     langchain_instance.client._collection = mock_collection
 
@@ -178,7 +176,7 @@ def test_list_with_single_filter(langchain_instance):
     mock_collection.get.return_value = {
         "ids": [["id1"]],
         "metadatas": [[{"user_id": "alice"}]],
-        "documents": [["test document"]]
+        "documents": [["test document"]],
     }
     langchain_instance.client._collection = mock_collection
 
@@ -201,7 +199,7 @@ def test_list_with_no_filters(langchain_instance):
     mock_collection.get.return_value = {
         "ids": [["id1"]],
         "metadatas": [[{"name": "vector1"}]],
-        "documents": [["test document"]]
+        "documents": [["test document"]],
     }
     langchain_instance.client._collection = mock_collection
 
@@ -265,12 +263,72 @@ def test_search_uses_scored_method_when_available(langchain_instance):
     assert results[1].score == pytest.approx(0.42)
 
 
+def test_search_normalizes_raw_scores_with_client_relevance_function(langchain_instance):
+    """Raw distance scores are converted before mem0 ranks the results."""
+    mock_docs = [Mock(metadata={"data": "mem A"}, id="id1"), Mock(metadata={"data": "mem B"}, id="id2")]
+    langchain_instance.client.similarity_search_with_score_by_vector = Mock(
+        return_value=[(mock_docs[0], 0.05), (mock_docs[1], 1.8)]
+    )
+    langchain_instance.client.distance_strategy = "EUCLIDEAN_DISTANCE"
+    langchain_instance.client._select_relevance_score_fn.return_value = lambda score: 1.0 / (1.0 + score)
+
+    results = langchain_instance.search(query="test", vectors=[[0.1, 0.2]], top_k=5)
+
+    assert results[0].score == pytest.approx(1.0 / 1.05)
+    assert results[1].score == pytest.approx(1.0 / 2.8)
+
+    from mem0.utils.scoring import score_and_rank
+
+    ranked = score_and_rank(
+        [{"id": result.id, "score": result.score} for result in results],
+        {},
+        {},
+        threshold=0.1,
+        top_k=5,
+    )
+    assert [result["id"] for result in ranked] == ["id1", "id2"]
+
+
+def test_search_uses_default_normalization_without_client_relevance_function(langchain_instance):
+    """Distance clients still satisfy the score contract without a hook."""
+    mock_doc = Mock(metadata={"data": "mem A"}, id="id1")
+    langchain_instance.client.similarity_search_with_score_by_vector = Mock(return_value=[(mock_doc, 0.42)])
+    langchain_instance.client.distance_strategy = "EUCLIDEAN_DISTANCE"
+    langchain_instance.client._select_relevance_score_fn.side_effect = NotImplementedError
+
+    results = langchain_instance.search(query="test", vectors=[[0.1, 0.2]], top_k=5)
+
+    assert results[0].score == pytest.approx(1.0 / 1.42)
+
+
+def test_search_keeps_similarity_scores_for_cosine_clients(langchain_instance):
+    """Cosine clients such as Qdrant already return higher-is-better scores."""
+    mock_doc = Mock(metadata={"data": "mem A"}, id="id1")
+    langchain_instance.client.similarity_search_with_score_by_vector = Mock(return_value=[(mock_doc, 0.95)])
+    langchain_instance.client.distance_strategy = "COSINE"
+    langchain_instance.client._select_relevance_score_fn.return_value = lambda score: 1.0 - score
+
+    results = langchain_instance.search(query="test", vectors=[[0.1, 0.2]], top_k=5)
+
+    assert results[0].score == pytest.approx(0.95)
+
+
+def test_search_normalizes_chroma_distance_scores(langchain_instance):
+    """Chroma's raw distance method is normalized despite its method name."""
+    mock_doc = Mock(metadata={"data": "mem A"}, id="id1")
+    langchain_instance.client.similarity_search_by_vector_with_relevance_scores = Mock(return_value=[(mock_doc, 0.05)])
+    langchain_instance.client._collection = Mock(metadata=None)
+    langchain_instance.client._select_relevance_score_fn.return_value = lambda score: 1.0 / (1.0 + score)
+
+    results = langchain_instance.search(query="test", vectors=[[0.1, 0.2]], top_k=5)
+
+    assert results[0].score == pytest.approx(1.0 / 1.05)
+
+
 def test_search_falls_back_when_scored_method_raises_not_implemented(langchain_instance):
     """If the scored method raises NotImplementedError, fall back to score=1.0."""
     mock_docs = [Mock(metadata={"data": "mem A"}, id="id1")]
-    langchain_instance.client.similarity_search_by_vector_with_relevance_scores = Mock(
-        side_effect=NotImplementedError
-    )
+    langchain_instance.client.similarity_search_by_vector_with_relevance_scores = Mock(side_effect=NotImplementedError)
     langchain_instance.client.similarity_search_by_vector.return_value = mock_docs
 
     results = langchain_instance.search(query="test", vectors=[[0.1, 0.2]], top_k=5)
