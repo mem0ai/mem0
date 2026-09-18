@@ -26,10 +26,8 @@ export const name = "mem0";
 export const inject = ["tools", "systemPrompt"];
 
 // Tags writes so Mem0's backend attributes them to this integration in
-// telemetry. The backend keeps recognized values via its KNOWN_EVENT_SOURCES
-// allowlist; unknown values bucket into "OTHERS", so "DEEPSEEK_HARNESS" must be
-// added to that allowlist for usage to surface by name (a one-line backend PR,
-// same pattern as the ZAPIER / STRANDS sources).
+// telemetry. The backend's KNOWN_EVENT_SOURCES allowlist recognizes this value;
+// anything outside it buckets into "OTHERS".
 const SOURCE = "DEEPSEEK_HARNESS";
 
 const DEFAULT_SEARCH_LIMIT = 10;

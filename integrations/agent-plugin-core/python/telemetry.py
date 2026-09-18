@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Anonymous usage telemetry for Mem0 agent plugins.
+"""Usage telemetry for Mem0 agent plugins.
+
+Events are linked to your Mem0 account email when an API key is configured, and
+to a random per-machine id otherwise. Not anonymous — the Python SDK and CLI
+attribute the same way.
 
 Hooks run on a 3-6 second budget and fire on every tool call, so recording never
 touches the network: `record` appends one JSON line to a local spool and returns.
@@ -9,7 +13,8 @@ started once per session and again from the flush worker that is already detache
 Pure stdlib, matching the rest of the plugin. Opt out with MEM0_TELEMETRY=false.
 
 Never sends prompts, memory text, queries, file paths, repository names, or API
-keys: only event names, durations, counts, coarse outcomes, and salted hashes.
+keys: only event names, durations, counts, coarse outcomes, and repo/session
+identifiers hashed with a random per-install salt.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ from typing import Any
 
 import memory_core
 
+_salt_cache: str = ""
 _harness: str = "generic"
 _source_tag: str = "MEM0_PLUGIN"
 _PRIVATE_KEYS = {
@@ -83,7 +89,124 @@ def is_enabled() -> bool:
 
 
 def _digest(value: str, length: int = 16) -> str:
+    """Unsalted digest. Only for values that are already secrets (API keys)."""
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:length]
+
+
+def _salt_path() -> Path:
+    return memory_core.data_dir() / "telemetry-salt"
+
+
+def _install_salt() -> str:
+    """Random per-install salt, created once and memoized for the process.
+
+    Deliberately its own file, claimed with O_CREAT|O_EXCL, rather than a key in
+    the identity file. Three reasons, all of which produced wrong data when this
+    lived in the identity dict:
+
+    - Hooks are short-lived separate processes firing on every tool call, and
+      people run more than one agent window. A read-modify-write would let each
+      process mint its own salt, so one repository would hash several ways in the
+      window before a writer won.
+    - resolve_distinct_id holds a copy of the identity dict across a network call
+      to /v1/ping/, so whichever write landed second erased the other's key —
+      losing either the salt (repo_hash changes mid-stream) or the email (a
+      second $identify, splitting the person).
+    - Touching the identity file from record() would create it, and is_first_run
+      keys off that file, so recording an event would silently suppress the
+      install event.
+
+    Published atomically, and there is deliberately no derived fallback. Creating
+    the file with O_CREAT|O_EXCL and then writing into it leaves a window where
+    the file exists and is empty, and a concurrent hook that reads it in that
+    window gets nothing. Falling back to a digest of the path would hand that
+    process a salt an attacker can compute, memoized for its whole run, which is
+    the privacy control this function exists to provide silently turning itself
+    off under load. The salt is written to a private temp file first and linked
+    into place, so the name either does not exist or already has the full value.
+
+    Returns "" when it genuinely cannot persist. Callers omit the hash entirely
+    rather than emit an unsalted one.
+    """
+    global _salt_cache
+    if _salt_cache:
+        return _salt_cache
+
+    path = _salt_path()
+    # Read before writing. Hooks are separate processes firing on every tool
+    # call, so all but the first find the salt already published; going straight
+    # to create-fsync-link-unlink meant every one of them paid an fsync to
+    # discover that, on a path whose whole promise is appending a line and
+    # returning.
+    try:
+        _salt_cache = path.read_text(encoding="utf-8").strip()
+        if _salt_cache:
+            return _salt_cache
+    except OSError:
+        pass
+
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            stream.write(uuid.uuid4().hex)
+            stream.flush()
+            os.fsync(stream.fileno())
+        try:
+            # Atomic claim: fails if another process already published one.
+            # os.link rather than replace, which would clobber theirs.
+            os.link(temporary, path)
+        except FileExistsError:
+            pass
+        except OSError:
+            # No hardlinks here (some network mounts, some container volumes).
+            # Claim the name directly instead. That reopens the empty-file
+            # window, but the window is now benign: a reader that lands in it
+            # gets "" and omits the hash for that process rather than caching a
+            # guessable one. Losing the hashes on every run of an entire
+            # filesystem is the worse failure.
+            try:
+                fallback = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                with os.fdopen(fallback, "w", encoding="utf-8") as stream:
+                    stream.write(temporary.read_text(encoding="utf-8"))
+            except OSError:
+                pass
+    except OSError:
+        pass
+    finally:
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+
+    try:
+        _salt_cache = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        _salt_cache = ""
+    return _salt_cache
+
+
+def _scoped_digest(value: str, length: int = 16) -> str:
+    """Salted digest for values drawn from a guessable space.
+
+    repo.identity is a git remote URL, or ``local:<absolute path>`` when there is
+    no remote — which normally contains the account username. Sixteen unsalted
+    hex characters over that input space is enumerable, so this is not a
+    privacy control without the salt. Salting per install keeps every
+    within-account join the analytics actually use and gives up only
+    cross-machine joins on the same repository, which nothing computes.
+
+    Returns "" when there is no salt, so record() omits the property. An
+    unsalted digest over this input space is close to plaintext, and emitting one
+    under a name that implies it is hashed is worse than sending nothing.
+    """
+    if not value:
+        return ""
+    salt = _install_salt()
+    if not salt:
+        return ""
+    return hashlib.sha256(f"{salt}:{value}".encode("utf-8")).hexdigest()[:length]
 
 
 def _safe_value(value: Any) -> Any:
@@ -174,10 +297,17 @@ def record(
             os=sys.platform,
             python_version=platform.python_version(),
         )
+        # Assigned only when the digest is real. _scoped_digest returns "" when
+        # the salt could not be persisted, and an empty property is worse than an
+        # absent one: it survives the None filter below and reads as a value.
         if repo is not None:
-            properties["repo_hash"] = _digest(getattr(repo, "identity", ""))
+            repo_hash = _scoped_digest(getattr(repo, "identity", ""))
+            if repo_hash:
+                properties["repo_hash"] = repo_hash
         if session_id:
-            properties["session_hash"] = _digest(session_id)
+            session_hash = _scoped_digest(session_id)
+            if session_hash:
+                properties["session_hash"] = session_hash
         line = json.dumps(
             {
                 "event": f"{EVENT_PREFIX}.{event}",
