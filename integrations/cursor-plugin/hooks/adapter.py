@@ -26,6 +26,7 @@ from memory_core import (  # noqa: E402
 
 EVENTS = {
     "sessionStart": "session-start",
+    "preToolUse": "pre-tool",
     "beforeSubmitPrompt": "user-prompt",
     "postToolUse": "post-tool",
     "postToolUseFailure": "post-tool-failure",
@@ -81,7 +82,10 @@ def main() -> int:
         return 2
     event = sys.argv[1]
     try:
-        raw = json.load(sys.stdin)
+        if not sys.stdin.isatty():
+            raw = json.load(sys.stdin)
+        else:
+            raw = {}
     except (json.JSONDecodeError, OSError):
         raw = {}
     normalized = normalize(raw if isinstance(raw, dict) else {}, event)
