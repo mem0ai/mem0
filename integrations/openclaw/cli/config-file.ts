@@ -34,6 +34,7 @@ export interface PluginAuthConfig {
   autoRecall?: boolean;
   autoCapture?: boolean;
   topK?: number;
+  recallTimeoutMs?: number;
   anonymousTelemetryId?: string;
   /** SHA-256 prefix of the API key userEmail was resolved for. */
   keyFingerprint?: string;
@@ -136,6 +137,7 @@ export function readPluginAuth(): PluginAuthConfig {
     autoRecall: cfg.autoRecall as boolean | undefined,
     autoCapture: cfg.autoCapture as boolean | undefined,
     topK: cfg.topK as number | undefined,
+    recallTimeoutMs: cfg.recallTimeoutMs as number | undefined,
     anonymousTelemetryId: cfg.anonymousTelemetryId as string | undefined,
     // Without this the reader silently drops it, every fingerprint comparison
     // fails against undefined, and the resolved email is never used again.
