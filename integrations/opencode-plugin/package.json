@@ -38,6 +38,7 @@
     "build": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext]",
     "dev": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] --watch",
     "type-check": "tsc --noEmit",
+    "test": "bun test",
     "prepack": "bun run build",
     "postpack": ""
   },
