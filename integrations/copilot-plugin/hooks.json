@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "python3 \"${PLUGIN_ROOT}/hooks/adapter.py\" sessionStart",
+        "timeoutSec": 5
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "python3 \"${PLUGIN_ROOT}/hooks/adapter.py\" userPromptSubmitted",
+        "timeoutSec": 5
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "python3 \"${PLUGIN_ROOT}/hooks/adapter.py\" postToolUse",
+        "timeoutSec": 5
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "python3 \"${PLUGIN_ROOT}/hooks/adapter.py\" agentStop",
+        "timeoutSec": 5
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "bash": "python3 \"${PLUGIN_ROOT}/hooks/adapter.py\" sessionEnd",
+        "timeoutSec": 5
+      }
+    ]
+  }
+}

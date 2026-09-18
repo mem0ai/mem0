@@ -275,6 +275,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Kimi Code](https://docs.mem0.ai/integrations/kimi) [Platform]: Use when adding persistent project memory to Kimi Code through its native plugin lifecycle.
 - [OpenCode](https://docs.mem0.ai/integrations/opencode) [Platform]: Use when adding ten native SDK memory tools, automatic context, seven skills, and project scoping to OpenCode.
 - [Antigravity](https://docs.mem0.ai/integrations/antigravity) [Platform]: Use when adding lifecycle capture, explicit recall, and six memory skills to Google Antigravity.
+- [GitHub Copilot CLI](https://docs.mem0.ai/integrations/copilot) [Platform]: Use when adding lifecycle capture, prompt context injection, and memory skills to GitHub Copilot CLI.
 
 ### Voice & Real-time
 - [LiveKit](https://docs.mem0.ai/integrations/livekit) [Platform]: Use when building real-time voice/video with memory.
@@ -435,6 +436,7 @@ Editor-specific setup docs (already listed above under `## Integrations > AI Cod
 - `integrations/kimi` [Platform]
 - `integrations/opencode` [Platform]
 - `integrations/antigravity` [Platform]
+- `integrations/copilot` [Platform]
 - `integrations/openclaw` [Both]
 - `integrations/pi-agent` [Platform]
 - `integrations/deepseek-plugin` [Platform]

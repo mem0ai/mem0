@@ -1,0 +1,86 @@
+---
+title: GitHub Copilot CLI
+description: "Add persistent memory to GitHub Copilot CLI with the Mem0 plugin: lifecycle hooks, prompt context injection, and memory skills."
+---
+
+Add persistent cross-session memory to [**GitHub Copilot CLI**](https://github.com/features/copilot) with the Mem0 plugin. The plugin automatically captures completed sessions, injects relevant memories during prompt submission, and provides on-demand memory search skills.
+
+<Info>Current plugin version: `0.3.1`.</Info>
+
+## Prerequisites
+
+1. A Mem0 API key (starts with `m0-`):
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-copilot">Get your API key</a> (free sign-up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-copilot">app.mem0.ai</a>)
+
+2. Python 3.10 or newer available as `python3`
+
+3. Add the key to your shell profile so it persists across sessions:
+
+<CodeGroup>
+```bash zsh
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc && source ~/.zshrc
+```
+
+```bash bash
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
+```
+</CodeGroup>
+
+## Installation
+
+Install the plugin directly into GitHub Copilot CLI:
+
+```bash
+copilot plugin install ./integrations/copilot-plugin
+```
+
+Verify the plugin is loaded:
+
+```bash
+copilot plugin list
+```
+
+## What's Included
+
+| Component | Included |
+|-----------|:--------:|
+| Local MCP Server (`search_memories`) | Yes |
+| Lifecycle Hooks (`sessionStart`, `userPromptSubmitted`, `postToolUse`, `agentStop`, `sessionEnd`) | Yes |
+| 6 Memory Skills (`/mem0-remember`, `/mem0-status`, etc.) | Yes |
+
+## Lifecycle Hooks
+
+The plugin translates Copilot CLI lifecycle events into Mem0's evidence and memory capture runtime:
+
+| Hook | Event | What it does |
+|------|-------|-------------|
+| **Session Start** | `sessionStart` | Initializes the session record and recovers pending handoffs |
+| **Prompt Submit** | `userPromptSubmitted` | Injects relevant project and personal memories as prompt context |
+| **Tool Execution** | `postToolUse` | Records tool invocations, outcomes, and failure states |
+| **Agent Stop** | `agentStop` | Records assistant answers and schedules idle checkpointing |
+| **Session End** | `sessionEnd` | Detaches a background worker to extract and persist memories |
+
+## Memory Tools and Skills
+
+The plugin registers a local stdio Model Context Protocol (MCP) server providing:
+- `search_memories`: Semantic memory search scoped to repository, directory, or personal notes.
+- Built-in skills for inspecting memory status and explicitly adding or forgetting facts.
+
+## Search and Scopes
+
+The `search_memories` tool accepts `query`, `top_k`, `category`, and `scope` (`repo`, `dir`, or `mine`):
+
+| Scope | Memories searched |
+| --- | --- |
+| `repo` (default) | Shared repository memories and your personal memories in that repository |
+| `dir` | Shared memories from current directory and its children, plus personal memories |
+| `mine` | Personal memories in the current repository |
+
+## Troubleshooting
+
+- **Memories not appearing in prompt**: Verify `MEM0_API_KEY` is exported in the shell before running `copilot`.
+- **Plugin not listed in `copilot plugin list`**: Re-run `copilot plugin install ./integrations/copilot-plugin`.
+- **Verify API key without exposing it**:
+  ```bash
+  test -n "$MEM0_API_KEY" && echo "Mem0 API key configured"
+  ```

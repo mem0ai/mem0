@@ -25,6 +25,7 @@ NATIVE_PLUGINS = {
     "codex": INTEGRATIONS_ROOT / "codex-plugin",
     "kimi": INTEGRATIONS_ROOT / "kimi-plugin",
     "antigravity": INTEGRATIONS_ROOT / "antigravity-plugin",
+    "copilot": INTEGRATIONS_ROOT / "copilot-plugin",
 }
 PROTECTED_OUTPUTS = {
     REPOSITORY_ROOT,

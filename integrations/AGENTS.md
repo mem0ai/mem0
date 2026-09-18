@@ -8,7 +8,7 @@ Agent and editor integrations. Most packages are self-contained; coding-agent pl
 | `openclaw/` | `@mem0/openclaw-mem0` | tsup (ESM) | none | vitest |
 | `agent-plugin-core/` | Shared Python/TypeScript behavior, skill templates, builds, and conformance | Python build script | ruff + tsc | pytest + node:test |
 | `mem0-agent-plugin/` | One portable Agent Plugins v1 package | Python | ruff | shared conformance |
-| `claude-code-plugin/`, `cursor-plugin/`, `codex-plugin/`, `kimi-plugin/`, `antigravity-plugin/` | Self-contained native plugins generated from the shared Python core | Python | ruff | pytest |
+| `claude-code-plugin/`, `cursor-plugin/`, `codex-plugin/`, `kimi-plugin/`, `antigravity-plugin/`, `copilot-plugin/` | Self-contained native plugins generated from the shared Python core | Python | ruff | pytest |
 | `opencode-plugin/` | `@mem0/opencode-plugin` (Bun/TypeScript) | tsup (via Bun) | tsc | bun test |
 | `pi-agent-plugin/` | `@mem0/pi-agent-plugin` | tsup | none | vitest |
 | `deepseek-plugin/` | `@mem0/deepseek-plugin` | tsup (ESM) | none | vitest |

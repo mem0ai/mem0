@@ -16,7 +16,7 @@ from typing import Any
 
 CORE_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = CORE_ROOT.parents[1]
-PYTHON_HOSTS = ("claude-code", "cursor", "codex", "kimi", "antigravity")
+PYTHON_HOSTS = ("claude-code", "cursor", "codex", "kimi", "antigravity", "copilot")
 GROUPS = (
     "python-bundles",
     "python-tests",
@@ -58,6 +58,7 @@ def _runtime_commands() -> dict[str, list[list[str]]]:
                 "integrations/codex-plugin/tests",
                 "integrations/kimi-plugin/tests",
                 "integrations/antigravity-plugin/tests",
+                "integrations/copilot-plugin/tests",
                 "-q",
                 "--ignore=integrations/agent-plugin-core/tests/test_conformance.py",
                 "--ignore=integrations/claude-code-plugin/tests/integration",
