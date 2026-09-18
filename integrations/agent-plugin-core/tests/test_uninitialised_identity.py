@@ -177,3 +177,71 @@ def test_source_tag_defaults_agree_between_the_two_modules():
         )
     left, right = out.split()
     assert left == right == "KIMI_PLUGIN"
+
+
+def _session_start(core: Path, data_dir: Path) -> list[str]:
+    """Drive the real hook_runner session-start path and return lifecycle events."""
+    recorded = "\n".join(
+        [
+            "import io, json, sys",
+            f"sys.path.insert(0, {str(core)!r})",
+            "import telemetry, hook_runner",
+            "seen = []",
+            "telemetry.record = lambda event, **kw: seen.append(event) or None",
+            "telemetry.spawn_flush = lambda: False",
+            # run() reads sys.argv through argparse; it takes no positional args.
+            "sys.argv = ['hook_runner', 'session-start']",
+            "sys.stdin = io.StringIO('{}')",
+            "hook_runner.run()",
+            "print(json.dumps([e for e in seen if e in ('install', 'upgrade')]))",
+        ]
+    )
+    import json as _json
+
+    return _json.loads(_run(core, data_dir, recorded) or "[]")
+
+
+def test_a_fresh_install_reports_install_not_upgrade():
+    """The decision must survive the writes hook_runner does before asking.
+
+    claim_install() is reached only after cache_plugin_api_key() has written
+    `api-key` and EvidenceStore() has created `evidence.sqlite3`. Asking "is the
+    data dir empty" at that point always saw content, so code.install could
+    never fire and every new user was counted as an upgrade.
+    """
+    core = _core_dir("claude-code-plugin")
+    if not core.exists():
+        pytest.skip("claude-code-plugin is not built in this tree")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        data_dir = Path(tmp) / "data"
+        assert _session_start(core, data_dir) == ["install"]
+
+
+def test_the_lifecycle_event_fires_exactly_once():
+    core = _core_dir("claude-code-plugin")
+    if not core.exists():
+        pytest.skip("claude-code-plugin is not built in this tree")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        data_dir = Path(tmp) / "data"
+        first = _session_start(core, data_dir)
+        second = _session_start(core, data_dir)
+        third = _session_start(core, data_dir)
+
+    assert first == ["install"]
+    assert second == []
+    assert third == []
+
+
+def test_an_existing_data_dir_reports_upgrade():
+    core = _core_dir("claude-code-plugin")
+    if not core.exists():
+        pytest.skip("claude-code-plugin is not built in this tree")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        data_dir = Path(tmp) / "data"
+        data_dir.mkdir(parents=True)
+        # A 0.2.x leftover: the data dir survives the upgrade.
+        (data_dir / "requirements.txt").write_text("mem0ai\n", encoding="utf-8")
+        assert _session_start(core, data_dir) == ["upgrade"]
