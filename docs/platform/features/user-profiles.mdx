@@ -1,7 +1,6 @@
 ---
 title: Profiles
 description: "Build a structured, always-current summary of each user from their memories, shaped by a JSON Schema you define."
-icon: "id-card"
 ---
 
 # Profiles
@@ -17,7 +16,10 @@ Search answers "what did this user say about X". A profile answers "who is this 
   - You want the same fields for every user, so your code can rely on their shape.
 </Info>
 
-Profiles are a **Pro-plan feature** — see [Plan availability](#plan-availability) for the details.
+<Note>
+  User Profiles are in **beta** and available on request. To enable them for your
+  organization, contact [support@mem0.ai](mailto:support@mem0.ai).
+</Note>
 
 ## How it works
 
@@ -261,16 +263,12 @@ else:
   A schema has a size budget of roughly **10,000 tokens** of serialized JSON — the whole schema is sent to the model on every generation, so a handful of verbose fields can cost more than many terse ones. Oversized schemas are rejected on save.
 </Note>
 
-## Plan availability
+## Availability
 
-| Capability | Free | Starter | Pro | Enterprise |
-|---|:---:|:---:|:---:|:---:|
-| **Profiles** (define a schema, generate, read) | — | — | ✓ | ✓ |
-| **Profiles dashboard** (schema editor, samples) | — | — | ✓ | ✓ |
+The feature is in beta and enabled per organization on request — see the note at the top of this page.
 
-Profiles require a **Pro plan or higher**. For an individual entity to get a profile, three things must hold:
+Once it is on, an entity gets a profile when two more things hold:
 
-- the project is on **Pro or above**,
 - profiles are **enabled** with a schema for the project (see [Define the schema](#define-the-schema)), and
 - the memory is scoped to an entity — a `user_id`.
 
