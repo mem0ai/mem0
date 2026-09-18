@@ -186,6 +186,29 @@ def test_search(mock_boto_client):
     assert results[0].score == pytest.approx(0.1)
 
 
+def test_search_converts_metadata_filters(mock_boto_client):
+    """S3 Vectors query filters require MongoDB-style comparison operators."""
+    mock_boto_client.query_vectors.return_value = {"vectors": []}
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+
+    store.search(
+        query="test",
+        vectors=[0.1, 0.2],
+        filters={"user_id": "alice", "category": "work"},
+    )
+
+    assert mock_boto_client.query_vectors.call_args.kwargs["filter"] == {
+        "$and": [
+            {"user_id": {"$eq": "alice"}},
+            {"category": {"$eq": "work"}},
+        ]
+    }
+
+
 def test_get(mock_boto_client):
     """Test retrieving a vector by ID."""
     mock_boto_client.get_vectors.return_value = {
