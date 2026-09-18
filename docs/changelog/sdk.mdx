@@ -7,6 +7,14 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-09-18" description="v2.1.0">
+
+**Improvements:**
+- **Client:** Requests now carry three surface-identity headers so the platform can tell which product made a call. `X-Mem0-Source` names the surface and `X-Application` the host app it runs inside, both set-once so a wrapper that already declared its identity keeps it. `X-Mem0-Client` is append-only and carries `name/version` per layer, outermost first, so a plugin calling this SDK reports the whole chain rather than only the last speaker. `MEM0_SOURCE`, `MEM0_APPLICATION` and `MEM0_CLIENT_STACK` set them from the environment for wrappers that cannot pass options ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+- **Client:** The client stack is bounded by dropping whole entries rather than slicing characters, and this SDK's own entry is the reserved one. Truncating the joined string could sever an identifier mid-name and the platform parsed the fragment as a real client ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
+
 <Update label="2026-09-02" description="v2.0.20">
 
 **Improvements:**
@@ -1226,6 +1234,14 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-09-18" description="v3.2.0">
+
+**Improvements:**
+- **Client:** Requests now carry `X-Mem0-Source`, `X-Application` and `X-Mem0-Client`, matching the Python SDK. The first two are set-once so an outer wrapper keeps its identity; the third is append-only and reports the whole layer chain. Read from `MEM0_SOURCE`, `MEM0_APPLICATION` and `MEM0_CLIENT_STACK` when set ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+- **Client:** The SDK version in `X-Mem0-Client` is injected at build time rather than hardcoded, so it cannot go stale at the next release ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
 
 <Update label="2026-09-02" description="v3.1.8">
 
