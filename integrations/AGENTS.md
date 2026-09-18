@@ -6,6 +6,7 @@ Agent and editor integrations. Most packages are self-contained; coding-agent pl
 |-----------|---------|-------|------|------|
 | `vercel-ai-sdk/` | `@mem0/vercel-ai-provider` | tsup (CJS+ESM) | ESLint + Prettier | jest + vitest (edge/node) |
 | `openclaw/` | `@mem0/openclaw-mem0` | tsup (ESM) | none | vitest |
+| `hermes-plugin-mem0/` | Standalone Hermes memory provider | none | ruff + isort | pytest (see package README); real-host smoke |
 | `agent-plugin-core/` | Shared Python/TypeScript behavior, skill templates, builds, and conformance | Python build script | ruff + tsc | pytest + node:test |
 | `mem0-agent-plugin/` | One portable Agent Plugins v1 package | Python | ruff | shared conformance |
 | `claude-code-plugin/`, `cursor-plugin/`, `codex-plugin/`, `kimi-plugin/`, `antigravity-plugin/` | Self-contained native plugins generated from the shared Python core | Python | ruff | pytest |
