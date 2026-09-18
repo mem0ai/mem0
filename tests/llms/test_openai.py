@@ -108,6 +108,28 @@ def test_generate_response_with_tools(mock_openai_client):
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
 
 
+def test_generate_response_parses_sse_chat_completion_text_from_compatible_backend(mock_openai_client):
+    """Some OpenAI-compatible routers return SSE chunk text for chat completions.
+
+    The OpenAI SDK can surface that raw text as a string. Mem0 should still
+    parse the streamed delta content instead of crashing with
+    ``'str' object has no attribute 'choices'``.
+    """
+    config = OpenAIConfig(model="manifest/auto", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Extract memories as JSON"}]
+    mock_openai_client.chat.completions.create.return_value = (
+        'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"{\\\"facts\\\":"},"finish_reason":null}]}\n\n'
+        'data: {"id":"chatcmpl-2","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"[]}"},"finish_reason":null}]}\n\n'
+        'data: {"id":"chatcmpl-3","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n'
+        'data: [DONE]\n\n'
+    )
+
+    response = llm.generate_response(messages, response_format={"type": "json_object"})
+
+    assert response == '{"facts":[]}'
+
+
 def test_response_callback_invocation(mock_openai_client):
     # Setup mock callback
     mock_callback = Mock()
