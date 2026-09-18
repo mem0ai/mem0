@@ -26,6 +26,9 @@ class ModelAPI(BaseHTTPRequestHandler):
         pass
 
     def do_POST(self):
+        if self.headers.get("Authorization") != "Bearer local-test":
+            self.send_error(401)
+            return
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         self.calls.append(self.path)
         if self.path == "/v1/embeddings":
@@ -136,19 +139,35 @@ def main():
             mismatched.initialize("mismatched-session")
             assert mismatched._backend is None and "Existing memories were preserved" in mismatched._init_error
             config["oss"]["embedder"]["config"]["embedding_dims"] = 3
+            # Resolve embedder credentials from the active profile, not another profile's process env.
+            del config["oss"]["embedder"]["config"]["api_key"]
+            del config["oss"]["embedder"]["config"]["openai_base_url"]
             provider.save_config(config, home)
-            # A fresh instance must find the saved memory in the same on-disk collection.
+            from agent.secret_scope import (
+                reset_secret_scope,
+                set_multiplex_active,
+                set_secret_scope,
+            )
+
             resumed = type(provider)()
-            resumed.initialize("resumed-session", user_id="different-gateway-user")
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "wrong-profile", "OPENAI_API_BASE": "http://127.0.0.1:1/v1"}):
+                set_multiplex_active(True)
+                token = set_secret_scope({"OPENAI_API_KEY": "local-test", "OPENAI_BASE_URL": url})
+                try:
+                    resumed.initialize("resumed-session", user_id="different-gateway-user")
+                finally:
+                    reset_secret_scope(token)
+                    set_multiplex_active(False)
             try:
                 assert resumed._backend is not None
                 found = json.loads(resumed.handle_tool_call("mem0_search", {"query": "drink"}))
+                assert "results" in found, found
                 assert found["results"][0]["memory"] == "Prefers green tea."
             finally:
                 resumed.shutdown()
             assert "/v1/chat/completions" in ModelAPI.calls
             print("PASS: external Hermes loader, CLI setup/status, real Mem0/Qdrant CRUD, recall, background extraction,")
-            print("      existing identity, private files, shutdown, dimension safety and persistence across restart. Model responses simulated locally.")
+            print("      existing identity, profile credentials, private files, shutdown, dimension safety and persistence across restart. Model responses simulated locally.")
         finally:
             server.shutdown()
             server.server_close()

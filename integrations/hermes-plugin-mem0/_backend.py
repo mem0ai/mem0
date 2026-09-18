@@ -129,6 +129,17 @@ class OSSBackend(Mem0Backend):
             canonical_key = registry.get(str(block.get("provider") or "").strip().lower(), {}).get("base_url_key")
             if legacy_base and canonical_key:
                 provider_config.setdefault(canonical_key, legacy_base)
+            if name == "embedder" and block.get("provider") == "openai":
+                from agent.secret_scope import get_secret
+
+                # Mem0's embedder reads process-wide env vars unless these are explicit.
+                provider_config["api_key"] = provider_config.get("api_key") or get_secret("OPENAI_API_KEY", "")
+                if not provider_config["api_key"]:
+                    raise ValueError("OpenAI API key is required for the Hermes Mem0 OSS embedder")
+                provider_config["openai_base_url"] = (
+                    provider_config.get("openai_base_url") or get_secret("OPENAI_API_BASE", "")
+                    or get_secret("OPENAI_BASE_URL", "") or "https://api.openai.com/v1"
+                )
             block["config"] = provider_config
             return block
 

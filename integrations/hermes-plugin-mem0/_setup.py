@@ -142,6 +142,10 @@ def build_oss_config(flags: dict[str, str]) -> tuple[dict, dict[str, str]]:
     llm_key = flags.get("oss_llm_key") if llm_def.get("needs_key") else ""
     emb_key = (flags.get("oss_embedder_key") or (flags.get("oss_llm_key") if embedder_id == llm_id else "")) if embedder_def.get("needs_key") else ""
     env_writes = {d["env_var"]: k for d, k in ((llm_def, llm_key), (embedder_def, emb_key)) if k}
+    if llm_key and emb_key and llm_key != emb_key and llm_def["env_var"] == embedder_def["env_var"]:
+        # One environment variable cannot hold two accounts; save explicit keys in the private config.
+        llm_config["api_key"], embedder_config["api_key"] = llm_key, emb_key
+        env_writes.pop(llm_def["env_var"])
     return oss_config, env_writes
 
 
@@ -168,6 +172,8 @@ def _persist_provider_config(hermes_home: str, config: dict, provider_config: di
     """Shared platform/self-hosted tail: activate, write mem0.json (0600), then .env, then a saved summary."""
     _activate_provider(config)
     from . import Mem0MemoryProvider
+    if "MEM0_API_KEY" in env_writes:
+        provider_config["api_key"] = ""  # Let the newly saved .env key replace legacy inline credentials.
     Mem0MemoryProvider().save_config(provider_config, hermes_home)
     if env_writes:
         _write_env(Path(hermes_home) / ".env", env_writes)
@@ -184,13 +190,13 @@ def _setup_platform(hermes_home: str, config: dict, flags: dict[str, str]) -> No
     print("\n  Configuring mem0:\n")
     env_writes = _api_key_writes(flags, "Mem0 Platform API key", url="https://app.mem0.ai")
     for key, desc, default in (("user_id", "User identifier", "hermes-user"), ("agent_id", "Agent identifier", "hermes")):
-        if val := _prompt(desc, default=str(provider_config.get(key) or default)):
+        if val := flags.get(key) or _prompt(desc, default=str(provider_config.get(key) or default)):
             provider_config[key] = val
     choices = ["true", "false"]
     current = str(provider_config.get("rerank", "false") or "").lower()
     provider_config["rerank"] = choices[_curses_select("  Enable reranking for recall", [(c, "") for c in choices], default=choices.index(current) if current in choices else 0)]
     if flags.get("dry_run"):
-        _print_dry_run(str(provider_config), env_writes)
+        _print_dry_run(str({k: provider_config.get(k) for k in ("user_id", "agent_id", "rerank")}), env_writes)
         return
     # Routing checks ``host`` before platform, so clear a stale self-hosted host. "" rather than
     # pop(): save_config merges into the existing mem0.json, so a popped key would survive.
@@ -312,7 +318,6 @@ def _ensure_pgvector(host: str = "localhost", port: int = 5432) -> dict | None:
     try:
         print(f"  Pulling {_PGVECTOR_IMAGE}...")
         _docker("pull", _PGVECTOR_IMAGE, timeout=120)
-        _docker("rm", "-f", _PGVECTOR_CONTAINER, timeout=10)  # remove existing container if present
         print(f"  Starting container '{_PGVECTOR_CONTAINER}' on port {port}...")
         _docker("run", "-d", "--name", _PGVECTOR_CONTAINER, "-e", f"POSTGRES_PASSWORD={_PGVECTOR_PASSWORD}", "-p", f"{port}:5432", _PGVECTOR_IMAGE, timeout=30, check=True)
         if _pg_ready(host, port, 20):

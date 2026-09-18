@@ -77,7 +77,7 @@ Start a fresh Hermes conversation and ask it to remember a fact, then search for
 
 ## Configuration
 
-Settings live in `$HERMES_HOME/mem0.json`; the default Hermes home is `~/.hermes`. Setup stores API keys in that profile's `.env`. OSS configuration can also contain database credentials. Setup writes both files atomically with owner-only permissions.
+Settings live in `$HERMES_HOME/mem0.json`; the default Hermes home is `~/.hermes`. Setup normally stores API keys in that profile's `.env`. Distinct OpenAI LLM/embedder keys and database credentials are stored in the OSS configuration. Setup writes both files atomically with owner-only permissions.
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -146,4 +146,4 @@ model service is simulated locally; this does not test live cloud credentials or
 
 ## License
 
-[Apache-2.0](LICENSE) for Mem0 contributions. Includes code from [Nous Research's standalone Mem0 provider](https://github.com/NousResearch/hermes-plugin-mem0/tree/3fc36950b2b7c19cdd81c6de99f10d2cbed850af) under MIT; its original license and copyright notice are preserved in [NOTICE](NOTICE).
+[Apache-2.0](LICENSE) for Mem0 contributions. Includes code from [Nous Research's standalone Mem0 provider](https://github.com/NousResearch/hermes-plugin-mem0/tree/3fc36950b2b7c19cdd81c6de99f10d2cbed850af) under MIT; its original license and copyright notice are preserved in the third-party section of [LICENSE](LICENSE).

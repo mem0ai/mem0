@@ -147,3 +147,92 @@ def test_selfhosted_http_auth_and_tool_routes(plugin):
         ]
     finally:
         client.close()
+
+
+@pytest.mark.parametrize("mode", ["platform", "selfhosted"])
+def test_setup_rotates_legacy_file_key(plugin, monkeypatch, tmp_path, mode):
+    setup = importlib.import_module(f"{plugin.__name__}._setup")
+    (tmp_path / "mem0.json").write_text(json.dumps({"api_key": "old-key", "user_id": "existing-user"}))
+    monkeypatch.setattr(setup, "_activate_provider", Mock())
+    monkeypatch.setattr(setup, "_check_selfhosted_server", Mock())
+    monkeypatch.setattr(setup, "_prompt", lambda label, default=None, **kwargs: default or "")
+    monkeypatch.setattr(setup, "_curses_select", lambda *args, **kwargs: 0)
+    setup._MODE_HANDLERS[mode](str(tmp_path), {}, {"api_key": "new-key", "host": "http://localhost:8888"})
+    monkeypatch.setattr(plugin, "get_secret", lambda key, default="": "new-key" if key == "MEM0_API_KEY" else default)
+    assert plugin._load_config()["api_key"] == "new-key"
+    assert "old-key" not in (tmp_path / "mem0.json").read_text()
+    assert "MEM0_API_KEY=new-key" in (tmp_path / ".env").read_text()
+
+
+def test_platform_setup_honors_user_id_flag(plugin, monkeypatch, tmp_path):
+    setup = importlib.import_module(f"{plugin.__name__}._setup")
+    monkeypatch.setattr(setup, "_activate_provider", Mock())
+    monkeypatch.setattr(setup, "_prompt", lambda label, default=None, **kwargs: default or "")
+    monkeypatch.setattr(setup, "_curses_select", lambda *args, **kwargs: 0)
+    setup._setup_platform(str(tmp_path), {}, {"api_key": "new-key", "user_id": "chosen-user"})
+    assert plugin._load_config()["user_id"] == "chosen-user"
+
+
+@pytest.mark.parametrize("scoped_key", ["profile-key", ""])
+def test_oss_embedder_never_uses_another_profiles_credentials(plugin, monkeypatch, scoped_key):
+    backend = importlib.import_module(f"{plugin.__name__}._backend")
+    memory = Mock()
+    monkeypatch.setitem(sys.modules, "mem0", types.SimpleNamespace(Memory=memory))
+    monkeypatch.setenv("OPENAI_API_KEY", "other-profile-key")
+    monkeypatch.setenv("OPENAI_API_BASE", "https://other-profile.invalid/v1")
+    secrets = {"OPENAI_API_KEY": scoped_key, "OPENAI_BASE_URL": "https://profile.invalid/v1"}
+    monkeypatch.setattr(sys.modules["agent.secret_scope"], "get_secret", lambda key, default="": secrets.get(key, default))
+    config = {
+        "llm": {"provider": "ollama", "config": {}},
+        "embedder": {"provider": "openai", "config": {}},
+        "vector_store": {"provider": "qdrant", "config": {}},
+    }
+    if not scoped_key:
+        with pytest.raises(ValueError, match="OpenAI API key"):
+            backend.OSSBackend(config)
+        memory.from_config.assert_not_called()
+    else:
+        backend.OSSBackend(config)
+        resolved = memory.from_config.call_args.args[0]["embedder"]["config"]
+        assert resolved["api_key"] == scoped_key
+        assert resolved["openai_base_url"] == "https://profile.invalid/v1"
+        assert config["embedder"]["config"] == {}
+
+
+def test_pgvector_setup_never_removes_existing_container(plugin, monkeypatch):
+    setup = importlib.import_module(f"{plugin.__name__}._setup")
+    monkeypatch.setattr(setup, "_check_pgvector", lambda *args: (False, "unreachable"))
+    monkeypatch.setattr(setup.shutil, "which", lambda name: "/test/docker")
+    monkeypatch.setattr("builtins.input", lambda prompt: "y")
+    calls = []
+
+    def docker(*args, **kwargs):
+        calls.append(args)
+        if args[0] == "run":
+            raise setup.subprocess.CalledProcessError(1, "docker run: container name already exists")
+        return types.SimpleNamespace(returncode=0, stdout="paused")
+
+    monkeypatch.setattr(setup, "_docker", docker)
+    assert setup._ensure_pgvector() is None
+    assert not any(args[0] == "rm" for args in calls)
+
+
+def test_platform_dry_run_does_not_print_stored_secrets(plugin, monkeypatch, tmp_path, capsys):
+    setup = importlib.import_module(f"{plugin.__name__}._setup")
+    config = {"api_key": "old-secret", "oss": {"vector_store": {"config": {"password": "db-secret"}}}}
+    path = tmp_path / "mem0.json"
+    path.write_text(json.dumps(config))
+    monkeypatch.setattr(setup, "_prompt", lambda label, default=None, **kwargs: default or "")
+    monkeypatch.setattr(setup, "_curses_select", lambda *args, **kwargs: 0)
+    setup._setup_platform(str(tmp_path), {}, {"api_key": "new-secret", "dry_run": True})
+    output = capsys.readouterr().out
+    assert all(secret not in output for secret in ("old-secret", "db-secret", "new-secret"))
+    assert json.loads(path.read_text()) == config
+    assert not (tmp_path / ".env").exists()
+
+
+def test_oss_setup_preserves_distinct_llm_and_embedder_keys(plugin):
+    setup = importlib.import_module(f"{plugin.__name__}._setup")
+    config, env = setup.build_oss_config({"oss_llm_key": "llm-key", "oss_embedder_key": "embedder-key"})
+    assert config["llm"]["config"].get("api_key", env.get("OPENAI_API_KEY")) == "llm-key"
+    assert config["embedder"]["config"].get("api_key", env.get("OPENAI_API_KEY")) == "embedder-key"

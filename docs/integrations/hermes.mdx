@@ -167,7 +167,7 @@ hermes memory setup mem0 --mode oss \
 | `--oss-vector-url` | Qdrant server URL |
 | `--oss-vector-host`, `--oss-vector-port` | PGVector host and port (use `--oss-vector-url` for a Qdrant server) |
 | `--oss-vector-user`, `--oss-vector-password`, `--oss-vector-dbname` | PGVector connection details |
-| `--user-id` | User identifier for OSS/server setup; Platform setup prompts for it |
+| `--user-id` | User identifier for Platform, OSS, or server setup |
 | `--dry-run` | Preview configuration without saving it; setup may still check connectivity |
 
 ## Switching Modes
@@ -203,7 +203,7 @@ An OSS configuration in `$HERMES_HOME/mem0.json` can look like this (use your ex
 
 ## Configuration
 
-Settings live in `$HERMES_HOME/mem0.json` and are written by `hermes memory setup`. API keys live in that profile's `.env`; OSS configuration may also contain database credentials. Setup writes these files atomically with owner-only permissions.
+Settings live in `$HERMES_HOME/mem0.json` and are written by `hermes memory setup`. API keys normally live in that profile's `.env`; distinct OpenAI LLM/embedder keys and database credentials are stored in the OSS configuration. Setup writes these files atomically with owner-only permissions.
 
 `MEM0_MODE`, `MEM0_HOST`, `MEM0_USER_ID`, and `MEM0_AGENT_ID` supply environment defaults. Non-empty values in `mem0.json` take precedence. `MEM0_API_KEY` supplies the Cloud or server key unless `api_key` is set in the file.
 
