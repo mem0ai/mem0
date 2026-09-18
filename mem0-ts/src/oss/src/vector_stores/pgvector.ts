@@ -496,10 +496,15 @@ export class PGVector implements VectorStore {
     const filterClause =
       conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
+    // Order newest-first so callers that slice(0, topK) — e.g. Memory.getAll —
+    // keep the most recent memories (corrections are additive) instead of an
+    // arbitrary subset. createdAt is an ISO-8601 string, so text ordering is
+    // chronological. See mem0ai/mem0#7383.
     const listQuery = `
       SELECT id, payload
       FROM ${this.col()}
       ${filterClause}
+      ORDER BY (payload->>'createdAt') DESC NULLS LAST
       LIMIT $${paramIndex}
     `;
 

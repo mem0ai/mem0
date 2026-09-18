@@ -38,6 +38,10 @@ function mockPgQuery(sql: string) {
     return { rows: searchRows };
   }
 
+  if (sql.includes("SELECT COUNT(*)")) {
+    return { rows: [{ count: "0" }] };
+  }
+
   return { rows: [] };
 }
 
@@ -239,6 +243,40 @@ describe("PGVector", () => {
     expect(activeClient.query).toHaveBeenCalledWith(
       expect.stringContaining("vector <=> $1::vector AS distance"),
       ["[1,0,0]", 4],
+    );
+  });
+
+  test("list(): orders by createdAt DESC so getAll keeps the newest memories", async () => {
+    const store = new PGVector({
+      collectionName: "memories",
+      user: "postgres",
+      password: "postgres",
+      host: "localhost",
+      port: 5432,
+      embeddingModelDims: 3,
+      dimension: 3,
+    } as any);
+
+    await store.initialize();
+
+    const pg = require("pg");
+    const activeClient = pg.__mock.clients[1];
+    activeClient.query.mockClear();
+
+    await store.list({ user_id: "u1" }, 10);
+
+    const listSql = activeClient.query.mock.calls
+      .map(([sql]) => (sql as string).replace(/\s+/g, " ").trim())
+      .find((sql: string) => sql.startsWith("SELECT id, payload"));
+
+    // Regression test for mem0ai/mem0#7383: without ORDER BY, LIMIT returns
+    // an arbitrary subset and getAll can drop the newest memories.
+    expect(listSql).toBeDefined();
+    expect(listSql).toContain(
+      "ORDER BY (payload->>'createdAt') DESC NULLS LAST",
+    );
+    expect(listSql!.indexOf("ORDER BY")).toBeLessThan(
+      listSql!.indexOf("LIMIT"),
     );
   });
 });
