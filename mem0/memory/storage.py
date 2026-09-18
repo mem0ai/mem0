@@ -12,6 +12,9 @@ class SQLiteManager:
     def __init__(self, db_path: str = ":memory:"):
         self.db_path = db_path
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
+        if self.db_path != ":memory:":
+            self.connection.execute("PRAGMA journal_mode=WAL")
+            self.connection.execute("PRAGMA busy_timeout=5000")
         self._lock = threading.Lock()
         self._migrate_history_table()
         self._create_history_table()

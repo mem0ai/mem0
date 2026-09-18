@@ -65,6 +65,18 @@ class TestSQLiteManager:
         manager = SQLiteManager(db_path)
         assert manager.connection is not None
         assert manager.db_path == db_path
+
+        # Verify PRAGMAs
+        if db_type == "file":
+            cursor = manager.connection.cursor()
+            cursor.execute("PRAGMA journal_mode")
+            journal_mode = cursor.fetchone()[0]
+            assert journal_mode.lower() == "wal"
+
+            cursor.execute("PRAGMA busy_timeout")
+            busy_timeout = cursor.fetchone()[0]
+            assert busy_timeout == 5000
+
         manager.close()
 
     def test_table_schema_creation(self, sqlite_manager):
