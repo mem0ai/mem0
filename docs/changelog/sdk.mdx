@@ -2099,7 +2099,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 - New Git repository writes use a hash of the remote identity in `agent_id`. Search and explicit shared-memory deletion include both current and legacy repository IDs within the repository's `app_id`. Existing memories are not rewritten. Legacy IDs retain their original ambiguity for matching owner/repository names on different Git hosts.
 
 **Packaging:**
-- Claude Code, Cursor, Codex, Kimi, Antigravity, and the portable Python bundle are versioned at `0.3.1`. OpenCode, Pi Agent, and DeepSeek Harness are `0.3.0`; OpenClaw is `1.1.0`. Each host's changes and upgrade considerations are listed in its tab.
+- Claude Code, Cursor, Codex, Kimi, Antigravity, and the portable Python bundle are versioned at `0.3.1`. OpenCode and DeepSeek Harness are `0.3.0`; Pi Agent is `0.3.0`; OpenClaw is `1.1.0`. Each host's changes and upgrade considerations are listed in its tab.
 - Python and TypeScript CI run their respective runtime suites. Package checks build the installable artifacts, check generated-file consistency, and reject TypeScript output that still imports monorepo source.
 
 [#7203](https://github.com/mem0ai/mem0/pull/7203)
@@ -3152,6 +3152,13 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="DeepSeek Harness">
+
+<Update label="2026-09-18" description="deepseek-plugin v0.3.1">
+
+**Improvements:**
+- **Telemetry:** Rebuild with the fixed shared telemetry core from `agent-plugin-core`. Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+</Update>
 
 <Update label="2026-09-08" description="deepseek-plugin v0.3.0">
 
