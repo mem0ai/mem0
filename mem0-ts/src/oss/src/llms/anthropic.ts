@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
 import { loadPeer } from "../utils/load_peer";
+import { extractJson } from "../prompts";
 
 export class AnthropicLLM implements LLM {
   private client!: Anthropic;
@@ -43,7 +44,7 @@ export class AnthropicLLM implements LLM {
 
   async generateResponse(
     messages: Message[],
-    responseFormat?: { type: string },
+    responseFormat?: { type: string; json_schema?: any },
     tools?: any[],
   ): Promise<string | LLMResponse> {
     await this.ensureClient();
@@ -80,6 +81,37 @@ export class AnthropicLLM implements LLM {
       params.tool_choice = { type: "auto" };
     }
 
+    // Anthropic has no native response_format param, so translate the shared
+    // interface here (parity with the Python provider, #5820 / #6203).
+    // response_format is intentionally ignored when tools are active: the
+    // tool_use handling below takes precedence, and the JSON prefill would
+    // otherwise drop tool_use blocks.
+    let wantsJsonPrefill = false;
+    if (responseFormat && !tools) {
+      if (responseFormat.type === "json_schema" && responseFormat.json_schema) {
+        let schema = responseFormat.json_schema;
+        if (schema && typeof schema === "object" && "schema" in schema) {
+          schema = schema.schema;
+        }
+        // output_config is newer than the pinned @anthropic-ai/sdk types.
+        (params as unknown as { output_config: unknown }).output_config = {
+          format: { type: "json_schema", schema },
+        };
+      } else if (responseFormat.type === "json_object") {
+        wantsJsonPrefill = true;
+        params.system =
+          (params.system ?? "") +
+          "\n\nYou must respond with valid JSON only. Do not include any " +
+          "other text, markdown formatting, or code fences.";
+        // Prefill the assistant turn with "{" so the model continues a JSON
+        // object; the leading brace is added back when reconstructing below.
+        params.messages = [
+          ...params.messages,
+          { role: "assistant", content: "{" },
+        ];
+      }
+    }
+
     const response = await this.client.messages.create(params);
 
     if (tools) {
@@ -100,10 +132,25 @@ export class AnthropicLLM implements LLM {
       return { content, role: "assistant", toolCalls };
     }
 
-    // Thinking-enabled responses put a thinking block before the text block,
-    // and a response can carry no text block at all, so find the text block
-    // like the tools branch above instead of indexing content[0]. Mirrors the
-    // Python provider (#6481).
+    if (wantsJsonPrefill) {
+      const text = this.firstTextBlock(response);
+      // No text block means there was nothing to continue the prefill with,
+      // so don't hand back a bare "{" that no parser can use.
+      if (!text) {
+        return "";
+      }
+      // Re-attach the "{" prefill that was sent as the assistant turn.
+      return extractJson("{" + text);
+    }
+
+    return this.firstTextBlock(response);
+  }
+
+  // Thinking-enabled responses put a thinking block before the text block, and
+  // a response can carry no text block at all, so find the text block like the
+  // tools branch does instead of indexing content[0] (#6506, mirroring the
+  // Python provider in #6481).
+  private firstTextBlock(response: Anthropic.Message): string {
     for (const block of response.content) {
       if (block.type === "text") {
         return block.text;
