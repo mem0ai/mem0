@@ -302,9 +302,176 @@ def anonymous_id(identity: dict[str, str] | None = None) -> str:
     return created
 
 
+def _rotate_anonymous_id(identity: dict[str, str]) -> str:
+    """Mint a fresh anonymous id because the account context is gone.
+
+    The previous id may already have been merged into a person profile by an
+    $identify, and that merge is permanent. Reusing it after a logout or a key
+    change attributes everything that follows to the account that just went
+    away, which is the same misattribution the key fingerprint exists to stop,
+    only arriving through the anonymous path instead.
+
+    `aliased` is cleared with it: the new id has never been merged, so it is
+    eligible to be aliased into whatever account comes next.
+    """
+    created = f"code-anon-{uuid.uuid4().hex}"
+    identity["anonymous_id"] = created
+    identity.pop("aliased", None)
+    _write_identity(identity)
+    return created
+
+
+def _install_state_path() -> Path:
+    return memory_core.data_dir() / "install-state.json"
+
+
 def is_first_run() -> bool:
-    """Whether this machine has never recorded a plugin event before."""
-    return not _identity_path().exists()
+    """Whether install has never been recorded on this machine.
+
+    Deliberately NOT the identity file. That file is only written by a
+    successful flush, so an offline or firewalled user recorded code.install on
+    every single session, forever — and every 0.2.x user recorded one on their
+    first 0.3.x session because 0.2.x never wrote it at all.
+    """
+    return not _install_state_path().exists()
+
+
+def data_dir_was_empty() -> bool:
+    """Whether the data directory is untouched. Call BEFORE anything writes to it.
+
+    hook_runner reaches claim_install() only after cache_plugin_api_key() has
+    written `api-key` and EvidenceStore() has created `evidence.sqlite3`, so
+    asking at claim time always saw content and every fresh install reported an
+    upgrade. The caller snapshots this at the top of the run instead.
+    """
+    return not _data_dir_has_content()
+
+
+def claim_install(was_empty: bool | None = None) -> str | None:
+    """Claim the one install/upgrade record for this machine, atomically.
+
+    Returns the event to record ("install" or "upgrade"), or None if another
+    session already claimed it. O_CREAT|O_EXCL so two sessions starting together
+    cannot both win.
+
+    `was_empty` must come from data_dir_was_empty() called before this process
+    wrote anything. Omitting it falls back to checking now, which is only
+    correct for a caller that has touched nothing.
+    """
+    if not is_enabled():
+        # Never consume the one-shot claim while the user is opted out, or they
+        # would silently lose their install event if they later opt in.
+        return None
+
+    path = _install_state_path()
+    upgrading = not (data_dir_was_empty() if was_empty is None else was_empty)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        return None
+    except OSError:
+        return None
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            json.dump(
+                {
+                    "plugin_version": memory_core.PLUGIN_VERSION,
+                    "installed_at": memory_core.utc_now(),
+                    "upgraded": upgrading,
+                },
+                stream,
+            )
+            # Durable before this returns. The O_EXCL open is what makes the
+            # claim exclusive, so it cannot be replaced by a temp-and-rename
+            # without losing that, which leaves the content as the thing to make
+            # safe. A kill between the open and this fsync used to leave a marker
+            # that exists but parses to nothing: is_first_run reads it as claimed
+            # and claim_version_change cannot read a version out of it.
+            stream.flush()
+            os.fsync(stream.fileno())
+    except OSError:
+        pass
+    return "upgrade" if upgrading else "install"
+
+
+def _data_dir_has_content() -> bool:
+    """Whether anything predates this session in the plugin data directory."""
+    try:
+        for entry in memory_core.data_dir().iterdir():
+            if entry.name != "install-state.json":
+                return True
+    except OSError:
+        pass
+    return False
+
+
+def _repair_install_state(path: Path) -> None:
+    """Rewrite an unparseable marker so version tracking can resume."""
+    try:
+        temporary = path.with_suffix(f".{os.getpid()}.tmp")
+        temporary.write_text(
+            json.dumps({"plugin_version": memory_core.PLUGIN_VERSION, "repaired_at": memory_core.utc_now()}),
+            encoding="utf-8",
+        )
+        temporary.replace(path)
+    except OSError:
+        pass
+
+
+def claim_version_change() -> str | None:
+    """Return the previously recorded version if it differs, updating the marker.
+
+    Only meaningful once the marker exists — the first transition into 0.3.x has
+    no recorded predecessor and reports "pre-0.3" instead. Claiming by rewriting
+    the marker means the next session sees no change and records nothing.
+    """
+    path = _install_state_path()
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    except json.JSONDecodeError:
+        # A crash between O_EXCL and the write leaves an empty marker. Left
+        # alone it disables every future upgrade event on this machine, because
+        # claim_install sees the file and this function cannot parse it.
+        state = None
+    if not isinstance(state, dict):
+        _repair_install_state(path)
+        return None
+    previous = str(state.get("plugin_version") or "")
+    if not previous or previous == memory_core.PLUGIN_VERSION:
+        return None
+    # Claim the transition with an exclusive sentinel before rewriting the
+    # marker. A plain read-modify-write let every concurrently starting session
+    # observe the old version and each record its own upgrade — and the first
+    # session after a version bump is exactly when several agent windows restart
+    # together.
+    sentinel = path.with_name(f"upgraded-{memory_core.PLUGIN_VERSION}")
+    try:
+        os.close(os.open(sentinel, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+    except FileExistsError:
+        return None
+    except OSError:
+        return None
+
+    state["plugin_version"] = memory_core.PLUGIN_VERSION
+    state["upgraded_at"] = memory_core.utc_now()
+    temporary = path.with_suffix(f".{os.getpid()}.tmp")
+    try:
+        temporary.write_text(json.dumps(state), encoding="utf-8")
+        temporary.replace(path)
+    except OSError:
+        # Release the claim. The marker still records the old version, so
+        # without this the sentinel makes claim_version_change return early on
+        # every later run and this version's upgrade is never recorded again.
+        for leftover in (sentinel, temporary):
+            try:
+                leftover.unlink()
+            except OSError:
+                pass
+        return None
+    return previous
 
 
 def record(
@@ -633,21 +800,72 @@ def _post(payload: dict[str, Any], url: str) -> bool:
 
 
 def resolve_distinct_id() -> tuple[str, str]:
-    """Return the PostHog distinct id and the anonymous id it replaced, if any."""
+    """Return the PostHog distinct id and the anonymous id it replaced, if any.
+
+    The second value becomes a PostHog $identify alias. It is ONLY ever an
+    anonymous id: aliasing one account email to another merges two real person
+    profiles and cannot be undone, so a key that now belongs to a different
+    account re-resolves with no alias.
+    """
     identity = _read_identity()
-    email = identity.get("email", "")
-    if email:
-        return email, ""
     key = memory_core.api_key()
+    fingerprint = _digest(key) if key else ""
+    email = identity.get("email", "")
+
+    if email and fingerprint:
+        recorded = identity.get("key_fingerprint", "")
+        if recorded == fingerprint:
+            return email, ""
+        if not recorded:
+            # Rows written before fingerprints existed. Verify rather than
+            # adopt: a key changed before the upgrade would otherwise bind the
+            # new key to the previous account's email, permanently, and the
+            # fingerprint would then agree with itself forever after.
+            verified = _resolve_email(key)
+            if not verified:
+                # Offline, firewalled, or the API is down. Keep the previous
+                # behaviour and retry on the next flush rather than dropping a
+                # real account attribution. Safe because the same network that
+                # failed /v1/ping/ is about to fail the PostHog POST, so nothing
+                # is delivered under the unverified identity in the meantime.
+                return email, ""
+            identity["email"] = verified
+            identity["key_fingerprint"] = fingerprint
+            _write_identity(identity)
+            return verified, ""
+
     if not key:
+        # No key to verify the account with; do not keep attributing to it.
+        if email:
+            identity.pop("email", None)
+            identity.pop("key_fingerprint", None)
+            return _rotate_anonymous_id(identity), ""
         return anonymous_id(identity), ""
-    email = _resolve_email(key)
-    if not email:
+
+    resolved = _resolve_email(key)
+    if not resolved:
+        # The key changed and will not resolve (revoked, offline, API down).
+        # Reaching here with an email means the recorded fingerprint disagreed,
+        # so the key really did change. Drop the account and rotate: the stored
+        # anonymous id may already be merged into that account's person, and
+        # reusing it would keep the events on the profile we are trying to
+        # leave.
+        if email:
+            identity.pop("email", None)
+            identity.pop("key_fingerprint", None)
+            return _rotate_anonymous_id(identity), ""
         return anonymous_id(identity), ""
-    previous = identity.get("anonymous_id", "")
-    identity["email"] = email
+
+    # Alias only when going anonymous -> email for the first time. Once an anon
+    # id has been merged into an account it must never be offered again: an
+    # alias naming an already-identified id is what could link two real people.
+    previous = "" if (email or identity.get("aliased")) else identity.get("anonymous_id", "")
+    if previous:
+        identity["aliased"] = True
+    identity["email"] = resolved
+    identity["key_fingerprint"] = fingerprint
     _write_identity(identity)
-    return email, previous
+    return resolved, previous
 
 
 def flush() -> int:

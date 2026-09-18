@@ -265,10 +265,148 @@ def test_an_unresolvable_key_falls_back_to_the_anonymous_id(isolated_env, monkey
     assert telemetry.resolve_distinct_id()[0].startswith("code-anon-")
 
 
-def test_is_first_run_flips_after_the_first_identity_write(isolated_env):
+def test_logging_out_does_not_leave_events_on_the_previous_account(isolated_env, monkeypatch):
+    """Review finding: clearing the email kept an id already merged into a person.
+
+    The anonymous id is offered to PostHog as $anon_distinct_id on first sign-in,
+    and that merge is permanent. Keeping it after the key goes away means every
+    later anonymous event lands on the account that just left.
+    """
+    # Run anonymously first, which is the only way an id exists to be merged.
+    merged = telemetry.anonymous_id()
+
+    monkeypatch.setenv("MEM0_API_KEY", "key-for-account-a")
+    with patch.object(telemetry, "_resolve_email", lambda key: "a@example.com"):
+        identified, alias = telemetry.resolve_distinct_id()
+    assert identified == "a@example.com"
+    assert alias == merged, "the anonymous id was merged into this account"
+
+    monkeypatch.delenv("MEM0_API_KEY", raising=False)
+    after_logout, logout_alias = telemetry.resolve_distinct_id()
+
+    assert after_logout.startswith("code-anon-")
+    assert after_logout != merged, "reused an id already merged into the previous account"
+    assert logout_alias == ""
+    assert "aliased" not in telemetry._read_identity(), "rotated id must be aliasable again"
+
+
+def test_a_changed_key_that_will_not_resolve_rotates_the_anonymous_id(isolated_env, monkeypatch):
+    """Same leak by the other route: fingerprint disagrees and the lookup fails."""
+    merged = telemetry.anonymous_id()
+    monkeypatch.setenv("MEM0_API_KEY", "key-for-account-a")
+    with patch.object(telemetry, "_resolve_email", lambda key: "a@example.com"):
+        telemetry.resolve_distinct_id()
+
+    monkeypatch.setenv("MEM0_API_KEY", "key-for-account-b")
+    with patch.object(telemetry, "_resolve_email", lambda key: ""):
+        after, alias = telemetry.resolve_distinct_id()
+
+    assert after.startswith("code-anon-")
+    assert after != merged
+    assert alias == ""
+    assert "email" not in telemetry._read_identity()
+
+
+def test_a_legacy_cached_email_is_verified_before_the_key_is_bound(isolated_env, monkeypatch):
+    """Review finding: a key changed before upgrading bound the wrong account.
+
+    Rows written before fingerprints existed carry an email and no fingerprint.
+    Adopting the current key without checking pinned that key to the previous
+    account's email, and every run after that agreed with itself.
+    """
+    telemetry._write_identity({"email": "old@example.com", "anonymous_id": "code-anon-seed"})
+    monkeypatch.setenv("MEM0_API_KEY", "key-for-account-b")
+
+    with patch.object(telemetry, "_resolve_email", lambda key: "new@example.com"):
+        resolved, alias = telemetry.resolve_distinct_id()
+
+    assert resolved == "new@example.com"
+    assert alias == "", "email to email must never alias; it merges two real people"
+    stored = telemetry._read_identity()
+    assert stored["email"] == "new@example.com"
+    assert stored["key_fingerprint"] == telemetry._digest("key-for-account-b")
+
+
+def test_a_legacy_row_keeps_working_when_the_account_cannot_be_checked(isolated_env, monkeypatch):
+    """Firewalled users must not lose attribution, and must not bind unverified.
+
+    The same network that fails /v1/ping/ fails the PostHog POST, so nothing is
+    delivered under the unverified identity while this holds.
+    """
+    telemetry._write_identity({"email": "old@example.com"})
+    monkeypatch.setenv("MEM0_API_KEY", "key-for-account-b")
+
+    with patch.object(telemetry, "_resolve_email", lambda key: ""):
+        resolved, _ = telemetry.resolve_distinct_id()
+
+    assert resolved == "old@example.com"
+    assert "key_fingerprint" not in telemetry._read_identity(), "bound an unverified key"
+
+
+def test_a_failed_upgrade_claim_can_be_retried(isolated_env, monkeypatch):
+    """Review finding: a failed rewrite left the sentinel and suppressed forever.
+
+    claim_version_change returns early on FileExistsError, and the marker still
+    holds the old version, so the upgrade for that version was never recorded
+    again on that machine.
+    """
+    telemetry.claim_install()
+    state_path = memory_core.data_dir() / "install-state.json"
+    state = json.loads(state_path.read_text())
+    state["plugin_version"] = "0.0.1-old"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    real_replace = Path.replace
+
+    def failing_replace(self, target):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "replace", failing_replace)
+    assert telemetry.claim_version_change() is None
+
+    monkeypatch.setattr(Path, "replace", real_replace)
+    assert telemetry.claim_version_change() == "0.0.1-old", "sentinel suppressed the retry"
+
+
+def test_first_run_is_not_flipped_by_writing_the_identity_file(isolated_env):
+    """The identity file is written by a successful flush, not by recording.
+
+    Keying first-run off it meant an offline user recorded code.install on every
+    session forever, and every 0.2.x user recorded one on their first 0.3.x run.
+    """
     assert telemetry.is_first_run()
     telemetry.anonymous_id()
+    assert telemetry.is_first_run()
+
+
+def test_claiming_install_ends_first_run(isolated_env):
+    assert telemetry.claim_install() == "install"
     assert not telemetry.is_first_run()
+
+
+def test_install_can_only_be_claimed_once(isolated_env):
+    """Two sessions starting together must not both record an install."""
+    assert telemetry.claim_install() == "install"
+    assert telemetry.claim_install() is None
+
+
+def test_a_populated_data_dir_reads_as_an_upgrade(isolated_env):
+    """A fresh install has an empty data directory; anything else predates it."""
+    data_dir = memory_core.data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    (data_dir / "requirements.txt").write_text("mem0ai\n", encoding="utf-8")
+    assert telemetry.claim_install() == "upgrade"
+
+
+def test_a_version_change_is_claimed_once(isolated_env):
+    telemetry.claim_install()
+    state_path = memory_core.data_dir() / "install-state.json"
+    state = json.loads(state_path.read_text())
+    state["plugin_version"] = "0.0.1-old"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    assert telemetry.claim_version_change() == "0.0.1-old"
+    assert telemetry.claim_version_change() is None
 
 
 def test_spawn_flush_does_nothing_without_a_spool(isolated_env):
