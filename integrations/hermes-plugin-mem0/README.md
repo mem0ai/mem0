@@ -144,6 +144,6 @@ in a temporary profile. It exercises CLI setup/status, all four tools, recall, b
 existing user identity, private files, dimension-mismatch protection, shutdown, and persistence across restart. Only the OpenAI-compatible
 model service is simulated locally; this does not test live cloud credentials or model quality.
 
-## License and origin
+## License
 
-[MIT](LICENSE). Imported from [Nous Research's standalone Mem0 provider](https://github.com/NousResearch/hermes-plugin-mem0/tree/3fc36950b2b7c19cdd81c6de99f10d2cbed850af), with subsequent fixes and tests maintained here. The original copyright notice is retained.
+[Apache-2.0](LICENSE) for Mem0 contributions. Includes code from [Nous Research's standalone Mem0 provider](https://github.com/NousResearch/hermes-plugin-mem0/tree/3fc36950b2b7c19cdd81c6de99f10d2cbed850af) under MIT; its original license and copyright notice are preserved in [NOTICE](NOTICE).
