@@ -1,227 +1,130 @@
-# Mem0 Memory Provider
+# Mem0 for Hermes Agent
 
-Standalone copy of the [Nous Research provider](https://github.com/NousResearch/hermes-plugin-mem0/tree/3fc36950b2b7c19cdd81c6de99f10d2cbed850af), maintained in this subdirectory. The original MIT license is retained.
+Persistent memory for [Hermes Agent](https://github.com/NousResearch/hermes-agent), powered by [Mem0](https://mem0.ai).
 
-Server-side LLM fact extraction with semantic search and hybrid multi-signal retrieval via the Mem0 Platform v3 API.
+This standalone plugin recalls relevant memories before a response and extracts facts from conversations afterward. It works alongside Hermes' file-based memory and supports Mem0 Cloud, a self-hosted Mem0 server, or the in-process OSS SDK.
 
-## Requirements
+## Features
 
-- `pip install mem0ai`
-- Mem0 API key from [app.mem0.ai](https://app.mem0.ai)
+- **Automatic recall and capture** across conversations.
+- **Four agent tools** to search, add, update, and delete memories.
+- **Three backend modes** with interactive setup through `hermes memory setup`.
+- **User-scoped memories** with agent and channel metadata on writes.
 
-## Install
+## Setup
 
-After this directory is merged to Mem0's main branch:
+### 1. Install
+
+Requires [Hermes Agent](https://github.com/NousResearch/hermes-agent) with memory-provider plugin support and Python 3.11 or later. After this directory is merged to Mem0's main branch:
 
 ```bash
 hermes plugins install mem0ai/mem0/integrations/hermes-plugin-mem0
 hermes plugins enable mem0
 ```
 
-Hermes versions that still bundle Mem0 prefer the bundled provider. The external copy
-loads once that bundled provider is removed. Keep `memory.provider: mem0`, your existing
-`mem0.json`, `MEM0_*` variables, user ID, and OSS storage paths.
+Hermes installers with plugin dependency support install `mem0ai>=2.0.10,<3` and `httpx>=0.27,<1` from this directory's `pyproject.toml`. On older hosts such as Hermes v0.21.3, install those requirements into the **Hermes Python environment** explicitly. The OSS setup wizard installs additional provider packages as needed.
 
-Automatic migration requires Hermes' migration support and an approved catalog entry
-named `mem0`, with `repo: https://github.com/mem0ai/mem0`,
-`subdir: integrations/hermes-plugin-mem0`, and a full reviewed commit SHA.
-Merging this directory does not register that catalog entry. Startup installation also
-requires `security.allow_lazy_installs`; disabled or offline installs require manual action.
+> Hermes versions that still bundle Mem0 prefer the bundled provider. The standalone copy takes over after that bundled copy is removed; see [Existing users and migration](#existing-users-and-migration).
 
-The plugin provides `get_config_schema`, `save_config`, and `post_setup` for CLI setup.
-It does not ship a Desktop `config_schema.py` panel or provider-specific `cli.py` commands.
-On Hermes v0.21.3, install the dependencies declared in `pyproject.toml` into the Hermes
-Python environment explicitly; newer Hermes installers handle them automatically.
-
-## Setup
-
-```bash
-hermes memory setup    # select "mem0"
-```
-
-Or manually:
-```bash
-hermes config set memory.provider mem0
-echo "MEM0_API_KEY=your-key" >> ~/.hermes/.env
-```
-
-## Config
-
-Behavioral settings live in `$HERMES_HOME/mem0.json` (set them via `hermes memory setup`). Only the secret `MEM0_API_KEY` belongs in `~/.hermes/.env`.
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `mode` | `platform` | `platform` (Mem0 Cloud) or `oss` (self-managed, in-process) |
-| `host` | — | Self-hosted Mem0 server URL (the Docker dashboard). When set, connects over HTTP with `X-API-Key`. Don't combine with `mode: oss` |
-| `user_id` | `hermes-user` | User identifier on Mem0 |
-| `agent_id` | `hermes` | Agent identifier |
-| `rerank` | `false` | Rerank search results for relevance (platform mode only) |
-| `sync_max_chars` | `450` | Per-message character cap applied before each turn is sent for fact extraction (cut at the last sentence boundary). Default fits 512-token embedders; raise it (e.g. `6000`) for 8k-token embedders such as `text-embedding-3-small`, `jina-embeddings-v3`, `bge-m3` |
-
-The plugin has three connection modes:
-
-- **Platform** — Mem0's hosted cloud (`api.mem0.ai`). Set `MEM0_API_KEY`. (default)
-- **Self-hosted dashboard** — a Mem0 server you run yourself via Docker. Set `host`. See below.
-- **OSS** — run Mem0 in-process with your own LLM + vector store. Set `mode: oss`. See below.
-
-## Self-Hosted Dashboard (Server) Mode
-
-Connect the plugin to a standalone Mem0 server you run yourself — the Docker-shipped Mem0 dashboard/server with its own REST API. Unlike OSS mode (which runs `mem0ai` in-process with your own vector store), here the plugin just talks HTTP to your server.
-
-1. Run the Mem0 server (FastAPI + pgvector) from its Docker image and note its URL and `ADMIN_API_KEY`.
-2. Point the plugin at it — via the setup wizard:
-   ```bash
-   hermes memory setup    # select "mem0" → "Self-hosted server"
-   # Or non-interactive:
-   hermes memory setup mem0 --mode selfhosted --host http://localhost:8888 --api-key your-admin-api-key
-   ```
-   or via env vars:
-   ```bash
-   echo "MEM0_HOST=http://localhost:8888" >> ~/.hermes/.env
-   echo "MEM0_API_KEY=your-admin-api-key" >> ~/.hermes/.env
-   ```
-   or in `$HERMES_HOME/mem0.json`:
-   ```json
-   {
-     "host": "http://localhost:8888",
-     "api_key": "your-admin-api-key"
-   }
-   ```
-3. Start a fresh Hermes session and call `mem0_search` — it connects to your server.
-
-The plugin authenticates with `X-API-Key` and uses the server's `/search` and `/memories` routes. `api_key` is optional — omit it only for servers running with `AUTH_DISABLED`.
-
-> Setting `host` routes to the self-hosted server automatically. Don't set `mode: oss` — OSS takes precedence and ignores `host`.
-
-## OSS (Self-Hosted) Mode
-
-Run Mem0 locally with your own LLM, embedder, and vector store. This is the in-process SDK mode. To instead connect to a Mem0 server you run via Docker, see [Self-Hosted Dashboard (Server) Mode](#self-hosted-dashboard-server-mode) above.
-
-### Interactive Setup
+### 2. Configure
 
 ```bash
 hermes memory setup
-# Select "mem0" → "Open Source (self-hosted)"
-# Follow prompts for LLM, embedder, and vector store
 ```
 
-### Agent-Driven Setup (Flags)
+Select **mem0**, then choose a backend:
+
+| Mode | What you need |
+|------|----------------|
+| **Platform** (default) | A Mem0 API key from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys) |
+| **Self-hosted server** | A running [Mem0 server](../../server), its URL, and its API key unless authentication is disabled |
+| **OSS** | An LLM, embedder, and vector store; no Mem0 API key needed |
+
+For a self-hosted server:
 
 ```bash
-hermes memory setup mem0 --mode oss \
-  --oss-llm openai --oss-llm-key sk-... \
-  --oss-vector qdrant
+hermes memory setup mem0 --mode selfhosted --host http://localhost:8888
 ```
 
-### Supported Providers
+The wizard prompts for the server API key. Requests use `X-API-Key` and the server's `/search` and `/memories` routes. Setting `host` selects this backend unless `mode` is `oss`.
 
-| Component | Providers |
-|-----------|-----------|
-| LLM | openai, ollama |
-| Embedder | openai, ollama |
-| Vector Store | qdrant (local/server), pgvector |
-
-### Flags Reference
-
-| Flag | Description |
-|------|-------------|
-| `--mode` | `platform`, `selfhosted`, or `oss` |
-| `--oss-llm` | LLM provider (default: openai) |
-| `--oss-llm-key` | LLM API key |
-| `--oss-embedder` | Embedder provider (default: openai) |
-| `--oss-vector` | Vector store (default: qdrant) |
-| `--oss-vector-path` | Qdrant local path |
-| `--user-id` | User identifier |
-
-## Switching Modes
-
-### Platform to OSS
+For the in-process OSS SDK:
 
 ```bash
-hermes memory setup mem0 --mode oss --oss-llm-key sk-...
+hermes memory setup mem0 --mode oss
 ```
 
-Or edit `$HERMES_HOME/mem0.json` directly:
-```json
-{
-  "mode": "oss",
-  "oss": {
-    "llm": {"provider": "openai", "config": {"model": "gpt-5-mini", "is_reasoning_model": true}},
-    "embedder": {"provider": "openai", "config": {"model": "text-embedding-3-small"}},
-    "vector_store": {"provider": "qdrant", "config": {"path": "~/.hermes/mem0_qdrant"}}
-  }
-}
-```
+The wizard supports OpenAI or Ollama for the LLM and embedder, and local/server Qdrant or PGVector for storage. OSS does not use Mem0 Cloud; data still goes to whichever model services you configure. Run setup again to switch modes. When switching to Platform, remove any stale `MEM0_HOST` setting from the environment and profile `.env`.
 
-### OSS to Platform
+See the [Hermes integration guide](https://docs.mem0.ai/integrations/hermes) for manual configuration and setup flags.
+
+### 3. Verify
 
 ```bash
-hermes memory setup mem0 --mode platform --api-key sk-...
+hermes memory status
 ```
 
-### Dry Run (preview without writing)
-
-```bash
-hermes memory setup mem0 --mode oss --oss-llm-key sk-... --dry-run
-```
+Start a fresh Hermes conversation and ask it to remember a fact, then search for that fact in a later session using the same user identity.
 
 ## Tools
 
-| Tool | Description |
-|------|-------------|
-| `mem0_search` | Semantic search by meaning |
-| `mem0_add` | Store a fact verbatim (no LLM extraction) |
-| `mem0_update` | Update a memory's text by ID |
-| `mem0_delete` | Delete a memory by ID |
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `mem0_search` | Search memories by meaning | `query`, optional `top_k` (default 10, max 50) and `rerank` (Platform only) |
+| `mem0_add` | Store text verbatim, without fact extraction | `content` |
+| `mem0_update` | Update a memory's text | `memory_id`, `text` |
+| `mem0_delete` | Delete a memory | `memory_id` |
+
+## Configuration
+
+Settings live in `$HERMES_HOME/mem0.json`; the default Hermes home is `~/.hermes`. Setup stores API keys in that profile's `.env`. OSS configuration can also contain database credentials. Setup writes both files atomically with owner-only permissions.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `mode` | `platform` | `platform` for Cloud/server routing, or `oss` for the in-process SDK |
+| `host` | unset | Self-hosted server URL; ignored in OSS mode |
+| `user_id` | gateway user ID, then `hermes-user` | Set a stable ID to share memories across gateways |
+| `agent_id` | `hermes` | Agent identifier attached to writes |
+| `rerank` | `false` | Platform reranking for automatic recall and tool searches that omit `rerank` |
+| `sync_max_chars` | `450` | Maximum characters per user/assistant message sent for automatic extraction |
+| `oss` | `{}` | OSS LLM, embedder, and vector-store configuration written by setup |
+
+`MEM0_MODE`, `MEM0_HOST`, `MEM0_USER_ID`, and `MEM0_AGENT_ID` provide environment defaults; non-empty file settings override them. `MEM0_API_KEY` supplies the Cloud or server key when `api_key` is not set in the file.
+
+An explicit `user_id` other than `hermes-user` takes precedence over a gateway's native user ID. Searches use that user identity across sessions; writes attach `agent_id` and `metadata.channel`.
+
+## Automatic recall and capture
+
+Recall waits up to three seconds for memories relevant to the current message. If results are late, the model can still call `mem0_search`.
+
+After a turn, a background worker sends the user message and assistant response for extraction. Each message is truncated to **450 characters by default in every mode**, preferring a sentence boundary. Increase `sync_max_chars` to suit your model's context limit. Explicit `mem0_add` calls store their supplied text verbatim.
+
+Capture is best effort: if the previous sync remains busy after a five-second wait, the new turn is skipped. There is no durable queue. Five consecutive backend failures pause calls for two minutes before retrying.
+
+## Existing users and migration
+
+Keep `memory.provider: mem0`, your existing `mem0.json`, `MEM0_*` settings, user identity, and OSS storage paths. Moving the plugin does not require moving memories or rerunning setup.
+
+Automatic migration also requires coordination in Hermes:
+
+1. A Hermes build containing [migration support from PR #114569](https://github.com/NousResearch/hermes-agent/pull/114569).
+2. An approved catalog entry named `mem0`, pointing to `https://github.com/mem0ai/mem0`, with `subdir: integrations/hermes-plugin-mem0` and a reviewed full commit SHA.
+3. Removal of Hermes' bundled Mem0 provider, which otherwise takes precedence.
+
+With those in place, Hermes can install a missing configured provider during `hermes update` or at agent startup. Startup installation respects `security.allow_lazy_installs`; disabled or offline installation requires manual action. Merging this directory alone does not register the catalog entry or complete rollout.
+
+The plugin supports CLI setup/status. It does not include a Desktop configuration panel or provider-specific CLI commands.
 
 ## Troubleshooting
 
-### "Mem0 temporarily unavailable"
+- **Mem0 unavailable:** run `hermes memory status`. Check the API key and backend connectivity; after five consecutive failures the circuit breaker waits two minutes.
+- **Memories missing:** confirm the same user identity across sessions and check `sync_max_chars`. Automatic extraction may omit facts; use `mem0_add` to store exact text.
+- **OSS connection refused:** check the configured model/vector service, or filesystem permissions for local Qdrant.
+- **Embedding dimension mismatch:** initialization fails without deleting existing data. Restore the previous embedding model/dimensions, or use a new collection and migrate data explicitly.
 
-Circuit breaker tripped after 5 consecutive failures. Resets after 2 minutes.
+## Development
 
-- **Platform mode**: Check API key and internet connectivity.
-- **OSS mode**: Check that your vector store (qdrant/pgvector) is running.
-
-### OSS: Qdrant connection refused
-
-```bash
-# If using local Qdrant, check the storage path is writable:
-ls -la ~/.hermes/mem0_qdrant
-
-# If using Qdrant server, check it's reachable:
-curl http://localhost:6333/healthz
-```
-
-### OSS: PGVector connection refused
-
-```bash
-# Verify PostgreSQL is running and accepting connections:
-pg_isready -h localhost -p 5432
-```
-
-### OSS: Ollama not reachable
-
-```bash
-# Check Ollama is running:
-curl http://localhost:11434/api/tags
-```
-
-### Memories not appearing
-
-- `mem0_add` stores verbatim (no extraction). Use `sync_turn` for LLM extraction.
-- Search uses semantic matching — try broader queries.
-- Check `user_id` matches between sessions (`$HERMES_HOME/mem0.json`).
-
-### Existing OSS collection has different embedding dimensions
-
-Initialization now fails without deleting the existing collection. Restore the previous
-embedding model/dimensions or select a new collection name and migrate data explicitly.
-Setup saves credentials and OSS configuration atomically with owner-only permissions.
-
-## Local checks
-
-From the Mem0 repository root, with `pytest` installed:
+From the Mem0 repository root, with `pytest`, `httpx`, `ruff`, and `isort` installed:
 
 ```bash
 python -m pytest -q --confcutdir=integrations/hermes-plugin-mem0/tests integrations/hermes-plugin-mem0/tests
@@ -240,3 +143,7 @@ The smoke uses the real Hermes external loader, Mem0 SDK, and an on-disk Qdrant 
 in a temporary profile. It exercises CLI setup/status, all four tools, recall, background extraction,
 existing user identity, private files, dimension-mismatch protection, shutdown, and persistence across restart. Only the OpenAI-compatible
 model service is simulated locally; this does not test live cloud credentials or model quality.
+
+## License and origin
+
+[MIT](LICENSE). Imported from [Nous Research's standalone Mem0 provider](https://github.com/NousResearch/hermes-plugin-mem0/tree/3fc36950b2b7c19cdd81c6de99f10d2cbed850af), with subsequent fixes and tests maintained here. The original copyright notice is retained.
