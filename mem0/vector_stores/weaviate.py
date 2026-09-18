@@ -188,7 +188,7 @@ class Weaviate(VectorStoreBase):
         filter_conditions = []
         if filters:
             for key, value in filters.items():
-                if value and key in ["user_id", "agent_id", "run_id"]:
+                if value is not None and key in ["user_id", "agent_id", "run_id"]:
                     filter_conditions.append(Filter.by_property(key).equal(value))
         combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
         response = collection.query.hybrid(
@@ -239,7 +239,7 @@ class Weaviate(VectorStoreBase):
         filter_conditions = []
         if filters:
             for key, value in filters.items():
-                if value and key in ["user_id", "agent_id", "run_id"]:
+                if value is not None and key in ["user_id", "agent_id", "run_id"]:
                     filter_conditions.append(Filter.by_property(key).equal(value))
         combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
         response = collection.query.bm25(
@@ -362,7 +362,7 @@ class Weaviate(VectorStoreBase):
         filter_conditions = []
         if filters:
             for key, value in filters.items():
-                if value and key in ["user_id", "agent_id", "run_id"]:
+                if value is not None and key in ["user_id", "agent_id", "run_id"]:
                     filter_conditions.append(Filter.by_property(key).equal(value))
         combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
         response = collection.query.fetch_objects(
