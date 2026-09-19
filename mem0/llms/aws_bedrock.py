@@ -406,7 +406,9 @@ class AWSBedrockLLM(LLMBase):
                     elif "completion" in response_json:
                         return response_json["completion"]
                 else:
-                    # Legacy Amazon models
+                    results = response_json.get("results")
+                    if isinstance(results, list) and results:
+                        return results[0].get("outputText", "")
                     return response_json.get("completion", "")
             elif self.provider == "meta":
                 return response_json.get("generation", "")

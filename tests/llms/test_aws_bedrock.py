@@ -506,3 +506,24 @@ class TestParseResponseLegacy:
         response = {"body": body}
         result = llm._parse_response(response, tools=None)
         assert result == "hello from ai21"
+
+    def test_amazon_titan_normal_response(self, mock_boto3):
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({
+            "inputTextTokenCount": 5,
+            "results": [{"tokenCount": 3, "outputText": "hello from titan", "completionReason": "FINISH"}],
+        }).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == "hello from titan"
+
+    def test_amazon_titan_missing_results_returns_empty(self, mock_boto3):
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({"inputTextTokenCount": 5}).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == ""
