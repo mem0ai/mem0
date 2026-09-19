@@ -78,6 +78,8 @@ import {
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 import { logger } from "../utils/logger";
 import { normalizeExpirationDate, payloadIsExpired } from "../utils/expiration";
+
+const MAX_SEARCH_EMBEDDING_CHARS = 32000;
 import { getOrCreateMem0UserId } from "../../../client/config";
 
 export class LLMError extends Error {
@@ -886,7 +888,16 @@ export class Memory {
       .join("\n");
 
     // Phase 1: Existing memory retrieval
-    const queryEmbedding = await this.embedder.embed(parsedMessages, "search");
+    let searchMessages = parsedMessages;
+    if (searchMessages.length > MAX_SEARCH_EMBEDDING_CHARS) {
+      console.warn(
+        `Search query text length (${searchMessages.length} characters) exceeds maximum safe embedding limit (${MAX_SEARCH_EMBEDDING_CHARS} characters). Truncating to keep the most recent context while preserving word boundaries.`
+      );
+      const tail = searchMessages.slice(-MAX_SEARCH_EMBEDDING_CHARS);
+      const firstSpace = tail.indexOf(" ");
+      searchMessages = firstSpace !== -1 ? tail.slice(firstSpace + 1) : tail;
+    }
+    const queryEmbedding = await this.embedder.embed(searchMessages, "search");
     const existingResults = await this.vectorStore.search(
       queryEmbedding,
       10,
