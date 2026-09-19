@@ -165,6 +165,46 @@ def test_generate_response_rewrites_assistant_keyword_for_model_only(mock_openai
     assert messages[-1]["content"] == "my assistant helps me"
 
 
+@pytest.mark.parametrize(
+    "content, expected_content",
+    [
+        ("the assistants arrived", "the assistants arrived"),
+        ("nonassistant setups exist", "nonassistant setups exist"),
+        ("assistantship program", "assistantship program"),
+        ("pass the assistant_id along", "pass the assistant_id along"),
+        ("configure my_assistant now", "configure my_assistant now"),
+        ("assistant2 2assistant", "assistant2 2assistant"),
+        ("my assistant helps with assistants", "my ai helps with assistants"),
+        ("Assistant ASSISTANT assistant", "Assistant ASSISTANT ai"),
+        ("assistant", "ai"),
+        ("(assistant), assistant's co-assistant.", "(ai), ai's co-ai."),
+    ],
+)
+def test_generate_response_respects_assistant_word_boundaries(mock_openai_client, content, expected_content):
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "assistant", "content": "I am your assistant."},
+        {"role": "user", "content": content},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    sent_messages = mock_openai_client.chat.completions.create.call_args[1]["messages"]
+    assert sent_messages == [
+        {"role": "assistant", "content": "I am your assistant."},
+        {"role": "user", "content": expected_content},
+    ]
+    assert messages == [
+        {"role": "assistant", "content": "I am your assistant."},
+        {"role": "user", "content": content},
+    ]
+
+
 def test_generate_response_handles_multimodal_content(mock_openai_client):
     config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
     llm = AzureOpenAILLM(config)

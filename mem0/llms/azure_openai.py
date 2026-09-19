@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import re
 from typing import Dict, List, Optional, Union
 
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
@@ -80,6 +81,11 @@ class AzureOpenAILLM(LLMBase):
         which makes ``add`` fail (see issue #2636). The rewrite targets that
         trigger without mutating the caller's messages and without assuming the
         content is a string, so multimodal (list) content passes through untouched.
+
+        Matching is case-sensitive and uses word boundaries, preserving words
+        like "assistants" and "nonassistant". Underscores and digits are word
+        characters, so identifiers like "assistant_id", "my_assistant", and
+        "assistant2" are intentionally left unchanged.
         """
         if not messages:
             return messages
@@ -87,7 +93,7 @@ class AzureOpenAILLM(LLMBase):
         messages = copy.deepcopy(messages)
         last_content = messages[-1].get("content")
         if isinstance(last_content, str):
-            messages[-1]["content"] = last_content.replace("assistant", "ai")
+            messages[-1]["content"] = re.sub(r"\bassistant\b", "ai", last_content)
         return messages
 
     def _parse_response(self, response, tools):
