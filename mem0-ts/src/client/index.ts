@@ -23,6 +23,16 @@ export type {
   FeedbackPayload,
   CreateMemoryExportPayload,
   GetMemoryExportPayload,
+  ProfileEntityType,
+  ProfileStatus,
+  ProfileResponse,
+  ProfileTriggerResponse,
+  ProfileSettings,
+  ProfileSettingsResponse,
+  EntityProfileSettings,
+  ProfileSampleResult,
+  ProfileSamplesResponse,
+  ProfileRegenerateResponse,
 } from "./mem0.types";
 
 // Re-export enums as values (not type-only)

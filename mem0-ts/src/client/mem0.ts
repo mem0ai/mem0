@@ -20,6 +20,15 @@ import {
   FeedbackPayload,
   CreateMemoryExportPayload,
   GetMemoryExportPayload,
+  ProfileEntityType,
+  ProfileResponse,
+  ProfileJobResponse,
+  ProfileJobStatus,
+  ProfileTriggerResponse,
+  ProfileSettings,
+  ProfileSettingsResponse,
+  ProfileSamplesResponse,
+  ProfileRegenerateResponse,
 } from "./mem0.types";
 import {
   captureClientEvent,
@@ -92,6 +101,9 @@ interface ClientIdentity {
 }
 
 // Shares one ping per (host, api key) across clients; FIFO-capped.
+// One collection for every generation; the operation is a body field.
+const PROFILE_JOBS_PATH = "/v2/profiles/jobs/";
+
 const IDENTITY_CACHE_MAX_DEFAULT = 50;
 const identityByCredentials = new Map<string, Promise<ClientIdentity>>();
 
@@ -305,7 +317,8 @@ export default class MemoryClient {
       });
   }
 
-  async _fetchWithErrorHandling(url: string, options: any): Promise<any> {
+  /** Fetch with no key conversion, for payloads carrying user-controlled property names. */
+  async _fetchRawJson(url: string, options: any): Promise<any> {
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -318,8 +331,11 @@ export default class MemoryClient {
       const errorData = await response.text();
       throw createExceptionFromResponse(response.status, errorData);
     }
-    const jsonResponse = await response.json();
-    return snakeToCamelKeys(jsonResponse);
+    return response.json();
+  }
+
+  async _fetchWithErrorHandling(url: string, options: any): Promise<any> {
+    return snakeToCamelKeys(await this._fetchRawJson(url, options));
   }
 
   _preparePayload(
@@ -814,6 +830,223 @@ export default class MemoryClient {
       },
     );
     return response;
+  }
+
+  /**
+   * Get the memory profile for a single entity.
+   *
+   * Branch on `status`, not on an empty `profile`: generation is asynchronous,
+   * so a known entity without a profile yet is a normal response.
+   */
+  async getProfile(data: {
+    entityId: string;
+    entityType?: ProfileEntityType;
+  }): Promise<ProfileResponse> {
+    this._captureEvent("get_profile", []);
+    await this._awaitIdentity();
+
+    const entityType = data.entityType ?? "user";
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}/v2/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(data.entityId)}/profile/`,
+      {
+        headers: this.headers,
+      },
+    );
+    return response;
+  }
+
+  /**
+   * Generate or refresh the profile for one entity, now.
+   *
+   * Profiles are otherwise built once an entity crosses an internal message
+   * threshold, so a new entity has none for its first few memories. Returns as
+   * soon as the work is queued: poll {@link getProfile} and branch on `status`.
+   */
+  async generateProfile(data: {
+    entityId: string;
+    entityType?: ProfileEntityType;
+  }): Promise<ProfileTriggerResponse> {
+    this._captureEvent("generate_profile", []);
+    await this._awaitIdentity();
+
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}${PROFILE_JOBS_PATH}`,
+      {
+        method: "POST",
+        headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          operation: "trigger",
+          entity_type: data.entityType ?? "user",
+          entity_id: data.entityId,
+        }),
+      },
+    );
+    return response;
+  }
+
+  /** Get the profile settings for the current project. */
+  async getProfileSettings(): Promise<ProfileSettingsResponse> {
+    this._captureEvent("get_profile_settings", []);
+    await this._awaitIdentity();
+
+    const raw = await this._fetchRawJson(`${this.host}/v2/profiles/settings/`, {
+      headers: this.headers,
+    });
+    return this._settingsWithVerbatimSchema(raw);
+  }
+
+  /**
+   * The envelope keys are ours; the schema's property names are the customer's.
+   *
+   * Each entity type carries its own schema, so every one has to be restored
+   * from the raw body — otherwise camel-casing rewrites the customer's field
+   * names and a profile comes back under keys they never chose.
+   */
+  private _settingsWithVerbatimSchema(raw: any): ProfileSettingsResponse {
+    const settings = snakeToCamelKeys(raw) as ProfileSettingsResponse;
+    if (!raw || typeof raw !== "object") {
+      return settings;
+    }
+
+    if ("schema" in raw) {
+      settings.schema = raw.schema;
+    }
+
+    const rawEntities = raw.entities;
+    if (rawEntities && typeof rawEntities === "object") {
+      for (const [entityType, entitySettings] of Object.entries(rawEntities)) {
+        if (
+          entitySettings &&
+          typeof entitySettings === "object" &&
+          "schema" in entitySettings &&
+          settings.entities?.[entityType as ProfileEntityType]
+        ) {
+          settings.entities[entityType as ProfileEntityType]!.schema = (
+            entitySettings as Record<string, any>
+          ).schema;
+        }
+      }
+    }
+
+    return settings;
+  }
+
+  /**
+   * Update profile settings. Only the fields you pass are written.
+   *
+   * `schema` and `customInstructions` are per entity type and are nested under
+   * `entities` for the API; only `enabled` is project-wide. Sending them flat
+   * is rejected with `Unsupported settings`.
+   */
+  async updateProfileSettings(
+    settings: ProfileSettings,
+  ): Promise<ProfileSettingsResponse> {
+    const payloadKeys = Object.keys(settings || {});
+    this._captureEvent("update_profile_settings", [payloadKeys]);
+    await this._awaitIdentity();
+
+    const {
+      schema,
+      customInstructions,
+      enabled,
+      entityType = "user",
+    } = settings || {};
+
+    const body: Record<string, any> = {};
+    if (enabled !== undefined) {
+      body.enabled = enabled;
+    }
+
+    const entitySettings: Record<string, any> = {};
+    // The schema's property names are the customer's and must reach the API verbatim.
+    if (schema !== undefined) {
+      entitySettings.schema = schema;
+    }
+    if (customInstructions !== undefined) {
+      entitySettings.custom_instructions = customInstructions;
+    }
+    if (Object.keys(entitySettings).length > 0) {
+      body.entities = { [entityType]: entitySettings };
+    }
+
+    const raw = await this._fetchRawJson(`${this.host}/v2/profiles/settings/`, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+    return this._settingsWithVerbatimSchema(raw);
+  }
+
+  /**
+   * Generate profiles for a few real entities, to check a schema.
+   *
+   * Real generations against real memories, and the results are kept: the
+   * profiles are written to those entities and count toward usage.
+   */
+  async sampleProfiles(data?: {
+    limit?: number;
+    entityType?: ProfileEntityType;
+  }): Promise<ProfileJobResponse> {
+    this._captureEvent("sample_profiles", []);
+    await this._awaitIdentity();
+
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}${PROFILE_JOBS_PATH}`,
+      {
+        method: "POST",
+        headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          operation: "sample",
+          // Required: the API refuses a job that does not name an entity kind.
+          entity_type: data?.entityType ?? "user",
+          ...this._prepareParams({ limit: data?.limit }),
+        }),
+      },
+    );
+    return response;
+  }
+
+  /**
+   * Rebuild the profile of every entity of one kind in the project.
+   *
+   * Not available yet: the server answers 409 `not_yet_available` and creates
+   * nothing. Use {@link sampleProfiles} or {@link generateProfile} until
+   * `capabilities.full_rebuild` from {@link getProfileSettings} is true.
+   */
+  async regenerateProfiles(data?: {
+    entityType?: ProfileEntityType;
+  }): Promise<ProfileJobResponse> {
+    this._captureEvent("regenerate_profiles", []);
+    await this._awaitIdentity();
+
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}${PROFILE_JOBS_PATH}`,
+      {
+        method: "POST",
+        headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          operation: "regenerate",
+          entity_type: data?.entityType ?? "user",
+        }),
+      },
+    );
+    return response;
+  }
+
+  /**
+   * Read one generation job. Accepts the `statusUrl` from a create call, or a
+   * bare job id. Prefer `statusUrl` so a route change needs no client update.
+   */
+  async getProfileJob(jobIdOrStatusUrl: string): Promise<ProfileJobStatus> {
+    await this._awaitIdentity();
+
+    const path = jobIdOrStatusUrl.startsWith("/")
+      ? jobIdOrStatusUrl
+      : `${PROFILE_JOBS_PATH}${jobIdOrStatusUrl}/`;
+    return this._fetchWithErrorHandling(`${this.host}${path}`, {
+      method: "GET",
+      headers: this.headers,
+    });
   }
 
   async createMemoryExport(
