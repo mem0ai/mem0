@@ -932,9 +932,7 @@ class Memory(MemoryBase):
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
-        uuid_mapping = {}
         for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
             existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
 
         # Phase 2: LLM extraction (single call)
@@ -2594,9 +2592,7 @@ class AsyncMemory(MemoryBase):
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
-        uuid_mapping = {}
         for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
             existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
 
         # Phase 2: LLM extraction (single call)
