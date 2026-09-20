@@ -39,7 +39,7 @@ config = {
             "model": "gpt-5-mini"
         }
     },
-    "rerank": {
+    "reranker": {
         "provider": "sentence_transformer",
         "config": {
             "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
@@ -94,7 +94,7 @@ For better performance, use GPU acceleration:
 
 ```python Python
 config = {
-    "rerank": {
+    "reranker": {
         "provider": "sentence_transformer",
         "config": {
             "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
@@ -114,7 +114,7 @@ from mem0 import Memory
 config = {
     "vector_store": {"provider": "chroma"},
     "llm": {"provider": "openai", "config": {"model": "gpt-5-mini"}},
-    "rerank": {
+    "reranker": {
         "provider": "sentence_transformer",
         "config": {
             "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
@@ -151,7 +151,7 @@ You can use any HuggingFace cross-encoder model:
 ```python Python
 # Using a different model
 config = {
-    "rerank": {
+    "reranker": {
         "provider": "sentence_transformer", 
         "config": {
             "model": "cross-encoder/stsb-distilroberta-base",

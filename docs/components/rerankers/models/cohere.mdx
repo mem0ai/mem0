@@ -102,7 +102,7 @@ os.environ["COHERE_API_KEY"] = "your-api-key"
 config = {
     "vector_store": {"provider": "chroma"},
     "llm": {"provider": "openai", "config": {"model": "gpt-5-mini"}},
-    "rerank": {
+    "reranker": {
         "provider": "cohere",
         "config": {
             "model": "rerank-v3.5",
@@ -138,7 +138,7 @@ For multilingual applications, use the multilingual model:
 
 ```python Python
 config = {
-    "rerank": {
+    "reranker": {
         "provider": "cohere",
         "config": {
             "model": "rerank-multilingual-v3.0",
