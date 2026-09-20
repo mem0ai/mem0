@@ -102,10 +102,12 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 <Tab title="Python">
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `collection_name` | string | required | Name of the OpenSearch index |
+| `collection_name` | string | `mem0` | Name of the OpenSearch index |
 | `host` | string | required | OpenSearch endpoint URL |
 | `port` | int | 9200 | Port number |
-| `http_auth` | object | None | Authentication credentials (e.g., AWSV4SignerAuth) |
+| `http_auth` | object | None | Authentication credentials (e.g., AWSV4SignerAuth). Takes precedence over `user`/`password`. |
+| `user` | string | None | Username for basic auth. Used only when `http_auth` is unset and `password` is also given. |
+| `password` | string | None | Password for basic auth. Used only when `http_auth` is unset and `user` is also given. |
 | `embedding_model_dims` | int | 1536 | Dimension of embedding vectors |
 | `use_ssl` | bool | False | Enable SSL/TLS connection |
 | `verify_certs` | bool | False | Verify SSL certificates |
