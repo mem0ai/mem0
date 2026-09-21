@@ -28,6 +28,8 @@ class Mem0Backend(ABC):
     @abstractmethod
     def add(self, messages: list, *, user_id: str, agent_id: str, infer: bool = False, metadata: dict | None = None) -> dict: ...
     @abstractmethod
+    def get(self, memory_id: str) -> dict | None: ...
+    @abstractmethod
     def _update(self, memory_id: str, text: str) -> None: ...
     @abstractmethod
     def _delete(self, memory_id: str) -> None: ...
@@ -56,6 +58,9 @@ class PlatformBackend(Mem0Backend):
 
     def add(self, messages: list, *, user_id: str, agent_id: str, infer: bool = False, metadata: dict | None = None) -> dict:
         return self._client.add(messages, **_add_kwargs(user_id, agent_id, infer, metadata))
+
+    def get(self, memory_id: str) -> dict | None:
+        return self._client.get(memory_id)
 
     def _update(self, memory_id: str, text: str) -> None:
         self._client.update(memory_id=memory_id, text=text)
@@ -86,6 +91,9 @@ class SelfHostedBackend(Mem0Backend):
 
     def add(self, messages: list, *, user_id: str, agent_id: str, infer: bool = False, metadata: dict | None = None) -> dict:
         return self._json("POST", "/memories", json={"messages": messages, **_add_kwargs(user_id, agent_id, infer, metadata)})
+
+    def get(self, memory_id: str) -> dict | None:
+        return self._json("GET", f"/memories/{memory_id}")
 
     def _update(self, memory_id: str, text: str) -> None:
         self._json("PUT", f"/memories/{memory_id}", json={"text": text})
@@ -232,6 +240,9 @@ class OSSBackend(Mem0Backend):
 
     def add(self, messages: list, *, user_id: str, agent_id: str, infer: bool = False, metadata: dict | None = None) -> dict:
         return self._memory.add(messages, **_add_kwargs(user_id, agent_id, infer, metadata))
+
+    def get(self, memory_id: str) -> dict | None:
+        return self._memory.get(memory_id)
 
     def _update(self, memory_id: str, text: str) -> None:
         self._memory.update(memory_id, data=text)

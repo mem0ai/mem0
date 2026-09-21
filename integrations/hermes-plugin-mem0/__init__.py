@@ -346,11 +346,28 @@ class Mem0MemoryProvider(MemoryProvider):
         msg = "Fact stored." if (self._mode == "oss" or self._host) else "Fact queued for storage."
         return json.dumps({"result": msg, "event_id": event_id})
 
+    def _ensure_owns_memory(self, memory_id: str) -> None:
+        """Reject a mutation on a memory that doesn't belong to the caller's user_id."""
+        memory = self._backend.get(memory_id)
+        if not memory:
+            raise ValueError(f"Memory not found: {memory_id}")
+        owner = memory.get("user_id") if isinstance(memory, dict) else None
+        if owner and owner != self._user_id:
+            raise PermissionError(f"Memory {memory_id} does not belong to this user.")
+
+    def _tool_update(self, args: dict) -> str:
+        self._ensure_owns_memory(args["memory_id"])
+        return json.dumps(self._backend.update(args["memory_id"], args["text"]))
+
+    def _tool_delete(self, args: dict) -> str:
+        self._ensure_owns_memory(args["memory_id"])
+        return json.dumps(self._backend.delete(args["memory_id"]))
+
     _TOOL_HANDLERS = {
         "mem0_search": (("query",), "Search failed", _tool_search, "skip"),
         "mem0_add": (("content",), "Failed to store", _tool_add, "count"),
-        "mem0_update": (("memory_id", "text"), "Update failed", lambda self, a: json.dumps(self._backend.update(a["memory_id"], a["text"])), "not_found"),
-        "mem0_delete": (("memory_id",), "Delete failed", lambda self, a: json.dumps(self._backend.delete(a["memory_id"])), "not_found"),
+        "mem0_update": (("memory_id", "text"), "Update failed", _tool_update, "not_found"),
+        "mem0_delete": (("memory_id",), "Delete failed", _tool_delete, "not_found"),
     }
 
     def handle_tool_call(self, tool_name: str, args: dict, **kwargs) -> str:
@@ -373,6 +390,8 @@ class Mem0MemoryProvider(MemoryProvider):
                 return tool_error("top_k must be an integer")
         try:
             result = body(self, args)
+        except PermissionError as e:
+            return tool_error(str(e))
         except Exception as e:
             client = _is_client_error(e)
             if client and on_client_error == "not_found":
