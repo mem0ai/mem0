@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from contextlib import closing, suppress
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 def _add_kwargs(user_id: str, agent_id: str, infer: bool, metadata: dict | None) -> dict[str, Any]:
@@ -152,6 +155,11 @@ class OSSBackend(Mem0Backend):
         if dims:
             vs_config["embedding_model_dims"] = dims
             self._recreate_collection_if_dims_changed(vector_store.get("provider", "qdrant"), vs_config, dims)
+        else:
+            logger.warning(
+                "Unknown embedding dimensions for embedder model %r; skipping dimension-change guard for collection %r.",
+                embedder_config.get("model"), vs_config.get("collection_name", "mem0"),
+            )
         vector_store["config"] = vs_config
         config = {"vector_store": vector_store, "llm": _provider_block("llm", LLM_PROVIDERS), "embedder": _provider_block("embedder", EMBEDDER_PROVIDERS), "version": "v1.1"}
         if str(config["llm"].get("provider") or "").strip().lower() == "openai":
@@ -168,37 +176,51 @@ class OSSBackend(Mem0Backend):
             self._memory = Memory.from_config(config)
 
     @staticmethod
+    def _detect_current_dims(provider: str, vs_config: dict, collection_name: str) -> int | None:
+        """Current embedding dimension of ``collection_name``, or None if it doesn't exist yet.
+        Raises on any failure to connect/inspect so the caller can decide whether to skip the guard."""
+        if provider == "qdrant":
+            from qdrant_client import QdrantClient
+            path, url, host = vs_config.get("path"), vs_config.get("url"), vs_config.get("host")
+            if path:
+                client = QdrantClient(path=path)
+            elif url:
+                client = QdrantClient(url=url, api_key=vs_config.get("api_key"))
+            elif host:
+                client = QdrantClient(host=host, port=vs_config.get("port") or 6333, api_key=vs_config.get("api_key"))
+            else:
+                return None
+            with closing(client):
+                if not client.collection_exists(collection_name):
+                    return None
+                vectors = client.get_collection(collection_name).config.params.vectors
+                # Named-vector collections expose a dict; unnamed expose an object with .size.
+                if isinstance(vectors, dict):
+                    vectors = next(iter(vectors.values()), None)
+                return getattr(vectors, "size", None)
+        elif provider == "pgvector":
+            import psycopg2
+            conn_params = {k: vs_config[k] for k in ("host", "port", "user", "password", "dbname", "sslmode") if vs_config.get(k)}
+            with closing(psycopg2.connect(**conn_params)) as conn:
+                conn.autocommit = True
+                with closing(conn.cursor()) as cur:
+                    cur.execute("SELECT atttypmod FROM pg_attribute WHERE attrelid = %s::regclass AND attname = 'vector'", (collection_name,))
+                    row = cur.fetchone()
+                    return row[0] if row and row[0] > 0 else None
+        return None
+
+    @staticmethod
     def _recreate_collection_if_dims_changed(provider: str, vs_config: dict, expected_dims: int) -> None:
         """Reject embedding dimension changes without deleting existing memories."""
         collection_name = vs_config.get("collection_name", "mem0")
-        current_dims = None
-        with suppress(Exception):
-            if provider == "qdrant":
-                from qdrant_client import QdrantClient
-                path, url = vs_config.get("path"), vs_config.get("url")
-                if path:
-                    client = QdrantClient(path=path)
-                elif url:
-                    client = QdrantClient(url=url, api_key=vs_config.get("api_key"))
-                else:
-                    return
-                with closing(client):
-                    if not client.collection_exists(collection_name):
-                        return
-                    vectors = client.get_collection(collection_name).config.params.vectors
-                    # Named-vector collections expose a dict; unnamed expose an object with .size.
-                    if isinstance(vectors, dict):
-                        vectors = next(iter(vectors.values()), None)
-                    current_dims = getattr(vectors, "size", None)
-            elif provider == "pgvector":
-                import psycopg2
-                conn_params = {k: vs_config[k] for k in ("host", "port", "user", "password", "dbname", "sslmode") if vs_config.get(k)}
-                with closing(psycopg2.connect(**conn_params)) as conn:
-                    conn.autocommit = True
-                    with closing(conn.cursor()) as cur:
-                        cur.execute("SELECT atttypmod FROM pg_attribute WHERE attrelid = %s::regclass AND attname = 'vector'", (collection_name,))
-                        row = cur.fetchone()
-                        current_dims = row[0] if row and row[0] > 0 else None
+        try:
+            current_dims = OSSBackend._detect_current_dims(provider, vs_config, collection_name)
+        except Exception as dimension_detection_error:
+            logger.warning(
+                "Could not determine embedding dimensions for collection %r (%s): %s. Skipping dimension-change guard.",
+                collection_name, provider, dimension_detection_error,
+            )
+            return
         if current_dims is not None and current_dims != expected_dims:
             raise ValueError(
                 f"Collection {collection_name!r} has {current_dims} embedding dimensions, but {expected_dims} are configured. "
