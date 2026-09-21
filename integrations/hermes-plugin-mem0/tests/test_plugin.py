@@ -57,7 +57,7 @@ def test_dimension_mismatch_preserves_qdrant_collection(plugin, monkeypatch):
     client.get_collection.return_value.config.params.vectors = types.SimpleNamespace(size=1536)
     monkeypatch.setitem(sys.modules, "qdrant_client", types.SimpleNamespace(QdrantClient=Mock(return_value=client)))
     with pytest.raises(ValueError, match="1536.*768"):
-        backend.OSSBackend._recreate_collection_if_dims_changed("qdrant", {"path": "/unused"}, 768)
+        backend.OSSBackend._reject_dimension_mismatch("qdrant", {"path": "/unused"}, 768)
     client.delete_collection.assert_not_called()
     client.close.assert_called_once()
 
@@ -70,7 +70,7 @@ def test_dimension_mismatch_preserves_pgvector_table(plugin, monkeypatch):
     driver = types.SimpleNamespace(connect=Mock(return_value=connection), sql=Mock())
     monkeypatch.setitem(sys.modules, "psycopg2", driver)
     with pytest.raises(ValueError, match="1536.*768"):
-        backend.OSSBackend._recreate_collection_if_dims_changed("pgvector", {"user": "test"}, 768)
+        backend.OSSBackend._reject_dimension_mismatch("pgvector", {"user": "test"}, 768)
     assert cursor.execute.call_count == 1
     assert cursor.execute.call_args.args[0].startswith("SELECT")
     connection.close.assert_called_once()
@@ -236,3 +236,47 @@ def test_oss_setup_preserves_distinct_llm_and_embedder_keys(plugin):
     config, env = setup.build_oss_config({"oss_llm_key": "llm-key", "oss_embedder_key": "embedder-key"})
     assert config["llm"]["config"].get("api_key", env.get("OPENAI_API_KEY")) == "llm-key"
     assert config["embedder"]["config"].get("api_key", env.get("OPENAI_API_KEY")) == "embedder-key"
+
+
+def test_direct_openai_llm_uses_scoped_credentials(plugin, monkeypatch):
+    llm_mod = importlib.import_module(f"{plugin.__name__}._openai_llm")
+    openai_mock = types.SimpleNamespace(OpenAI=Mock(return_value=Mock()))
+    monkeypatch.setitem(sys.modules, "openai", openai_mock)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "should-be-ignored")
+    monkeypatch.setenv("OPENAI_API_KEY", "env-key-should-be-ignored")
+    secrets = {"OPENAI_API_KEY": "scoped-key", "OPENAI_API_BASE": "", "OPENAI_BASE_URL": ""}
+    monkeypatch.setattr(sys.modules["agent.secret_scope"], "get_secret", lambda key, default="": secrets.get(key, default))
+    llm_mod.DirectOpenAILLM({"api_key": "", "model": "gpt-5-mini"})
+    call_kwargs = openai_mock.OpenAI.call_args.kwargs
+    assert call_kwargs["api_key"] == "scoped-key"
+    assert "openrouter" not in call_kwargs.get("base_url", "").lower()
+
+
+def test_direct_openai_llm_rejects_missing_key(plugin, monkeypatch):
+    llm_mod = importlib.import_module(f"{plugin.__name__}._openai_llm")
+    monkeypatch.setattr(sys.modules["agent.secret_scope"], "get_secret", lambda key, default="": "")
+    with pytest.raises(ValueError, match="API key"):
+        llm_mod.DirectOpenAILLM({"api_key": "", "model": "gpt-5-mini"})
+
+
+def test_selfhosted_keyless_omits_auth_header(plugin):
+    import httpx
+
+    backend = importlib.import_module(f"{plugin.__name__}._backend")
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(200, json={"results": []})
+
+    client = backend.SelfHostedBackend("", "http://localhost:8888", transport=httpx.MockTransport(respond))
+    client.search("test", filters={"user_id": "u"})
+    assert "X-API-Key" not in requests[0].headers
+    client.close()
+
+
+def test_initialize_tolerates_non_numeric_sync_max_chars(plugin, monkeypatch):
+    monkeypatch.setattr(plugin, "_load_config", lambda: {"sync_max_chars": "not-a-number"})
+    provider = plugin.Mem0MemoryProvider()
+    provider.initialize("test-session")
+    assert provider._sync_max_chars == plugin._SYNC_MSG_MAX_CHARS
