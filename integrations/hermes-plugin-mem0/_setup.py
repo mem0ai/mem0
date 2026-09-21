@@ -5,6 +5,7 @@ from __future__ import annotations
 import getpass
 import json
 import os
+import re
 import secrets
 import shutil
 import socket
@@ -31,6 +32,12 @@ from ._oss_providers import (
 
 _OLLAMA_URL = "http://localhost:11434"
 _PGVECTOR_CONTAINER, _PGVECTOR_IMAGE = "hermes-pgvector", "pgvector/pgvector:pg17"
+
+
+def _version_tuple(version: str) -> tuple[int, ...]:
+    """Best-effort (major, minor, patch) from a version string, tolerating pre-release suffixes like '2.1.0rc1'."""
+    parts = version.split(".")[:3]
+    return tuple(int(m.group()) if (m := re.match(r"\d+", p)) else 0 for p in parts)
 
 
 def _scrub(text: str, *secrets_to_hide: str) -> str:
@@ -143,6 +150,8 @@ def build_oss_config(flags: dict[str, str]) -> tuple[dict, dict[str, str]]:
     vector_config = vector_default_config(vector_id)
     for key in _VECTOR_FLAG_KEYS.get(vector_id, ()):
         if val := flags.get(f"oss_vector_{key}"):
+            if key == "port" and not val.isdigit():
+                raise ValueError(f"--oss-vector-port must be a number, got {val!r}")
             vector_config[key] = int(val) if key == "port" else val
     if "url" in vector_config:
         vector_config.pop("path", None)  # a remote Qdrant URL replaces local storage
@@ -282,7 +291,11 @@ def _setup_oss(hermes_home: str, config: dict, flags: dict[str, str]) -> None:
     if not flags.get("_mode_from_flag"):
         _setup_oss_interactive(hermes_home, config)
         return
-    oss_config, env_writes = build_oss_config(flags)
+    try:
+        oss_config, env_writes = build_oss_config(flags)
+    except ValueError as e:
+        print(f"  Error: {e}", file=sys.stderr)
+        sys.exit(1)
     if errors := validate_oss_config(oss_config):
         print("".join(f"  Error: {e}\n" for e in errors), end="", file=sys.stderr)
         sys.exit(1)
@@ -528,7 +541,7 @@ def post_setup(hermes_home: str, config: dict) -> None:
     with suppress(ImportError):  # mem0ai must meet the minimum version from plugin.yaml
         import mem0
         installed_ver = getattr(mem0, "__version__", None)
-        if installed_ver and tuple(int(x) for x in installed_ver.split(".")[:3]) < (2, 0, 10):
+        if installed_ver and _version_tuple(installed_ver) < (2, 0, 10):
             print(f"\n  ⚠ mem0ai {installed_ver} installed but >=2.0.10 required.\n  Run: uv pip install --python {sys.executable} 'mem0ai>=2.0.10'")
     flags = parse_flags(sys.argv[1:])
     handler = _MODE_HANDLERS.get(flags["mode"])
