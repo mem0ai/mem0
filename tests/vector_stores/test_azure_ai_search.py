@@ -725,19 +725,33 @@ def test_build_filter_escapes_quotes(azure_ai_search_instance):
 
 
 class _FakeIndexingResult:
-    """Mimic the azure.search.documents.models.IndexingResult attribute shape."""
+    """Mirror azure.search.documents.models.IndexingResult.
 
-    def __init__(self, key, status_code, status=True, error_message=None):
+    The SDK model carries `key`, `error_message`, `succeeded` (required) and
+    `status_code` (required). `succeeded` is the wire field `status`.
+    """
+
+    def __init__(self, key, status_code, succeeded=True, error_message=None):
         self.key = key
         self.status_code = status_code
-        self.status = status
+        self.succeeded = succeeded
         self.error_message = error_message
 
 
-def test_insert_accepts_successful_sdk_results(azure_ai_search_instance):
-    """IndexingResult objects with a successful status_code must not raise."""
+def test_insert_accepts_created_document(azure_ai_search_instance):
+    """201 from upload_documents means the document was created."""
     instance, mock_search_client, _ = azure_ai_search_instance
     mock_search_client.upload_documents.return_value = [_FakeIndexingResult("doc1", 201)]
+
+    instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
+
+    mock_search_client.upload_documents.assert_called_once()
+
+
+def test_insert_accepts_overwritten_document(azure_ai_search_instance):
+    """upload_documents is an upsert: overwriting an existing key returns 200, not 201."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.upload_documents.return_value = [_FakeIndexingResult("doc1", 200)]
 
     instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
 
@@ -748,19 +762,30 @@ def test_insert_raises_on_failed_sdk_result(azure_ai_search_instance):
     """A failed IndexingResult object must raise instead of being silently ignored."""
     instance, mock_search_client, _ = azure_ai_search_instance
     mock_search_client.upload_documents.return_value = [
-        _FakeIndexingResult("doc1", 400, status=False, error_message="bad request")
+        _FakeIndexingResult("doc1", 400, succeeded=False, error_message="bad request")
     ]
 
     with pytest.raises(Exception) as exc_info:
         instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
 
     assert "Insert failed for document doc1" in str(exc_info.value)
+    assert "bad request" in str(exc_info.value)
 
 
-def test_update_accepts_successful_sdk_results(azure_ai_search_instance):
-    """IndexingResult objects with a successful status_code must not raise."""
+def test_update_accepts_merged_document(azure_ai_search_instance):
+    """200 from merge_or_upload_documents means an existing document was merged."""
     instance, mock_search_client, _ = azure_ai_search_instance
     mock_search_client.merge_or_upload_documents.return_value = [_FakeIndexingResult("doc1", 200)]
+
+    instance.update("doc1", payload={"user_id": "user1"})
+
+    mock_search_client.merge_or_upload_documents.assert_called_once()
+
+
+def test_update_accepts_created_document(azure_ai_search_instance):
+    """merge_or_upload_documents creates an absent key, which returns 201, not 200."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_or_upload_documents.return_value = [_FakeIndexingResult("doc1", 201)]
 
     instance.update("doc1", payload={"user_id": "user1"})
 
@@ -771,7 +796,7 @@ def test_update_raises_on_failed_sdk_result(azure_ai_search_instance):
     """A failed IndexingResult object must raise instead of being silently ignored."""
     instance, mock_search_client, _ = azure_ai_search_instance
     mock_search_client.merge_or_upload_documents.return_value = [
-        _FakeIndexingResult("doc1", 500, status=False, error_message="server error")
+        _FakeIndexingResult("doc1", 500, succeeded=False, error_message="server error")
     ]
 
     with pytest.raises(Exception) as exc_info:
@@ -781,7 +806,7 @@ def test_update_raises_on_failed_sdk_result(azure_ai_search_instance):
 
 
 def test_delete_accepts_successful_sdk_results(azure_ai_search_instance):
-    """IndexingResult objects with a successful status_code must not raise."""
+    """IndexingResult objects that report success must not raise."""
     instance, mock_search_client, _ = azure_ai_search_instance
     mock_search_client.delete_documents.return_value = [_FakeIndexingResult("doc1", 200)]
 
@@ -794,7 +819,7 @@ def test_delete_raises_on_failed_sdk_result(azure_ai_search_instance):
     """A failed IndexingResult object must raise instead of being silently ignored."""
     instance, mock_search_client, _ = azure_ai_search_instance
     mock_search_client.delete_documents.return_value = [
-        _FakeIndexingResult("doc1", 404, status=False, error_message="not found")
+        _FakeIndexingResult("doc1", 404, succeeded=False, error_message="not found")
     ]
 
     with pytest.raises(Exception) as exc_info:
@@ -803,19 +828,41 @@ def test_delete_raises_on_failed_sdk_result(azure_ai_search_instance):
     assert "Delete failed for document doc1" in str(exc_info.value)
 
 
-def test_failed_dict_results_raise_on_update_and_delete(azure_ai_search_instance):
-    """Mapping/dict results keep working: non-success status codes raise."""
+def test_failed_mapping_results_raise(azure_ai_search_instance):
+    """Mapping results carry the flag under its wire name, `status`."""
     instance, mock_search_client, _ = azure_ai_search_instance
-    mock_search_client.merge_or_upload_documents.return_value = [{"status": False, "id": "doc1", "status_code": 409}]
+    mock_search_client.merge_or_upload_documents.return_value = [
+        {"status": False, "id": "doc1", "status_code": 409, "errorMessage": "version conflict"}
+    ]
 
     with pytest.raises(Exception) as exc_info:
         instance.update("doc1", payload={"user_id": "user1"})
 
     assert "Update failed for document doc1" in str(exc_info.value)
+    assert "version conflict" in str(exc_info.value)
 
-    mock_search_client.delete_documents.return_value = [{"status": False, "id": "doc1", "status_code": 404}]
+
+def test_successful_mapping_results_do_not_raise(azure_ai_search_instance):
+    """A successful mapping result must not raise, whichever 2xx code it carries."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.upload_documents.return_value = [{"status": True, "id": "doc1", "status_code": 200}]
+
+    instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
+
+    mock_search_client.upload_documents.assert_called_once()
+
+
+def test_mapping_results_without_status_fall_back_to_status_code(azure_ai_search_instance):
+    """Without a status flag the 2xx range decides, never one expected code."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.upload_documents.return_value = [{"id": "doc1", "status_code": 200}]
+
+    instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
+
+    mock_search_client.upload_documents.reset_mock()
+    mock_search_client.upload_documents.return_value = [{"id": "doc1", "status_code": 503}]
 
     with pytest.raises(Exception) as exc_info:
-        instance.delete("doc1")
+        instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
 
-    assert "Delete failed for document doc1" in str(exc_info.value)
+    assert "Insert failed for document doc1" in str(exc_info.value)

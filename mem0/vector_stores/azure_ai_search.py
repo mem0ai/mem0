@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from collections.abc import Mapping
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -170,12 +171,38 @@ class AzureAISearch(VectorStoreBase):
         return document
 
     @staticmethod
-    def _result_status_code(result):
-        """Return the HTTP status code from an IndexingResult object or a mapping."""
-        status_code = getattr(result, "status_code", None)
-        if status_code is None and hasattr(result, "get"):
-            status_code = result.get("status_code")
-        return status_code
+    def _indexing_result_field(result, *names):
+        """Return the first populated field from an IndexingResult object or a mapping."""
+        for name in names:
+            value = result.get(name) if isinstance(result, Mapping) else getattr(result, name, None)
+            if value is not None:
+                return value
+        return None
+
+    @classmethod
+    def _raise_if_indexing_failed(cls, result, operation, fallback_id=None):
+        """Raise when one Azure indexing result reports failure.
+
+        ``IndexingResult.succeeded`` is a required field and the only signal
+        that holds for every operation. ``status_code`` cannot be compared
+        against a single expected value: it is 201 for a created document and
+        200 for an updated one, and both ``upload_documents`` (an upsert) and
+        ``merge_or_upload_documents`` return either, depending on whether the
+        key already existed. Mapping-shaped results carry the same flag under
+        its wire name, ``status``.
+        """
+        succeeded = cls._indexing_result_field(result, "succeeded", "status")
+        if succeeded is None:
+            status_code = cls._indexing_result_field(result, "status_code")
+            try:
+                succeeded = status_code is not None and 200 <= int(status_code) < 300
+            except (TypeError, ValueError):
+                succeeded = False
+        if succeeded:
+            return
+        document_id = cls._indexing_result_field(result, "key", "id") or fallback_id
+        detail = cls._indexing_result_field(result, "error_message", "errorMessage") or result
+        raise Exception(f"{operation} failed for document {document_id}: {detail}")
 
     # Note: Explicit "insert" calls may later be decoupled from memory management decisions.
     def insert(self, vectors, payloads=None, ids=None):
@@ -193,9 +220,7 @@ class AzureAISearch(VectorStoreBase):
         ]
         response = self.search_client.upload_documents(documents)
         for doc in response:
-            if self._result_status_code(doc) != 201:
-                doc_id = doc.get("id") if hasattr(doc, "get") else getattr(doc, "key", None)
-                raise Exception(f"Insert failed for document {doc_id}: {doc}")
+            self._raise_if_indexing_failed(doc, "Insert")
         return response
 
     def _sanitize_key(self, key: str) -> str:
@@ -299,8 +324,7 @@ class AzureAISearch(VectorStoreBase):
         """
         response = self.search_client.delete_documents(documents=[{"id": vector_id}])
         for doc in response:
-            if self._result_status_code(doc) != 200:
-                raise Exception(f"Delete failed for document {vector_id}: {doc}")
+            self._raise_if_indexing_failed(doc, "Delete", fallback_id=vector_id)
         logger.info(f"Deleted document with ID '{vector_id}' from index '{self.index_name}'.")
         return response
 
@@ -323,8 +347,7 @@ class AzureAISearch(VectorStoreBase):
                 document[field] = payload.get(field)
         response = self.search_client.merge_or_upload_documents(documents=[document])
         for doc in response:
-            if self._result_status_code(doc) != 200:
-                raise Exception(f"Update failed for document {vector_id}: {doc}")
+            self._raise_if_indexing_failed(doc, "Update", fallback_id=vector_id)
         return response
 
     def get(self, vector_id) -> OutputData:
