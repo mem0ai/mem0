@@ -236,7 +236,10 @@ class Mem0MemoryProvider(MemoryProvider):
         _rr = cfg.get("rerank", False)
         self._rerank_default = _rr.lower() in ("true", "1", "yes") if isinstance(_rr, str) else bool(_rr)
         self._channel = kwargs.get("platform") or "cli"
-        self._sync_max_chars = int(cfg.get("sync_max_chars") or _SYNC_MSG_MAX_CHARS)
+        try:
+            self._sync_max_chars = int(cfg.get("sync_max_chars") or _SYNC_MSG_MAX_CHARS)
+        except (ValueError, TypeError):
+            self._sync_max_chars = _SYNC_MSG_MAX_CHARS
         self._backend = self._create_backend()
         if self._backend and not self._atexit_registered:
             atexit.register(self._shutdown_backend)
@@ -282,12 +285,11 @@ class Mem0MemoryProvider(MemoryProvider):
                     self._prefetch_result, self._prefetch_done = body, True
 
         with self._prefetch_lock:
-            # Same query already answered or still in flight: don't restart it.
             if self._prefetch_query == query and (self._prefetch_done or (self._prefetch_thread and self._prefetch_thread.is_alive())):
                 return
             self._prefetch_query, self._prefetch_result, self._prefetch_done = query, "", False
-            self._prefetch_thread = t = spawn_context_thread(_run, name="mem0-prefetch")
-        t.start()
+            self._prefetch_thread = spawn_context_thread(_run, name="mem0-prefetch")
+            self._prefetch_thread.start()
 
     def prefetch(self, query: str, *, session_id: str = "") -> str:
         """Recall memories for the CURRENT question with a short hot-path wait."""
@@ -315,10 +317,11 @@ class Mem0MemoryProvider(MemoryProvider):
 
         with self._sync_lock:
             prev = self._sync_thread
-            if prev and prev.is_alive():
-                prev.join(timeout=5.0)
-                if prev.is_alive():  # still busy after the wait: skip to avoid duplicate ingestion
-                    return
+        if prev and prev.is_alive():
+            prev.join(timeout=5.0)
+            if prev.is_alive():
+                return
+        with self._sync_lock:
             self._sync_thread = spawn_context_thread(_sync, name="mem0-sync")
             self._sync_thread.start()
 

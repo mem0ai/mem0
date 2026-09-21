@@ -140,7 +140,7 @@ class OSSBackend(Mem0Backend):
             canonical_key = registry.get(str(block.get("provider") or "").strip().lower(), {}).get("base_url_key")
             if legacy_base and canonical_key:
                 provider_config.setdefault(canonical_key, legacy_base)
-            if name == "embedder" and block.get("provider") == "openai":
+            if name == "embedder" and str(block.get("provider") or "").strip().lower() == "openai":
                 from agent.secret_scope import get_secret
 
                 # Mem0's embedder reads process-wide env vars unless these are explicit.
@@ -162,7 +162,7 @@ class OSSBackend(Mem0Backend):
         dims = embedder_config.get("embedding_dims") or KNOWN_DIMS.get(embedder_config.get("model", ""))
         if dims:
             vs_config["embedding_model_dims"] = dims
-            self._recreate_collection_if_dims_changed(vector_store.get("provider", "qdrant"), vs_config, dims)
+            self._reject_dimension_mismatch(vector_store.get("provider", "qdrant"), vs_config, dims)
         else:
             logger.warning(
                 "Unknown embedding dimensions for embedder model %r; skipping dimension-change guard for collection %r.",
@@ -218,7 +218,7 @@ class OSSBackend(Mem0Backend):
         return None
 
     @staticmethod
-    def _recreate_collection_if_dims_changed(provider: str, vs_config: dict, expected_dims: int) -> None:
+    def _reject_dimension_mismatch(provider: str, vs_config: dict, expected_dims: int) -> None:
         """Reject embedding dimension changes without deleting existing memories."""
         collection_name = vs_config.get("collection_name", "mem0")
         try:
@@ -256,8 +256,8 @@ class OSSBackend(Mem0Backend):
             if telemetry and hasattr(telemetry, "posthog"):
                 with suppress(Exception):
                     telemetry.posthog.shutdown()
-            vs = getattr(self._memory, "vector_store", None)
-            # Memory, then its vector store, then the store's raw client; the first failure aborts the chain.
-            for obj in filter(None, (self._memory, vs, getattr(vs, "client", None))):
-                if hasattr(obj, "close"):
+        vs = getattr(self._memory, "vector_store", None)
+        for obj in filter(None, (self._memory, vs, getattr(vs, "client", None))):
+            if hasattr(obj, "close"):
+                with suppress(Exception):
                     obj.close()
