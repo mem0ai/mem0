@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATE = ROOT / "build" / "validate.py"
@@ -46,7 +48,13 @@ def test_rejects_symlink_outside_bundle(tmp_path: Path) -> None:
     write_manifest(bundle)
     outside = tmp_path / "outside"
     outside.mkdir()
-    (bundle / "skills").symlink_to(outside, target_is_directory=True)
+    try:
+        (bundle / "skills").symlink_to(outside, target_is_directory=True)
+    except OSError as exc:
+        # Windows without SeCreateSymbolicLinkPrivilege (and any platform that
+        # forbids symlinks) cannot set this test up; the validator itself is
+        # unchanged and the case still runs everywhere symlinks work.
+        pytest.skip(f"platform cannot create symlinks: {exc}")
 
     result = run_validator(bundle)
 
