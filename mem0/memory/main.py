@@ -292,7 +292,12 @@ def _propagate_embedding_dims(embedding_model, vector_store_config):
     providers.
     """
     embedder_dims = getattr(embedding_model.config, "embedding_dims", None)
-    if embedder_dims is None:
+    if embedder_dims is None or not isinstance(embedder_dims, int):
+        # None = provider has no construction-time dimension (skip). A non-int
+        # (a test mock's auto-vivified attribute, or a provider returning an
+        # unresolved sentinel) must not be written into a pydantic config,
+        # where it would corrupt the config until a later re-validation
+        # raises a confusing ValidationError.
         return
 
     # Pydantic configs expose ``model_fields_set``: the authoritative answer
