@@ -218,14 +218,14 @@ config = {
 ### Async Configuration
 ```python
 import asyncio
-from mem0 import Memory
+from mem0 import AsyncMemory
 
 async def parallel_search(config, queries, user_id):
-    memory = Memory.from_config(config)
+    memory = AsyncMemory.from_config(config)
 
     # Process multiple queries concurrently
     tasks = [
-        memory.search_async(query, user_id=user_id)
+        memory.search(query, filters={"user_id": user_id})
         for query in queries
     ]
 

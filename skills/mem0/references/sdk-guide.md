@@ -296,24 +296,21 @@ Python uses `snake_case` everywhere (`user_id`, `memory_id`, `get_all`). TypeScr
 
 **1. Entity IDs in search() and getAll()**
 
-v3 requires entity IDs (`user_id`, `agent_id`, `run_id`) inside `filters` instead of as top-level parameters:
+v3 requires entity IDs (`user_id`, `agent_id`, `run_id`) inside `filters`. A top-level entity argument raises:
+
+```text
+ValueError: Top-level entity parameters {'user_id'} are not supported in search().
+Use filters={'user_id': '...'} instead.
+```
+
+`get_all()` / `getAll()` raise the same error with the method name swapped in. `add()` and `delete_all()` still accept top-level entity IDs.
 
 ```python
-# v2 (deprecated)
-client.search("query", user_id="alice")
-client.get_all(user_id="alice")
-
-# v3
 client.search("query", filters={"user_id": "alice"})
 client.get_all(filters={"user_id": "alice"})
 ```
 
 ```typescript
-// v2 (deprecated)
-await client.search("query", { user_id: "alice" });
-await client.getAll({ user_id: "alice" });
-
-// v3
 await client.search("query", { filters: { user_id: "alice" } });
 await client.getAll({ filters: { user_id: "alice" } });
 ```

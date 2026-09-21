@@ -117,7 +117,6 @@ memories = client.get_all(filters={"AND": [{"user_id": "alice"}, {"categories": 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `filters` | dict | None | Filter object with entity IDs and/or `AND`/`OR`/`NOT` conditions |
-| `top_k` | int | None | Limit results |
 | `page` | int | None | Page number |
 | `page_size` | int | None | Results per page |
 
@@ -408,9 +407,9 @@ Entity IDs (`user_id`, `agent_id`, `run_id`) must be passed inside the `filters`
 
 Supports filter operators: `eq`, `ne`, `in`, `nin`, `gt`, `gte`, `lt`, `lte`, `contains`, `not_contains`.
 
-#### get(memory_id) / get_all(**kwargs) / update(memory_id, data, metadata=None) / delete(memory_id) / delete_all(**kwargs) / history(memory_id)
+#### get(memory_id) / get_all(*, filters=None, top_k=20) / update(memory_id, text=None, metadata=None) / delete(memory_id) / delete_all(**kwargs) / history(memory_id)
 
-Same interface as Platform client.
+`get_all` takes entity IDs inside `filters` and bounds the list with `top_k`. It does not take `page` or `page_size`.
 
 #### reset()
 
@@ -462,12 +461,10 @@ results = await m.search("query", filters={"user_id": "alice"})
 If you're using SDK v2.x or the v2 API:
 
 **API Changes:**
-- **Entity IDs in search/get_all:** Pass `user_id`, `agent_id` as top-level kwargs instead of inside `filters`
+- **Entity IDs in search/get_all:** Pass `user_id`, `agent_id`, and `run_id` inside `filters`. Top-level entity kwargs raise `ValueError: Top-level entity parameters {'user_id'} are not supported in search(). Use filters={'user_id': '...'} instead.`
   ```python
-  # v2
-  results = client.search("query", user_id="alice")
-  # v3
   results = client.search("query", filters={"user_id": "alice"})
+  memories = client.get_all(filters={"user_id": "alice"})
   ```
 - **add() returns:** v2 returns ADD, UPDATE, DELETE events; v3 returns ADD only
 

@@ -395,12 +395,11 @@ If you're using SDK v2.x:
 - OSS: `limit` renamed to `topK`
 
 **API Changes:**
-```typescript
-// v2 - top-level entity IDs, snake_case
-await client.search("query", { user_id: "alice", top_k: 20 });
+Top-level entity IDs on `search()` / `getAll()` raise `Error: Top-level entity parameters [user_id] are not supported in search(). Use filters: { user_id: "..." } instead.` Put entity IDs in `filters` (snake_case keys) and pass `topK` at the top level.
 
-// v3 - filters object with snake_case keys, camelCase top-level params
+```typescript
 await client.search("query", { filters: { user_id: "alice" }, topK: 20 });
+await client.getAll({ filters: { user_id: "alice" } });
 ```
 
 **Default Changes:**

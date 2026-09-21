@@ -173,7 +173,7 @@ print(result)
 <Steps>
 <Step title="Query the memory">
 ```typescript
-const result = await memory.search("What does Alex like?", { userId: "alex" });
+const result = await memory.search("What does Alex like?", { filters: { user_id: "alex" } });
 console.log(result);
 ```
 </Step>

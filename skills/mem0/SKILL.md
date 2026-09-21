@@ -142,10 +142,16 @@ def chat(user_input: str, user_id: str) -> str:
 
 ## v2 Compatibility
 
-If you're using SDK v2.x, note these differences:
-- **Entity IDs:** Pass `user_id` as top-level kwarg to `search()` instead of inside `filters`
-- **Defaults:** `top_k=100`, no threshold, `rerank=True`
-- **Graph memory:** Available via `enable_graph=True`
+SDK v2.x accepted top-level entity kwargs on `search()` and `get_all()`. The current SDK rejects them:
+
+```text
+ValueError: Top-level entity parameters {'user_id'} are not supported in search().
+Use filters={'user_id': '...'} instead.
+```
+
+- **Entity IDs:** `search()` and `get_all()` take `filters={"user_id": "..."}`. `add()` and `delete_all()` still take a top-level `user_id`.
+- **Defaults:** v3 uses `top_k=20`, `threshold=0.1`, `rerank=False`. v2 used `top_k=100`, no threshold, and `rerank=True`.
+- **Graph memory:** `enable_graph=True` was removed.
 
 See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for details.
 

@@ -111,17 +111,17 @@ client = MemoryClient(api_key="m0-...")
 ### 4. Update Retrieval Calls (Critical)
 
 <Warning>
-  **Critical Change**: Platform uses v2 endpoints that require filtering parameters to be nested inside a `filters` dictionary.
+  **Critical Change**: `search()` and `get_all()` on current OSS and on Platform both reject top-level `user_id`, `agent_id`, and `run_id`. Put them in `filters`, or the call raises `ValueError: Top-level entity parameters {'user_id'} are not supported in search(). Use filters={'user_id': '...'} instead.`
 </Warning>
 
 <Note>
-  The `limit` parameter has been removed in favor of `top_k` across all SDKs. Update any code using `limit=` to use `top_k=` instead.
+  `search()` takes `top_k`, not `limit`. OSS `get_all()` also takes `top_k`. Platform `get_all()` paginates with `page` and `page_size`.
 </Note>
 
 | Method | Open Source | Platform |
 | ------ | ----------- | -------- |
-| `search()` | `m.search(query, user_id="alex")` | `client.search(query, filters={"user_id": "alex"})` |
-| `get_all()` | `m.get_all(user_id="alex")` | `client.get_all(filters={"user_id": "alex"})` |
+| `search()` | `m.search(query, filters={"user_id": "alex"})` | `client.search(query, filters={"user_id": "alex"})` |
+| `get_all()` | `m.get_all(filters={"user_id": "alex"}, top_k=20)` | `client.get_all(filters={"user_id": "alex"})` |
 | `add()` | `m.add(memory, user_id="alex")` | `client.add(memory, user_id="alex")` |
 | `delete()` | `m.delete(memory_id)` | `client.delete(memory_id)` |
 | `delete_all()` | `m.delete_all(user_id="alex")` | `client.delete_all(user_id="alex")` |
@@ -133,10 +133,10 @@ Note: `add()` and `delete()` methods remain unchanged. The `update()` method is 
     <CodeGroup>
     ```python Open Source (Old)
     # Basic search with user filter
-    results = m.search("user's preferences", user_id="alex")
+    results = m.search("user's preferences", filters={"user_id": "alex"})
 
-    # Search with multiple filters
-    results = m.search("meeting notes", user_id="alex", agent_id="assistant")
+    # Search with multiple entity ids in one filters dict
+    results = m.search("meeting notes", filters={"user_id": "alex", "agent_id": "assistant"})
     ```
 
     ```python Platform (New)
@@ -157,19 +157,16 @@ Note: `add()` and `delete()` methods remain unchanged. The `update()` method is 
   <Accordion title="Get All Memories">
     <CodeGroup>
     ```python Open Source (Old)
-    # Get all memories for a user
-    memories = m.get_all(user_id="alex", top_k=10)
-
-    # Get memories with pagination
-    memories = m.get_all(user_id="alex", top_k=5, offset=10)
+    # Get all memories for a user. top_k bounds the list; there is no offset.
+    memories = m.get_all(filters={"user_id": "alex"}, top_k=10)
     ```
 
     ```python Platform (New)
     # Get all memories for a user
-    memories = client.get_all(filters={"user_id": "alex"}, top_k=10)
+    memories = client.get_all(filters={"user_id": "alex"}, page=1, page_size=10)
 
-    # Get memories with pagination
-    memories = client.get_all(filters={"user_id": "alex"}, top_k=5, offset=10)
+    # Next page
+    memories = client.get_all(filters={"user_id": "alex"}, page=2, page_size=10)
     ```
     </CodeGroup>
   </Accordion>
@@ -388,8 +385,8 @@ The Platform introduces powerful capabilities not available in OSS:
 | Feature | Open Source | Platform | Action Required |
 | ------- | ----------- | -------- | --------------- |
 | **Initialization** | `Memory.from_config(config)` | `MemoryClient(api_key)` | Replace config object with API key |
-| **Search Method** | `m.search(query, user_id="x")` | `client.search(query, filters={"user_id": "x"})` | Move filtering params into `filters` dict |
-| **Get All Method** | `m.get_all(user_id="x")` | `client.get_all(filters={"user_id": "x"})` | Move filtering params into `filters` dict |
+| **Search Method** | `m.search(query, filters={"user_id": "x"})` | `client.search(query, filters={"user_id": "x"})` | Keep entity IDs inside `filters` |
+| **Get All Method** | `m.get_all(filters={"user_id": "x"}, top_k=20)` | `client.get_all(filters={"user_id": "x"}, page=1, page_size=50)` | Keep entity IDs inside `filters`. Platform paginates with `page` / `page_size` |
 | **Add Method** | `m.add(memory, user_id="x")` | `client.add(memory, user_id="x")` | No change |
 | **Delete Method** | `m.delete(memory_id)` | `client.delete(memory_id)` | No change |
 | **Delete All** | `m.delete_all(user_id="x")` | `client.delete_all(user_id="x")` | No change |

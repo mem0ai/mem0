@@ -184,7 +184,7 @@ Then write `.mem0-integration/plan.md`:
     call client.add([user_msg, assistant_msg], user_id=<source>).">
 
     **Read pattern:** <one sentence, e.g. "Before building the LLM prompt,
-    call client.search(query=latest_user_msg, user_id=<source>, limit=5)
+    call client.search(query=latest_user_msg, filters={"user_id": <source>}, top_k=5)
     and inject results as a system message.">
 
     **User identifier source:** <code path, e.g. `req.auth.userId`,
