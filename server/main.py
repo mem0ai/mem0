@@ -36,7 +36,7 @@ from server_state import (
 )
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from mem0.exceptions import ValidationError as Mem0ValidationError
 
@@ -56,7 +56,7 @@ SENSITIVE_CONFIG_KEYS = {
     "secret",
     "token",
 }
-SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
+SKIPPED_REQUEST_LOG_PATHS = {"/health", "/api/health", "/docs", "/redoc", "/openapi.json"}
 SKIPPED_REQUEST_LOG_PREFIXES = ("/requests",)
 
 BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini")
@@ -317,6 +317,22 @@ async def log_requests(request: Request, call_next):
                 round((time.perf_counter() - start) * 1000, 2),
                 getattr(request.state, "auth_type", "none"),
             )
+
+
+@app.get("/health", summary="Health check endpoint", tags=["system"])
+@app.get("/api/health", summary="Health check endpoint", tags=["system"])
+def health_check():
+    """Health check endpoint to verify server and database connectivity."""
+    try:
+        with SessionLocal() as session:
+            session.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": "connected"}
+    except Exception as exc:
+        logging.error("Health check failed: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "database": "disconnected", "error": str(exc)},
+        )
 
 
 @app.get("/configure", summary="Get current Mem0 configuration")
