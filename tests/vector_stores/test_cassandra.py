@@ -1,6 +1,7 @@
 import json
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from mem0.vector_stores.cassandra import CassandraDB, OutputData
 
@@ -106,7 +107,7 @@ def test_search(cassandra_instance):
     cassandra_instance.session.execute = Mock(return_value=[mock_row1, mock_row2])
 
     query_vector = [0.2, 0.3, 0.4]
-    results = cassandra_instance.search(query="test", vectors=query_vector, limit=5)
+    results = cassandra_instance.search(query="test", vectors=query_vector, top_k=5)
 
     assert isinstance(results, list)
     assert len(results) <= 5
@@ -213,7 +214,7 @@ def test_list(cassandra_instance):
 
     cassandra_instance.session.execute = Mock(return_value=[mock_row])
 
-    results = cassandra_instance.list(limit=10)
+    results = cassandra_instance.list(top_k=10)
 
     assert isinstance(results, list)
     assert len(results) > 0
@@ -264,7 +265,7 @@ def test_search_with_filters(cassandra_instance):
     results = cassandra_instance.search(
         query="test",
         vectors=query_vector,
-        limit=5,
+        top_k=5,
         filters={"category": "A"}
     )
 

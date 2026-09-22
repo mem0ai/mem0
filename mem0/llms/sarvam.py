@@ -28,7 +28,7 @@ class SarvamLLM(LLMBase):
             getattr(self.config, "sarvam_base_url", None) or os.getenv("SARVAM_API_BASE") or "https://api.sarvam.ai/v1"
         )
 
-    def generate_response(self, messages: List[Dict[str, str]], response_format=None) -> str:
+    def generate_response(self, messages: List[Dict[str, str]], response_format=None, **kwargs) -> str:
         """
         Generate a response based on the given messages using Sarvam-M.
 
@@ -36,6 +36,8 @@ class SarvamLLM(LLMBase):
             messages (list): List of message dicts containing 'role' and 'content'.
             response_format (str or object, optional): Format of the response.
                                                      Currently not used by Sarvam API.
+            **kwargs: Additional provider-specific parameters forwarded to the Sarvam
+                request payload (matches the ``LLMBase.generate_response`` contract).
 
         Returns:
             str: The generated response.
@@ -71,6 +73,9 @@ class SarvamLLM(LLMBase):
             for param in sarvam_specific_params:
                 if param in self.config.model:
                     params[param] = self.config.model[param]
+
+        # Forward any per-call provider-specific parameters (LLMBase contract).
+        params.update(kwargs)
 
         try:
             response = requests.post(url, headers=headers, json=params, timeout=30)

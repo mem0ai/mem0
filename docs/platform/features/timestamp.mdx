@@ -76,17 +76,17 @@ const unixTimestamp = Math.floor(fiveDaysAgo.getTime() / 1000);
 const messages = [
     {"role": "user", "content": "I'm travelling to SF"}
 ]
-client.add(messages, { user_id: "user1", timestamp: unixTimestamp })
+client.add(messages, { userId: "user1", timestamp: unixTimestamp })
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```
 
 ```bash cURL
-curl -X POST "https://api.mem0.ai/v1/memories/" \
+curl -X POST "https://api.mem0.ai/v3/memories/add/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
-         "messages": [{"role": "user", "content": "I'm travelling to SF"}],
+         "messages": [{"role": "user", "content": "Travelling to SF"}],
          "user_id": "user1",
          "timestamp": 1721577600
      }'
@@ -94,13 +94,8 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 ```json Output
 {
-    "results": [
-        {
-            "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
-            "data": {"memory": "Travelling to SF"},
-            "event": "ADD"
-        }
-    ]
+    "event_id": "evt-uuid",
+    "status": "PENDING"
 }
 ```
 
@@ -131,7 +126,7 @@ const january2023Timestamp = 1672531200;  // Unix timestamp for 2023-01-01 00:00
 const messages = [
     {"role": "user", "content": "I'm travelling to SF"}
 ]
-client.add(messages, { user_id: "user1", timestamp: january2023Timestamp })
+client.add(messages, { userId: "user1", timestamp: january2023Timestamp })
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```

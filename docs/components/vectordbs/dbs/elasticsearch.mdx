@@ -6,15 +6,22 @@ description: "Use Elasticsearch as a vector database in Mem0 for distributed vec
 
 ### Installation
 
-Elasticsearch support requires additional dependencies. Install them with:
+Elasticsearch support requires the Elasticsearch client as an extra dependency.
 
-```bash
+<CodeGroup>
+```bash Python
 pip install elasticsearch>=8.0.0
 ```
 
+```bash TypeScript
+npm install mem0ai @elastic/elasticsearch
+```
+</CodeGroup>
+
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -36,11 +43,51 @@ m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
     {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+// Set OPENAI_API_KEY in your environment.
+const config = {
+  embedder: {
+    provider: "openai",
+    config: {
+      apiKey: process.env.OPENAI_API_KEY,
+      model: "text-embedding-3-small",
+    },
+  },
+  vectorStore: {
+    provider: "elasticsearch",
+    config: {
+      collectionName: "mem0",
+      embeddingModelDims: 1536,
+      host: "localhost",
+      port: 9200,
+      // For Elastic Cloud, pass cloudId and apiKey instead of host/port.
+      // For basic auth, pass username and password.
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+  { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant", content: "How about thriller movies? They can be quite engaging." },
+  { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
+<Note>
+  The TypeScript SDK uses camelCase config keys: `collectionName`, `embeddingModelDims`, `cloudId`, `apiKey`, `useSsl`, `verifyCerts`, `caCerts`, `autoCreateIndex`, and `username` (in place of the Python `user`). `collectionName` and `embeddingModelDims` are required. Because the vector store embeds text with your configured embedder before writing, set an `embedder` in the config as shown above.
+</Note>
 
 ### Config
 
@@ -56,6 +103,8 @@ Here are the parameters available for configuring Elasticsearch:
 | `api_key`              | API key for authentication                         | `None`        |
 | `user`                 | Username for basic authentication                  | `None`        |
 | `password`             | Password for basic authentication                  | `None`        |
+| `use_ssl`              | Whether to use SSL for the connection              | `True`        |
+| `ca_certs`             | Path to CA bundle for SSL certificate verification | `None`        |
 | `verify_certs`         | Whether to verify SSL certificates                 | `True`        |
 | `auto_create_index`    | Whether to automatically create the index          | `True`        |
 | `custom_search_query`  | Function returning a custom search query           | `None`        |
@@ -71,6 +120,10 @@ Here are the parameters available for configuring Elasticsearch:
 - Custom search query function to customize the search query
 
 ### Custom Search Query
+
+<Note>
+  `custom_search_query` is available in the Python SDK only. The TypeScript SDK runs a fixed k-NN query with optional metadata filters.
+</Note>
 
 The `custom_search_query` parameter allows you to customize the search query when `Memory.search` is called.  
   

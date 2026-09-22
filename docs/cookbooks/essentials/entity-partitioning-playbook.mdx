@@ -3,6 +3,10 @@ title: Partition Memories by Entity
 description: Keep memories separate by tagging each write and query with user, agent, app, and session identifiers.
 ---
 
+<Info icon="cloud">
+**Works with:** Mem0 Platform (`MemoryClient`)
+</Info>
+
 Nora runs a travel service. When she stored all memories in one bucket, a recruiter's nut allergy accidentally appeared in a traveler's dinner reservation. Let's fix this by properly separating memories for different users, agents, and applications.
 
 <Info icon="clock">
@@ -17,7 +21,7 @@ from mem0 import MemoryClient
 client = MemoryClient(api_key="m0-...")
 ```
 
-Grab an API key from the <Link href="https://app.mem0.ai/">Mem0 dashboard</Link> to get started.
+Grab an API key from the <a href="https://app.mem0.ai/?utm_source=oss&utm_medium=cookbook-entity-partitioning">Mem0 dashboard</a> to get started.
 
 ## Store and Retrieve Scoped Memories
 
@@ -70,7 +74,7 @@ print(agent_memories)
 ```
 
 <Tip icon="compass">
-Memories can be written with several identifiers, but each search resolves one entity boundary at a time. Run separate queries for user and agent scopes—just like above—rather than combining both in a single filter.
+Memories can be written with several identifiers, but each search resolves one entity boundary at a time. Run separate queries for user and agent scopes, as shown above, rather than combining both in a single filter.
 </Tip>
 
 ## When Memories Leak
@@ -328,9 +332,11 @@ You learned how to:
     href="/platform/features/v2-memory-filters"
   />
   <Card
-    title="Control Memory Ingestion"
-    description="Pair scoped storage with rules that block low-quality facts."
+    title="Custom Instructions"
+    description="Pair scoped storage with instructions that steer what Mem0 extracts and stores."
     icon="shield-check"
-    href="/cookbooks/essentials/controlling-memory-ingestion"
+    href="/platform/features/custom-instructions"
   />
 </CardGroup>
+
+<Snippet file="star-on-github.mdx" />

@@ -57,6 +57,7 @@ class LangchainLLM(LLMBase):
         response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
+        **kwargs,
     ):
         """
         Generate a response based on the given messages using langchain_community.
@@ -66,6 +67,8 @@ class LangchainLLM(LLMBase):
             response_format (str or object, optional): Format of the response. Not used in Langchain.
             tools (list, optional): List of tools that the model can call.
             tool_choice (str, optional): Tool choice method.
+            **kwargs: Additional model parameters forwarded to the underlying LangChain
+                model's ``invoke`` (matches the ``LLMBase.generate_response`` contract).
 
         Returns:
             str: The generated response.
@@ -90,5 +93,5 @@ class LangchainLLM(LLMBase):
         if tools:
             langchain_model = langchain_model.bind_tools(tools=tools, tool_choice=tool_choice)
 
-        response: AIMessage = langchain_model.invoke(langchain_messages)
+        response: AIMessage = langchain_model.invoke(langchain_messages, **kwargs)
         return self._parse_response(response, tools)

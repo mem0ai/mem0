@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import json as _json
+import os
+import stat as _stat_mod
 import sys
 from pathlib import Path
 
@@ -10,7 +13,7 @@ import typer
 from rich.console import Console
 
 from mem0_cli import __version__
-from mem0_cli.branding import BRAND_COLOR, print_error
+from mem0_cli.branding import BRAND_COLOR, print_error, print_warning
 
 console = Console()
 err_console = Console(stderr=True)
@@ -43,7 +46,52 @@ entity_app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-# entity_app registered after Memory commands to control panel ordering
+
+event_app = typer.Typer(
+    name="event",
+    help="Inspect background processing events.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+# entity_app and event_app registered after Memory commands to control panel ordering
+
+
+# ── Validated user identity (set by _get_backend_and_config) ──────────────
+
+_validated_user_email: str | None = None
+
+# ── Telemetry helper ─────────────────────────────────────────────────────
+
+
+def _fire_telemetry(command_name: str, extra: dict | None = None) -> None:
+    """Fire a PostHog telemetry event (non-blocking, never fails)."""
+    try:
+        from mem0_cli.telemetry import capture_event
+
+        props = {"command": command_name}
+        if extra:
+            props.update(extra)
+        capture_event(f"cli.{command_name}", props, pre_resolved_email=_validated_user_email)
+    except Exception:
+        pass
+
+
+@config_app.callback(invoke_without_command=True)
+def _config_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        _fire_telemetry(f"config.{ctx.invoked_subcommand}")
+
+
+@entity_app.callback(invoke_without_command=True)
+def _entity_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        _fire_telemetry(f"entity.{ctx.invoked_subcommand}")
+
+
+@event_app.callback(invoke_without_command=True)
+def _event_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        _fire_telemetry(f"event.{ctx.invoked_subcommand}")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
@@ -53,9 +101,16 @@ def _get_backend_and_config(
     api_key: str | None = None,
     base_url: str | None = None,
 ):
-    """Build and return the Platform backend plus the loaded config."""
+    """Build and return the Platform backend plus the loaded config.
+
+    Validates the API key upfront via ``/v1/ping/`` and caches the
+    resolved user email for telemetry.
+    """
+    global _validated_user_email
+
     from mem0_cli.backend import get_backend
-    from mem0_cli.config import load_config
+    from mem0_cli.backend.platform import AuthError
+    from mem0_cli.config import load_config, save_config
 
     config = load_config()
 
@@ -72,7 +127,29 @@ def _get_backend_and_config(
         )
         raise typer.Exit(1)
 
-    return get_backend(config), config
+    backend = get_backend(config)
+
+    # Validate the API key upfront with a fast timeout
+    try:
+        ping_data = backend.ping(timeout=5.0)
+        email = ping_data.get("user_email") if isinstance(ping_data, dict) else None
+        if email:
+            _validated_user_email = email
+            if config.platform.user_email != email:
+                config.platform.user_email = email
+                with contextlib.suppress(Exception):
+                    save_config(config)
+    except AuthError:
+        print_error(
+            err_console,
+            "Invalid or expired API key.",
+            hint="Run 'mem0 init' or set MEM0_API_KEY environment variable.",
+        )
+        raise typer.Exit(1) from None
+    except Exception:
+        print_warning(err_console, "Could not validate API key (network issue). Proceeding anyway.")
+
+    return backend, config
 
 
 def _get_backend(
@@ -114,9 +191,22 @@ def _resolve_ids(
     }
 
 
+def _stdin_is_piped() -> bool:
+    """Return True only when stdin is an actual pipe or file redirect — not a bare open fd."""
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        return False
+    try:
+        mode = os.fstat(sys.stdin.fileno()).st_mode
+        return _stat_mod.S_ISFIFO(mode) or _stat_mod.S_ISREG(mode)
+    except Exception:
+        return False
+
+
 def _read_stdin() -> str | None:
-    """Read from stdin if it is piped (not a TTY)."""
-    if not sys.stdin.isatty():
+    """Read from stdin if it is an actual pipe or file redirect (not a TTY, not agent mode)."""
+    if _stdin_is_piped():
         return sys.stdin.read().strip() or None
     return None
 
@@ -128,12 +218,34 @@ def _read_stdin() -> str | None:
 def main_callback(
     ctx: typer.Context,
     version: bool = typer.Option(False, "--version", help="Show version and exit."),
+    json_agent: bool = typer.Option(
+        False,
+        "--json",
+        "--agent",
+        help="Output as JSON for agent/programmatic use.",
+        is_eager=False,
+    ),
 ) -> None:
+    if json_agent:
+        from mem0_cli.state import set_agent_mode
+
+        set_agent_mode(True)
     if version:
         from mem0_cli.commands.utils import cmd_version
 
+        _fire_telemetry("version")
         cmd_version()
         raise typer.Exit()
+    if ctx.invoked_subcommand:
+        # Stash the active subcommand name so the JSON error envelope
+        # (print_error in agent mode) can report which command failed
+        # instead of an empty `"command": ""` field.
+        from mem0_cli.state import set_current_command
+
+        set_current_command(ctx.invoked_subcommand)
+    if ctx.invoked_subcommand and ctx.invoked_subcommand != "init":
+        # init fires its own telemetry from init_cmd.run_init with full M1-M6 props.
+        _fire_telemetry(ctx.invoked_subcommand)
 
 
 # ── Memory: add ───────────────────────────────────────────────────────────
@@ -161,10 +273,27 @@ def add(
     no_infer: bool = typer.Option(False, "--no-infer", help="Skip inference, store raw."),
     expires: str | None = typer.Option(None, "--expires", help="Expiration date (YYYY-MM-DD)."),
     categories: str | None = typer.Option(
-        None, "--categories", help="Categories (JSON array or comma-separated)."
+        None, "--categories", help="Not supported on add, use --custom-categories instead."
     ),
-    graph: bool = typer.Option(False, "--graph", help="Enable graph memory extraction."),
-    no_graph: bool = typer.Option(False, "--no-graph", help="Disable graph memory extraction."),
+    custom_instructions: str | None = typer.Option(
+        None, "--custom-instructions", help="Custom instructions for fact extraction."
+    ),
+    agent_custom_instructions: str | None = typer.Option(
+        None,
+        "--agent-custom-instructions",
+        help="Extraction instructions for agent-scoped memories, overriding the project setting.",
+    ),
+    custom_categories: str | None = typer.Option(
+        None,
+        "--custom-categories",
+        help="Custom categories as a JSON array of {name: description} objects.",
+    ),
+    structured_data_schema: str | None = typer.Option(
+        None, "--structured-data-schema", help="Schema for structured data extraction, as JSON."
+    ),
+    timestamp: int | None = typer.Option(
+        None, "--timestamp", help="Unix timestamp for the memory."
+    ),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output format: text, json, quiet.", rich_help_panel="Output"
     ),
@@ -191,13 +320,6 @@ def add(
     backend, config = _get_backend_and_config(api_key, base_url)
     ids = _resolve_ids(config, user_id=user_id, agent_id=agent_id, app_id=app_id, run_id=run_id)
 
-    if no_graph:
-        graph_enabled = False
-    elif graph:
-        graph_enabled = True
-    else:
-        graph_enabled = config.defaults.enable_graph
-
     cmd_add(
         backend,
         text,
@@ -209,7 +331,11 @@ def add(
         no_infer=no_infer,
         expires=expires,
         categories=categories,
-        enable_graph=graph_enabled,
+        custom_instructions=custom_instructions,
+        agent_custom_instructions=agent_custom_instructions,
+        custom_categories=custom_categories,
+        structured_data_schema=structured_data_schema,
+        timestamp=timestamp,
         output=output,
     )
 
@@ -245,7 +371,11 @@ def search(
         False, "--keyword", help="Use keyword search.", rich_help_panel="Search"
     ),
     filter_json: str | None = typer.Option(
-        None, "--filter", help="Advanced filter expression (JSON).", rich_help_panel="Search"
+        None,
+        "--filter",
+        help='Advanced filter as JSON: {"AND": [...]} or {"OR": [...]}, '
+        'e.g. {"AND": [{"categories": {"in": ["work"]}}]}.',
+        rich_help_panel="Search",
     ),
     fields: str | None = typer.Option(
         None,
@@ -253,8 +383,21 @@ def search(
         help="Specific fields to return (comma-separated).",
         rich_help_panel="Search",
     ),
-    graph: bool = typer.Option(False, "--graph", help="Enable graph in search.", rich_help_panel="Search"),
-    no_graph: bool = typer.Option(False, "--no-graph", help="Disable graph in search.", rich_help_panel="Search"),
+    show_expired: bool = typer.Option(
+        False, "--show-expired", help="Include expired memories.", rich_help_panel="Search"
+    ),
+    reference_date: str | None = typer.Option(
+        None,
+        "--reference-date",
+        help="Reference date for relative queries (YYYY-MM-DD or unix timestamp).",
+        rich_help_panel="Search",
+    ),
+    latest_only: bool = typer.Option(
+        False,
+        "--latest-only",
+        help="Only return the latest version of each memory.",
+        rich_help_panel="Search",
+    ),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output: text, json, table.", rich_help_panel="Output"
     ),
@@ -269,31 +412,25 @@ def search(
         None, "--base-url", help="Override API base URL.", rich_help_panel="Connection"
     ),
 ) -> None:
-    """Search memories by semantic query.
+    """Query your memory store — semantic, keyword, or hybrid retrieval.
 
     Examples:
       mem0 search "preferences" --user-id alice
       mem0 search "tools" -u alice -o json -k 5
       echo "preferences" | mem0 search -u alice
+      mem0 search "invoices" -u alice --filter '{"AND": [{"categories": {"in": ["work"]}}]}'
     """
     from mem0_cli.commands.memory import cmd_search
 
     # STEP 7: stdin fallback for query
     if query is None:
         query = _read_stdin()
-    if query is None:
-        print_error(err_console, "No query provided. Pass a query argument or pipe via stdin.")
+    if not query or not query.strip():
+        print_error(err_console, "Search query cannot be empty.")
         raise typer.Exit(1)
 
     backend, config = _get_backend_and_config(api_key, base_url)
     ids = _resolve_ids(config, user_id=user_id, agent_id=agent_id, app_id=app_id, run_id=run_id)
-
-    if no_graph:
-        graph_enabled = False
-    elif graph:
-        graph_enabled = True
-    else:
-        graph_enabled = config.defaults.enable_graph
 
     cmd_search(
         backend,
@@ -305,7 +442,9 @@ def search(
         keyword=keyword,
         filter_json=filter_json,
         fields=fields,
-        enable_graph=graph_enabled,
+        show_expired=show_expired,
+        reference_date=reference_date,
+        latest_only=latest_only,
         output=output,
     )
 
@@ -372,8 +511,15 @@ def list_cmd(
     before: str | None = typer.Option(
         None, "--before", help="Created before (YYYY-MM-DD).", rich_help_panel="Filters"
     ),
-    graph: bool = typer.Option(False, "--graph", help="Enable graph in listing.", rich_help_panel="Filters"),
-    no_graph: bool = typer.Option(False, "--no-graph", help="Disable graph in listing.", rich_help_panel="Filters"),
+    show_expired: bool = typer.Option(
+        False, "--show-expired", help="Include expired memories.", rich_help_panel="Filters"
+    ),
+    latest_only: bool = typer.Option(
+        False,
+        "--latest-only",
+        help="Only return the latest version of each memory.",
+        rich_help_panel="Filters",
+    ),
     output: str = typer.Option(
         "table", "--output", "-o", help="Output: text, json, table.", rich_help_panel="Output"
     ),
@@ -399,13 +545,6 @@ def list_cmd(
     backend, config = _get_backend_and_config(api_key, base_url)
     ids = _resolve_ids(config, user_id=user_id, agent_id=agent_id, app_id=app_id, run_id=run_id)
 
-    if no_graph:
-        graph_enabled = False
-    elif graph:
-        graph_enabled = True
-    else:
-        graph_enabled = config.defaults.enable_graph
-
     cmd_list(
         backend,
         **ids,
@@ -414,7 +553,8 @@ def list_cmd(
         category=category,
         after=after,
         before=before,
-        enable_graph=graph_enabled,
+        show_expired=show_expired,
+        latest_only=latest_only,
         output=output,
     )
 
@@ -427,6 +567,10 @@ def update(
     memory_id: str = typer.Argument(..., help="Memory ID to update."),
     text: str | None = typer.Argument(None, help="New memory text."),
     metadata: str | None = typer.Option(None, "--metadata", "-m", help="Update metadata (JSON)."),
+    expires: str | None = typer.Option(None, "--expires", help="Expiration date (YYYY-MM-DD)."),
+    timestamp: int | None = typer.Option(
+        None, "--timestamp", help="Unix timestamp for the memory."
+    ),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output: text, json, quiet.", rich_help_panel="Output"
     ),
@@ -455,7 +599,15 @@ def update(
         text = _read_stdin()
 
     backend = _get_backend(api_key, base_url)
-    cmd_update(backend, memory_id, text, metadata=metadata, output=output)
+    cmd_update(
+        backend,
+        memory_id,
+        text,
+        metadata=metadata,
+        expires=expires,
+        timestamp=timestamp,
+        output=output,
+    )
 
 
 # ── Memory: delete ────────────────────────────────────────────────────────
@@ -463,12 +615,23 @@ def update(
 
 @app.command(rich_help_panel="Memory")
 def delete(
-    memory_id: str | None = typer.Argument(None, help="Memory ID to delete (omit when using --all or --entity)."),
+    memory_id: str | None = typer.Argument(
+        None, help="Memory ID to delete (omit when using --all or --entity)."
+    ),
     all_: bool = typer.Option(False, "--all", help="Delete all memories matching scope filters."),
-    entity: bool = typer.Option(False, "--entity", help="Delete the entity itself and all its memories (cascade)."),
-    project: bool = typer.Option(False, "--project", help="With --all: delete ALL memories project-wide."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be deleted without deleting."),
+    entity: bool = typer.Option(
+        False, "--entity", help="Delete the entity itself and all its memories (cascade)."
+    ),
+    project: bool = typer.Option(
+        False, "--project", help="With --all: delete ALL memories project-wide."
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be deleted without deleting."
+    ),
     force: bool = typer.Option(False, "--force", help="Skip confirmation."),
+    delete_linked: bool = typer.Option(
+        False, "--delete-linked", help="Also delete memories linked to this memory."
+    ),
     user_id: str | None = typer.Option(
         None, "--user-id", "-u", help="Scope to user.", rich_help_panel="Scope"
     ),
@@ -522,12 +685,21 @@ def delete(
 
     # ── Dispatch ─────────────────────────────────────────────────────
     if memory_id is not None:
+        _fire_telemetry("delete", {"delete_mode": "single"})
         from mem0_cli.commands.memory import cmd_delete
 
         backend = _get_backend(api_key, base_url)
-        cmd_delete(backend, memory_id, dry_run=dry_run, force=force, output=output)
+        cmd_delete(
+            backend,
+            memory_id,
+            dry_run=dry_run,
+            force=force,
+            delete_linked=delete_linked,
+            output=output,
+        )
 
     elif all_:
+        _fire_telemetry("delete", {"delete_mode": "all"})
         from mem0_cli.commands.memory import cmd_delete_all
 
         backend, config = _get_backend_and_config(api_key, base_url)
@@ -535,6 +707,7 @@ def delete(
         cmd_delete_all(backend, force=force, dry_run=dry_run, all_=project, **ids, output=output)
 
     else:  # --entity
+        _fire_telemetry("delete", {"delete_mode": "entity"})
         from mem0_cli.commands.entities import cmd_entities_delete
 
         backend = _get_backend(api_key, base_url)
@@ -641,14 +814,12 @@ def entity_delete(
     agent_id: str | None = typer.Option(
         None, "--agent-id", help="Agent ID.", rich_help_panel="Scope"
     ),
-    app_id: str | None = typer.Option(
-        None, "--app-id", help="App ID.", rich_help_panel="Scope"
-    ),
-    run_id: str | None = typer.Option(
-        None, "--run-id", help="Run ID.", rich_help_panel="Scope"
-    ),
+    app_id: str | None = typer.Option(None, "--app-id", help="App ID.", rich_help_panel="Scope"),
+    run_id: str | None = typer.Option(None, "--run-id", help="Run ID.", rich_help_panel="Scope"),
     force: bool = typer.Option(False, "--force", help="Skip confirmation."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be deleted without deleting."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be deleted without deleting."
+    ),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output: text, json, quiet.", rich_help_panel="Output"
     ),
@@ -688,23 +859,198 @@ def entity_delete(
 app.add_typer(entity_app, name="entity", rich_help_panel="Management")
 
 
+# ── Event subcommands ─────────────────────────────────────────────────────
+
+
+@event_app.command("list")
+def event_list(
+    output: str = typer.Option(
+        "table", "--output", "-o", help="Output: table, json.", rich_help_panel="Output"
+    ),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        help="Override API key.",
+        envvar="MEM0_API_KEY",
+        rich_help_panel="Connection",
+    ),
+    base_url: str | None = typer.Option(
+        None, "--base-url", help="Override API base URL.", rich_help_panel="Connection"
+    ),
+) -> None:
+    """List recent background processing events.
+
+    Examples:
+      mem0 event list
+      mem0 event list -o json
+    """
+    from mem0_cli.commands.events_cmd import cmd_event_list
+
+    backend = _get_backend(api_key, base_url)
+    cmd_event_list(backend, output=output)
+
+
+@event_app.command("status")
+def event_status(
+    event_id: str = typer.Argument(..., help="Event ID to inspect."),
+    output: str = typer.Option(
+        "text", "--output", "-o", help="Output: text, json.", rich_help_panel="Output"
+    ),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        help="Override API key.",
+        envvar="MEM0_API_KEY",
+        rich_help_panel="Connection",
+    ),
+    base_url: str | None = typer.Option(
+        None, "--base-url", help="Override API base URL.", rich_help_panel="Connection"
+    ),
+) -> None:
+    """Check the status of a specific background event.
+
+    Examples:
+      mem0 event status <event-id>
+      mem0 event status <event-id> -o json
+    """
+    from mem0_cli.commands.events_cmd import cmd_event_status
+
+    backend = _get_backend(api_key, base_url)
+    cmd_event_status(backend, event_id, output=output)
+
+
+# ── Event subgroup ──
+app.add_typer(event_app, name="event", rich_help_panel="Management")
+
+
 # ── Management commands ───────────────────────────────────────────────────
 
 
 @app.command(rich_help_panel="Management")
 def init(
     api_key: str | None = typer.Option(None, "--api-key", help="API key (skip prompt)."),
-    user_id: str | None = typer.Option(None, "--user-id", "-u", help="Default user ID (skip prompt)."),
+    user_id: str | None = typer.Option(
+        None, "--user-id", "-u", help="Default user ID (skip prompt)."
+    ),
+    email: str | None = typer.Option(None, "--email", help="Login via email verification code."),
+    code: str | None = typer.Option(
+        None, "--code", help="Verification code (use with --email for non-interactive login)."
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite existing config without confirmation."
+    ),
+    agent_signal: bool = typer.Option(
+        False, "--agent", help="Bootstrap an unattended Agent Mode account (no email required)."
+    ),
+    source: str | None = typer.Option(
+        None,
+        "--source",
+        help="Channel attribution for signup (e.g. github, hn, ph).",
+    ),
+    agent_caller: str | None = typer.Option(
+        None,
+        "--agent-caller",
+        help="Self-declared agent identity (e.g. claude-code, cursor). Used with --agent to attribute Agent Mode signups.",
+    ),
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
     Examples:
       mem0 init
       mem0 init --api-key m0-xxx --user-id alice
+      mem0 init --email alice@company.com
+      mem0 init --email alice@company.com --code 482901
+      mem0 init --agent --agent-caller claude-code   # AI agent self-identifies on Agent Mode bootstrap
+      mem0 init --email alice@company.com  # Claims an existing Agent Mode key when one is present
     """
     from mem0_cli.commands.init_cmd import run_init
 
-    run_init(api_key=api_key, user_id=user_id)
+    run_init(
+        api_key=api_key,
+        user_id=user_id,
+        email=email,
+        code=code,
+        force=force,
+        source=source,
+        agent=agent_signal,
+        agent_caller=agent_caller,
+    )
+
+
+@app.command(rich_help_panel="Setup")
+def identify(
+    name: str = typer.Argument(..., help="Agent identity (e.g. claude-code, cursor, my-bot)."),
+) -> None:
+    """Tag your active Agent Mode key with the AI agent that's using it.
+
+    Run this once after `mem0 init --agent` if you didn't pass --agent-caller.
+    Idempotent — re-running just overwrites the value.
+
+    Example:
+      mem0 identify claude-code
+    """
+    from mem0_cli.commands.identify_cmd import run_identify
+
+    run_identify(name)
+
+
+@app.command(name="whoami", rich_help_panel="Setup")
+def whoami_cmd() -> None:
+    """Print your AGENTRUSH identifier (default_user_id).
+
+    Example:
+      mem0 whoami
+    """
+    from mem0_cli.commands.whoami_cmd import run_whoami
+
+    run_whoami()
+
+
+# ── AGENTRUSH sub-app ─────────────────────────────────────────────────────
+
+agent_rush_app = typer.Typer(
+    name="agent-rush",
+    help="AGENTRUSH game commands",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+
+
+@agent_rush_app.callback(invoke_without_command=True)
+def _agent_rush_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        _fire_telemetry(f"agent-rush.{ctx.invoked_subcommand}")
+
+
+@agent_rush_app.command(name="add")
+def agent_rush_add(
+    content: str = typer.Argument(..., help="Memory content (50-1000 characters, no URLs)."),
+) -> None:
+    """Submit a memory to AGENTRUSH.
+
+    Example:
+      mem0 agent-rush add "I enjoy solving constraint-satisfaction problems."
+    """
+    from mem0_cli.commands.agent_rush_cmd import run_agent_rush_add
+
+    run_agent_rush_add(content)
+
+
+@agent_rush_app.command(name="search")
+def agent_rush_search(
+    query: str = typer.Argument(..., help="Search query."),
+) -> None:
+    """Search AGENTRUSH memories.
+
+    Example:
+      mem0 agent-rush search "constraint satisfaction"
+    """
+    from mem0_cli.commands.agent_rush_cmd import run_agent_rush_search
+
+    run_agent_rush_search(query)
+
+
+app.add_typer(agent_rush_app, name="agent-rush", rich_help_panel="Setup")
 
 
 # (entity_app registered at module level, below sub-group definitions)
@@ -742,6 +1088,17 @@ def status(
         output=output,
     )
 
+
+@app.command(rich_help_panel="Management")
+def version() -> None:
+    """Show version and exit.
+
+    Example:
+      mem0 version
+    """
+    from mem0_cli.commands.utils import cmd_version
+
+    cmd_version()
 
 
 @app.command("import", rich_help_panel="Management")
@@ -803,14 +1160,19 @@ def _build_help_json() -> dict:
                 "--immutable": "Prevent future updates.",
                 "--no-infer": "Skip inference, store raw.",
                 "--expires": "Expiration date (YYYY-MM-DD).",
-                "--categories": "Categories (JSON array or comma-separated).",
+                "--categories": "Not supported on add, use --custom-categories instead.",
+                "--custom-instructions": "Custom instructions for fact extraction.",
+                "--agent-custom-instructions": "Extraction instructions for agent-scoped memories, overriding the project setting.",
+                "--custom-categories": "Custom categories as a JSON array of {name: description} objects.",
+                "--structured-data-schema": "Schema for structured data extraction, as JSON.",
+                "--timestamp": "Unix timestamp for the memory.",
                 "--graph": "Enable graph memory extraction.",
                 "--no-graph": "Disable graph memory extraction.",
                 "--output, -o": "Output format: text, json, quiet.",
             },
         },
         "search": {
-            "description": "Search memories by semantic query.",
+            "description": "Query your memory store — semantic, keyword, or hybrid retrieval.",
             "usage": "mem0 search <query> [OPTIONS]",
             "arguments": {"query": {"description": "Search query.", "required": False}},
             "options": {
@@ -820,8 +1182,14 @@ def _build_help_json() -> dict:
                 "--threshold": "Minimum similarity score (default: 0.3).",
                 "--rerank": "Enable reranking (Platform only).",
                 "--keyword": "Use keyword search instead of semantic.",
-                "--filter": "Advanced filter expression (JSON).",
+                "--filter": (
+                    'Advanced filter as JSON: {"AND": [...]} or {"OR": [...]}, '
+                    'e.g. {"AND": [{"categories": {"in": ["work"]}}]}.'
+                ),
                 "--fields": "Specific fields to return (comma-separated).",
+                "--show-expired": "Include expired memories.",
+                "--reference-date": "Reference date for relative queries (YYYY-MM-DD or unix timestamp).",
+                "--latest-only": "Only return the latest version of each memory.",
                 "--graph": "Enable graph in search.",
                 "--no-graph": "Disable graph in search.",
                 "--output, -o": "Output format: text, json, table.",
@@ -845,6 +1213,8 @@ def _build_help_json() -> dict:
                 "--category": "Filter by category.",
                 "--after": "Created after (YYYY-MM-DD).",
                 "--before": "Created before (YYYY-MM-DD).",
+                "--show-expired": "Include expired memories.",
+                "--latest-only": "Only return the latest version of each memory.",
                 "--graph": "Enable graph in listing.",
                 "--no-graph": "Disable graph in listing.",
                 "--output, -o": "Output format: text, json, table.",
@@ -859,6 +1229,8 @@ def _build_help_json() -> dict:
             },
             "options": {
                 "--metadata, -m": "Update metadata (JSON).",
+                "--expires": "Expiration date (YYYY-MM-DD).",
+                "--timestamp": "Unix timestamp for the memory.",
                 "--output, -o": "Output format: text, json, quiet.",
             },
         },
@@ -875,6 +1247,7 @@ def _build_help_json() -> dict:
                 "--all": "Delete all memories matching scope filters.",
                 "--entity": "Delete the entity itself and all its memories (cascade).",
                 "--project": "With --all: delete ALL memories project-wide.",
+                "--delete-linked": "Also delete memories linked to this memory.",
                 "--dry-run": "Show what would be deleted without deleting.",
                 "--force": "Skip confirmation.",
                 "--user-id, -u": "Scope to user.",
@@ -912,6 +1285,24 @@ def _build_help_json() -> dict:
             "arguments": {
                 "key": {"description": "Config key (e.g. platform.api_key).", "required": True},
                 "value": {"description": "Value to set.", "required": True},
+            },
+        },
+        "event": {
+            "description": "Inspect background processing events.",
+            "subcommands": {
+                "list": {
+                    "description": "List recent background processing events.",
+                    "usage": "mem0 event list [OPTIONS]",
+                    "options": {"--output, -o": "Output format: table, json."},
+                },
+                "status": {
+                    "description": "Check the status of a specific background event.",
+                    "usage": "mem0 event status <event_id> [OPTIONS]",
+                    "arguments": {
+                        "event_id": {"description": "Event ID to inspect.", "required": True}
+                    },
+                    "options": {"--output, -o": "Output format: text, json."},
+                },
             },
         },
         "entity": {
@@ -965,6 +1356,7 @@ def _build_help_json() -> dict:
         "global_options": {
             "--api-key": "Override API key (env: MEM0_API_KEY).",
             "--base-url": "Override API base URL.",
+            "--json / --agent": "Output as JSON for agent/programmatic use.",
             "--help": "Show help for a command.",
             "--version": "Show version and exit.",
         },
@@ -985,8 +1377,10 @@ def help(
       mem0 help
       mem0 help --json
     """
-    if json:
-        console.print(_json.dumps(_build_help_json(), indent=2))
+    from mem0_cli.state import is_agent_mode
+
+    if json or is_agent_mode():
+        console.print_json(_json.dumps(_build_help_json()))
     else:
         console.print(
             f"[{BRAND_COLOR}]◆ mem0 CLI[/] v{__version__} — The Memory Layer for AI Agents\n"
@@ -994,7 +1388,7 @@ def help(
         console.print("Usage: mem0 <command> [OPTIONS]\n")
         console.print("[bold]Commands:[/]")
         console.print("  add              Add a memory from text, messages, file, or stdin")
-        console.print("  search           Search memories by semantic query")
+        console.print("  search           Query your memory store (semantic, keyword, hybrid)")
         console.print("  get              Get a specific memory by ID")
         console.print("  list             List memories with optional filters")
         console.print("  update           Update a memory's text or metadata")
@@ -1002,6 +1396,7 @@ def help(
         console.print("  import           Import memories from a JSON file")
         console.print("  config           Manage configuration (show, get, set)")
         console.print("  entity           Manage entities (list, delete)")
+        console.print("  event            Inspect background events (list, status)")
         console.print("  init             Interactive setup wizard")
         console.print("  status           Check connectivity and authentication")
         console.print()
@@ -1018,4 +1413,31 @@ app.add_typer(config_app, name="config", rich_help_panel="Management")
 
 
 def main() -> None:
-    app()
+    import sys
+
+    # Allow --json/--agent anywhere in the command line (not just before subcommand).
+    # Special case: `mem0 init --agent` is a subcommand flag (Agent Mode bootstrap)
+    # consumed by init_cmd, not a global JSON-output toggle — leave it in argv.
+    argv_rest = sys.argv[1:]
+    is_init = "init" in argv_rest
+    _global_flags = {"--json"} if is_init else {"--json", "--agent"}
+    if any(a in _global_flags for a in argv_rest):
+        from mem0_cli.state import set_agent_mode
+
+        set_agent_mode(True)
+        sys.argv = [sys.argv[0]] + [a for a in argv_rest if a not in _global_flags]
+
+    try:
+        app()
+    finally:
+        # Surface any unclaimed Agent Mode notice once per command, after the
+        # primary output. In JSON/agent mode the notice is folded into the
+        # envelope by format_json_envelope, so skip the stderr banner there
+        # to avoid duplicate output.
+        from mem0_cli.state import is_agent_mode, take_notice
+
+        notice = take_notice()
+        if notice and not is_agent_mode():
+            from rich.console import Console
+
+            Console(stderr=True).print(f"\n[yellow]🔔 {notice}[/yellow]\n")

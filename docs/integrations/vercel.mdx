@@ -1,0 +1,130 @@
+---
+title: Vercel
+description: "Add persistent memory to your Vercel apps with the Mem0 Vercel Marketplace integration. Install from the Marketplace, get an API key, and start building."
+---
+
+The **Mem0 Vercel integration** provisions managed Mem0 access directly from the [Vercel Marketplace](https://vercel.com/marketplace). Installing it creates a Mem0 account for you and injects a `MEM0_API_KEY` into your Vercel project, so you can add long-term memory to your AI apps and agents in minutes, with no separate signup and billing handled through Vercel.
+
+<Note type="info">
+  This is the managed Marketplace integration. If you instead want to use Mem0 with the Vercel AI SDK in code, see [Vercel AI SDK](/integrations/vercel-ai-sdk).
+</Note>
+
+## Overview
+
+When you install Mem0 from the Vercel Marketplace:
+
+- A Mem0 account and project are created for you (Vercel Native).
+- Mem0 environment variables (`MEM0_API_KEY`, `MEM0_ORG_ID`, `MEM0_PROJECT_ID`, `MEM0_BASE_URL`) are added to your connected Vercel project.
+- Billing is handled through your Vercel account, with no separate Mem0 subscription.
+
+You call Mem0 from your app with the injected key. There is nothing else to wire up.
+
+## Install
+
+<Steps>
+  <Step title="Add the integration">
+    From the [Vercel Marketplace](https://vercel.com/marketplace), find **Mem0** and click **Install**. Choose **Create New Mem0 Account** (Vercel Native).
+  </Step>
+  <Step title="Pick a plan">
+    Select **Hobby** (free) or **Starter** ($20/month). You can change this anytime from the installation settings in your Vercel dashboard.
+  </Step>
+  <Step title="Connect a project">
+    Connect the Mem0 resource to a Vercel project. Mem0 injects its environment variables into that project.
+  </Step>
+  <Step title="Redeploy">
+    Redeploy so the variables are available at runtime, or run `vercel env pull` to use them locally.
+  </Step>
+</Steps>
+
+## Environment variables
+
+The integration sets the following on your connected project:
+
+| Variable | Description |
+| --- | --- |
+| `MEM0_API_KEY` | Your Mem0 API key, scoped to the org and project created for this installation. This is what you authenticate with. |
+| `MEM0_ORG_ID` | The Mem0 organization id for this installation. |
+| `MEM0_PROJECT_ID` | The Mem0 project id for this installation. |
+| `MEM0_BASE_URL` | The Mem0 API base URL (`https://api.mem0.ai`). |
+
+The API key is scoped to your org and project, so the SDK needs only `MEM0_API_KEY` to get started.
+
+## Quickstart
+
+Install the SDK:
+
+<CodeGroup>
+```bash npm
+npm install mem0ai
+```
+
+```bash pip
+pip install mem0ai
+```
+</CodeGroup>
+
+Add and search memories using the injected key:
+
+<CodeGroup>
+```typescript JavaScript
+import MemoryClient from "mem0ai";
+
+const memory = new MemoryClient({ apiKey: process.env.MEM0_API_KEY });
+
+// Store a memory
+await memory.add(
+  [{ role: "user", content: "I'm a vegetarian and allergic to nuts." }],
+  { userId: "user123" },
+);
+
+// Retrieve relevant memories
+const results = await memory.search("What are my dietary restrictions?", {
+  filters: { user_id: "user123" },
+});
+console.log(results);
+```
+
+```python Python
+import os
+from mem0 import MemoryClient
+
+memory = MemoryClient(api_key=os.environ["MEM0_API_KEY"])
+
+# Store a memory
+memory.add(
+    [{"role": "user", "content": "I'm a vegetarian and allergic to nuts."}],
+    user_id="user123",
+)
+
+# Retrieve relevant memories
+results = memory.search("What are my dietary restrictions?", filters={"user_id": "user123"})
+print(results)
+```
+</CodeGroup>
+
+See the [platform quickstart](/platform/quickstart) for the full API.
+
+## Plans and billing
+
+| Plan | Price | Memories | Retrieval calls | Projects | Support |
+| --- | --- | --- | --- | --- | --- |
+| Hobby | Free | 10,000 | 1,000 / month | 1 | Community |
+| Starter | $20 / month | 50,000 | 5,000 / month | 1 | Community |
+
+Billing runs through your Vercel account; Mem0 never charges your card directly. You can upgrade or downgrade anytime from the installation's settings in the Vercel dashboard.
+
+## Managing the integration
+
+- **Change plan:** open the installation in your Vercel dashboard and update the billing plan.
+- **Open in Mem0:** use the **Open in Mem0** link to sign in to the Mem0 dashboard for this installation.
+- **Uninstall:** removing the integration deactivates the API key and tears down the resource. Any usage for the current period is invoiced before removal.
+
+## Notes
+
+- The integration creates a **new** Mem0 account for the installation. Linking an existing Mem0 account is not supported yet.
+- The injected `MEM0_API_KEY` is scoped to the org and project created for this installation, so you do not manage keys by hand.
+
+## Related
+
+- [Platform quickstart](/platform/quickstart)
+- [Vercel AI SDK integration](/integrations/vercel-ai-sdk)

@@ -1,0 +1,164 @@
+---
+title: Dream
+description: "Dream keeps a user's memory clean over time by distilling recurring patterns, retiring outdated facts, and merging duplicates in the background."
+---
+
+# Dream
+
+As an application talks to the same user over weeks and months, their memory grows. Some of that growth is signal, meaning new facts worth keeping. A lot of it is noise: the same preference stated three different ways, an old fact that a newer one has quietly replaced, or a set of small observations that only mean something when you look at them together.
+
+**Dream** is the background layer that keeps a user's memory coherent as it grows. It continuously reviews each user's memories and does three things. It synthesizes higher-order patterns, supersedes outdated facts, and merges duplicates. The result is that what you read back stays sharp instead of drifting into a pile of overlapping, stale entries.
+
+<Info>
+  **Dream matters when…**
+  - Your users interact with your product over a long period and accumulate a lot of memories.
+  - You want retrieval to return the *current* truth about a user, not a mix of old and new contradictory facts.
+  - You want higher-level insights ("this user consistently prefers X") without writing your own summarization layer.
+</Info>
+
+## The three actions of Dream
+
+Dream is made of three independent actions. Two of them, Supersede and Merge, keep memory clean and run automatically for everyone. The third, Synthesis, produces new insight and is a toggle you turn on per project.
+
+| Action | What it does | When it runs | Availability |
+|---|---|---|---|
+| **Synthesis** | Distills a user's memories into higher-order **pattern memories** | On a schedule, in the background | Opt-in (Pro and above) |
+| **Supersede** | Marks an older fact as outdated when a newer one contradicts it | As memories are added | Always on, all plans |
+| **Merge** | Folds a duplicate into a single canonical memory | As memories are added | Always on, all plans |
+
+### Synthesis
+
+Over time a user's memories often *imply* something larger than any single entry. Ten separate notes about early-morning meetings, workout logs, and coffee orders together say "this user is an early riser." **Synthesis** finds those recurring threads and writes them back as new **pattern memories**: concise, higher-order facts that capture what the individual memories only hint at.
+
+- Pattern memories are added *alongside* your existing memories, never in place of them. The source memories stay exactly where they are.
+- Each pattern memory keeps a link back to the specific memories it was distilled from, so an insight is always traceable to its evidence.
+- Synthesis is additive and idempotent. Re-running it will not create duplicate patterns for the same underlying evidence.
+
+**Example.** These four memories accumulate for the same user over time:
+
+- *"User runs approximately 40 kilometers per week and is currently training for a marathon."*
+- *"User lifts weights at the gym three times a week, primarily focusing on legs and back."*
+- *"User tracks all workouts using a Garmin Forerunner watch."*
+- *"User's goal for 2026 is to run a sub-4-hour marathon."*
+
+Synthesis distills them into one pattern memory, kept alongside the originals:
+
+> *"User follows a structured fitness routine that includes weekly long runs (≈40 km), regular leg-and-back strength training, tracks workouts with a Garmin device, and pursues progressive marathon time goals."*
+
+Each source memory stays exactly where it was, and the new pattern links back to all of them as its evidence.
+
+<Note>
+  Synthesis only considers memories created **after** you enable it for a project. Turning it on sets a forward boundary, so historical memories aren't reprocessed in bulk on day one. Everything added from that point on is eligible.
+</Note>
+
+<Note>
+  Synthesis only looks at memories scoped to a **`user_id` alone**. Memories that also carry another entity (an `agent_id`, `run_id`, or `app_id`) are left out of a user's synthesis run. This keeps each run tied to a single user's own memories and avoids cross-referencing across agents, runs, or apps. So a memory has to be user-scoped, with no other entity attached, to be eligible for a pattern.
+</Note>
+
+### Supersede
+
+When a user tells you something that **contradicts** an earlier memory ("I moved to Berlin" after an earlier "I live in Lisbon"), Dream marks the older memory as **superseded** and links it to the newer fact that replaced it. Superseded memories are not deleted and not hidden by default. A normal `search` or `get` still returns them alongside your active memories, badged as superseded, so you keep the full history. When you want only the current truth, ask for it explicitly with `latest_only=true` (see [How reads change](#how-reads-change-with-dream) below). Supersede runs automatically as part of adding memories, on every plan.
+
+**Example.** The user has an existing memory *"User drives a 2019 Subaru Outback."* Later they mention selling it, producing a new memory *"User sold their 2019 Subaru Outback and bought a Tesla Model 3."* Dream marks the Subaru memory as superseded and links it to the newer one. A default `search` returns both: the Tesla memory as active, and the Subaru one labelled superseded. Passing `latest_only=true` returns only *"User sold their 2019 Subaru Outback and bought a Tesla Model 3."*
+
+### Merge
+
+When a new memory is effectively a **duplicate** of one you already have, Dream keeps a single canonical memory instead of two near-identical copies. When a duplicate is stored as its own memory, Dream marks it **merged** and links it to the canonical one. The merged record is hidden from reads by default (you get the one canonical memory), retained rather than deleted, and surfaced with `include_merged=true`. Merge runs automatically as memories are added, on every plan, and keeps your memory set compact without you deduplicating by hand.
+
+In practice, most exact or near-duplicate restatements of a fact you already have are recognised and deduplicated as the memory is added. No second copy is created, so you simply keep the one memory. A distinct `merged` record appears when a fuller version of an existing fact arrives and folds the barer one in.
+
+**Example.** The user has an existing memory *"User has a dog named Rex."* Later they mention *"My dog Rex is a 3-year-old golden retriever."* The richer statement is stored and Dream marks the barer *"User has a dog named Rex"* as **merged** into it. A default read returns the single canonical memory *"User's dog Rex is a 3-year-old golden retriever"*, and `include_merged=true` also returns the merged original.
+
+<Info>
+  **Nothing Dream does is destructive.** Superseded and merged memories are retained, never erased. Every change is recorded and reviewable, so you always know why a memory was retired or combined.
+</Info>
+
+## How reads change with Dream
+
+Dream doesn't change the shape of your `add`, `search`, or `get` calls, so you don't touch your application code. What it changes is *which* memories a read returns by default, and it gives you two flags to widen or narrow that set:
+
+| Read mode | Active | Superseded | Merged |
+|---|:---:|:---:|:---:|
+| **Default** (`search` / `get`) | ✓ | ✓ | ✗ |
+| **`latest_only=true`** | ✓ | — | — |
+| **`include_merged=true`** | ✓ | ✓ | ✓ |
+
+- **By default**, a read returns active plus superseded memories (superseded ones are still there, labelled as history) and hides merged duplicates. Synthesized pattern memories are returned alongside these too.
+- **`latest_only=true`** narrows the result to active memories only, meaning the current truth, with superseded and merged both excluded. Use this when you want the cleanest possible snapshot of the user right now.
+- **`include_merged=true`** returns everything, including the merged duplicates, when you need the complete picture.
+
+## Enabling Dream
+
+Supersede and Merge require no setup. They're always on for every project on every plan.
+
+Synthesis is opt-in per project:
+
+1. Open the **[Dream settings for your project](https://app.mem0.ai/dashboard/dream)** in the Mem0 dashboard.
+2. Toggle **Synthesis** on.
+
+Synthesis is a per-project setting, so you can enable it for one project and compare against another with it off. You can turn it off at any time. Doing so is fully reversible and leaves every existing memory (including already-synthesized patterns) untouched.
+
+From the [Dream page](https://app.mem0.ai/dashboard/dream) you can also review what Dream has done: recent synthesis runs, the patterns produced and their source memories, and the memories that were superseded or merged.
+
+## Plan availability
+
+| Capability | Free | Starter | Pro | Enterprise |
+|---|:---:|:---:|:---:|:---:|
+| **Supersede** (outdated facts flagged) | ✓ | ✓ | ✓ | ✓ |
+| **Merge** (duplicates folded, hidden by default) | ✓ | ✓ | ✓ | ✓ |
+| **Synthesis** (pattern memories written) | — | — | ✓ | ✓ |
+| **Dream dashboard** (runs, activity) | — | — | ✓ | ✓ |
+
+Synthesis requires a **Pro plan or higher**. Enterprise plans also get a faster, configurable schedule (see below).
+
+## How often Dream runs, and what delay to expect
+
+Different actions run on different clocks, so the delay you should expect depends on which action.
+
+### Supersede & Merge, as memories are added
+
+Supersede and Merge are part of the memory-addition pipeline. They're evaluated when a memory is added, so an outdated fact is superseded or a duplicate is merged as part of that add being processed, on the same timescale as the memory becoming searchable. There's no separate schedule to wait for.
+
+### Synthesis, on a schedule in the background
+
+Synthesis runs as a scheduled background job per user, not on every add. Two conditions gate it:
+
+- **Enough to work with:** a user must have at least **20** memories before Synthesis considers them. Below that threshold there isn't a meaningful pattern to distill yet.
+- **Cadence elapsed:** each user is re-synthesized at most once per cadence window.
+
+| Plan | Synthesis cadence (per user) |
+|---|---|
+| Pro | Every **7 days** |
+| Enterprise | **Daily** (and configurable) |
+
+Because Synthesis is processed in batches in the background, **expect new pattern memories to appear within roughly 24 hours of a scheduled run**, not instantly. In practice, the end-to-end delay from crossing a cadence window to seeing new patterns is up to about a day. This background design is deliberate: it keeps Synthesis from adding any latency to your live `add` and `search` calls.
+
+<Warning>
+  Synthesis is **not** real-time. If you enable it today, the first pattern memories for an eligible user will appear on the next scheduled run for that user (governed by the cadence above), and can take up to ~24 hours to complete once that run starts. Supersede and Merge, by contrast, keep pace with your adds.
+</Warning>
+
+## FAQ
+
+**Does Dream delete any of my memories?**
+No. Nothing Dream does is destructive. Superseded memories stay visible in default reads (labelled as history), merged duplicates are hidden by default but retained, and synthesized patterns are added alongside your existing memories, never in place of them. Every change is reviewable from the dashboard.
+
+**How do I get only the current facts, without the superseded ones?**
+Pass `latest_only=true` on your read. Superseded and merged memories are both excluded, leaving only active memories. By default (no flag) superseded memories are included so you keep the full history.
+
+**Do I need to change my code to use Dream?**
+No. Supersede and Merge are always on, and enabling Synthesis is a project setting. Your `add`, `search`, and `get` calls are unchanged. Dream shapes the memory set behind the same API.
+
+**Will Synthesis reprocess all my old memories when I turn it on?**
+No. Enabling Synthesis sets a forward boundary, so only memories created after you turn it on are eligible. This avoids a bulk reprocess of your entire history on day one.
+
+**Why don't I see pattern memories immediately after enabling Synthesis?**
+Synthesis runs on a schedule (every 7 days on Pro, daily on Enterprise) and only for users with at least 20 memories. Patterns appear on the next scheduled run for an eligible user and can take up to ~24 hours to complete once that run starts.
+
+**Which memories does Synthesis include?**
+Only memories scoped to a `user_id` on its own. If a memory also carries an `agent_id`, `run_id`, or `app_id`, it's excluded from that user's synthesis run. This keeps each run confined to a single user's memories and prevents any cross-referencing across agents, runs, or apps. Supersede and Merge are not affected by this and run across your memories as usual.
+
+**Are synthesized pattern memories traceable?**
+Yes. Every pattern memory links back to the specific source memories it was distilled from, so you can always see the evidence behind an insight from the Dream dashboard.
+
+**Can I turn Synthesis off?**
+Yes, at any time, per project. Turning it off is fully reversible and leaves all existing memories, including already-synthesized patterns, untouched.

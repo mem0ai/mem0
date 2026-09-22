@@ -1,5 +1,6 @@
 ---
-title: Overview
+title: "Reranker Providers Overview"
+sidebarTitle: "Overview"
 description: 'Pick the right reranker path to boost Mem0 search relevance.'
 ---
 
@@ -8,6 +9,22 @@ Mem0 rerankers rescore vector search hits so your agents surface the most releva
 <Info>
 Reranking trades extra latency for better precision. Start once you have baseline search working and measure before/after relevance.
 </Info>
+
+## Supported Rerankers
+
+<CardGroup cols={3}>
+  <Card title="Cohere" icon="/images/provider-icons/cohere.svg" href="/components/rerankers/models/cohere" />
+  <Card title="Sentence Transformers" icon="vector-square" href="/components/rerankers/models/sentence-transformer" />
+  <Card title="Hugging Face" icon="/images/provider-icons/huggingface.svg" href="/components/rerankers/models/huggingface" />
+  <Card title="LLM Reranker" icon="wand-magic-sparkles" href="/components/rerankers/models/llm-reranker" />
+  <Card title="Zero Entropy" icon="/images/provider-icons/zeroentropy.svg" href="/components/rerankers/models/zero-entropy" />
+</CardGroup>
+
+<Note>
+All five rerankers are available in both the Python and the [TypeScript](/open-source/features/reranker-search#typescript-sdk) self-hosted SDKs. Each provider page has a **TypeScript (self-hosted)** section with the camelCase config.
+</Note>
+
+## Reranking Workflow
 
 <CardGroup cols={3}>
   <Card
@@ -19,13 +36,13 @@ Reranking trades extra latency for better precision. Start once you have baselin
   <Card
     title="Configure Providers"
     description="Add reranker blocks to your memory configuration."
-    icon="settings"
+    icon="gear"
     href="/components/rerankers/config"
   />
   <Card
     title="Optimize Performance"
     description="Balance relevance, latency, and cost with tuning tactics."
-    icon="speedometer"
+    icon="gauge"
     href="/components/rerankers/optimization"
   />
   <Card
@@ -38,13 +55,13 @@ Reranking trades extra latency for better precision. Start once you have baselin
     title="Zero Entropy Guide"
     description="Adopt the managed neural reranker for production workloads."
     icon="sparkles"
-    href="/components/rerankers/models/zero_entropy"
+    href="/components/rerankers/models/zero-entropy"
   />
   <Card
     title="Sentence Transformers"
     description="Keep reranking on-device with cross-encoder models."
-    icon="cpu"
-    href="/components/rerankers/models/sentence_transformer"
+    icon="microchip"
+    href="/components/rerankers/models/sentence-transformer"
   />
 </CardGroup>
 
@@ -66,7 +83,7 @@ Reranking trades extra latency for better precision. Start once you have baselin
   <Card
     title="Set Up Reranking"
     description="Walk through the configuration fields and defaults."
-    icon="settings"
+    icon="gear"
     href="/components/rerankers/config"
   />
   <Card

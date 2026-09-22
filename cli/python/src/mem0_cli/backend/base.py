@@ -25,8 +25,11 @@ class Backend(ABC):
         immutable: bool = False,
         infer: bool = True,
         expires: str | None = None,
-        categories: list[str] | None = None,
-        enable_graph: bool = False,
+        custom_instructions: str | None = None,
+        agent_custom_instructions: str | None = None,
+        custom_categories: list[dict] | None = None,
+        structured_data_schema: dict | None = None,
+        timestamp: int | None = None,
     ) -> dict: ...
 
     @abstractmethod
@@ -44,7 +47,9 @@ class Backend(ABC):
         keyword: bool = False,
         filters: dict | None = None,
         fields: list[str] | None = None,
-        enable_graph: bool = False,
+        show_expired: bool = False,
+        reference_date: str | None = None,
+        latest_only: bool = False,
     ) -> list[dict]: ...
 
     @abstractmethod
@@ -63,12 +68,19 @@ class Backend(ABC):
         category: str | None = None,
         after: str | None = None,
         before: str | None = None,
-        enable_graph: bool = False,
+        show_expired: bool = False,
+        latest_only: bool = False,
     ) -> list[dict]: ...
 
     @abstractmethod
     def update(
-        self, memory_id: str, content: str | None = None, metadata: dict | None = None
+        self,
+        memory_id: str,
+        content: str | None = None,
+        metadata: dict | None = None,
+        *,
+        expiration_date: str | None = None,
+        timestamp: int | None = None,
     ) -> dict: ...
 
     @abstractmethod
@@ -81,6 +93,7 @@ class Backend(ABC):
         agent_id: str | None = None,
         app_id: str | None = None,
         run_id: str | None = None,
+        delete_linked: bool = False,
     ) -> dict: ...
 
     @abstractmethod
@@ -104,6 +117,11 @@ class Backend(ABC):
     @abstractmethod
     def entities(self, entity_type: str) -> list[dict]: ...
 
+    @abstractmethod
+    def list_events(self) -> list[dict]: ...
+
+    @abstractmethod
+    def get_event(self, event_id: str) -> dict: ...
 
 
 def get_backend(config: Mem0Config) -> Backend:

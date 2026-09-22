@@ -27,6 +27,15 @@ CONFIG_VERSION = 1
 class PlatformConfig:
     api_key: str = ""
     base_url: str = DEFAULT_BASE_URL
+    user_email: str = ""
+    # Agent Mode (unclaimed-shadow signup)
+    agent_mode: bool = False  # True while the key is an unclaimed agent-mode key
+    created_via: str = ""  # "agent_mode" | "email" | "api_key" | "existing_key"
+    agent_caller: str = (
+        ""  # canonical agent name when created_via == "agent_mode" (e.g. "claude-code")
+    )
+    claimed_at: str = ""  # ISO timestamp once the agent has been claimed by a human
+    default_user_id: str = ""  # `user_<slug>` returned by bootstrap; used as auto-default
 
 
 @dataclass
@@ -35,7 +44,18 @@ class DefaultsConfig:
     agent_id: str = ""
     app_id: str = ""
     run_id: str = ""
-    enable_graph: bool = False
+
+
+@dataclass
+class TelemetryConfig:
+    anonymous_id: str = ""
+
+
+@dataclass
+class AgentRushConfig:
+    # ISO timestamp the human acknowledged the "memories are public" warning.
+    # Empty until first interactive `mem0 agent-rush add`.
+    acknowledged_at: str = ""
 
 
 @dataclass
@@ -43,6 +63,19 @@ class Mem0Config:
     version: int = CONFIG_VERSION
     defaults: DefaultsConfig = field(default_factory=DefaultsConfig)
     platform: PlatformConfig = field(default_factory=PlatformConfig)
+    telemetry: TelemetryConfig = field(default_factory=TelemetryConfig)
+    agent_rush: AgentRushConfig = field(default_factory=AgentRushConfig)
+
+
+SHORT_KEY_ALIASES: dict[str, str] = {
+    "api_key": "platform.api_key",
+    "base_url": "platform.base_url",
+    "user_email": "platform.user_email",
+    "user_id": "defaults.user_id",
+    "agent_id": "defaults.agent_id",
+    "app_id": "defaults.app_id",
+    "run_id": "defaults.run_id",
+}
 
 
 def ensure_config_dir() -> Path:
@@ -65,13 +98,23 @@ def load_config() -> Mem0Config:
         plat = data.get("platform", {})
         config.platform.api_key = plat.get("api_key", "")
         config.platform.base_url = plat.get("base_url", DEFAULT_BASE_URL)
+        config.platform.user_email = plat.get("user_email", "")
+        config.platform.agent_mode = bool(plat.get("agent_mode", False))
+        config.platform.created_via = plat.get("created_via", "")
+        config.platform.agent_caller = plat.get("agent_caller", "")
+        config.platform.claimed_at = plat.get("claimed_at", "")
+        config.platform.default_user_id = plat.get("default_user_id", "")
 
         defaults = data.get("defaults", {})
         config.defaults.user_id = defaults.get("user_id", "")
         config.defaults.agent_id = defaults.get("agent_id", "")
         config.defaults.app_id = defaults.get("app_id", "")
         config.defaults.run_id = defaults.get("run_id", "")
-        config.defaults.enable_graph = defaults.get("enable_graph", False)
+        telemetry = data.get("telemetry", {})
+        config.telemetry.anonymous_id = telemetry.get("anonymous_id", "")
+
+        agent_rush = data.get("agent_rush", {})
+        config.agent_rush.acknowledged_at = agent_rush.get("acknowledged_at", "")
 
     # Environment variable overrides
     env_key = os.environ.get("MEM0_API_KEY")
@@ -98,10 +141,6 @@ def load_config() -> Mem0Config:
     if env_run_id:
         config.defaults.run_id = env_run_id
 
-    env_graph = os.environ.get("MEM0_ENABLE_GRAPH")
-    if env_graph:
-        config.defaults.enable_graph = env_graph.lower() in ("true", "1", "yes")
-
     return config
 
 
@@ -116,11 +155,22 @@ def save_config(config: Mem0Config) -> None:
             "agent_id": config.defaults.agent_id,
             "app_id": config.defaults.app_id,
             "run_id": config.defaults.run_id,
-            "enable_graph": config.defaults.enable_graph,
         },
         "platform": {
             "api_key": config.platform.api_key,
             "base_url": config.platform.base_url,
+            "user_email": config.platform.user_email,
+            "agent_mode": config.platform.agent_mode,
+            "created_via": config.platform.created_via,
+            "agent_caller": config.platform.agent_caller,
+            "claimed_at": config.platform.claimed_at,
+            "default_user_id": config.platform.default_user_id,
+        },
+        "telemetry": {
+            "anonymous_id": config.telemetry.anonymous_id,
+        },
+        "agent_rush": {
+            "acknowledged_at": config.agent_rush.acknowledged_at,
         },
     }
 
@@ -128,6 +178,19 @@ def save_config(config: Mem0Config) -> None:
         json.dump(data, f, indent=2)
 
     os.chmod(CONFIG_FILE, stat.S_IRUSR | stat.S_IWUSR)  # 0600
+
+    # Propagate the active api_key to ecosystem touchpoints (Claude Code
+    # plugin env injection, shell rc exports). Idempotent — only updates
+    # EXISTING entries; never creates new ones. Best-effort: any IOError
+    # in the sync is swallowed so config.json is always the authoritative
+    # write, never blocked by plugin-state issues.
+    if config.platform.api_key:
+        try:
+            from mem0_cli.plugin_sync import sync_api_key
+
+            sync_api_key(config.platform.api_key)
+        except Exception:
+            pass
 
 
 def redact_key(key: str) -> str:
@@ -140,7 +203,8 @@ def redact_key(key: str) -> str:
 
 
 def get_nested_value(config: Mem0Config, dotted_key: str) -> Any:
-    """Get a config value by dotted path, e.g. 'platform.api_key'."""
+    """Get a config value by dotted path, e.g. 'platform.api_key' or short form 'api_key'."""
+    dotted_key = SHORT_KEY_ALIASES.get(dotted_key, dotted_key)
     parts = dotted_key.split(".")
     obj: Any = config
     for part in parts:
@@ -153,6 +217,7 @@ def get_nested_value(config: Mem0Config, dotted_key: str) -> Any:
 
 def set_nested_value(config: Mem0Config, dotted_key: str, value: str) -> bool:
     """Set a config value by dotted path. Returns True on success."""
+    dotted_key = SHORT_KEY_ALIASES.get(dotted_key, dotted_key)
     parts = dotted_key.split(".")
     obj: Any = config
     for part in parts[:-1]:
@@ -170,7 +235,10 @@ def set_nested_value(config: Mem0Config, dotted_key: str, value: str) -> bool:
     if isinstance(current, bool):
         value = value.lower() in ("true", "1", "yes")  # type: ignore[assignment]
     elif isinstance(current, int):
-        value = int(value)  # type: ignore[assignment]
+        try:
+            value = int(value)  # type: ignore[assignment]
+        except ValueError:
+            return False
 
     setattr(obj, final_key, value)
     return True

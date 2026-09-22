@@ -4,6 +4,7 @@ import pytest
 from google.genai import types
 
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.gemini import GeminiConfig
 from mem0.llms.gemini import GeminiLLM
 
 
@@ -187,3 +188,113 @@ def test_parse_response_empty_parts_with_tools(mock_gemini_client: Mock):
 
     result = llm._parse_response(mock_response, tools=[{"function": {"name": "test"}}])
     assert result == {"content": None, "tool_calls": []}
+
+
+def test_none_config_values_omitted_from_generation_config(mock_gemini_client: Mock):
+    """When temperature/max_tokens/top_p are None, they must not be passed
+    to GenerateContentConfig (verified via model_fields_set)."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=None, max_tokens=None, top_p=None)
+    llm = GeminiLLM(config)
+
+    mock_part = Mock(text="ok")
+    mock_content = Mock(parts=[mock_part])
+    mock_candidate = Mock(content=mock_content)
+    mock_response = Mock(candidates=[mock_candidate])
+    mock_gemini_client.models.generate_content.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "hi"}])
+
+    config_arg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert "temperature" not in config_arg.model_fields_set
+    assert "max_output_tokens" not in config_arg.model_fields_set
+    assert "top_p" not in config_arg.model_fields_set
+
+
+def test_explicit_config_values_passed_to_generation_config(mock_gemini_client: Mock):
+    """When temperature/max_tokens/top_p are explicitly set, they must appear."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.5, max_tokens=200, top_p=0.9)
+    llm = GeminiLLM(config)
+
+    mock_part = Mock(text="ok")
+    mock_content = Mock(parts=[mock_part])
+    mock_candidate = Mock(content=mock_content)
+    mock_response = Mock(candidates=[mock_candidate])
+    mock_gemini_client.models.generate_content.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "hi"}])
+
+    config_arg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert "temperature" in config_arg.model_fields_set
+    assert config_arg.temperature == 0.5
+    assert "max_output_tokens" in config_arg.model_fields_set
+    assert config_arg.max_output_tokens == 200
+    assert "top_p" in config_arg.model_fields_set
+    assert config_arg.top_p == 0.9
+
+
+# --- Vertex AI backend initialization (issue #3990, PR #4030) ---
+
+
+def test_init_default_path_uses_api_key(monkeypatch):
+    """Default (non-Vertex) path stays backward compatible: client built with api_key, never vertexai."""
+    monkeypatch.delenv("GOOGLE_GENAI_USE_VERTEXAI", raising=False)
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    with patch("mem0.llms.gemini.genai.Client") as mock_client_class:
+        GeminiLLM(GeminiConfig(model="gemini-2.0-flash"))
+    mock_client_class.assert_called_once_with(api_key="test-key")
+
+
+def test_init_backward_compat_with_base_config(monkeypatch):
+    """A legacy BaseLlmConfig still works and uses the API-key path (no missing-attr error)."""
+    monkeypatch.delenv("GOOGLE_GENAI_USE_VERTEXAI", raising=False)
+    monkeypatch.setenv("GOOGLE_API_KEY", "legacy-key")
+    with patch("mem0.llms.gemini.genai.Client") as mock_client_class:
+        GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash"))
+    mock_client_class.assert_called_once_with(api_key="legacy-key")
+
+
+def test_init_vertexai_via_explicit_config(monkeypatch):
+    """vertexai=True in GeminiConfig routes to the Vertex AI client with project/location, no api_key."""
+    monkeypatch.delenv("GOOGLE_GENAI_USE_VERTEXAI", raising=False)
+    with patch("mem0.llms.gemini.genai.Client") as mock_client_class:
+        GeminiLLM(GeminiConfig(vertexai=True, project="my-project", location="europe-west1"))
+    mock_client_class.assert_called_once_with(vertexai=True, project="my-project", location="europe-west1")
+
+
+def test_init_vertexai_via_dict_config(monkeypatch):
+    """The factory hands GeminiLLM a dict; the vertexai key still routes to the Vertex client."""
+    monkeypatch.delenv("GOOGLE_GENAI_USE_VERTEXAI", raising=False)
+    with patch("mem0.llms.gemini.genai.Client") as mock_client_class:
+        GeminiLLM({"vertexai": True, "project": "p", "location": "us-central1"})
+    mock_client_class.assert_called_once_with(vertexai=True, project="p", location="us-central1")
+
+
+def test_init_vertexai_via_env_vars(monkeypatch):
+    """GOOGLE_GENAI_USE_VERTEXAI + project/location env vars enable Vertex (the exact ask in issue #3990)."""
+    monkeypatch.setenv("GOOGLE_GENAI_USE_VERTEXAI", "true")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "env-project")
+    monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "asia-south1")
+    with patch("mem0.llms.gemini.genai.Client") as mock_client_class:
+        GeminiLLM(GeminiConfig())
+    mock_client_class.assert_called_once_with(vertexai=True, project="env-project", location="asia-south1")
+
+
+def test_init_vertexai_location_defaults_to_us_central1(monkeypatch):
+    """When Vertex is on but no location is supplied, it defaults to us-central1."""
+    monkeypatch.delenv("GOOGLE_CLOUD_LOCATION", raising=False)
+    monkeypatch.setenv("GOOGLE_GENAI_USE_VERTEXAI", "true")
+    with patch("mem0.llms.gemini.genai.Client") as mock_client_class:
+        GeminiLLM(GeminiConfig(project="p"))
+    mock_client_class.assert_called_once_with(vertexai=True, project="p", location="us-central1")
+
+
+def test_init_base_config_respects_vertexai_env(monkeypatch):
+    """GOOGLE_GENAI_USE_VERTEXAI is the authoritative global switch (Google's own
+    convention): a legacy BaseLlmConfig is routed to Vertex when the env var is set,
+    even if it carries an api_key. This pins the precedence as intentional."""
+    monkeypatch.setenv("GOOGLE_GENAI_USE_VERTEXAI", "true")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "env-project")
+    monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "us-west1")
+    with patch("mem0.llms.gemini.genai.Client") as mock_client_class:
+        GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash", api_key="ignored-key"))
+    mock_client_class.assert_called_once_with(vertexai=True, project="env-project", location="us-west1")

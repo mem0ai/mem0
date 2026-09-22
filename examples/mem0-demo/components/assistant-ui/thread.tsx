@@ -174,7 +174,7 @@ export const Thread: FC<ThreadProps> = ({
                     <GithubButton url="https://github.com/mem0ai/mem0/tree/main/examples" className="w-full rounded-lg h-9 pl-2 text-sm font-semibold bg-zinc-800 dark:border-zinc-800 dark:text-white text-white hover:bg-zinc-900" text="View on Github" />
 
                     <Link
-                      href={"https://app.mem0.ai/"}
+                      href={"https://app.mem0.ai/?utm_source=oss&utm_medium=example-mem0-demo"}
                       target="_blank"
                       className="py-2 px-4 w-full rounded-lg h-9 pl-3 text-sm font-semibold dark:bg-zinc-800 dark:hover:bg-zinc-700 bg-zinc-800 text-white hover:bg-zinc-900 dark:text-white"
                     >

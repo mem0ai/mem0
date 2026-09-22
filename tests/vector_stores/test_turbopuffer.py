@@ -289,7 +289,7 @@ class TestSearch:
         ]
         db.namespace.query.return_value = mock_response
 
-        results = db.search("test query", [0.1, 0.2, 0.3, 0.4], limit=2)
+        results = db.search("test query", [0.1, 0.2, 0.3, 0.4], top_k=2)
 
         db.namespace.query.assert_called_once_with(
             rank_by=("vector", "ANN", [0.1, 0.2, 0.3, 0.4]),
@@ -306,7 +306,7 @@ class TestSearch:
         db.namespace.query.return_value = mock_response
 
         results = db.search(
-            "query", [0.1, 0.2, 0.3, 0.4], limit=5, filters={"user_id": "u1"}
+            "query", [0.1, 0.2, 0.3, 0.4], top_k=5, filters={"user_id": "u1"}
         )
 
         call_kwargs = db.namespace.query.call_args[1]
@@ -515,7 +515,7 @@ class TestList:
         mock_response.rows = [_make_row("id1", dist=0.1, data="hello")]
         db.namespace.query.return_value = mock_response
 
-        db.list(filters={"user_id": "u1"}, limit=50)
+        db.list(filters={"user_id": "u1"}, top_k=50)
 
         call_kwargs = db.namespace.query.call_args[1]
         assert call_kwargs["filters"] == ("user_id", "Eq", "u1")

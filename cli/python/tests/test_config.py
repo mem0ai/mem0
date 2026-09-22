@@ -67,7 +67,8 @@ class TestConfig:
         from mem0_cli.config import CONFIG_FILE
 
         mode = os.stat(CONFIG_FILE).st_mode & 0o777
-        assert mode == 0o600
+        if os.name != "nt":
+            assert mode == 0o600
 
     def test_defaults_save_and_load(self, isolate_config):
         config = Mem0Config()
@@ -121,46 +122,6 @@ class TestConfig:
         assert config.defaults.agent_id == ""
         assert config.defaults.app_id == ""
         assert config.defaults.run_id == ""
-        assert config.defaults.enable_graph is False
-
-    def test_enable_graph_save_and_load(self, isolate_config):
-        config = Mem0Config()
-        config.defaults.enable_graph = True
-        save_config(config)
-        loaded = load_config()
-        assert loaded.defaults.enable_graph is True
-
-    def test_enable_graph_env_var_true(self, isolate_config, monkeypatch):
-        monkeypatch.setenv("MEM0_ENABLE_GRAPH", "true")
-        loaded = load_config()
-        assert loaded.defaults.enable_graph is True
-
-    def test_enable_graph_env_var_false(self, isolate_config, monkeypatch):
-        config = Mem0Config()
-        config.defaults.enable_graph = True
-        save_config(config)
-        monkeypatch.setenv("MEM0_ENABLE_GRAPH", "false")
-        loaded = load_config()
-        assert loaded.defaults.enable_graph is False
-
-    def test_backward_compat_no_enable_graph_key(self, isolate_config):
-        """Old config files without 'enable_graph' key should default to False."""
-        import json
-
-        from mem0_cli.config import CONFIG_FILE, ensure_config_dir
-
-        ensure_config_dir()
-        data = {
-            "version": 1,
-            "defaults": {"user_id": "alice"},
-            "platform": {"api_key": "m0-test", "base_url": "https://api.mem0.ai"},
-        }
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(data, f)
-
-        loaded = load_config()
-        assert loaded.defaults.enable_graph is False
-        assert loaded.defaults.user_id == "alice"
 
 
 class TestNestedAccess:
@@ -178,6 +139,11 @@ class TestNestedAccess:
         assert set_nested_value(config, "platform.api_key", "new-key")
         assert config.platform.api_key == "new-key"
 
+    def test_set_int_value_rejects_invalid_input(self):
+        config = Mem0Config()
+        assert set_nested_value(config, "version", "abc") is False
+        assert config.version == 1
+
     def test_set_nonexistent_key(self):
         config = Mem0Config()
         assert set_nested_value(config, "nonexistent.key", "val") is False
@@ -191,11 +157,6 @@ class TestNestedAccess:
         config = Mem0Config()
         assert set_nested_value(config, "defaults.user_id", "bob")
         assert config.defaults.user_id == "bob"
-
-    def test_set_defaults_enable_graph(self):
-        config = Mem0Config()
-        assert set_nested_value(config, "defaults.enable_graph", "true")
-        assert config.defaults.enable_graph is True
 
 
 class TestResolveIds:

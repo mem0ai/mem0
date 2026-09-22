@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from mem0.client.utils import api_error_handler
 from mem0.memory.telemetry import capture_client_event
+
 # Exception classes are referenced in docstrings only
 
 logger = logging.getLogger(__name__)
@@ -176,8 +177,7 @@ class BaseProject(ABC):
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
-        enable_graph: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Update project settings.
@@ -185,8 +185,7 @@ class BaseProject(ABC):
         Args:
             custom_instructions: New instructions for the project
             custom_categories: New categories for the project
-            retrieval_criteria: New retrieval criteria for the project
-            enable_graph: Enable or disable the graph for the project
+            agent_custom_instructions: New extraction instructions for agent-scoped memories
 
         Returns:
             Dictionary containing the API response.
@@ -397,8 +396,9 @@ class Project(BaseProject):
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
-        enable_graph: Optional[bool] = None,
+        multilingual: Optional[bool] = None,
+        decay: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Update project settings.
@@ -406,8 +406,11 @@ class Project(BaseProject):
         Args:
             custom_instructions: New instructions for the project
             custom_categories: New categories for the project
-            retrieval_criteria: New retrieval criteria for the project
-            enable_graph: Enable or disable the graph for the project
+            multilingual: Whether to use the input language for memory storage and retrieval
+            decay: Toggle Memory Decay for this project. When True, search-time
+                ranking boosts recently-used memories and gently dampens stale ones; when
+                False, ranking is restored to the pre-decay behaviour. Off by default.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories
 
         Returns:
             Dictionary containing the API response.
@@ -422,21 +425,23 @@ class Project(BaseProject):
         if (
             custom_instructions is None
             and custom_categories is None
-            and retrieval_criteria is None
-            and enable_graph is None
+            and multilingual is None
+            and decay is None
+            and agent_custom_instructions is None
         ):
             raise ValueError(
                 "At least one parameter must be provided for update: "
-                "custom_instructions, custom_categories, retrieval_criteria, "
-                "enable_graph"
+                "custom_instructions, custom_categories, multilingual, decay, "
+                "agent_custom_instructions"
             )
 
         payload = self._prepare_params(
             {
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
-                "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph,
+                "multilingual": multilingual,
+                "decay": decay,
+                "agent_custom_instructions": agent_custom_instructions,
             }
         )
         response = self._client.patch(
@@ -450,8 +455,9 @@ class Project(BaseProject):
             {
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
-                "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph,
+                "multilingual": multilingual,
+                "decay": decay,
+                "agent_custom_instructions": agent_custom_instructions,
                 "sync_type": "sync",
             },
         )
@@ -714,8 +720,9 @@ class AsyncProject(BaseProject):
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
-        enable_graph: Optional[bool] = None,
+        multilingual: Optional[bool] = None,
+        decay: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Update project settings.
@@ -723,8 +730,11 @@ class AsyncProject(BaseProject):
         Args:
             custom_instructions: New instructions for the project
             custom_categories: New categories for the project
-            retrieval_criteria: New retrieval criteria for the project
-            enable_graph: Enable or disable the graph for the project
+            multilingual: Whether to use the input language for memory storage and retrieval
+            decay: Toggle Memory Decay for this project. When True, search-time
+                ranking boosts recently-used memories and gently dampens stale ones; when
+                False, ranking is restored to the pre-decay behaviour. Off by default.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories
 
         Returns:
             Dictionary containing the API response.
@@ -739,21 +749,23 @@ class AsyncProject(BaseProject):
         if (
             custom_instructions is None
             and custom_categories is None
-            and retrieval_criteria is None
-            and enable_graph is None
+            and multilingual is None
+            and decay is None
+            and agent_custom_instructions is None
         ):
             raise ValueError(
                 "At least one parameter must be provided for update: "
-                "custom_instructions, custom_categories, retrieval_criteria, "
-                "enable_graph"
+                "custom_instructions, custom_categories, multilingual, decay, "
+                "agent_custom_instructions"
             )
 
         payload = self._prepare_params(
             {
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
-                "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph,
+                "multilingual": multilingual,
+                "decay": decay,
+                "agent_custom_instructions": agent_custom_instructions,
             }
         )
         response = await self._client.patch(
@@ -767,8 +779,9 @@ class AsyncProject(BaseProject):
             {
                 "custom_instructions": custom_instructions,
                 "custom_categories": custom_categories,
-                "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph,
+                "multilingual": multilingual,
+                "decay": decay,
+                "agent_custom_instructions": agent_custom_instructions,
                 "sync_type": "async",
             },
         )

@@ -1,5 +1,6 @@
 ---
-title: "LM Studio"
+title: "LM Studio as Embedding Provider"
+sidebarTitle: "LM Studio"
 description: "Configure LM Studio as an embedding provider in Mem0 for local embedding generation with models like nomic-embed-text."
 ---
 You can use embedding models from LM Studio to run Mem0 locally.
@@ -16,7 +17,7 @@ config = {
     "embedder": {
         "provider": "lmstudio",
         "config": {
-            "model": "nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.f16.gguf"
+            "model": "nomic-ai/nomic-embed-text-v1.5-GGUF"
         }
     }
 }
@@ -37,6 +38,6 @@ Here are the parameters available for configuring LM Studio embedder:
 
 | Parameter | Description | Default Value |
 | --- | --- | --- |
-| `model` | The name of the LM Studio model to use | `nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.f16.gguf` |
+| `model` | The name of the LM Studio model to use | `nomic-ai/nomic-embed-text-v1.5-GGUF` |
 | `embedding_dims` | Dimensions of the embedding model | `1536` |
 | `lmstudio_base_url` | Base URL for LM Studio connection | `http://localhost:1234/v1` |

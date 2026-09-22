@@ -110,13 +110,41 @@ You only need to provide API keys - all other settings are optional.
 ### Methods
 
 - `add(messages: string | Message[], userId?: string, ...): Promise<SearchResult>`
+  - Options include `metadata`, `infer`, and `expirationDate` (a `YYYY-MM-DD` date after which the memory is treated as expired).
 - `search(query: string, userId?: string, ...): Promise<SearchResult>`
+  - Expired memories are omitted unless you pass `showExpired: true`.
 - `get(memoryId: string): Promise<MemoryItem | null>`
-- `update(memoryId: string, data: string): Promise<{ message: string }>`
+  - Fetching by ID returns the memory even if it has expired.
+- `getAll(options): Promise<SearchResult>`
+  - Expired memories are omitted unless you pass `showExpired: true`.
+- `update(memoryId: string, config: string | UpdateMemoryOptions): Promise<{ message: string }>`
+  - `UpdateMemoryOptions` is `{ text?, data?, metadata?, expirationDate? }`. At least one must be
+    provided; omitted fields are left untouched, and `expirationDate: null` clears an existing
+    expiry. `data` is a deprecated alias for `text`.
+  - Passing a bare string is shorthand for `{ text }`, so `update(memoryId, "new text")` still works.
 - `delete(memoryId: string): Promise<{ message: string }>`
 - `deleteAll(userId?: string, ...): Promise<{ message: string }>`
 - `history(memoryId: string): Promise<any[]>`
 - `reset(): Promise<void>`
+
+```typescript
+// Replace the content
+await memory.update(memoryId, { text: "Alex now prefers decaf coffee" });
+
+// Update metadata only, leaving the stored text untouched
+await memory.update(memoryId, { metadata: { category: "preferences" } });
+
+// Expire the memory on a given day, or clear an existing expiry
+await memory.update(memoryId, { expirationDate: "2030-01-31" });
+await memory.update(memoryId, { expirationDate: null });
+
+// Include expired memories in reads
+await memory.getAll({ filters: { user_id: "alice" }, showExpired: true });
+await memory.search("coffee", {
+  filters: { user_id: "alice" },
+  showExpired: true,
+});
+```
 
 ### Try the Example
 

@@ -2,7 +2,7 @@
 
 Verifies that the Pydantic request models in server/main.py correctly accept
 and forward all parameters supported by the underlying Memory class methods,
-including limit, threshold, infer, memory_type, and prompt — which were
+including top_k, threshold, infer, memory_type, and prompt — which were
 previously silently dropped by Pydantic v2's default extra='ignore' behavior.
 """
 
@@ -12,10 +12,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from mem0.exceptions import ValidationError as Mem0ValidationError
+
 pytest.importorskip("fastapi", reason="fastapi not installed")
 
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -55,31 +56,31 @@ def mock_memory(_mock_memory):
 
 
 # ===========================================================================
-# SearchRequest: limit parameter
+# SearchRequest: top_k parameter
 # ===========================================================================
 
 class TestSearchLimit:
-    """Verify that the limit parameter is accepted and forwarded to Memory.search()."""
+    """Verify that the top_k parameter is accepted and forwarded to Memory.search()."""
 
     def test_limit_forwarded(self, client, mock_memory):
-        resp = client.post("/search", json={"query": "food", "user_id": "u1", "limit": 5})
+        resp = client.post("/search", json={"query": "food", "user_id": "u1", "top_k": 5})
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert kwargs["limit"] == 5
+        assert kwargs["top_k"] == 5
 
     def test_limit_one(self, client, mock_memory):
-        resp = client.post("/search", json={"query": "food", "user_id": "u1", "limit": 1})
+        resp = client.post("/search", json={"query": "food", "user_id": "u1", "top_k": 1})
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert kwargs["limit"] == 1
+        assert kwargs["top_k"] == 1
 
     def test_limit_omitted_uses_memory_default(self, client, mock_memory):
-        """When limit is not sent, it should not appear in the kwargs,
+        """When top_k is not sent, it should not appear in the kwargs,
         allowing Memory.search() to use its own default (100)."""
         resp = client.post("/search", json={"query": "food", "user_id": "u1"})
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert "limit" not in kwargs
+        assert "top_k" not in kwargs
 
 
 # ===========================================================================
@@ -110,18 +111,44 @@ class TestSearchThreshold:
 
 
 # ===========================================================================
-# SearchRequest: limit + threshold together
+# SearchRequest: explain parameter
+# ===========================================================================
+
+class TestSearchExplain:
+    """Verify that the explain parameter is accepted and forwarded."""
+
+    def test_explain_true_forwarded(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1", "explain": True})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["explain"] is True
+
+    def test_explain_false_forwarded(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1", "explain": False})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["explain"] is False
+
+    def test_explain_omitted_uses_memory_default(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "explain" not in kwargs
+
+
+# ===========================================================================
+# SearchRequest: top_k + threshold together
 # ===========================================================================
 
 class TestSearchLimitAndThreshold:
 
     def test_both_forwarded(self, client, mock_memory):
         resp = client.post("/search", json={
-            "query": "food", "user_id": "u1", "limit": 10, "threshold": 0.5
+            "query": "food", "user_id": "u1", "top_k": 10, "threshold": 0.5
         })
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert kwargs["limit"] == 10
+        assert kwargs["top_k"] == 10
         assert kwargs["threshold"] == 0.5
 
 
@@ -306,9 +333,9 @@ class TestExistingParamsUnchanged:
         })
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert kwargs["user_id"] == "u1"
-        assert kwargs["agent_id"] == "a1"
-        assert kwargs["filters"] == {"category": "food"}
+        assert kwargs["filters"]["user_id"] == "u1"
+        assert kwargs["filters"]["agent_id"] == "a1"
+        assert kwargs["filters"]["category"] == "food"
 
     def test_add_metadata_still_forwarded(self, client, mock_memory):
         resp = client.post("/memories", json={
@@ -334,8 +361,8 @@ class TestOpenAPISchema:
     def test_search_schema_includes_limit(self, client):
         schema = client.get("/openapi.json").json()
         search_props = schema["components"]["schemas"]["SearchRequest"]["properties"]
-        assert "limit" in search_props
-        assert search_props["limit"]["description"] == "Maximum number of results to return."
+        assert "top_k" in search_props
+        assert search_props["top_k"]["description"] == "Maximum number of results to return."
 
     def test_search_schema_includes_threshold(self, client):
         schema = client.get("/openapi.json").json()
@@ -367,7 +394,7 @@ class TestTypeValidation:
 
     def test_limit_string_rejected(self, client):
         resp = client.post("/search", json={
-            "query": "food", "user_id": "u1", "limit": "not_a_number",
+            "query": "food", "user_id": "u1", "top_k": "not_a_number",
         })
         assert resp.status_code == 422
 
@@ -399,7 +426,7 @@ class TestTypeValidation:
 
     def test_limit_float_rejected(self, client):
         resp = client.post("/search", json={
-            "query": "food", "user_id": "u1", "limit": 5.7,
+            "query": "food", "user_id": "u1", "top_k": 5.7,
         })
         assert resp.status_code == 422
 
@@ -422,11 +449,11 @@ class TestExplicitNull:
 
     def test_limit_null_uses_memory_default(self, client, mock_memory):
         resp = client.post("/search", json={
-            "query": "food", "user_id": "u1", "limit": None,
+            "query": "food", "user_id": "u1", "top_k": None,
         })
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert "limit" not in kwargs
+        assert "top_k" not in kwargs
 
     def test_infer_null_uses_memory_default(self, client, mock_memory):
         resp = client.post("/memories", json={
@@ -462,14 +489,17 @@ class TestCallSignatureMatch:
         resp = client.post("/search", json={
             "query": "food", "user_id": "u1", "agent_id": "a1",
             "run_id": "r1", "filters": {"k": "v"},
-            "limit": 10, "threshold": 0.5,
+            "top_k": 10, "threshold": 0.5,
         })
         assert resp.status_code == 200
-        # The handler passes query= as a keyword arg, so it appears in kwargs too
         _, kwargs = mock_memory.search.call_args
-        valid_params = {"query", "user_id", "agent_id", "run_id", "limit", "filters", "threshold", "rerank"}
+        valid_params = {"query", "top_k", "filters", "threshold", "rerank"}
         for key in kwargs:
             assert key in valid_params, f"Unexpected kwarg '{key}' forwarded to Memory.search()"
+        assert kwargs["filters"]["user_id"] == "u1"
+        assert kwargs["filters"]["agent_id"] == "a1"
+        assert kwargs["filters"]["run_id"] == "r1"
+        assert kwargs["filters"]["k"] == "v"
 
     def test_add_kwargs_are_valid(self, client, mock_memory):
         """All kwargs forwarded to Memory.add() must be in its signature."""
@@ -505,3 +535,245 @@ class TestCallSignatureMatch:
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
         assert kwargs["query"] == "food"
+
+
+# ===========================================================================
+# MemoryUpdate: text and metadata forwarding (fix for #3933)
+# ===========================================================================
+
+class TestUpdateMemory:
+    """Verify that PUT /memories/{id} extracts text and metadata from the
+    request body and forwards them correctly to Memory.update()."""
+
+    def test_text_forwarded_as_data(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"text": "Likes tennis"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["data"] == "Likes tennis"
+
+    def test_metadata_forwarded(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={
+            "text": "Likes tennis",
+            "metadata": {"category": "sports"},
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["metadata"] == {"category": "sports"}
+
+    def test_metadata_omitted_passes_none(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"text": "Likes tennis"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert "metadata" not in kwargs
+
+    def test_expiration_date_forwarded_without_text(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"expiration_date": "2999-01-01"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["expiration_date"] == "2999-01-01"
+        assert "data" not in kwargs
+
+    def test_null_expiration_date_forwarded_for_clear(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"expiration_date": None})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["expiration_date"] is None
+
+    def test_dict_not_passed_as_data(self, client, mock_memory):
+        """Regression test for #3933: the entire dict must NOT be passed as data."""
+        resp = client.put("/memories/mem-1", json={"text": "updated content"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert isinstance(kwargs["data"], str)
+
+
+class TestUpdateOpenAPISchema:
+    """Verify the MemoryUpdate schema appears in the OpenAPI docs."""
+
+    def test_update_schema_includes_text(self, client):
+        schema = client.get("/openapi.json").json()
+        update_props = schema["components"]["schemas"]["MemoryUpdate"]["properties"]
+        assert "text" in update_props
+
+    def test_update_schema_includes_metadata(self, client):
+        schema = client.get("/openapi.json").json()
+        update_props = schema["components"]["schemas"]["MemoryUpdate"]["properties"]
+        assert "metadata" in update_props
+
+# ===========================================================================
+# GetMemories: Entity parameters to filters mapping (fix for #4955)
+# ===========================================================================
+
+class TestGetMemories:
+    """Verify that GET /memories correctly maps entity parameters to the filters dict."""
+
+    def test_get_memories_entity_filters_routing(self, client, mock_memory):
+        """
+        Issue #4955: Test that the GET /memories route correctly handles 
+        top-level entity parameters by mapping them to the filters dictionary
+        instead of passing them as direct kwargs to get_all()
+        """
+        # Send a request with a valid top-level entity parameter
+        response = client.get("/memories?user_id=test_routing_user")
+        
+        # 1. Verify the endpoint doesn't crash with a 500 error
+        assert response.status_code == 200
+        
+        # 2. Verify the response is structured correctly
+        data = response.json()
+        assert isinstance(data, list)
+        
+        # 3. Verify the core logic: the param was mapped to the filters dict!
+        _, kwargs = mock_memory.get_all.call_args
+        assert kwargs["filters"] == {"user_id": "test_routing_user"}
+        assert "top_k" not in kwargs
+
+    def test_get_memories_entity_filters_forward_top_k(self, client, mock_memory):
+        response = client.get("/memories?user_id=test_routing_user&top_k=1000")
+
+        assert response.status_code == 200
+
+        _, kwargs = mock_memory.get_all.call_args
+        assert kwargs["filters"] == {"user_id": "test_routing_user"}
+        assert kwargs["top_k"] == 1000
+
+    def test_get_memories_admin_top_k_zero_not_defaulted(self, client, mock_memory):
+        mock_memory.vector_store.list.return_value = []
+
+        response = client.get("/memories?top_k=0")
+
+        assert response.status_code == 200
+        _, kwargs = mock_memory.vector_store.list.call_args
+        assert kwargs["top_k"] == 0
+
+    def test_get_memories_rejects_top_k_above_limit(self, client, mock_memory):
+        response = client.get("/memories?user_id=test_routing_user&top_k=1001")
+
+        assert response.status_code == 422
+        mock_memory.get_all.assert_not_called()
+
+
+# ===========================================================================
+# SearchRequest: entity IDs mapped into filters (fix for server 502)
+# ===========================================================================
+
+class TestSearchEntityIdMapping:
+    """Verify that POST /search maps top-level user_id / agent_id / run_id
+    into the filters dict instead of forwarding them as kwargs, which would
+    cause Memory.search() to raise ValueError in v3."""
+
+    def test_user_id_mapped_to_filters(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "user_id" not in kwargs
+        assert kwargs["filters"]["user_id"] == "u1"
+
+    def test_agent_id_mapped_to_filters(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "agent_id": "a1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "agent_id" not in kwargs
+        assert kwargs["filters"]["agent_id"] == "a1"
+
+    def test_run_id_mapped_to_filters(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "run_id": "r1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "run_id" not in kwargs
+        assert kwargs["filters"]["run_id"] == "r1"
+
+    def test_all_entity_ids_mapped(self, client, mock_memory):
+        resp = client.post("/search", json={
+            "query": "food", "user_id": "u1", "agent_id": "a1", "run_id": "r1",
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["filters"] == {"user_id": "u1", "agent_id": "a1", "run_id": "r1"}
+
+    def test_entity_ids_merged_with_explicit_filters(self, client, mock_memory):
+        resp = client.post("/search", json={
+            "query": "food",
+            "user_id": "u1",
+            "filters": {"category": "food"},
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["filters"]["user_id"] == "u1"
+        assert kwargs["filters"]["category"] == "food"
+
+    def test_no_entity_ids_no_filters(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["filters"] == {}
+
+    def test_only_filters_no_entity_ids(self, client, mock_memory):
+        resp = client.post("/search", json={
+            "query": "food",
+            "filters": {"user_id": "u1", "category": "food"},
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["filters"]["user_id"] == "u1"
+        assert kwargs["filters"]["category"] == "food"
+
+
+class TestSearchValidationErrors:
+    """Verify that ValueError from Memory.search() returns 400, not 502."""
+
+    def test_empty_filters_returns_400(self, client, mock_memory):
+        mock_memory.search.side_effect = ValueError(
+            "filters must contain at least one of: user_id, agent_id, run_id"
+        )
+        resp = client.post("/search", json={"query": "food", "filters": {}})
+        assert resp.status_code == 400
+        assert "filters must contain" in resp.json()["detail"]
+
+    def test_no_identifiers_returns_400(self, client, mock_memory):
+        mock_memory.search.side_effect = ValueError(
+            "filters must contain at least one of: user_id, agent_id, run_id"
+        )
+        resp = client.post("/search", json={"query": "food"})
+        assert resp.status_code == 400
+
+
+# ===========================================================================
+# add / update / delete: map core errors to 4xx instead of 502
+# ===========================================================================
+
+class TestWriteHandlerErrorMapping:
+    """ValueError("... not found") -> 404, other ValueError / Mem0ValidationError
+    -> 400. A real outage still surfaces as 502 via upstream_error()."""
+
+    def test_update_not_found_returns_404(self, client, mock_memory):
+        mock_memory.update.side_effect = ValueError("Memory with id mem-1 not found")
+        resp = client.put("/memories/mem-1", json={"text": "new"})
+        assert resp.status_code == 404
+        assert "not found" in resp.json()["detail"]
+
+    def test_delete_not_found_returns_404(self, client, mock_memory):
+        mock_memory.delete.side_effect = ValueError("Memory with id mem-1 not found")
+        resp = client.delete("/memories/mem-1")
+        assert resp.status_code == 404
+
+    def test_update_other_value_error_returns_400(self, client, mock_memory):
+        mock_memory.update.side_effect = ValueError("data must be a non-empty string")
+        resp = client.put("/memories/mem-1", json={"text": "new"})
+        assert resp.status_code == 400
+
+    def test_add_validation_error_returns_400(self, client, mock_memory):
+        mock_memory.add.side_effect = Mem0ValidationError(
+            message="messages must be str, dict, or list[dict]", error_code="VALIDATION_003"
+        )
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "hi"}], "user_id": "u1",
+        })
+        assert resp.status_code == 400
+
+    def test_add_real_outage_still_returns_502(self, client, mock_memory):
+        mock_memory.add.side_effect = RuntimeError("vector store unreachable")
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "hi"}], "user_id": "u1",
+        })
+        assert resp.status_code == 502

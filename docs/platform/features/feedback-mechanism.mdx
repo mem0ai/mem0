@@ -150,7 +150,7 @@ Handle potential errors when submitting feedback:
 
 ```python Python
 from mem0 import MemoryClient
-from mem0.exceptions import MemoryNotFoundError, APIError
+from mem0.exceptions import MemoryError, ValidationError
 
 client = MemoryClient(api_key="your_api_key")
 
@@ -161,12 +161,10 @@ try:
         feedback_reason="Helpful context for user query"
     )
     print("Feedback submitted successfully")
-except MemoryNotFoundError:
-    print("Memory not found")
-except APIError as e:
-    print(f"API error: {e}")
-except Exception as e:
-    print(f"Unexpected error: {e}")
+except ValidationError:
+    print("memory_id is not a valid UUID")
+except MemoryError as e:
+    print(f"memory_id was not found or not accessible ({e.error_code})")
 ```
 
 ```javascript JavaScript
@@ -182,15 +180,22 @@ try {
     });
     console.log("Feedback submitted successfully");
 } catch (error) {
-    if (error.status === 404) {
-        console.log("Memory not found");
+    if (error.errorCode === "HTTP_400") {
+        console.log("memory_id is not a valid UUID");
+    } else if (error.errorCode === "HTTP_500") {
+        console.log("Server error - the memory_id may not exist or be inaccessible, or it may be transient; retry if it persists");
     } else {
-        console.log(`Error: ${error.message}`);
+        console.log(`Unexpected error: ${error.message}`);
     }
 }
 ```
 
 </CodeGroup>
+
+### Handling an unknown or malformed `memory_id`
+
+- A malformed `memory_id` (not a valid UUID) returns a clean `400` with `{"error": "Invalid memory_id"}`.
+- A well-formed but non-existent `memory_id` (or one that doesn't belong to your org or project) currently returns a `500 Internal Server Error` instead of a `404`. This is a server-side bug being tracked in [MEM-5745](https://linear.app/mem0/issue/MEM-5745). A `5xx` can also be a transient server error, so don't treat it as a definitive "not found"; to avoid the case entirely, only call `feedback` with a `memory_id` you just read from a `get_all` or `search` response.
 
 ## Feedback Analytics
 

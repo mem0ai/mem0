@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
+import typing
 from io import StringIO
 from unittest.mock import patch
 
 import pytest
-from click.exceptions import Exit as ClickExit
 from rich.console import Console
+from typer import Exit as TyperExit
 
 from mem0_cli.commands.config_cmd import (
     cmd_config_get,
@@ -16,11 +17,19 @@ from mem0_cli.commands.config_cmd import (
     cmd_config_show,
 )
 from mem0_cli.commands.entities import cmd_entities_delete, cmd_entities_list
-from mem0_cli.commands.memory import cmd_add, cmd_delete, cmd_delete_all, cmd_get, cmd_list, cmd_search, cmd_update
+from mem0_cli.commands.events_cmd import cmd_event_list, cmd_event_status
+from mem0_cli.commands.memory import (
+    cmd_add,
+    cmd_delete,
+    cmd_delete_all,
+    cmd_get,
+    cmd_list,
+    cmd_search,
+    cmd_update,
+)
 from mem0_cli.commands.utils import (
     cmd_import,
     cmd_status,
-    cmd_version,
 )
 
 
@@ -54,7 +63,7 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="text",
             )
@@ -80,7 +89,7 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="text",
             )
@@ -105,7 +114,7 @@ class TestAddCommand:
                 metadata='{"source": "test"}',
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="text",
             )
@@ -131,7 +140,7 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="json",
             )
@@ -157,7 +166,7 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="quiet",
             )
@@ -168,30 +177,28 @@ class TestAddCommand:
     def test_add_no_content_exits(self, mock_backend):
         console, _buf = _make_console()
         err_console, _err_buf = _make_err_console()
-        # Patch stdin.isatty to return True so it doesn't try to read stdin
         with (
             patch("mem0_cli.commands.memory.console", console),
             patch("mem0_cli.commands.memory.err_console", err_console),
-            patch("mem0_cli.commands.memory.sys") as mock_sys,
+            patch("mem0_cli.commands.memory._stdin_is_piped", return_value=False),
+            pytest.raises((SystemExit, TyperExit)),
         ):
-            mock_sys.stdin.isatty.return_value = True
-            with pytest.raises((SystemExit, ClickExit)):
-                cmd_add(
-                    mock_backend,
-                    None,
-                    user_id="alice",
-                    agent_id=None,
-                    app_id=None,
-                    run_id=None,
-                    messages=None,
-                    file=None,
-                    metadata=None,
-                    immutable=False,
-                    no_infer=False,
-                                expires=None,
-                    categories=None,
-                    output="text",
-                )
+            cmd_add(
+                mock_backend,
+                None,
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
+                output="text",
+            )
 
     def test_add_invalid_metadata_json(self, mock_backend):
         console, _buf = _make_console()
@@ -199,7 +206,7 @@ class TestAddCommand:
         with (
             patch("mem0_cli.commands.memory.console", console),
             patch("mem0_cli.commands.memory.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_add(
                 mock_backend,
@@ -213,7 +220,7 @@ class TestAddCommand:
                 metadata="not-json",
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="text",
             )
@@ -239,14 +246,138 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="text",
             )
         mock_backend.add.assert_called_once()
 
-    def test_add_categories_csv(self, mock_backend):
+    def test_add_categories_rejected(self, mock_backend):
         console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises((SystemExit, TyperExit)),
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories="health,prefs",
+                output="text",
+            )
+        assert "--custom-categories" in err_buf.getvalue()
+        mock_backend.add.assert_not_called()
+
+    def test_add_invalid_custom_categories_json(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises((SystemExit, TyperExit)),
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
+                custom_categories="not-json",
+                output="text",
+            )
+        assert "--custom-categories" in err_buf.getvalue()
+        mock_backend.add.assert_not_called()
+
+    def test_add_invalid_structured_data_schema_json(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises((SystemExit, TyperExit)),
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
+                structured_data_schema="not-json",
+                output="text",
+            )
+        assert "--structured-data-schema" in err_buf.getvalue()
+        mock_backend.add.assert_not_called()
+
+    def test_add_regression_metadata_expiration_custom_categories_together(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata='{"source": "test"}',
+                immutable=False,
+                no_infer=False,
+                expires="2099-01-01",
+                categories=None,
+                custom_categories='[{"prefs": "user preferences"}]',
+                output="text",
+            )
+        call_kwargs = mock_backend.add.call_args.kwargs
+        assert call_kwargs["metadata"] == {"source": "test"}
+        assert call_kwargs["expires"] == "2099-01-01"
+        assert call_kwargs["custom_categories"] == [{"prefs": "user preferences"}]
+
+
+class TestAddDeduplicatesPending:
+    """Ensure duplicate PENDING entries with the same event_id are collapsed."""
+
+    DUPLICATE_PENDING: typing.ClassVar[dict] = {
+        "results": [
+            {"status": "PENDING", "event_id": "evt-dup"},
+            {"status": "PENDING", "event_id": "evt-dup"},
+        ]
+    }
+
+    def _run_add(self, mock_backend, output):
+        mock_backend.add.return_value = self.DUPLICATE_PENDING
+        console, buf = _make_console()
         err_console, _err_buf = _make_err_console()
         with (
             patch("mem0_cli.commands.memory.console", console),
@@ -264,11 +395,34 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
-                categories="health,prefs",
-                output="text",
+                expires=None,
+                categories=None,
+                output=output,
             )
-        mock_backend.add.assert_called_once()
+        return buf.getvalue()
+
+    def test_text_shows_one_pending(self, mock_backend):
+        raw = self._run_add(mock_backend, "text")
+        assert raw.count("Queued") == 1
+
+    def test_json_shows_one_pending(self, mock_backend):
+        raw = self._run_add(mock_backend, "json")
+        data = json.loads(raw)
+        results = data.get("results", data)
+        pending = [r for r in results if r.get("status") == "PENDING"]
+        assert len(pending) == 1
+
+    def test_agent_shows_one_pending(self, mock_backend):
+        from mem0_cli.state import set_agent_mode
+
+        set_agent_mode(True)
+        try:
+            raw = self._run_add(mock_backend, "agent")
+        finally:
+            set_agent_mode(False)
+        data = json.loads(raw)
+        assert data["count"] == 1
+        assert len(data["data"]) == 1
 
 
 class TestSearchCommand:
@@ -397,6 +551,36 @@ class TestSearchCommand:
             )
         mock_backend.search.assert_called_once()
 
+    def test_search_new_flags_reach_backend(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_search(
+                mock_backend,
+                "preferences",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                top_k=10,
+                threshold=0.3,
+                rerank=False,
+                keyword=False,
+                filter_json=None,
+                fields=None,
+                show_expired=True,
+                reference_date="2024-01-01",
+                latest_only=True,
+                output="text",
+            )
+        call_kwargs = mock_backend.search.call_args.kwargs
+        assert call_kwargs["show_expired"] is True
+        assert call_kwargs["reference_date"] == "2024-01-01"
+        assert call_kwargs["latest_only"] is True
+
 
 class TestGetCommand:
     def test_get_text(self, mock_backend):
@@ -494,6 +678,32 @@ class TestListCommand:
         output = buf.getvalue()
         assert "No memories found" in output
 
+    def test_list_new_flags_reach_backend(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_list(
+                mock_backend,
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                page=1,
+                page_size=100,
+                category=None,
+                after=None,
+                before=None,
+                show_expired=True,
+                latest_only=True,
+                output="table",
+            )
+        call_kwargs = mock_backend.list_memories.call_args.kwargs
+        assert call_kwargs["show_expired"] is True
+        assert call_kwargs["latest_only"] is True
+
 
 class TestUpdateCommand:
     def test_update(self, mock_backend):
@@ -517,6 +727,26 @@ class TestUpdateCommand:
             cmd_update(mock_backend, "abc-123", "New text", metadata=None, output="json")
         output = buf.getvalue()
         assert '"memory"' in output
+
+    def test_update_new_fields_reach_backend(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_update(
+                mock_backend,
+                "abc-123",
+                "New text",
+                metadata=None,
+                expires="2099-01-01",
+                timestamp=1700000000,
+                output="text",
+            )
+        call_kwargs = mock_backend.update.call_args.kwargs
+        assert call_kwargs["expiration_date"] == "2099-01-01"
+        assert call_kwargs["timestamp"] == 1700000000
 
 
 class TestDeleteCommand:
@@ -542,6 +772,17 @@ class TestDeleteCommand:
         output = buf.getvalue()
         assert "dry run" in output.lower()
         mock_backend.delete.assert_not_called()
+
+    def test_delete_linked_reaches_backend(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_delete(mock_backend, "abc-123", delete_linked=True, output="text")
+        call_kwargs = mock_backend.delete.call_args.kwargs
+        assert call_kwargs["delete_linked"] is True
 
 
 class TestDeleteAllCommand:
@@ -586,7 +827,7 @@ class TestDeleteAllCommand:
         mock_backend.delete.assert_not_called()
 
     def test_delete_all_project_wide(self, mock_backend):
-        console, buf = _make_console()
+        console, _buf = _make_console()
         err_console, _err_buf = _make_err_console()
         with (
             patch("mem0_cli.commands.memory.console", console),
@@ -609,28 +850,6 @@ class TestDeleteAllCommand:
             app_id="*",
             run_id="*",
         )
-
-    def test_delete_all_project_wide_dry_run(self, mock_backend):
-        console, buf = _make_console()
-        err_console, _err_buf = _make_err_console()
-        with (
-            patch("mem0_cli.commands.memory.console", console),
-            patch("mem0_cli.commands.memory.err_console", err_console),
-        ):
-            cmd_delete_all(
-                mock_backend,
-                force=True,
-                all_=True,
-                dry_run=True,
-                user_id=None,
-                agent_id=None,
-                app_id=None,
-                run_id=None,
-                output="text",
-            )
-        output = buf.getvalue()
-        assert "project-wide" in output.lower()
-        mock_backend.delete.assert_not_called()
 
     def test_delete_all_project_wide_async_response(self, mock_backend):
         mock_backend.delete.return_value = {"message": "Memories deletion started..."}
@@ -696,15 +915,6 @@ class TestStatusCommand:
         assert '"status"' in output
 
 
-class TestVersionCommand:
-    def test_version(self):
-        console, buf = _make_console()
-        with patch("mem0_cli.commands.utils.console", console):
-            cmd_version()
-        output = buf.getvalue()
-        assert "0.1.0" in output
-
-
 class TestImportCommand:
     def test_import_json(self, mock_backend, tmp_path):
         file_path = tmp_path / "import.json"
@@ -728,7 +938,7 @@ class TestImportCommand:
         with (
             patch("mem0_cli.commands.utils.console", console),
             patch("mem0_cli.commands.utils.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_import(mock_backend, "/nonexistent/file.json", user_id=None, agent_id=None)
 
@@ -765,7 +975,7 @@ class TestEntitiesListCommand:
         with (
             patch("mem0_cli.commands.entities.console", console),
             patch("mem0_cli.commands.entities.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_entities_list(mock_backend, "invalid", output="table")
 
@@ -880,13 +1090,35 @@ class TestEntitiesDeleteCommand:
         output = buf.getvalue()
         assert "deleted" in output.lower()
 
+    def test_delete_entity_agent_id(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.entities.console", console),
+            patch("mem0_cli.commands.entities.err_console", err_console),
+        ):
+            cmd_entities_delete(
+                mock_backend,
+                user_id=None,
+                agent_id="bot1",
+                app_id=None,
+                run_id=None,
+                force=True,
+                output="text",
+            )
+        mock_backend.delete_entities.assert_called_once_with(
+            user_id=None, agent_id="bot1", app_id=None, run_id=None
+        )
+        output = buf.getvalue()
+        assert "deleted" in output.lower()
+
     def test_delete_entity_no_id_exits(self, mock_backend):
         console, _buf = _make_console()
         err_console, _err_buf = _make_err_console()
         with (
             patch("mem0_cli.commands.entities.console", console),
             patch("mem0_cli.commands.entities.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_entities_delete(
                 mock_backend,
@@ -939,9 +1171,88 @@ class TestEntitiesDeleteCommand:
         mock_backend.delete_entities.assert_not_called()
 
 
-class TestEnableGraph:
-    def test_add_with_graph(self, mock_backend):
-        console, _buf = _make_console()
+class TestEventCommands:
+    def test_event_list_table(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_list(mock_backend, output="table")
+        out = buf.getvalue()
+        assert "evt-abc-" in out
+        assert "ADD" in out
+        assert "SUCCEEDED" in out
+
+    def test_event_list_json(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_list(mock_backend, output="json")
+        out = buf.getvalue()
+        assert "evt-abc-123-def-456" in out
+        assert "evt-def-456-ghi-789" in out
+
+    def test_event_list_empty(self, mock_backend):
+        mock_backend.list_events.return_value = []
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_list(mock_backend, output="table")
+        out = buf.getvalue()
+        assert "No events" in out
+
+    def test_event_status_text(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_status(mock_backend, "evt-abc-123-def-456", output="text")
+        out = buf.getvalue()
+        assert "evt-abc-123-def-456" in out
+        assert "SUCCEEDED" in out
+
+    def test_event_status_json(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_status(mock_backend, "evt-abc-123-def-456", output="json")
+        out = buf.getvalue()
+        assert "evt-abc-123-def-456" in out
+        assert "ADD" in out
+
+
+class TestAgentMode:
+    """Tests for --json/--agent mode: structured JSON envelope output."""
+
+    def setup_method(self):
+        """Enable agent mode before each test."""
+        from mem0_cli.state import set_agent_mode
+
+        set_agent_mode(True)
+
+    def teardown_method(self):
+        """Reset agent mode after each test."""
+        from mem0_cli.state import set_agent_mode
+
+        set_agent_mode(False)
+
+    # ── add ──────────────────────────────────────────────────────────────────
+
+    def test_add_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
         err_console, _err_buf = _make_err_console()
         with (
             patch("mem0_cli.commands.memory.console", console),
@@ -949,7 +1260,7 @@ class TestEnableGraph:
         ):
             cmd_add(
                 mock_backend,
-                "test",
+                "I prefer dark mode",
                 user_id="alice",
                 agent_id=None,
                 app_id=None,
@@ -961,14 +1272,48 @@ class TestEnableGraph:
                 no_infer=False,
                 expires=None,
                 categories=None,
-                enable_graph=True,
+                output="text",  # will be overridden to "agent"
+            )
+        raw = buf.getvalue()
+        data = json.loads(raw)
+        assert data["status"] == "success"
+        assert data["command"] == "add"
+        assert "data" in data
+        assert isinstance(data["data"], list)
+        assert data["count"] == 1
+        assert set(data["data"][0].keys()) == {"id", "memory", "event"}
+
+    def test_add_agent_mode_scope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="bob",
+                agent_id="agent1",
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
                 output="text",
             )
-        call_kwargs = mock_backend.add.call_args
-        assert call_kwargs.kwargs.get("enable_graph") is True
+        data = json.loads(buf.getvalue())
+        assert data["scope"]["user_id"] == "bob"
+        assert data["scope"]["agent_id"] == "agent1"
 
-    def test_search_with_graph(self, mock_backend):
-        console, _buf = _make_console()
+    # ── search ───────────────────────────────────────────────────────────────
+
+    def test_search_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
         err_console, _err_buf = _make_err_console()
         with (
             patch("mem0_cli.commands.memory.console", console),
@@ -976,7 +1321,7 @@ class TestEnableGraph:
         ):
             cmd_search(
                 mock_backend,
-                "test",
+                "dark mode",
                 user_id="alice",
                 agent_id=None,
                 app_id=None,
@@ -987,14 +1332,20 @@ class TestEnableGraph:
                 keyword=False,
                 filter_json=None,
                 fields=None,
-                enable_graph=True,
                 output="text",
             )
-        call_kwargs = mock_backend.search.call_args
-        assert call_kwargs.kwargs.get("enable_graph") is True
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "search"
+        assert isinstance(data["data"], list)
+        assert data["count"] == 2
+        assert "duration_ms" in data
+        assert set(data["data"][0].keys()) == {"id", "memory", "score", "created_at", "categories"}
 
-    def test_list_with_graph(self, mock_backend):
-        console, _buf = _make_console()
+    # ── list ─────────────────────────────────────────────────────────────────
+
+    def test_list_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
         err_console, _err_buf = _make_err_console()
         with (
             patch("mem0_cli.commands.memory.console", console),
@@ -1011,8 +1362,195 @@ class TestEnableGraph:
                 category=None,
                 after=None,
                 before=None,
-                enable_graph=True,
-                output="table",
+                output="table",  # will be overridden to "agent"
             )
-        call_kwargs = mock_backend.list_memories.call_args
-        assert call_kwargs.kwargs.get("enable_graph") is True
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "list"
+        assert isinstance(data["data"], list)
+        assert data["count"] == 2
+        assert data["scope"]["user_id"] == "alice"
+        assert set(data["data"][0].keys()) == {"id", "memory", "created_at", "categories"}
+
+    # ── get ──────────────────────────────────────────────────────────────────
+
+    def test_get_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_get(mock_backend, "abc-123-def-456", output="text")
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "get"
+        assert isinstance(data["data"], dict)
+        assert data["data"]["id"] == "abc-123-def-456"
+        assert "memory" in data["data"]
+        assert set(data["data"].keys()) >= {"id", "memory"}
+
+    # ── update ───────────────────────────────────────────────────────────────
+
+    def test_update_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_update(mock_backend, "abc-123", "Updated content", metadata=None, output="text")
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "update"
+        assert isinstance(data["data"], dict)
+        assert "memory" in data["data"]
+        assert "duration_ms" in data
+
+    # ── delete ───────────────────────────────────────────────────────────────
+
+    def test_delete_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_delete(mock_backend, "abc-123-def-456", output="text")
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "delete"
+        assert data["data"]["id"] == "abc-123-def-456"
+        assert data["data"]["deleted"] is True
+        assert "duration_ms" in data
+
+    # ── event list ───────────────────────────────────────────────────────────
+
+    def test_event_list_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_list(mock_backend, output="table")
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "event list"
+        assert isinstance(data["data"], list)
+        assert data["count"] == 2
+        assert "duration_ms" in data
+        assert set(data["data"][0].keys()) == {
+            "id",
+            "event_type",
+            "status",
+            "latency",
+            "created_at",
+        }
+
+    # ── event status ─────────────────────────────────────────────────────────
+
+    def test_event_status_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_status(mock_backend, "evt-abc-123-def-456", output="text")
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "event status"
+        assert isinstance(data["data"], dict)
+        assert data["data"]["id"] == "evt-abc-123-def-456"
+        assert "duration_ms" in data
+        assert set(data["data"]["results"][0].keys()) == {"id", "event", "user_id", "memory"}
+        assert "data" not in data["data"]["results"][0]
+
+    # ── error handling ───────────────────────────────────────────────────────
+
+    def test_error_in_agent_mode_produces_json_to_stdout(self, mock_backend):
+        """Errors in agent mode must emit a JSON envelope to stdout, not stderr."""
+        from io import StringIO
+
+        mock_backend.get.side_effect = Exception("Memory not found")
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+
+        captured_stdout = StringIO()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            patch("sys.stdout", captured_stdout),
+            pytest.raises((SystemExit, TyperExit)),
+        ):
+            cmd_get(mock_backend, "bad-id", output="text")
+
+        stdout_output = captured_stdout.getvalue()
+        # The error JSON envelope must be on stdout
+        error_data = json.loads(stdout_output)
+        assert error_data["status"] == "error"
+        assert "error" in error_data
+        assert error_data["data"] is None
+
+    def test_branding_suppressed_in_agent_mode(self, mock_backend):
+        """Scope line and success message must be absent in agent mode output."""
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_add(
+                mock_backend,
+                "branding test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
+                output="text",
+            )
+        output = buf.getvalue()
+        # Must be valid JSON only — no human-readable branding
+        data = json.loads(output)
+        assert data["status"] == "success"
+        # "Scope:" and "Memory processed" must NOT appear in the raw output
+        assert "Scope:" not in output
+        assert "Memory processed" not in output
+        assert "spinner" not in output.lower()
+
+    def test_no_spinner_in_agent_mode(self, mock_backend):
+        """timed_status must not emit spinner output in agent mode."""
+        err_buf = StringIO()
+        err_console_buf = Console(file=err_buf, force_terminal=False, no_color=True, width=120)
+        console, _buf = _make_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console_buf),
+        ):
+            cmd_search(
+                mock_backend,
+                "query",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                top_k=5,
+                threshold=0.3,
+                rerank=False,
+                keyword=False,
+                filter_json=None,
+                fields=None,
+                output="text",
+            )
+        # The err_buf captures what would have been spinner/timing noise
+        # In agent mode it should be empty (no status lines printed)
+        err_output = err_buf.getvalue()
+        assert "Searching" not in err_output

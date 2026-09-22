@@ -27,6 +27,23 @@ class TestExtractScore:
     def test_clamps_to_1(self, reranker):
         assert reranker._extract_score("1.0") == 1.0
 
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("2.0", 1.0),
+            ("5", 1.0),
+            ("10", 1.0),
+            ("-0.3", 0.0),
+            ("-2", 0.0),
+        ],
+    )
+    def test_out_of_range_scores_are_clamped(self, reranker, text, expected):
+        assert reranker._extract_score(text) == expected
+
+    def test_decimal_score_preferred_over_leading_integer(self, reranker):
+        # A distractor integer before the score must not be picked up.
+        assert reranker._extract_score("Confidence 100%. Relevance: 0.1") == 0.1
+
 
 class TestRerank:
     def test_empty_documents(self, mock_llm):
@@ -79,8 +96,8 @@ class TestRerank:
         reranker = LLMReranker({"provider": "openai"})
         reranker.rerank("query", [{"text": "some text"}])
 
-        prompt_sent = mock_llm_instance.generate_response.call_args[1]["messages"][0]["content"]
-        assert "some text" in prompt_sent
+        user_msg = mock_llm_instance.generate_response.call_args[1]["messages"][1]["content"]
+        assert "some text" in user_msg
 
     def test_content_field_extraction(self, mock_llm):
         _, mock_llm_instance = mock_llm
@@ -89,8 +106,8 @@ class TestRerank:
         reranker = LLMReranker({"provider": "openai"})
         reranker.rerank("query", [{"content": "some content"}])
 
-        prompt_sent = mock_llm_instance.generate_response.call_args[1]["messages"][0]["content"]
-        assert "some content" in prompt_sent
+        user_msg = mock_llm_instance.generate_response.call_args[1]["messages"][1]["content"]
+        assert "some content" in user_msg
 
     def test_fallback_score_on_llm_error(self, mock_llm):
         _, mock_llm_instance = mock_llm
@@ -106,12 +123,14 @@ class TestRerank:
         _, mock_llm_instance = mock_llm
         mock_llm_instance.generate_response.return_value = "0.7"
 
-        custom_prompt = "Rate this: query={query} doc={document}"
+        custom_prompt = "Rate relevance on a scale of 0.0 to 1.0."
         reranker = LLMReranker({"provider": "openai", "scoring_prompt": custom_prompt})
         reranker.rerank("my query", [{"memory": "my doc"}])
 
-        prompt_sent = mock_llm_instance.generate_response.call_args[1]["messages"][0]["content"]
-        assert prompt_sent == "Rate this: query=my query doc=my doc"
+        messages = mock_llm_instance.generate_response.call_args[1]["messages"]
+        assert messages[0]["content"] == custom_prompt
+        assert "my query" in messages[1]["content"]
+        assert "my doc" in messages[1]["content"]
 
     def test_original_doc_not_mutated(self, mock_llm):
         _, mock_llm_instance = mock_llm

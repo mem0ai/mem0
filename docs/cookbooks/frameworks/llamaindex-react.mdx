@@ -3,6 +3,9 @@ title: ReAct Agents with Memory
 description: "Teach a ReAct agent to store and recall context via Mem0."
 ---
 
+<Info icon="cloud">
+**Works with:** Mem0 Platform (`Mem0Memory.from_client`)
+</Info>
 
 Create a ReAct Agent with LlamaIndex which uses Mem0 as the memory store.
 
@@ -22,10 +25,10 @@ import os
 from llama_index.llms.openai import OpenAI
 
 os.environ["OPENAI_API_KEY"] = "<your-openai-api-key>"
-llm = OpenAI(model="gpt-4.1-nano-2025-04-14")
+llm = OpenAI(model="gpt-5-mini")
 ```
 
-Initialize the Mem0 client. You can find your API key [here](https://app.mem0.ai/dashboard/api-keys). Read about Mem0 [Open Source](https://docs.mem0.ai/open-source/overview).
+Initialize the Mem0 client. You can find your API key <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cookbook-llamaindex-react">here</a>. Read about Mem0 [Open Source](https://docs.mem0.ai/open-source/overview).
 ```python
 os.environ["MEM0_API_KEY"] = "<your-mem0-api-key>"
 
@@ -78,7 +81,7 @@ from llama_index.core.agent import FunctionCallingAgent
 agent = FunctionCallingAgent.from_tools(
     [call_tool, email_tool, order_food_tool],
     llm=llm,
-    memory=memory_from_client,  # or memory_from_config
+    memory=memory_from_client,
     verbose=True,
 )
 ```
@@ -161,7 +164,7 @@ agent = FunctionCallingAgent.from_tools(
     [call_tool, email_tool, order_food_tool],
     llm=llm,
     # memory is provided
-    memory=memory_from_client,  # or memory_from_config
+    memory=memory_from_client,
     verbose=True,
 )
 response = agent.chat("I am feeling hungry, order me something and send me the bill")
@@ -197,3 +200,5 @@ I've ordered a pizza for you, and the bill has been sent to your email. Enjoy yo
     Master the core patterns for memory-powered agents across frameworks.
   </Card>
 </CardGroup>
+
+<Snippet file="star-on-github.mdx" />

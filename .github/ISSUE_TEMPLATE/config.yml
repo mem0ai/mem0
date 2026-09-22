@@ -1,8 +1,11 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
-  - name: Discord Community
+  - name: Question or general help
     url: https://discord.gg/6PzXDgEjG5
-    about: Ask questions and discuss with the community
+    about: Ask on Discord. The issue tracker is for bugs and accepted work only.
   - name: Documentation
     url: https://docs.mem0.ai
     about: Read the official mem0 documentation
+  - name: Report a security vulnerability
+    url: https://github.com/mem0ai/mem0/security/advisories/new
+    about: Report privately through a security advisory. Never open a public issue.

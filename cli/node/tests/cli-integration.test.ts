@@ -44,21 +44,30 @@ describe("CLI Integration — help and version", () => {
     expect(result.stdout).toContain("search");
   });
 
-  it("shows version with --version", () => {
-    const result = run(["--version"]);
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("0.1.0");
+  it("prints the version with --version", () => {
+    const flag = run(["--version"]);
+    expect(flag.exitCode).toBe(0);
+    expect(flag.stdout).toContain("Mem0");
   });
 
-
-  it("help --json produces valid JSON", () => {
-    const result = run(["help", "--json"]);
-    expect(result.exitCode).toBe(0);
-    const parsed = JSON.parse(result.stdout);
-    // spec may have cli.name or top-level name
-    const name = parsed.name ?? parsed.cli?.name;
-    expect(name).toBe("mem0");
+  it("version subcommand output matches --version output byte-for-byte", () => {
+    const flag = run(["--version"]);
+    const cmd = run(["version"]);
+    expect(cmd.exitCode).toBe(0);
+    expect(cmd.stdout).toBe(flag.stdout);
   });
+
+  it.each([["help", "--json"], ["--json", "help"], ["--agent", "help"]])(
+    "%s %s produces valid JSON",
+    (...args) => {
+      const result = run(args);
+      expect(result.exitCode).toBe(0);
+      const parsed = JSON.parse(result.stdout);
+      // spec may have cli.name or top-level name
+      const name = parsed.name ?? parsed.cli?.name;
+      expect(name).toBe("mem0");
+    },
+  );
 
   it("shows add help", () => {
     const result = run(["add", "--help"]);
@@ -114,22 +123,29 @@ describe("CLI Integration — help and version", () => {
     expect(result.exitCode).toBe(0);
   });
 
-  it("add help has --graph flag", () => {
+  it("add help has --output flag", () => {
     const result = run(["add", "--help"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("--graph");
+    expect(result.stdout).toContain("--output");
   });
 
-  it("search help has --graph flag", () => {
+  it("search help has --rerank flag", () => {
     const result = run(["search", "--help"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("--graph");
+    expect(result.stdout).toContain("--rerank");
   });
 
-  it("list help has --graph flag", () => {
+  it("search help documents the --filter JSON shape with an example", () => {
+    const result = run(["search", "--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("AND");
+    expect(result.stdout).toContain("categories");
+  });
+
+  it("list help has --category flag", () => {
     const result = run(["list", "--help"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("--graph");
+    expect(result.stdout).toContain("--category");
   });
 });
 

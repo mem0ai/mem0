@@ -94,7 +94,7 @@ class TestAuthDisabled:
         assert resp.status_code == 200
 
     def test_update_memory_without_key(self):
-        resp = self.client.put("/memories/mem-1", json={"data": "updated"})
+        resp = self.client.put("/memories/mem-1", json={"text": "updated"})
         assert resp.status_code == 200
 
     def test_history_without_key(self):
@@ -276,7 +276,7 @@ class TestAuthEnabled:
         assert resp.status_code == 200
 
     def test_update_memory_with_key(self):
-        resp = self._authed("PUT", "/memories/mem-1", json={"data": "updated"})
+        resp = self._authed("PUT", "/memories/mem-1", json={"text": "updated"})
         assert resp.status_code == 200
 
     def test_history_with_key(self):
@@ -346,7 +346,7 @@ class TestAuthenticatedCRUDFlow:
         self.mock.search.assert_called_once()
 
         # 5. Update
-        resp = self._authed("PUT", "/memories/mem-1", json={"data": "updated content"})
+        resp = self._authed("PUT", "/memories/mem-1", json={"text": "updated content"})
         assert resp.status_code == 200
         self.mock.update.assert_called_once()
 

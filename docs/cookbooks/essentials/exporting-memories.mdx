@@ -3,6 +3,9 @@ title: Export Stored Memories
 description: "Retrieve, review, and migrate user memories with structured exports."
 ---
 
+<Info icon="cloud">
+**Works with:** Mem0 Platform (`MemoryClient`)
+</Info>
 
 Mem0 is a dynamic memory store that gives you full control over your data. Along with storing memories, it gives you the ability to retrieve, export, and migrate your data whenever you need.
 
@@ -20,7 +23,7 @@ client = MemoryClient(api_key="your-api-key")
 ```
 
 <Note>
-Your API key needs export permissions to download memory data. Check your project settings on the [dashboard](https://app.mem0.ai) if export operations fail with authentication errors.
+Your API key needs export permissions to download memory data. Check your project settings on the <a href="https://app.mem0.ai?utm_source=oss&utm_medium=cookbook-exporting-memories">dashboard</a> if export operations fail with authentication errors.
 </Note>
 
 Let's add some sample memories to work with:
@@ -58,6 +61,7 @@ Use `get_all()` with filters to retrieve everything for a specific user:
 ```python
 dev_memories = client.get_all(
     filters={"user_id": "dev"},
+    page=1,
     page_size=50
 )
 
@@ -75,7 +79,7 @@ First memory: Dev works at TechCorp as a senior engineer
 ```
 
 <Info>
-**Expected output:** `get_all()` retrieved Dev's complete memory record. This method returns everything matching your filters—no semantic search, no ranking, just raw retrieval. Perfect for exports and audits.
+**Expected output:** `get_all()` retrieved Dev's complete memory record. This method returns everything matching your filters: no semantic search, no ranking, just raw retrieval. Perfect for exports and audits.
 </Info>
 
 You can filter by metadata to get specific types:
@@ -127,7 +131,7 @@ Dev works at TechCorp as a senior engineer (score: 0.89)
 
 ```
 
-Search works across all memory fields and ranks by relevance. Use it when you have a specific question, use `get_all()` when you need everything.
+Search works across all memory fields and ranks by relevance. Use it when you have a specific question; use `get_all()` when you need everything.
 
 ---
 
@@ -168,20 +172,20 @@ export_job = client.create_memory_export(
 )
 
 print(f"Export ID: {export_job['id']}")
-print(f"Status: {export_job['status']}")
+print(f"Message: {export_job['message']}")
 
 ```
 
 **Output:**
 
 ```
-Export ID: exp_abc123
-Status: processing
+Export ID: 550e8400-e29b-41d4-a716-446655440000
+Message: Memory export request received. The export will be ready in a few seconds.
 
 ```
 
 <Info>
-**Export initiated:** Status is "processing". Large exports may take a few seconds. Poll with `get_memory_export()` until status changes to "completed" before downloading data.
+**Export initiated:** The export runs asynchronously and is usually ready within a few seconds. Retry `get_memory_export()` with the returned ID until it stops returning a "no export found" error.
 </Info>
 
 ### Step 3: Download the export
@@ -192,7 +196,7 @@ export_data = client.get_memory_export(
     memory_export_id=export_job['id']
 )
 
-print(export_data['data'])
+print(export_data)
 
 ```
 
@@ -215,7 +219,7 @@ export_by_filters = client.get_memory_export(
     filters={"user_id": "dev"}
 )
 
-print(export_by_filters['data'])
+print(export_by_filters)
 
 ```
 
@@ -239,7 +243,7 @@ export_with_instructions = client.create_memory_export(
 ```
 
 <Tip>
-Always check export status before downloading. Call `get_memory_export()` in a loop with a short delay until `status == "completed"`. Attempting to download while still processing returns incomplete data.
+If the export is still processing, `get_memory_export()` returns a 404 with `{"error": "No memory export request found"}`. Retry after a short delay until the call succeeds instead of polling a status field.
 </Tip>
 
 ---
@@ -277,13 +281,15 @@ This covers data portability, GDPR compliance, system migrations, and manual rev
 
 ## Summary
 
-Use **`get_all()`** for bulk retrieval, **`search()`** for specific questions, and **`create_memory_export()`** for structured data exports with custom schemas. Remember exports expire after 7 days—download them locally for long-term archives.
+Use **`get_all()`** for bulk retrieval, **`search()`** for specific questions, and **`create_memory_export()`** for structured data exports with custom schemas. Remember exports expire after 7 days: download them locally for long-term archives.
 
 <CardGroup cols={2}>
-  <Card title="Expire Short-Term Data" icon="timer" href="/cookbooks/essentials/memory-expiration-short-and-long-term">
-    Keep exports lean by clearing session context before you archive it.
+  <Card title="Build a Mem0 Companion" icon="users" href="/cookbooks/essentials/building-ai-companion">
+    Learn core memory patterns including temporary vs permanent data handling.
   </Card>
-  <Card title="Control Memory Ingestion" icon="filter" href="/cookbooks/essentials/controlling-memory-ingestion">
-    Ensure only verified insights make it into your export pipeline.
+  <Card title="Custom Instructions" icon="filter" href="/platform/features/custom-instructions">
+    Steer what Mem0 extracts so only verified insights make it into your export pipeline.
   </Card>
 </CardGroup>
+
+<Snippet file="star-on-github.mdx" />

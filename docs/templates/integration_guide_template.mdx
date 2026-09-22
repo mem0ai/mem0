@@ -10,17 +10,17 @@ Integration guides prove a joint journey: configure Mem0 and the partner with mi
 
 ---
 
-## ❌ DO NOT COPY — Guidance & Constraints
+## ❌ DO NOT COPY: Guidance & Constraints
 - Frontmatter must include `title`, `description`, `icon`, and optional `partnerBadge`/`tags`. State the joint value in one sentence right after the H1.
 - List prerequisites for **both** platforms inside an `<Info>` block. Surface limited-access or beta flags in a `<Warning>` before any setup.
 - Default to Tabs + Steps when instructions diverge (Platform vs OSS, Python vs TypeScript). When only one path exists, add a `<Note>` explaining the missing variant.
-- When migrating an existing integration, keep the proven steps/screenshots—map them into this structure rather than rewriting unless either product has changed.
+- When migrating an existing integration, keep the proven steps/screenshots. Map them into this structure rather than rewriting unless either product has changed.
 - Keep any Mermaid diagrams optional and left-to-right (`graph LR`) to avoid vertical overflow; use only if architecture clarity is needed.
 - Every major step must finish with a verification `<Info icon="check">`. End the page with exactly two CTA cards (left = related reference, right = next integration/cookbook).
 
 ---
 
-## ✅ COPY THIS — Content Skeleton
+## ✅ COPY THIS: Content Skeleton
 Paste the block below, replace placeholders, and delete optional sections only when unnecessary for this integration.
 
 ````mdx
@@ -31,7 +31,7 @@ icon: "puzzle-piece"
 partnerBadge: "[Partner name]" # Optional
 ---
 
-# [Integration headline — Mem0 + Partner promise]
+# [Integration headline: Mem0 + Partner promise]
 
 Combine Mem0’s memory layer with [Partner] to [describe the joint outcome].
 
@@ -168,8 +168,8 @@ partner.registerTool("recallPreferences", async (userId: string) => {
 
 ## Troubleshooting
 
-- **[Issue]** — `[Fix or link to partner docs]`
-- **[Issue]** — `[Fix or link to Mem0 troubleshooting guide]`
+- **[Issue]**: `[Fix or link to partner docs]`
+- **[Issue]**: `[Fix or link to Mem0 troubleshooting guide]`
 
 {/* DEBUG: verify CTA targets */}
 

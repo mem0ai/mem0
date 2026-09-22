@@ -5,3 +5,5 @@ openapi: get /v1/event/{event_id}/
 ---
 
 Retrieve details about a specific event by passing its `event_id`. This endpoint is particularly helpful for tracking the status, payload, and completion details of asynchronous memory operations.
+
+For `POST /v3/memories/add/`, the event confirms that the write pipeline completed. Temporal reasoning enrichment runs asynchronously by default, so the event may be `SUCCEEDED` slightly before temporal ranking signals are available to subsequent `search` calls.

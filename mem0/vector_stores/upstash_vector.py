@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, List, Optional
+import re
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -12,6 +13,23 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
+
+_SAFE_FILTER_KEY = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*\Z")
+
+
+def _validate_filter(key: str, value: Any) -> None:
+    if not isinstance(key, str) or not _SAFE_FILTER_KEY.fullmatch(key):
+        raise ValueError(f"Invalid filter key: {key!r}")
+    if not isinstance(value, (str, int, float, bool)):
+        raise ValueError(
+            f"Filter value for {key!r} must be str, int, float, or bool, "
+            f"got {type(value).__name__}"
+        )
+    if isinstance(value, str) and ('"' in value or "\\" in value):
+        raise ValueError(
+            f"Filter value for {key!r} contains prohibited characters "
+            f"(double quote or backslash): {value!r}"
+        )
 
 
 class OutputData(BaseModel):
@@ -92,13 +110,15 @@ class UpstashVector(VectorStoreBase):
         )
 
     def _stringify(self, x):
-        return f'"{x}"' if isinstance(x, str) else x
+        if isinstance(x, str):
+            return f'"{x}"'
+        return x
 
     def search(
         self,
         query: str,
         vectors: List[list],
-        limit: int = 5,
+        top_k: int = 5,
         filters: Optional[Dict] = None,
     ) -> List[OutputData]:
         """
@@ -106,13 +126,16 @@ class UpstashVector(VectorStoreBase):
 
         Args:
             query (list): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search.
 
         Returns:
             List[OutputData]: Search results.
         """
 
+        if filters:
+            for k, v in filters.items():
+                _validate_filter(k, v)
         filters_str = " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()]) if filters else None
 
         response = []
@@ -120,7 +143,7 @@ class UpstashVector(VectorStoreBase):
         if self.enable_embeddings:
             response = self.client.query(
                 data=query,
-                top_k=limit,
+                top_k=top_k,
                 filter=filters_str or "",
                 include_metadata=True,
                 namespace=self.collection_name,
@@ -129,14 +152,13 @@ class UpstashVector(VectorStoreBase):
             queries = [
                 {
                     "vector": v,
-                    "top_k": limit,
+                    "top_k": top_k,
                     "filter": filters_str or "",
                     "include_metadata": True,
-                    "namespace": self.collection_name,
                 }
                 for v in vectors
             ]
-            responses = self.client.query_many(queries=queries)
+            responses = self.client.query_many(queries=queries, namespace=self.collection_name)
             # flatten
             response = [res for res_list in responses for res in res_list]
 
@@ -148,6 +170,48 @@ class UpstashVector(VectorStoreBase):
             )
             for res in response
         ]
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        """
+        Perform keyword-based search using Upstash's BM25 sparse search.
+
+        Args:
+            query (str): The text query to search for.
+            top_k (int, optional): Number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            List[OutputData]: Search results, or None if sparse/BM25 search is not supported.
+        """
+        if filters:
+            for k, v in filters.items():
+                _validate_filter(k, v)
+        filters_str = (
+            " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()])
+            if filters
+            else None
+        )
+
+        try:
+            response = self.client.query(
+                data=query,
+                top_k=top_k,
+                filter=filters_str or "",
+                include_metadata=True,
+                namespace=self.collection_name,
+            )
+
+            return [
+                OutputData(
+                    id=res.id,
+                    score=res.score,
+                    payload=res.metadata,
+                )
+                for res in response
+            ]
+        except Exception as e:
+            logger.error(f"Error during keyword search for query '{query}': {e}")
+            return None
 
     def delete(self, vector_id: int):
         """
@@ -205,15 +269,18 @@ class UpstashVector(VectorStoreBase):
             return None
         return OutputData(id=vector.id, score=None, payload=vector.metadata)
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[List[OutputData]]:
+    def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> List[List[OutputData]]:
         """
         List all memories.
         Args:
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
-            limit (int, optional): Number of results to return. Defaults to 100.
+            top_k (int, optional): Number of results to return. Defaults to 100.
         Returns:
             List[OutputData]: Search results.
         """
+        if filters:
+            for k, v in filters.items():
+                _validate_filter(k, v)
         filters_str = " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()]) if filters else None
 
         info = self.client.info()
@@ -233,7 +300,7 @@ class UpstashVector(VectorStoreBase):
         )
         with query:
             while True:
-                if len(results) >= limit:
+                if len(results) >= top_k:
                     break
                 res = query.fetch_next(100)
                 if not res:

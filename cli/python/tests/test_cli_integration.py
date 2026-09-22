@@ -7,11 +7,20 @@ boundaries).
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import subprocess
 import sys
 
 import pytest
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mKJHABCDfsu]")
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes so substring checks work regardless of color mode."""
+    return _ANSI_RE.sub("", text)
 
 
 def _run(
@@ -28,21 +37,35 @@ def _run(
             reads config from ``<home_dir>/.mem0/config.json`` instead
             of the user's real config.  This is critical for tests that
             depend on a clean (no API key) or custom config state.
+
+    Returns a CompletedProcess whose stdout/stderr have ANSI escape codes
+    stripped.  GitHub Actions sets FORCE_COLOR=1 which causes Rich/Typer to
+    fragment option names like --user-id into separately-styled ANSI segments,
+    making plain ``in`` checks fail.  Stripping here is version-agnostic and
+    ensures all assertions see the same plain text regardless of terminal env.
     """
     env = os.environ.copy()
     # Strip all MEM0_ env vars so tests start clean
     for key in list(env.keys()):
         if key.startswith("MEM0_"):
             del env[key]
+    env.pop("FORCE_COLOR", None)
+    env["PYTHONIOENCODING"] = "utf-8"
     if home_dir:
         env["HOME"] = home_dir
     if env_override:
         env.update(env_override)
-    return subprocess.run(
+    result = subprocess.run(
         [sys.executable, "-m", "mem0_cli", *args],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=env,
+    )
+    return subprocess.CompletedProcess(
+        args=result.args,
+        returncode=result.returncode,
+        stdout=_strip_ansi(result.stdout),
+        stderr=_strip_ansi(result.stderr),
     )
 
 
@@ -62,11 +85,35 @@ class TestCLIIntegration:
         assert "add" in result.stdout
         assert "search" in result.stdout
 
-    def test_version_flag(self):
-        result = _run(["--version"])
-        assert result.returncode == 0
-        assert "0.1.0" in result.stdout
+    def test_version_flag_only(self):
+        from mem0_cli import __version__
 
+        flag = _run(["--version"])
+        assert flag.returncode == 0
+        assert __version__ in flag.stdout
+
+    def test_version_subcommand_matches_flag_byte_for_byte(self):
+        flag = _run(["--version"])
+        cmd = _run(["version"])
+        assert cmd.returncode == 0
+        assert cmd.stdout == flag.stdout
+
+    @pytest.mark.parametrize(
+        "args",
+        [["help", "--json"], ["--json", "help"], ["help", "--agent"], ["--agent", "help"]],
+    )
+    def test_help_json_produces_valid_json(self, args):
+        result = _run(args)
+        assert result.returncode == 0
+        spec = json.loads(result.stdout)
+        assert spec["name"] == "mem0"
+        assert "add" in spec["commands"]
+
+    def test_help_without_json_is_text(self):
+        result = _run(["help"])
+        assert result.returncode == 0
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(result.stdout)
 
     def test_add_help(self):
         result = _run(["add", "--help"])
@@ -84,6 +131,12 @@ class TestCLIIntegration:
         result = _run(["search", "--help"])
         assert result.returncode == 0
         assert "top-k" in result.stdout
+
+    def test_search_help_documents_filter_json_shape(self):
+        result = _run(["search", "--help"])
+        assert result.returncode == 0
+        assert "AND" in result.stdout
+        assert "categories" in result.stdout
 
     def test_list_help(self):
         result = _run(["list", "--help"])
@@ -161,7 +214,12 @@ class TestCLIIsolated:
         )
         assert result.returncode != 0
         combined = result.stderr + result.stdout
-        assert "memory ID" in combined.lower() or "--all" in combined or "--entity" in combined or "Error" in combined
+        assert (
+            "memory ID" in combined.lower()
+            or "--all" in combined
+            or "--entity" in combined
+            or "Error" in combined
+        )
 
     def test_config_show_clean(self, clean_home):
         """config show with no config should still work."""
@@ -204,23 +262,12 @@ class TestCLIIsolated:
 
 
 class TestCLINewFeatures:
-    """Tests for MCP parity features: --graph, --limit, entities delete."""
+    """Tests for MCP parity features: --limit, entities delete."""
 
-    def test_add_help_has_graph(self):
-        result = _run(["add", "--help"])
-        assert result.returncode == 0
-        assert "--graph" in result.stdout
-
-    def test_search_help_has_graph_and_limit(self):
+    def test_search_help_has_limit(self):
         result = _run(["search", "--help"])
         assert result.returncode == 0
-        assert "--graph" in result.stdout
         assert "--limit" in result.stdout
-
-    def test_list_help_has_graph(self):
-        result = _run(["list", "--help"])
-        assert result.returncode == 0
-        assert "--graph" in result.stdout
 
     def test_delete_entity_via_delete_flag(self):
         """delete --entity should appear in help output."""

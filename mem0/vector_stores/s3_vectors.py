@@ -80,7 +80,9 @@ class S3Vectors(VectorStoreBase):
                 except json.JSONDecodeError:
                     logger.warning(f"Failed to parse metadata for key {v.get('key')}")
                     payload = {}
-            results.append(OutputData(id=v.get("key"), score=v.get("distance"), payload=payload))
+            raw_distance = v.get("distance")
+            score = max(0.0, 1.0 - raw_distance) if raw_distance is not None else None
+            results.append(OutputData(id=v.get("key"), score=score, payload=payload))
         return results
 
     def insert(self, vectors, payloads=None, ids=None):
@@ -99,12 +101,12 @@ class S3Vectors(VectorStoreBase):
             vectors=vectors_to_put,
         )
 
-    def search(self, query, vectors, limit=5, filters=None):
+    def search(self, query, vectors, top_k=5, filters=None):
         params = {
             "vectorBucketName": self.vector_bucket_name,
             "indexName": self.collection_name,
             "queryVector": {"float32": vectors},
-            "topK": limit,
+            "topK": top_k,
             "returnMetadata": True,
             "returnDistance": True,
         }
@@ -122,7 +124,37 @@ class S3Vectors(VectorStoreBase):
         )
 
     def update(self, vector_id, vector=None, payload=None):
-        # S3 Vectors uses put_vectors for updates (overwrite)
+        # S3 Vectors uses put_vectors for updates (overwrite).
+        # When vector=None (e.g. metadata-only update triggered by event=NONE),
+        # fetch the existing vector data first to avoid passing None to boto3
+        # which causes a parameter validation error:
+        #   "Invalid type for parameter vectors[0].data.float32, value: None"
+        if vector is None:
+            existing = self.get(vector_id)
+            if existing is None:
+                logger.warning(f"update called with vector=None but {vector_id} not found; skipping")
+                return
+            try:
+                response = self.client.get_vectors(
+                    vectorBucketName=self.vector_bucket_name,
+                    indexName=self.collection_name,
+                    keys=[vector_id],
+                    returnData=True,
+                    returnMetadata=True,
+                )
+                vectors = response.get("vectors", [])
+                if not vectors:
+                    logger.warning(f"update: no vector data found for {vector_id}; skipping")
+                    return
+                vector = vectors[0].get("data", {}).get("float32")
+                if vector is None:
+                    logger.warning(f"update: float32 data is None for {vector_id}; skipping")
+                    return
+                if payload is None:
+                    payload = existing.payload
+            except Exception as e:
+                logger.error(f"update: failed to fetch existing vector for {vector_id}: {e}")
+                return
         self.insert(vectors=[vector], payloads=[payload], ids=[vector_id])
 
     def get(self, vector_id) -> Optional[OutputData]:
@@ -149,26 +181,31 @@ class S3Vectors(VectorStoreBase):
         response = self.client.get_index(vectorBucketName=self.vector_bucket_name, indexName=self.collection_name)
         return response.get("index", {})
 
-    def list(self, filters=None, limit=None):
-        # Note: list_vectors does not support metadata filtering.
-        if filters:
-            logger.warning("S3 Vectors `list` does not support metadata filtering. Ignoring filters.")
-
+    def list(self, filters=None, top_k=None):
         params = {
             "vectorBucketName": self.vector_bucket_name,
             "indexName": self.collection_name,
             "returnData": False,
             "returnMetadata": True,
         }
-        if limit:
-            params["maxResults"] = limit
+        if top_k:
+            params["maxResults"] = top_k
 
         paginator = self.client.get_paginator("list_vectors")
         pages = paginator.paginate(**params)
         all_vectors = []
         for page in pages:
             all_vectors.extend(page.get("vectors", []))
-        return [self._parse_output(all_vectors)]
+        results = self._parse_output(all_vectors)
+        if filters:
+            results = [
+                result
+                for result in results
+                if result.payload and all(result.payload.get(k) == v for k, v in filters.items())
+            ]
+        if top_k:
+            results = results[:top_k]
+        return [results]
 
     def reset(self):
         logger.warning(f"Resetting index {self.collection_name}...")

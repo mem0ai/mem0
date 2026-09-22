@@ -1,0 +1,19 @@
+{
+  "name": "mem0-plugins",
+  "interface": {
+    "displayName": "Mem0 Plugins"
+  },
+  "plugins": [
+    {
+      "name": "mem0",
+      "source": "./integrations/claude-code-plugin",
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity",
+      "description": "Cross-session memory and token savings for coding agents.",
+      "version": "0.3.2"
+    }
+  ]
+}

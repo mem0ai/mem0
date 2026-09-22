@@ -26,7 +26,9 @@ const memory = new Memory({
 });
 
 async function chatWithMemories(message: string, userId = "default_user") {
-  const relevantMemories = await memory.search(message, { userId: userId });
+  const relevantMemories = await memory.search(message, {
+    filters: { user_id: userId },
+  });
 
   const memoriesStr = relevantMemories.results
     .map((entry) => `- ${entry.memory}`)
