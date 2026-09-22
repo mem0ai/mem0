@@ -387,6 +387,33 @@ class TestGenerateResponseConverse:
         _, kwargs = mock_boto3.converse.call_args
         assert "topP" not in kwargs["inferenceConfig"]
 
+    def test_nova_non_tool_returns_converse_text(self, mock_boto3):
+        """Non-tool Nova sends Converse and must return that reply's text.
+
+        The Converse body is a parsed dict (no invoke_model ``body`` stream).
+        Parsing it with the legacy invoke_model parser yields the sentinel
+        ``Error parsing response`` and drops the model text.
+        """
+        mock_boto3.converse.return_value = {
+            "output": {
+                "message": {
+                    "role": "assistant",
+                    "content": [{"text": "The sky is blue."}],
+                }
+            },
+            "stopReason": "end_turn",
+        }
+        llm = _make_llm("amazon.nova-3-mini-20241119-v1:0", mock_boto3)
+
+        result = llm.generate_response(
+            MESSAGES,
+            response_format={"type": "json_object"},
+        )
+
+        assert result == "The sky is blue."
+        assert mock_boto3.converse.called
+        assert not mock_boto3.invoke_model.called
+
     def test_anthropic_model_kwargs_top_p_still_omits_top_p_in_converse(self, mock_boto3):
         """top_p injected via model_kwargs must not add topP for Anthropic Converse."""
         mock_boto3.converse.return_value = _converse_response()

@@ -628,7 +628,11 @@ class AWSBedrockLLM(LLMBase):
                 messages=formatted_messages,
                 inferenceConfig=self._build_inference_config(),
             )
-            return self._parse_response(response)
+            # Converse returns a parsed dict. _parse_response only reads invoke_model bodies.
+            for block in response["output"]["message"]["content"]:
+                if "text" in block:
+                    return block["text"]
+            return ""
         else:
             # For other providers and legacy Amazon models (like Titan)
             if self.provider == "amazon":
