@@ -280,3 +280,29 @@ def test_initialize_tolerates_non_numeric_sync_max_chars(plugin, monkeypatch):
     provider = plugin.Mem0MemoryProvider()
     provider.initialize("test-session")
     assert provider._sync_max_chars == plugin._SYNC_MSG_MAX_CHARS
+
+
+def test_shutdown_does_not_close_storage_during_capture(plugin):
+    provider = plugin.Mem0MemoryProvider()
+    started, release, stored, closed = (threading.Event() for _ in range(4))
+
+    def add(*args, **kwargs):
+        started.set()
+        assert release.wait(15), "test did not release capture"
+        if not closed.is_set():
+            stored.set()
+
+    provider._backend = Mock(add=add, close=closed.set)
+    provider.sync_turn("I prefer green tea.", "Acknowledged.")
+    assert started.wait(5)
+    shutdown = threading.Thread(target=provider.shutdown)
+    shutdown.start()
+    try:
+        # Live Azure extraction outlasted the old five-second shutdown join.
+        assert not closed.wait(6), "storage closed while capture was still running"
+    finally:
+        release.set()
+        shutdown.join(5)
+        provider._sync_thread.join(5)
+    assert not shutdown.is_alive()
+    assert stored.is_set() and closed.is_set()

@@ -24,15 +24,15 @@ hermes plugins enable mem0
 
 Hermes installers with plugin dependency support install `mem0ai>=2.0.10,<3` and `httpx>=0.27,<1` from this directory's `pyproject.toml`. On older hosts such as Hermes v0.21.3, install those requirements into the **Hermes Python environment** explicitly. The OSS setup wizard installs additional provider packages as needed.
 
-> Hermes versions that still bundle Mem0 prefer the bundled provider. The standalone copy takes over after that bundled copy is removed; see [Existing users and migration](#existing-users-and-migration).
+> Hermes versions that still bundle Mem0 prefer the bundled provider. Use a Hermes release that has completed the standalone-provider migration; installing this plugin alone does not replace the bundled implementation. See [Existing users and migration](#existing-users-and-migration).
 
 ### 2. Configure
 
 ```bash
-hermes memory setup
+hermes memory setup mem0
 ```
 
-Select **mem0**, then choose a backend:
+Run this in an interactive terminal and choose a backend:
 
 | Mode | What you need |
 |------|----------------|
@@ -40,23 +40,11 @@ Select **mem0**, then choose a backend:
 | **Self-hosted server** | A running [Mem0 server](../../server), its URL, and its API key unless authentication is disabled |
 | **OSS** | An LLM, embedder, and vector store; no Mem0 API key needed |
 
-For a self-hosted server:
+For a self-hosted server, choose **Self-hosted server** and enter its URL and API key. Requests use `X-API-Key` and the server's `/search` and `/memories` routes. Setting `host` selects this backend unless `mode` is `oss`.
 
-```bash
-hermes memory setup mem0 --mode selfhosted --host http://localhost:8888
-```
+For the in-process SDK, choose **Open Source**. The wizard offers OpenAI or Ollama and local Qdrant or PGVector. Use manual configuration for custom OpenAI-compatible endpoints, deployment names, or a Qdrant server. OSS does not use Mem0 Cloud; data still goes to whichever model services you configure. Run setup again to switch modes. When switching to Platform, remove any stale `MEM0_HOST` setting from the environment and profile `.env`.
 
-The wizard prompts for the server API key. Requests use `X-API-Key` and the server's `/search` and `/memories` routes. Setting `host` selects this backend unless `mode` is `oss`.
-
-For the in-process OSS SDK:
-
-```bash
-hermes memory setup mem0 --mode oss
-```
-
-The wizard supports OpenAI or Ollama for the LLM and embedder, and local/server Qdrant or PGVector for storage. OSS does not use Mem0 Cloud; data still goes to whichever model services you configure. Run setup again to switch modes. When switching to Platform, remove any stale `MEM0_HOST` setting from the environment and profile `.env`.
-
-See the [Hermes integration guide](https://docs.mem0.ai/integrations/hermes) for manual configuration and setup flags.
+Hermes hosts whose `hermes memory setup --help` lists only a provider argument reject options such as `--mode`, `--host`, and `--oss-llm` before the plugin runs. Use the interactive command above, or the [manual profile configuration](https://docs.mem0.ai/integrations/hermes) for unattended setup. Redirected input cannot select the mode picker; it falls back to Platform.
 
 ### 3. Verify
 
@@ -100,6 +88,8 @@ Recall waits up to three seconds for memories relevant to the current message. I
 After a turn, a background worker sends the user message and assistant response for extraction. Each message is truncated to **450 characters by default in every mode**, preferring a sentence boundary. Increase `sync_max_chars` to suit your model's context limit. Explicit `mem0_add` calls store their supplied text verbatim.
 
 Capture is best effort: if the previous sync remains busy after a five-second wait, the new turn is skipped. There is no durable queue. Five consecutive backend failures pause calls for two minutes before retrying.
+
+Graceful shutdown waits for active recall and capture workers before closing the backend, including at Python process exit. Backend network timeouts still apply: self-hosted HTTP capture has a 120-second read timeout and a 30-second connection timeout; other self-hosted HTTP operations use 30 seconds. Forced termination, including Hermes' 30-second exit watchdog, can still interrupt pending writes.
 
 ## Existing users and migration
 

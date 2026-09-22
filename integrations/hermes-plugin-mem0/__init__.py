@@ -242,7 +242,7 @@ class Mem0MemoryProvider(MemoryProvider):
             self._sync_max_chars = _SYNC_MSG_MAX_CHARS
         self._backend = self._create_backend()
         if self._backend and not self._atexit_registered:
-            atexit.register(self._shutdown_backend)
+            atexit.register(self.shutdown)
             self._atexit_registered = True
 
     def _search(self, query: str, top_k: int = 10, rerank: bool = False, backend=None) -> list:
@@ -414,7 +414,9 @@ class Mem0MemoryProvider(MemoryProvider):
     def shutdown(self) -> None:
         for t in (self._prefetch_thread, self._sync_thread):
             if t and t.is_alive():
-                t.join(timeout=5.0)
+                # Extraction can outlast five seconds. Closing storage underneath it
+                # loses the turn; let the backend's network timeouts bound the drain.
+                t.join()
         self._shutdown_backend()
 
 

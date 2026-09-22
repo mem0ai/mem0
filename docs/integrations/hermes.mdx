@@ -54,7 +54,11 @@ Select **mem0** in setup and choose one of the modes below. Start a fresh Hermes
 Hermes installers with plugin dependency support install `mem0ai>=2.0.10,<3` and `httpx>=0.27,<1` from the plugin's `pyproject.toml`. Older hosts such as Hermes v0.21.3 require those packages to be installed explicitly into the Hermes Python environment. The OSS setup flow installs additional provider packages as needed.
 
 <Note>
-  Hermes versions that still bundle Mem0 prefer the bundled provider. The standalone copy takes over after the bundled copy is removed. Existing users should keep their current configuration; see [Migration for existing users](#migration-for-existing-users).
+  Hermes versions that still bundle Mem0 prefer the bundled provider. Use a Hermes release that has completed the standalone-provider migration; installing this plugin alone does not replace the bundled implementation. Existing users should keep their current configuration; see [Migration for existing users](#migration-for-existing-users).
+</Note>
+
+<Note>
+  Run the setup wizard in an interactive terminal. On Hermes hosts whose `hermes memory setup --help` lists only a provider argument, options such as `--mode`, `--host`, and `--oss-llm` are rejected by Hermes before the plugin runs. Use `hermes memory setup mem0` or the manual configuration below. Redirected input cannot select the mode picker and falls back to Platform.
 </Note>
 
 ## Platform Setup
@@ -64,10 +68,10 @@ Platform mode uses managed Mem0 Cloud and is the fastest way to start.
 ### Option 1: Interactive wizard (recommended)
 
 ```bash
-hermes memory setup
+hermes memory setup mem0
 ```
 
-Select **mem0**, choose **Platform**, and paste your API key when prompted. The wizard writes settings to `$HERMES_HOME/mem0.json` and keeps the key in that profile's `.env`. The default Hermes home is `~/.hermes`; named profiles use their own home directory.
+Choose **Platform** and paste your API key when prompted. The wizard writes settings to `$HERMES_HOME/mem0.json` and keeps the key in that profile's `.env`. The default Hermes home is `~/.hermes`; named profiles use their own home directory.
 
 <Note>Get your API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-hermes">app.mem0.ai</a>.</Note>
 
@@ -83,7 +87,17 @@ Add your key to the active Hermes profile's `.env`:
 MEM0_API_KEY=your-api-key
 ```
 
-This sets `memory.provider: mem0` in the profile's `config.yaml`. Restart Hermes and check `hermes memory status`.
+Set these values in the active profile's `mem0.json`, choosing a stable user identity:
+
+```json
+{
+  "mode": "platform",
+  "host": "",
+  "user_id": "my-hermes-user"
+}
+```
+
+Remove any stale `MEM0_HOST` from the environment and profile `.env`, and remove an old inline `api_key` from `mem0.json` so the new `.env` key is used. The config command sets `memory.provider: mem0` in that profile's `config.yaml`. Restart Hermes and check `hermes memory status`.
 
 ## Self-Hosted Server Setup
 
@@ -92,28 +106,29 @@ Run the [Mem0 server](https://github.com/mem0ai/mem0/tree/main/server) (FastAPI 
 ### Interactive
 
 ```bash
-hermes memory setup
-# Select "mem0", then "Self-hosted server", and enter the server URL
+hermes memory setup mem0
+# Choose "Self-hosted server", then enter the server URL and API key
 ```
 
-### With flags
+### Manual configuration
 
-```bash
-hermes memory setup mem0 --mode selfhosted \
-  --host http://localhost:8888 \
-  --api-key your-admin-api-key
+Select `mem0` with `hermes config set memory.provider mem0`. Set these values in the active profile's `mem0.json`:
+
+```json
+{
+  "mode": "platform",
+  "host": "http://localhost:8888",
+  "user_id": "my-hermes-user"
+}
 ```
 
-### With environment variables
-
-Set these values in the active profile's `.env` and select `mem0` with `hermes config set memory.provider mem0`:
+Add the server key to that profile's `.env`:
 
 ```dotenv
-MEM0_HOST=http://localhost:8888
 MEM0_API_KEY=your-admin-api-key
 ```
 
-Non-empty settings in `mem0.json` override environment defaults. If switching from another mode, use the wizard to update that file too.
+Remove an old inline `api_key` from `mem0.json` so the `.env` key is used. `MEM0_HOST` can also supply the server URL, but a non-empty `host` in `mem0.json` overrides it. Keep `mode` set to `platform` for the HTTP server backend.
 
 Then start a fresh Hermes session and call `mem0_search` — it connects to your server. The plugin authenticates with `X-API-Key` and uses the server's `/search` and `/memories` routes. The API key is optional only for servers running with `AUTH_DISABLED`.
 
@@ -126,18 +141,12 @@ OSS mode runs the Mem0 SDK in the Hermes process with your chosen LLM, embedder,
 ### Interactive
 
 ```bash
-hermes memory setup
-# Select "mem0", then "Open Source (self-hosted)"
+hermes memory setup mem0
+# Choose "Open Source"
 # Follow the prompts for LLM, embedder, and vector store
 ```
 
-### With flags
-
-```bash
-hermes memory setup mem0 --mode oss \
-  --oss-llm openai --oss-llm-key sk-... \
-  --oss-vector qdrant
-```
+The wizard uses the listed default OpenAI models and local Qdrant storage. For custom OpenAI-compatible endpoints, deployment names, or a Qdrant server, use manual configuration below.
 
 ### Supported providers
 
@@ -147,52 +156,24 @@ hermes memory setup mem0 --mode oss \
 | Embedder | `openai` (default `text-embedding-3-small`), `ollama` (local, default `nomic-embed-text`) |
 | Vector store | `qdrant` (local path or server), `pgvector` |
 
-### Flag reference
-
-| Flag | Description |
-|------|-------------|
-| `--mode` | `platform`, `selfhosted`, or `oss` |
-| `--api-key` | Platform API key, or the admin key of a self-hosted server |
-| `--host` | Self-hosted server URL (with `--mode selfhosted`) |
-| `--oss-llm` | LLM provider (`openai` or `ollama`, default `openai`) |
-| `--oss-llm-key` | LLM API key (for `openai`) |
-| `--oss-llm-model` | Override the LLM model |
-| `--oss-llm-url` | LLM base URL (for `ollama` or a custom endpoint) |
-| `--oss-embedder` | Embedder provider (default `openai`) |
-| `--oss-embedder-key` | Embedder API key |
-| `--oss-embedder-model` | Override the embedder model |
-| `--oss-embedder-url` | Embedder base URL (for `ollama` or a custom endpoint) |
-| `--oss-vector` | Vector store (`qdrant` or `pgvector`, default `qdrant`) |
-| `--oss-vector-path` | Local Qdrant storage path |
-| `--oss-vector-url` | Qdrant server URL |
-| `--oss-vector-host`, `--oss-vector-port` | PGVector host and port (use `--oss-vector-url` for a Qdrant server) |
-| `--oss-vector-user`, `--oss-vector-password`, `--oss-vector-dbname` | PGVector connection details |
-| `--user-id` | User identifier for Platform, OSS, or server setup |
-| `--dry-run` | Preview configuration without saving it; setup may still check connectivity |
-
-## Switching Modes
-
-You can move between the three modes at any time. Run the setup command again, or edit `$HERMES_HOME/mem0.json` directly. Switching backends does not transfer memories between them. When returning to Platform, also remove any stale `MEM0_HOST` setting from your environment and profile `.env`.
+### Manual configuration
 
 ```bash
-# Platform to OSS
-hermes memory setup mem0 --mode oss --oss-llm-key sk-...
-
-# OSS to Platform
-hermes memory setup mem0 --mode platform --api-key sk-...
-
-# Platform to a self-hosted server
-hermes memory setup mem0 --mode selfhosted --host http://localhost:8888
-
-# Preview without saving configuration
-hermes memory setup mem0 --mode oss --oss-llm-key sk-... --dry-run
+hermes config set memory.provider mem0
 ```
 
-An OSS configuration in `$HERMES_HOME/mem0.json` can look like this (use your existing storage path when migrating):
+Add the model key to the active profile's `.env`:
+
+```dotenv
+OPENAI_API_KEY=your-model-api-key
+```
+
+Set the following in that profile's `mem0.json`. Use your existing storage path when migrating; for a new named profile, choose a path inside that profile's home.
 
 ```json
 {
   "mode": "oss",
+  "user_id": "my-hermes-user",
   "oss": {
     "llm": {"provider": "openai", "config": {"model": "gpt-5-mini", "is_reasoning_model": true}},
     "embedder": {"provider": "openai", "config": {"model": "text-embedding-3-small"}},
@@ -201,9 +182,19 @@ An OSS configuration in `$HERMES_HOME/mem0.json` can look like this (use your ex
 }
 ```
 
+For an OpenAI-compatible service such as Azure's `/openai/v1` endpoint, add `OPENAI_BASE_URL` to the profile's `.env` and set each `model` to its deployed name. Both the LLM and embedder use this endpoint unless their `config.openai_base_url` overrides it. The main Hermes chat model is configured separately; this JSON configures Mem0's extraction and embedding models.
+
+For a Qdrant server, replace `vector_store.config.path` with `url`, for example `"url": "http://localhost:6333"`. Manual setup does not install optional provider dependencies: install `qdrant-client`, `psycopg2-binary`, or `ollama` in the **Hermes Python environment** as needed for your selected providers. Start a fresh session and verify a memory write and search; `hermes memory status` reports configuration availability, not a full backend health check.
+
+## Switching Modes
+
+Run `hermes memory setup mem0` in an interactive terminal and choose the new mode, or edit the active profile's `mem0.json` using the examples above. Switching backends does not transfer memories between them. Preserve existing OSS storage paths when editing configuration. When returning to Platform, set `mode` to `platform`, clear `host`, and remove any stale `MEM0_HOST` setting from your environment and profile `.env`.
+
 ## Configuration
 
 Settings live in `$HERMES_HOME/mem0.json` and are written by `hermes memory setup`. API keys normally live in that profile's `.env`; distinct OpenAI LLM/embedder keys and database credentials are stored in the OSS configuration. Setup writes these files atomically with owner-only permissions.
+
+When editing these files manually, restrict both `.env` and `mem0.json` to their owner (`chmod 600` on Unix). Keep configuration and secrets in the same active Hermes profile.
 
 `MEM0_MODE`, `MEM0_HOST`, `MEM0_USER_ID`, and `MEM0_AGENT_ID` supply environment defaults. Non-empty values in `mem0.json` take precedence. `MEM0_API_KEY` supplies the Cloud or server key unless `api_key` is set in the file.
 
@@ -245,7 +236,8 @@ CLI setup and status are supported. This plugin does not ship a Desktop configur
 
 - **Circuit breaker**: five consecutive backend failures pause calls for two minutes. The agent can continue without memory during that window. Expected update/delete errors such as a missing memory do not trip the breaker.
 - **Bounded waits**: recall waits up to three seconds. Capture runs in the background, but an overlapping turn may wait up to five seconds for the previous sync before being skipped.
-- **Best-effort capture**: there is no durable queue. Shutdown waits briefly for workers; pending writes are not guaranteed to finish before exit.
+- **Graceful shutdown**: shutdown and Python process exit wait for active recall and capture workers before closing the backend. Backend network timeouts still apply. Self-hosted HTTP capture uses a 120-second read timeout and a 30-second connection timeout; other self-hosted HTTP operations use 30 seconds.
+- **Best-effort capture**: there is no durable queue. Forced termination, including Hermes' 30-second exit watchdog, can interrupt pending writes even while graceful shutdown is waiting.
 - **OSS data protection**: an embedding dimension mismatch fails initialization without deleting the existing collection or table.
 
 ## Troubleshooting

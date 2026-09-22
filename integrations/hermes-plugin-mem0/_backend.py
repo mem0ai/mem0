@@ -79,6 +79,7 @@ class SelfHostedBackend(Mem0Backend):
         headers = {"Content-Type": "application/json", **({"X-API-Key": api_key} if api_key else {})}  # key omitted only for AUTH_DISABLED servers
         # Connect-level retries keep one dropped SYN from counting toward the breaker. ``transport`` is injectable for tests.
         self._client = httpx.Client(base_url=host.rstrip("/"), headers=headers, timeout=30.0, transport=transport or httpx.HTTPTransport(retries=2))
+        self._capture_timeout = httpx.Timeout(120.0, connect=30.0)
 
     def _json(self, method: str, path: str, **kwargs) -> Any:
         resp = self._client.request(method, path, **kwargs)
@@ -90,7 +91,9 @@ class SelfHostedBackend(Mem0Backend):
         return _unwrap_results(self._json("POST", "/search", json={"query": query, "top_k": top_k, **({"filters": filters} if filters else {})}))
 
     def add(self, messages: list, *, user_id: str, agent_id: str, infer: bool = False, metadata: dict | None = None) -> dict:
-        return self._json("POST", "/memories", json={"messages": messages, **_add_kwargs(user_id, agent_id, infer, metadata)})
+        # Server-side extraction takes longer than a search or verbatim write.
+        return self._json("POST", "/memories", json={"messages": messages, **_add_kwargs(user_id, agent_id, infer, metadata)},
+                          timeout=self._capture_timeout if infer else self._client.timeout)
 
     def get(self, memory_id: str) -> dict | None:
         return self._json("GET", f"/memories/{memory_id}")
