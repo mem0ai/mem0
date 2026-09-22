@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import logging
+import os
 from abc import ABC, abstractmethod
-from contextlib import closing, suppress
+from contextlib import closing, nullcontext, suppress
+from copy import deepcopy
+from dataclasses import dataclass, field
+from threading import RLock
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -113,6 +117,19 @@ _DIRECT_OPENAI_PROVIDER = "hermes_openai"
 _DIRECT_OPENAI_CLASS_PATH = f"{__package__}._openai_llm.DirectOpenAILLM"
 
 
+@dataclass
+class _LocalQdrantMemory:
+    memory: Any
+    config: dict
+    profile: str
+    lock: Any = field(default_factory=RLock)
+    users: int = 1
+
+
+_LOCAL_QDRANT_MEMORIES: dict[str, _LocalQdrantMemory] = {}
+_LOCAL_QDRANT_LOCK = RLock()
+
+
 def _register_direct_openai_provider() -> None:
     """Register Hermes' OpenAI-only Mem0 LLM provider once per factory."""
     from mem0.configs.llms.openai import OpenAIConfig
@@ -129,11 +146,12 @@ class OSSBackend(Mem0Backend):
     """Wraps mem0.Memory for self-hosted (OSS) mode."""
 
     def __init__(self, oss_config: dict):
-        import os
-
-        from mem0 import Memory
-
         from ._oss_providers import EMBEDDER_PROVIDERS, KNOWN_DIMS, LLM_PROVIDERS
+
+        self._local_path = None
+        self._owner = None
+        self._lock = nullcontext()
+        self._closed = False
 
         def _provider_block(name: str, registry: dict) -> dict:
             """Copy of oss_config[name] with the legacy ``api_base`` key mapped to the provider's canonical base-URL key."""
@@ -143,13 +161,13 @@ class OSSBackend(Mem0Backend):
             canonical_key = registry.get(str(block.get("provider") or "").strip().lower(), {}).get("base_url_key")
             if legacy_base and canonical_key:
                 provider_config.setdefault(canonical_key, legacy_base)
-            if name == "embedder" and str(block.get("provider") or "").strip().lower() == "openai":
+            if str(block.get("provider") or "").strip().lower() == "openai":
                 from agent.secret_scope import get_secret
 
-                # Mem0's embedder reads process-wide env vars unless these are explicit.
+                # Resolve profile secrets before comparing configurations for sharing.
                 provider_config["api_key"] = provider_config.get("api_key") or get_secret("OPENAI_API_KEY", "")
                 if not provider_config["api_key"]:
-                    raise ValueError("OpenAI API key is required for the Hermes Mem0 OSS embedder")
+                    raise ValueError(f"OpenAI API key is required for the Hermes Mem0 OSS {name}")
                 provider_config["openai_base_url"] = (
                     provider_config.get("openai_base_url") or get_secret("OPENAI_API_BASE", "")
                     or get_secret("OPENAI_BASE_URL", "") or "https://api.openai.com/v1"
@@ -159,20 +177,49 @@ class OSSBackend(Mem0Backend):
 
         vector_store = dict(oss_config["vector_store"])
         vs_config = dict(vector_store.get("config", {}))
-        if "path" in vs_config:
+        if vs_config.get("path"):
             vs_config["path"] = os.path.expanduser(vs_config["path"])
         embedder_config = oss_config.get("embedder", {}).get("config", {})
         dims = embedder_config.get("embedding_dims") or KNOWN_DIMS.get(embedder_config.get("model", ""))
         if dims:
             vs_config["embedding_model_dims"] = dims
-            self._reject_dimension_mismatch(vector_store.get("provider", "qdrant"), vs_config, dims)
-        else:
-            logger.warning(
-                "Unknown embedding dimensions for embedder model %r; skipping dimension-change guard for collection %r.",
-                embedder_config.get("model"), vs_config.get("collection_name", "mem0"),
-            )
+        remote = (vs_config.get("host") and vs_config.get("port")) or vs_config.get("url") or vs_config.get("api_key")
+        if (vector_store.get("provider", "qdrant") == "qdrant" and not vs_config.get("client")
+                and not remote and vs_config.get("https") is None):
+            from mem0.configs.vector_stores.qdrant import QdrantConfig
+            path = vs_config.get("path", QdrantConfig.model_fields["path"].default)
+            if path:
+                self._local_path = vs_config["path"] = os.path.realpath(os.path.expanduser(path))
         vector_store["config"] = vs_config
         config = {"vector_store": vector_store, "llm": _provider_block("llm", LLM_PROVIDERS), "embedder": _provider_block("embedder", EMBEDDER_PROVIDERS), "version": "v1.1"}
+        if self._local_path:
+            from hermes_constants import get_hermes_home
+            profile = os.path.realpath(get_hermes_home())
+            with _LOCAL_QDRANT_LOCK:
+                owner = _LOCAL_QDRANT_MEMORIES.get(self._local_path)
+                if owner is None:
+                    owner = _LocalQdrantMemory(self._create_memory(config, dims), deepcopy(config), profile)
+                    _LOCAL_QDRANT_MEMORIES[self._local_path] = owner
+                else:
+                    if owner.profile != profile or owner.config != config:
+                        raise ValueError("Local Qdrant storage is already open with a different profile or configuration. "
+                                         "Existing memories were preserved. Close its active sessions before changing settings, "
+                                         "or use a separate storage path.")
+                    owner.users += 1
+                self._owner, self._lock, self._memory = owner, owner.lock, owner.memory
+        else:
+            self._memory = self._create_memory(config, dims)
+
+    @staticmethod
+    def _create_memory(config: dict, dims: int | None):
+        from mem0 import Memory
+        vector_store = config["vector_store"]
+        vs_config = vector_store["config"]
+        if dims:
+            OSSBackend._reject_dimension_mismatch(vector_store.get("provider", "qdrant"), vs_config, dims)
+        else:
+            logger.warning("Unknown embedding dimensions; skipping dimension-change guard for collection %r.",
+                           vs_config.get("collection_name", "mem0"))
         if str(config["llm"].get("provider") or "").strip().lower() == "openai":
             # mem0 validates LlmConfig.provider before its factory lookup: build the supported OpenAI config, then swap the provider.
             _register_direct_openai_provider()
@@ -182,9 +229,8 @@ class OSSBackend(Mem0Backend):
                 memory_config.llm.provider = _DIRECT_OPENAI_PROVIDER
             except (AttributeError, TypeError) as exc:
                 raise RuntimeError("mem0 MemoryConfig does not expose a mutable llm.provider for the Hermes OpenAI OSS backend") from exc
-            self._memory = Memory(memory_config)
-        else:
-            self._memory = Memory.from_config(config)
+            return Memory(memory_config)
+        return Memory.from_config(config)
 
     @staticmethod
     def _detect_current_dims(provider: str, vs_config: dict, collection_name: str) -> int | None:
@@ -239,28 +285,52 @@ class OSSBackend(Mem0Backend):
             )
 
     def search(self, query: str, *, filters: dict, top_k: int = 10, rerank: bool = False) -> list[dict]:
-        return _unwrap_results(self._memory.search(query, filters=filters, top_k=top_k))
+        return _unwrap_results(self._call("search", query, filters=filters, top_k=top_k))
 
     def add(self, messages: list, *, user_id: str, agent_id: str, infer: bool = False, metadata: dict | None = None) -> dict:
-        return self._memory.add(messages, **_add_kwargs(user_id, agent_id, infer, metadata))
+        return self._call("add", messages, **_add_kwargs(user_id, agent_id, infer, metadata))
 
     def get(self, memory_id: str) -> dict | None:
-        return self._memory.get(memory_id)
+        return self._call("get", memory_id)
 
     def _update(self, memory_id: str, text: str) -> None:
-        self._memory.update(memory_id, data=text)
+        self._call("update", memory_id, data=text)
 
     def _delete(self, memory_id: str) -> None:
-        self._memory.delete(memory_id)
+        self._call("delete", memory_id)
+
+    def _call(self, method, *args, **kwargs):
+        # ponytail: serialize whole local SDK operations, including extraction's read/modify/write.
+        # Use a Qdrant server for parallel throughput or access from multiple processes.
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("Mem0 backend is closed")
+            return getattr(self._memory, method)(*args, **kwargs)
 
     def close(self):
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            if self._owner:
+                with _LOCAL_QDRANT_LOCK:
+                    self._owner.users -= 1
+                    if self._owner.users == 0:
+                        self._close_memory()
+                        del _LOCAL_QDRANT_MEMORIES[self._local_path]
+            else:
+                self._close_memory()
+
+    def _close_memory(self):
         with suppress(Exception):
             telemetry = getattr(self._memory, "telemetry", None)
             if telemetry and hasattr(telemetry, "posthog"):
                 with suppress(Exception):
                     telemetry.posthog.shutdown()
         vs = getattr(self._memory, "vector_store", None)
-        for obj in filter(None, (self._memory, vs, getattr(vs, "client", None))):
+        telemetry_vs = getattr(self._memory, "_telemetry_vector_store", None)
+        resources = (self._memory, vs, getattr(vs, "client", None), getattr(telemetry_vs, "client", None))
+        for obj in {id(obj): obj for obj in resources if obj is not None}.values():
             if hasattr(obj, "close"):
                 with suppress(Exception):
                     obj.close()

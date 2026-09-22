@@ -186,6 +186,8 @@ For an OpenAI-compatible service such as Azure's `/openai/v1` endpoint, add `OPE
 
 For a Qdrant server, replace `vector_store.config.path` with `url`, for example `"url": "http://localhost:6333"`. Manual setup does not install optional provider dependencies: install `qdrant-client`, `psycopg2-binary`, or `ollama` in the **Hermes Python environment** as needed for your selected providers. Start a fresh session and verify a memory write and search; `hermes memory status` reports configuration availability, not a full backend health check.
 
+Desktop sessions in the same process and profile share local Qdrant storage when their OSS settings match. Operations are serialized, and storage closes after the last session releases it. Conflicting settings are rejected without changing existing memories; close active sessions before changing models or credentials. For concurrent CLI and Desktop processes, use a Qdrant server or the self-hosted Mem0 HTTP API instead of sharing a local directory.
+
 ## Switching Modes
 
 Run `hermes memory setup mem0` in an interactive terminal and choose the new mode, or edit the active profile's `mem0.json` using the examples above. Switching backends does not transfer memories between them. Preserve existing OSS storage paths when editing configuration. When returning to Platform, set `mode` to `platform`, clear `host`, and remove any stale `MEM0_HOST` setting from your environment and profile `.env`.

@@ -44,6 +44,8 @@ For a self-hosted server, choose **Self-hosted server** and enter its URL and AP
 
 For the in-process SDK, choose **Open Source**. The wizard offers OpenAI or Ollama and local Qdrant or PGVector. Use manual configuration for custom OpenAI-compatible endpoints, deployment names, or a Qdrant server. OSS does not use Mem0 Cloud; data still goes to whichever model services you configure. Run setup again to switch modes. When switching to Platform, remove any stale `MEM0_HOST` setting from the environment and profile `.env`.
 
+Desktop sessions in the same process and profile share local Qdrant storage when their OSS settings match. Operations are serialized, and storage closes after the last session releases it. Conflicting settings are rejected without changing existing memories; close the active sessions before changing models or credentials. Use a Qdrant server or the self-hosted Mem0 HTTP API when separate processes (for example, CLI and Desktop together) need the same store.
+
 Hermes hosts whose `hermes memory setup --help` lists only a provider argument reject options such as `--mode`, `--host`, and `--oss-llm` before the plugin runs. Use the interactive command above, or the [manual profile configuration](https://docs.mem0.ai/integrations/hermes) for unattended setup. Redirected input cannot select the mode picker; it falls back to Platform.
 
 ### 3. Verify
@@ -131,7 +133,7 @@ HERMES_SOURCE=/path/to/hermes-agent python integrations/hermes-plugin-mem0/tests
 
 The smoke uses the real Hermes external loader, Mem0 SDK, and an on-disk Qdrant database
 in a temporary profile. It exercises CLI setup/status, all four tools, recall, background extraction,
-existing user identity, private files, dimension-mismatch protection, shutdown, and persistence across restart. Only the OpenAI-compatible
+concurrent sessions, canonical storage paths, isolated user identities, conflicting configurations, private files, dimension-mismatch protection, last-owner shutdown, and persistence across restart. Only the OpenAI-compatible
 model service is simulated locally; this does not test live cloud credentials or model quality.
 
 ## License

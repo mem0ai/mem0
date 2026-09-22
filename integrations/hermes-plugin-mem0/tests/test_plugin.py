@@ -185,7 +185,7 @@ def test_oss_embedder_never_uses_another_profiles_credentials(plugin, monkeypatc
     config = {
         "llm": {"provider": "ollama", "config": {}},
         "embedder": {"provider": "openai", "config": {}},
-        "vector_store": {"provider": "qdrant", "config": {}},
+        "vector_store": {"provider": "qdrant", "config": {"url": "http://qdrant.invalid"}},
     }
     if not scoped_key:
         with pytest.raises(ValueError, match="OpenAI API key"):

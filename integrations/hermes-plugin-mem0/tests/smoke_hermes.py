@@ -13,7 +13,9 @@ import shutil
 import sys
 import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stdout
+from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
@@ -111,6 +113,50 @@ def main():
             manager.add_provider(provider)
             manager.initialize_all("smoke-session", platform="cli", user_id="gateway-user")
             assert provider._backend is not None, getattr(provider, "_init_error", "initialization failed")
+            # Desktop keeps restored sessions alive while opening another conversation.
+            peer = type(provider)()
+            peer.initialize("second-desktop-session", platform="desktop")
+            assert peer._backend is not None, getattr(peer, "_init_error", "second session failed")
+            backend = importlib.import_module(f"{provider.__class__.__module__}._backend")
+            # A symlink must resolve to the same owner; simultaneous callers must not race to open it.
+            alias = home / "qdrant-alias"
+            alias.symlink_to(home / "qdrant", target_is_directory=True)
+            aliased = deepcopy(config["oss"])
+            aliased["vector_store"]["config"]["path"] = str(alias)
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                siblings = list(pool.map(lambda _: backend.OSSBackend(aliased), range(3)))
+                try:
+                    writes = [pool.submit(sibling.add, [{"role": "user", "content": f"Private fact {i}."}],
+                                          user_id=f"separate-user-{i}", agent_id="hermes")
+                              for i, sibling in enumerate(siblings)]
+                    for write in writes:
+                        write.result()
+                    for i, sibling in enumerate(siblings):
+                        found = sibling.search("fact", filters={"user_id": f"separate-user-{i}", "agent_id": "hermes"})
+                        assert [item["memory"] for item in found] == [f"Private fact {i}."]
+                finally:
+                    for sibling in siblings:
+                        sibling.close()
+                        sibling.close()
+            # Reject conflicting live settings without closing or modifying the existing owner.
+            for section, key, value in (("llm", "api_key", "another-key"),
+                                        ("embedder", "embedding_dims", 4),
+                                        ("vector_store", "collection_name", "another-collection")):
+                conflicting = deepcopy(config["oss"])
+                conflicting[section]["config"][key] = value
+                try:
+                    backend.OSSBackend(conflicting)
+                except ValueError as exc:
+                    assert "Existing memories were preserved" in str(exc)
+                else:
+                    raise AssertionError("Conflicting local store configuration was accepted")
+            with patch("hermes_constants.get_hermes_home", return_value=home / "different-profile"):
+                try:
+                    backend.OSSBackend(config["oss"])
+                except ValueError as exc:
+                    assert "different profile or configuration" in str(exc)
+                else:
+                    raise AssertionError("Another profile inherited an active local store")
 
             def tool(name, **arguments):
                 result = json.loads(manager.handle_tool_call(name, arguments))
@@ -122,6 +168,7 @@ def main():
                 memories = tool("mem0_search", query="language")["results"]
                 assert len(memories) == 1 and memories[0]["memory"] == "Prefers Python."
                 memory_id = memories[0]["id"]
+                assert "Prefers Python." in peer.prefetch("language")
                 tool("mem0_update", memory_id=memory_id, text="Prefers Rust.")
                 assert "Prefers Rust." in provider.prefetch("language preference")
                 assert tool("mem0_search", query="language")["results"][0]["memory"] == "Prefers Rust."
@@ -132,6 +179,11 @@ def main():
             finally:
                 manager.shutdown_all()
             assert provider._backend is None
+            try:
+                assert "error" not in json.loads(peer.handle_tool_call("mem0_add", {"content": "Prefers evening walks."}))
+                assert "green tea" in peer.prefetch("tea preference").lower()
+            finally:
+                peer.shutdown()
             # A changed embedder must fail without destroying the existing collection.
             config["oss"]["embedder"]["config"]["embedding_dims"] = 4
             provider.save_config(config, home)
@@ -162,12 +214,13 @@ def main():
                 assert resumed._backend is not None
                 found = json.loads(resumed.handle_tool_call("mem0_search", {"query": "drink"}))
                 assert "results" in found, found
-                assert found["results"][0]["memory"] == "Prefers green tea."
+                assert any(item["memory"] == "Prefers green tea." for item in found["results"])
             finally:
                 resumed.shutdown()
             assert "/v1/chat/completions" in ModelAPI.calls
             print("PASS: external Hermes loader, CLI setup/status, real Mem0/Qdrant CRUD, recall, background extraction,")
-            print("      existing identity, profile credentials, private files, shutdown, dimension safety and persistence across restart. Model responses simulated locally.")
+            print("      concurrent sessions, scoped identities, canonical paths, conflicting settings, last-owner shutdown,")
+            print("      profile credentials, private files, dimension safety and persistence across restart. Model responses simulated locally.")
         finally:
             server.shutdown()
             server.server_close()
