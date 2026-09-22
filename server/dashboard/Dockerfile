@@ -4,8 +4,13 @@ WORKDIR /app
 
 # Dependencies
 FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN corepack enable pnpm && pnpm install --frozen-lockfile
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+RUN \
+  if [ -f yarn.lock ]; then yarn --frozen-lockfile --network-timeout 600000; \
+  elif [ -f package-lock.json ]; then npm ci; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i; \
+  else npm install; \
+  fi
 
 # Build
 FROM base AS builder
@@ -18,7 +23,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_API_URL=NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_INSTANCE_NAME=NEXT_PUBLIC_INSTANCE_NAME
 
-RUN corepack enable pnpm && pnpm run build
+RUN npm run build
 
 # Production
 FROM base AS runner
