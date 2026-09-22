@@ -116,25 +116,15 @@ The plugin supports CLI setup/status. It does not include a Desktop configuratio
 
 ## Development
 
-From the Mem0 repository root, with `pytest`, `httpx`, `ruff`, and `isort` installed:
+From the Mem0 repository root, with `ruff` and `isort` installed:
 
 ```bash
-python -m pytest -q --confcutdir=integrations/hermes-plugin-mem0/tests integrations/hermes-plugin-mem0/tests
 ruff check integrations/hermes-plugin-mem0
 isort --check-only --profile black integrations/hermes-plugin-mem0
 ```
 
-For the runtime smoke, use an environment containing Hermes dependencies, `mem0ai`, and
-`qdrant-client`:
-
-```bash
-HERMES_SOURCE=/path/to/hermes-agent python integrations/hermes-plugin-mem0/tests/smoke_hermes.py
-```
-
-The smoke uses the real Hermes external loader, Mem0 SDK, and an on-disk Qdrant database
-in a temporary profile. It exercises CLI setup/status, all four tools, recall, background extraction,
-concurrent sessions, canonical storage paths, isolated user identities, conflicting configurations, private files, dimension-mismatch protection, last-owner shutdown, and persistence across restart. Only the OpenAI-compatible
-model service is simulated locally; this does not test live cloud credentials or model quality.
+Validate changes in an isolated Hermes profile using live CLI and Desktop sessions. Check memory
+add/search/update/delete, automatic capture and recall, overlapping Desktop sessions, and persistence after restart.
 
 ## License
 
