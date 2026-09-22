@@ -1,5 +1,6 @@
 import logging
 import uuid
+from importlib.metadata import PackageNotFoundError, version
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
@@ -20,6 +21,28 @@ from weaviate.util import get_valid_uuid
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+# Weaviate (1.38.0+) attributes traffic to the integration that produced it through this
+# header, the same way the MongoDB store identifies Mem0 with DriverInfo. Older servers
+# ignore it. The "-python" suffix tells this store apart from the mem0-ts Weaviate store.
+_INTEGRATION_HEADER = "X-Weaviate-Client-Integration"
+_INTEGRATION_NAME = "mem0-python"
+
+
+def _with_integration_header(headers: Optional[Dict[str, str]]) -> Dict[str, str]:
+    """Return a copy of `headers` that also carries the integration header.
+
+    A header the user already set wins. The match ignores case because gRPC metadata keys are
+    lowercased, so two spellings of the same header would both be sent.
+    """
+    merged = dict(headers or {})
+    if not any(key.lower() == _INTEGRATION_HEADER.lower() for key in merged):
+        try:
+            mem0_version = version("mem0ai")
+        except PackageNotFoundError:
+            mem0_version = "unknown"
+        merged[_INTEGRATION_HEADER] = f"{_INTEGRATION_NAME}/{mem0_version}"
+    return merged
 
 
 class OutputData(BaseModel):
@@ -48,6 +71,7 @@ class Weaviate(VectorStoreBase):
             auth_config (dict, optional): Authentication configuration for Weaviate. Defaults to None.
             additional_headers (dict, optional): Additional headers for requests. Defaults to None.
         """
+        additional_headers = _with_integration_header(additional_headers)
         if "localhost" in cluster_url:
             self.client = weaviate.connect_to_local(headers=additional_headers)
         elif auth_client_secret:

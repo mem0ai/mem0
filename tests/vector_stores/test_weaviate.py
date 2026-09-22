@@ -1,3 +1,4 @@
+import importlib.metadata
 import os
 import unittest
 import uuid
@@ -263,6 +264,48 @@ class TestWeaviateDB(unittest.TestCase):
         vector_updates = [c for c in update_calls if "vector" in c.kwargs]
         self.assertEqual(len(vector_updates), 1)
         self.assertNotIn("properties", vector_updates[0].kwargs)
+
+
+class TestWeaviateIntegrationHeader(unittest.TestCase):
+    """Every connection path must identify Mem0 to Weaviate with X-Weaviate-Client-Integration."""
+
+    EXPECTED = f"mem0-python/{importlib.metadata.version('mem0ai')}"
+
+    def _connect(self, factory, cluster_url, auth_client_secret=None, additional_headers=None):
+        client = MagicMock(spec=weaviate.WeaviateClient)
+        client.collections = MagicMock()
+        with patch(f"mem0.vector_stores.weaviate.weaviate.{factory}", return_value=client) as connect:
+            Weaviate(
+                collection_name="test_collection",
+                embedding_model_dims=1536,
+                cluster_url=cluster_url,
+                auth_client_secret=auth_client_secret,
+                additional_headers=additional_headers,
+            )
+        return connect.call_args.kwargs["headers"]
+
+    def test_local_sends_integration_header(self):
+        headers = self._connect("connect_to_local", "http://localhost:8080")
+        self.assertEqual(headers, {"X-Weaviate-Client-Integration": self.EXPECTED})
+
+    def test_cloud_sends_integration_header(self):
+        headers = self._connect("connect_to_weaviate_cloud", "https://example.weaviate.cloud", "key")
+        self.assertEqual(headers, {"X-Weaviate-Client-Integration": self.EXPECTED})
+
+    def test_custom_sends_integration_header(self):
+        headers = self._connect("connect_to_custom", "http://mem0_store:8080")
+        self.assertEqual(headers, {"X-Weaviate-Client-Integration": self.EXPECTED})
+
+    def test_user_headers_are_kept(self):
+        user_headers = {"X-OpenAI-Api-Key": "test_key"}
+        headers = self._connect("connect_to_local", "http://localhost:8080", additional_headers=user_headers)
+        self.assertEqual(headers, {"X-OpenAI-Api-Key": "test_key", "X-Weaviate-Client-Integration": self.EXPECTED})
+        self.assertEqual(user_headers, {"X-OpenAI-Api-Key": "test_key"})
+
+    def test_user_integration_header_wins_regardless_of_case(self):
+        user_headers = {"x-weaviate-client-integration": "my-app/1.0"}
+        headers = self._connect("connect_to_local", "http://localhost:8080", additional_headers=user_headers)
+        self.assertEqual(headers, {"x-weaviate-client-integration": "my-app/1.0"})
 
 
 if __name__ == "__main__":
