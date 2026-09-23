@@ -8179,25 +8179,9 @@
 										},
 										"entities": {
 											"type": "object",
-											"description": "Per-entity-type settings. Only `user` is available in this release.",
+											"description": "Settings for user profiles, under `user`.",
 											"properties": {
 												"user": {
-													"type": "object",
-													"properties": {
-														"schema": {
-															"type": "object",
-															"additionalProperties": true,
-															"nullable": true,
-															"description": "JSON Schema describing the profile. Every property needs a description."
-														},
-														"custom_instructions": {
-															"type": "string",
-															"nullable": true,
-															"description": "Extra guidance for the extraction step."
-														}
-													}
-												},
-												"agent": {
 													"type": "object",
 													"properties": {
 														"schema": {
@@ -8261,7 +8245,7 @@
 									},
 									"entities": {
 										"type": "object",
-										"description": "Per-entity-type settings. Only `user` is available in this release.",
+										"description": "Settings for user profiles, under `user`.",
 										"properties": {
 											"user": {
 												"type": "object",
@@ -8300,25 +8284,9 @@
 										},
 										"entities": {
 											"type": "object",
-											"description": "Per-entity-type settings. Only `user` is available in this release.",
+											"description": "Settings for user profiles, under `user`.",
 											"properties": {
 												"user": {
-													"type": "object",
-													"properties": {
-														"schema": {
-															"type": "object",
-															"additionalProperties": true,
-															"nullable": true,
-															"description": "JSON Schema describing the profile. Every property needs a description."
-														},
-														"custom_instructions": {
-															"type": "string",
-															"nullable": true,
-															"description": "Extra guidance for the extraction step."
-														}
-													}
-												},
-												"agent": {
 													"type": "object",
 													"properties": {
 														"schema": {
