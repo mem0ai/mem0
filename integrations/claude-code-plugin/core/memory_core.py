@@ -71,15 +71,13 @@ MAX_FLUSH_ATTEMPTS = 5
 FORGET_PAGE_SIZE = 100
 FORGET_MAX_PAGES = 50
 
-PROJECT_MEMORY_INSTRUCTIONS = """Save concise repository facts that will help anyone with future coding work in this repository.
+PROJECT_MEMORY_INSTRUCTIONS = """Save concise repository facts that will help with future coding work.
 
 A completed change should produce one memory explaining the resulting behavior, where it is implemented when useful, and any important constraints or reasoning. Exploration or accepted decisions may produce separate memories only when they are independently useful.
 
-A command that failed and was then made to work should produce one memory naming the failing invocation, the error it returned, and the invocation that succeeded. Do not save one-off errors caused by an edit still in progress, transient network failures, or anything a rerun would fix on its own.
+Use the coding agent's final response for conclusions about current repository behavior. Do not save proposed or recommended changes unless the user accepted them or the coding agent completed them. Treat subagent responses as supporting repository evidence, not as decisions.
 
-Use the current coding agent's final response for conclusions about current repository behavior. Do not save proposed or recommended changes unless the user accepted them or the coding agent completed them. Treat subagent responses as supporting repository evidence, not as decisions.
-
-Write about the repository, not the user, assistant, session, or task. Do not save personal preferences. Do not save a memory that only states which repository, branch, or directory the session worked in. Do not include test results, documentation updates, release notes, or temporary state.
+Write about the repository, not the user, assistant, session, or task. Do not save personal preferences. Do not include test results, documentation updates, release notes, or temporary state.
 
 If nothing useful was established, return no memories."""
 

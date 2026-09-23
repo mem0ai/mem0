@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import re
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -2307,8 +2307,8 @@ def test_sidekick_instructions_reject_unrequested_related_changes():
     prompt = (PLUGIN_ROOT / "agents" / "sidekick.md").read_text()
     normalized = " ".join(prompt.split())
     assert "Skill" in prompt.split("---", 2)[1]
-    assert "ALWAYS call `search_memories` before answering anything" in normalized
-    assert "Do not rely on the chat window" in normalized
+    assert "call `search_memories` with a" in normalized
+    assert "focused question before searching the repository again" in normalized
     assert "Complete only the work the main agent assigned" in normalized
     assert "Do not make related improvements" in normalized
     assert "report them separately" in normalized
@@ -4333,7 +4333,7 @@ def test_flush_sends_unified_body_with_both_agent_and_user_id(isolated_env, monk
     assert sent_body["run_id"] == "s1"
     assert "lane" not in sent_body["metadata"]
     assert "Save concise repository facts" in sent_body["agent_custom_instructions"]
-    assert "invocation that succeeded" in sent_body["agent_custom_instructions"]
+    assert "Do not save personal preferences." in sent_body["agent_custom_instructions"]
     assert "Do not save repository facts" in sent_body["custom_instructions"]
     assert sent_body["custom_categories"] == memory_core.CODING_MEMORY_CATEGORIES
     store.close()
