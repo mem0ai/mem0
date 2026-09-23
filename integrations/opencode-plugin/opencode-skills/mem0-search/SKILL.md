@@ -27,14 +27,11 @@ When an ID is detected:
 
 ### Step 2: Search
 
-Run 2 parallel `search_memories` calls:
-
-1. Broad: `query=<user's query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
-2. Targeted: `query=<user's query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "decision"}}]}`, `top_k=5`, `rerank=true`
+Call `search_memories` once with the user's question: `query=<user's query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`.
 
 ### Step 3: Display
 
-Deduplicate by ID, then show compact results:
+Show compact results:
 
 ```
 ## mem0 search: "<query>" (<N> results)

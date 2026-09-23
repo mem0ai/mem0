@@ -1,5 +1,6 @@
 import type { MemoryLike } from "./formatting.ts";
 import { formatMemoryCompact } from "./formatting.ts";
+import { RECALL_HEADING } from "./prompts.ts";
 
 const MAX_RECALL_QUERY_CHARS = 6_000;
 export const DEFAULT_MAX_CONTEXT_CHARS = 4_000;
@@ -70,12 +71,14 @@ export function extractConversation(
 }
 
 interface RecallOptions {
+  heading?: string;
   maxChars?: number;
   seenIds?: Set<string>;
   timeoutMs?: number;
 }
 
 interface MemoryLifecycleOptions {
+  recallHeading?: string;
   maxContextChars?: number;
   recallTimeoutMs?: number;
 }
@@ -109,6 +112,7 @@ class MemoryLifecycle {
     search: (query: string) => Promise<{ results?: unknown[] }>,
   ): Promise<string> {
     return buildRecallContext(prompt, enabled, search, {
+      heading: this.#options.recallHeading,
       maxChars: this.#options.maxContextChars,
       seenIds: this.#seenMemoryIds,
       timeoutMs: this.#options.recallTimeoutMs,
@@ -148,8 +152,7 @@ export async function buildRecallContext(
     const unseen = memories.filter((memory) => !options.seenIds?.has(memory.id));
     if (!unseen.length) return "";
 
-    const prefix =
-      "<mem0-relevant-memories>\nRetrieved automatically for the current request. This is a shallow first pass — search mem0_memory for more if you need it.\n";
+    const prefix = `<mem0-relevant-memories>\n${options.heading ?? RECALL_HEADING}\n`;
     const suffix = "\n</mem0-relevant-memories>";
     const maxChars = options.maxChars ?? DEFAULT_MAX_CONTEXT_CHARS;
     const lines: string[] = [];
