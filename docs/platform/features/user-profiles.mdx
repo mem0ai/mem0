@@ -281,10 +281,9 @@ On a project where profiles are turned off, a read returns `status: not_enabled`
 | `enabled` | boolean | Whether profile generation runs for the project |
 | `schema` | object | JSON Schema describing the profile. Every property needs a `description` |
 | `custom_instructions` | string | Extra guidance applied during extraction |
-| `entity_type` | string | Which entity kind `schema` and `custom_instructions` apply to. Defaults to `user` |
 
-`enabled` is project-wide. `schema` and `custom_instructions` belong to one
-entity type, so the stored settings nest them under `entities`:
+`enabled` is project-wide. `schema` and `custom_instructions` apply to user
+profiles, so the stored settings nest them under `entities`:
 
 ```json
 {
@@ -293,8 +292,7 @@ entity type, so the stored settings nest them under `entities`:
     "user": {
       "schema": { "type": "object", "properties": { "...": {} } },
       "custom_instructions": "Prefer durable traits over one-off remarks."
-    },
-    "agent": { "schema": null, "custom_instructions": null }
+    }
   },
   "capabilities": { "full_rebuild": false }
 }
