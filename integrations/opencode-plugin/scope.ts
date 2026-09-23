@@ -7,15 +7,21 @@ import {
 
 export type { Scope };
 
-const context = (userId: string, appId: string, runId: string) => ({ userId, appId, runId });
+const context = (userId: string, appId: string, runId: string, projectIds?: string[]) => ({
+  userId,
+  appId,
+  runId,
+  projectIds,
+});
 
 export function scopeSearchFilters(
   scope: Scope,
   userId: string,
   appId: string,
   runId: string,
-): Record<string, string> {
-  return sharedSearchFilters(scope, context(userId, appId, runId));
+  projectIds?: string[],
+): Record<string, unknown> {
+  return sharedSearchFilters(scope, context(userId, appId, runId, projectIds));
 }
 
 export function scopeWriteParams(
@@ -38,5 +44,3 @@ export function resolveDefaultScope(settings: Record<string, unknown> | null | u
   return normalizeScope(settings?.default_scope);
 }
 
-export const SCOPE_GUIDANCE =
-  'Memory tools accept an optional `scope`: omit it (or "project") for normal queries; use "session" to limit to the current run; use "global" only after the user enables /mem0-scope global.';

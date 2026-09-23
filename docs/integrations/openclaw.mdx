@@ -20,9 +20,9 @@ The plugin provides:
 2. **Recall**: Before each turn, relevant memories are retrieved with reranking and injected into context
 3. **Agent Tools**: Eight tools for explicit memory operations during conversations
 
-Skills mode, `autoRecall`, and `autoCapture` are all enabled by default during `openclaw mem0 init`.
+`openclaw mem0 init` enables skills mode. While skills mode is active, the skills handle recall and storage and the `autoRecall` and `autoCapture` hooks are not registered.
 
-Automatic capture preserves the full text of selected user and assistant messages after noise filtering and secret redaction, without a per-message character cutoff. It selects recent messages and earlier work summaries; it does not capture every message in the conversation.
+With skills mode off, `autoRecall` and `autoCapture` (both on by default) follow the Claude Code plugin. Recall runs once per session, on the first prompt of 20 characters or more, and injects up to `topK` memories with reranking off, only the latest version of each memory, and no score threshold. Capture keeps each turn's redacted prompt and final reply, and sends them after 5 exchanges, 10 messages, or 40,000 characters, after 5 idle minutes, before compaction, and when the session ends.
 
 ## Requirements
 
@@ -291,11 +291,11 @@ All `oss` fields are optional. See [Mem0 OSS docs](/open-source/node-quickstart)
 
 Memories are organized into two scopes:
 
-- **Session (short-term)**: Auto-capture stores memories scoped to the current session via Mem0's `run_id` / `runId` parameter. These are contextual to the ongoing conversation.
+- **Session (short-term)**: Memories stored with the current session's `run_id` / `runId`. These are contextual to the ongoing conversation.
 
 - **User (long-term)**: The agent can explicitly store long-term memories using the `memory_add` tool (with `longTerm: true`, the default). These persist across all sessions for the user.
 
-During **auto-recall**, the plugin searches both scopes and presents them separately, with long-term memories first and session memories second. This means the agent has full context.
+Automatic recall and automatic capture use the long-term user scope. Skills-mode recall with `strategy: "always"` also searches the current session.
 
 ## Agent Tools
 
@@ -345,10 +345,10 @@ openclaw mem0 status --json
 |-----|------|---------|-------------|
 | `mode` | `"platform"` \| `"open-source"` | `"platform"` | Which backend to use |
 | `userId` | `string` | OS username | Scope memories per user |
-| `autoRecall` | `boolean` | `true` | Inject memories before each turn, including when skills mode is configured. |
-| `autoCapture` | `boolean` | `true` | Store facts after each turn, including when skills mode is configured. |
+| `autoRecall` | `boolean` | `true` | Inject memories once per session, on the first prompt. Not registered in skills mode. |
+| `autoCapture` | `boolean` | `true` | Store each turn's prompt and reply at checkpoints and when the session ends. Not registered in skills mode. |
 | `topK` | `number` | `5` | Max memories per recall |
-| `searchThreshold` | `number` | `0.3` | Min similarity (0–1) |
+| `searchThreshold` | `number` | `0.3` | Min similarity (0–1) for `memory_search`. Automatic recall uses no threshold. |
 
 ### Platform Mode Options
 
@@ -445,7 +445,7 @@ If `openclaw plugins update` fails:
 
 ### Auto-Capture and Auto-Recall
 
-Auto-capture and auto-recall are **enabled by default**. They also run when skills mode is configured (the default after `openclaw mem0 init`). Set `autoRecall` or `autoCapture` to `false` to disable the corresponding automatic hook while using skills.
+Auto-capture and auto-recall are **enabled by default** when skills mode is off. When skills mode is configured (the default after `openclaw mem0 init`), the skills handle memory and these hooks are not registered. Set `autoRecall` or `autoCapture` to `false` to disable the corresponding automatic hook.
 
 To disable either:
 

@@ -1,39 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { detectRunId, resolveSearchFilters, resolveAddParams } from "./scoping.ts";
-
-const mockExecFileSync = vi.fn();
-
-vi.mock("node:child_process", () => ({
-  execFileSync: (...args: any[]) => mockExecFileSync(...args),
-}));
-
-const { detectAppId } = await import("./scoping.ts");
-
-describe("detectAppId", () => {
-  beforeEach(() => {
-    mockExecFileSync.mockReset();
-  });
-
-  it("uses git root basename for a git repo", () => {
-    mockExecFileSync.mockReturnValue("/home/user/projects/my-app\n");
-    expect(detectAppId("/home/user/projects/my-app")).toBe("my-app");
-  });
-
-  it("returns same app_id from any subdirectory in a monorepo", () => {
-    mockExecFileSync.mockReturnValue("/home/user/projects/monorepo\n");
-    const root = detectAppId("/home/user/projects/monorepo");
-    const sub = detectAppId("/home/user/projects/monorepo/packages/core");
-    expect(root).toBe("monorepo");
-    expect(sub).toBe("monorepo");
-  });
-
-  it("falls back to basename when not in a git repo", () => {
-    mockExecFileSync.mockImplementation(() => {
-      throw new Error("fatal: not a git repository");
-    });
-    expect(detectAppId("/home/user/scratch")).toBe("scratch");
-  });
-});
 
 describe("detectRunId", () => {
   it("returns 'unknown' when no session file", () => {

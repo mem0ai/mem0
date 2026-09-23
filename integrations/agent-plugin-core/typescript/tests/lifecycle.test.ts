@@ -7,17 +7,54 @@ import {
   createMemoryLifecycle,
   extractConversation,
   redactSecrets,
+  repoCaptureOptions,
+  type ConversationMessage,
 } from "../src/lifecycle.ts";
 
-test("one lifecycle owns recall state and resets it for a new session", async () => {
+test("recall searches once for the first prompt and keeps that context for the session", async () => {
   const lifecycle = createMemoryLifecycle({ recallTimeoutMs: 50 });
-  const search = async () => ({ results: [{ id: "m1", memory: "Use pnpm" }] });
+  const queries: string[] = [];
+  const search = async (query: string) => {
+    queries.push(query);
+    return { results: [{ id: "m1", memory: "Use pnpm" }] };
+  };
 
-  assert.match(await lifecycle.recall("package manager", true, search), /Use pnpm/);
-  assert.equal(await lifecycle.recall("package manager", true, search), "");
+  const first = await lifecycle.recall("which package manager does this repo use?", true, search);
+  assert.match(first, /1\. Use pnpm/);
+  assert.equal(await lifecycle.recall("a different second prompt entirely", true, search), first);
+  assert.equal(queries.length, 1);
 
   lifecycle.beginSession();
-  assert.match(await lifecycle.recall("package manager", true, search), /Use pnpm/);
+  assert.equal(await lifecycle.recall("too short", true, search), "");
+  assert.equal(await lifecycle.recall("a longer prompt that would have searched", true, search), "");
+  assert.equal(queries.length, 1);
+});
+
+test("capture checkpoints end on an assistant response and flush the rest when forced", () => {
+  const lifecycle = createMemoryLifecycle();
+  for (let turn = 1; turn <= 6; turn++) {
+    lifecycle.recordUserPrompt(`prompt ${turn}`);
+    if (turn === 1) assert.deepEqual(lifecycle.takeCheckpoint(), []);
+    lifecycle.recordAssistantResponse(turn === 1 ? "api_key=hidden" : `answer ${turn}`);
+  }
+  lifecycle.recordAssistantResponse("   ");
+
+  const due = lifecycle.takeCheckpoint();
+  assert.equal(due.length, 10);
+  assert.deepEqual(due.slice(0, 2), [
+    { role: "user", content: "prompt 1" },
+    { role: "assistant", content: "api_key=[REDACTED]" },
+  ]);
+  assert.deepEqual(lifecycle.takeCheckpoint(), []);
+  assert.deepEqual(lifecycle.takeCheckpoint(true), [
+    { role: "user", content: "prompt 6" },
+    { role: "assistant", content: "answer 6" },
+  ]);
+  assert.deepEqual(lifecycle.takeCheckpoint(true), []);
+
+  lifecycle.recordUserPrompt("x".repeat(40_000));
+  lifecycle.recordAssistantResponse("done");
+  assert.equal(lifecycle.takeCheckpoint().length, 2);
 });
 
 test("one lifecycle owns capture preparation", () => {
@@ -86,23 +123,30 @@ test("normalizes and sanitizes user/assistant conversation content", () => {
   ]);
 });
 
-test("recall is bounded, fail-open, and de-duplicates already injected memories", async () => {
-  const seen = new Set<string>(["old"]);
+test("recall matches Claude Code formatting, bounds output, and fails open", async () => {
   const search = async () => ({
     results: [
-      { id: "old", memory: "already shown" },
-      { id: "new", memory: `api_key=hidden ${"x".repeat(100)}` },
+      { id: "episode", memory: "raw episode", metadata: { record_kind: "task_episode" } },
+      { id: "a", memory: "Uses   pnpm\nworkspaces", metadata: { branch: "main" } },
+      { id: "b", memory: "Adds retries", metadata: { branch: "feat/retry" } },
     ],
   });
+  assert.equal(
+    await buildRecallContext("what changed?", true, search),
+    [
+      "<mem0-relevant-memories>",
+      "Mem0 found these relevant memories from earlier work in this repository:",
+      "1. Uses pnpm workspaces",
+      "2. Adds retries [learnt on branch feat/retry]",
+      "</mem0-relevant-memories>",
+    ].join("\n"),
+  );
 
-  const output = await buildRecallContext("what changed?", true, search, {
-    maxChars: 240,
-    seenIds: seen,
-  });
-  assert.equal(output.includes("already shown"), false);
+  const long = async () => ({ results: [{ id: "n", memory: `api_key=hidden ${"x".repeat(500)}` }] });
+  const output = await buildRecallContext("what changed?", true, long, { maxChars: 240 });
   assert.equal(output.includes("hidden"), false);
-  assert.ok(output.length <= 240);
-  assert.equal(seen.has("new"), true);
+  assert.match(output, /…\n<\/mem0-relevant-memories>$/);
+  assert.equal(output.length, 240);
   assert.equal(
     await buildRecallContext("what changed?", true, async () => {
       throw new Error("offline");
@@ -117,4 +161,55 @@ test("recall times out without blocking the host turn", async () => {
 
   assert.equal(await buildRecallContext("hello", true, never, { timeoutMs: 5 }), "");
   assert.ok(Date.now() - started < 100);
+});
+
+test("after a response, due checkpoints send now and anything else waits for the forced flush", async () => {
+  const lifecycle = createMemoryLifecycle();
+  const sent: [number, string][] = [];
+  const send = async (batch: ConversationMessage[], reason: string) => void sent.push([batch.length, reason]);
+
+  lifecycle.recordUserPrompt("prompt");
+  lifecycle.recordAssistantResponse("answer");
+  await lifecycle.afterResponse(send);
+  assert.deepEqual(sent, []);
+
+  for (let turn = 2; turn <= 5; turn++) {
+    lifecycle.recordUserPrompt(`prompt ${turn}`);
+    lifecycle.recordAssistantResponse(`answer ${turn}`);
+  }
+  await lifecycle.afterResponse(send);
+  assert.deepEqual(sent, [[10, "periodic"]]);
+
+  lifecycle.recordUserPrompt("last prompt");
+  await lifecycle.end("session-end", send);
+  assert.deepEqual(sent, [
+    [10, "periodic"],
+    [1, "session-end"],
+  ]);
+});
+
+test("capture options put repository facts in the project lane and omit unknown git facts", () => {
+  const repo = { appId: "mem0ai-mem0", projectId: "mem0ai-mem0-abc", projectIds: [], branch: "", sha: "", dirs: ["src"] };
+  const options = repoCaptureOptions(repo, "alice", "s1", "opencode");
+  assert.deepEqual(
+    { ...options, agent_custom_instructions: undefined, custom_instructions: undefined, custom_categories: undefined },
+    {
+      agent_id: "mem0ai-mem0-abc",
+      user_id: "alice",
+      app_id: "mem0ai-mem0",
+      run_id: "s1",
+      metadata: { source: "opencode", author: "alice", dirs: ["src"] },
+      agent_custom_instructions: undefined,
+      custom_instructions: undefined,
+      custom_categories: undefined,
+      infer: true,
+    },
+  );
+  assert.deepEqual(repoCaptureOptions({ ...repo, branch: "main", sha: "f00" }, "alice", "s1", "pi").metadata, {
+    source: "pi",
+    branch: "main",
+    git_sha: "f00",
+    author: "alice",
+    dirs: ["src"],
+  });
 });

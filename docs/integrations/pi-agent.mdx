@@ -12,9 +12,9 @@ Sidekick is available only in the [Claude Code plugin](/integrations/claude-code
 ## Overview
 
 The plugin provides:
-1. **Auto-capture**: Extracts durable facts from both user and assistant messages automatically
-2. **Semantic recall**: Automatically searches project memories before each agent turn; `mem0_memory` supports additional explicit searches
-3. **Monorepo-aware scoping**: Uses git root for project detection, consistent across subdirectories
+1. **Auto-capture**: Works like the Mem0 Claude Code plugin, sending your prompts and Pi's final responses at checkpoints
+2. **Semantic recall**: Searches this repository's memories once, on the first prompt of a session; `mem0_memory` supports additional explicit searches
+3. **Monorepo-aware scoping**: Derives the project from the git remote, consistent across subdirectories
 4. **Confirmation dialogs**: Destructive commands ask before acting via Pi's built-in UI
 5. **6 skills + 6 commands**: Essential memory management from slash commands and agent-guided workflows
 
@@ -82,7 +82,7 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
 | `mem0_memory` tool | Agent-callable tool for search, add, get_all, delete, delete_all |
 | 6 slash commands | Essential memory management from the command line |
 | 6 skills | Guide the agent on how to use each capability |
-| Auto-capture | Extracts and stores facts on every `agent_end` event |
+| Auto-capture | Sends prompts and final responses after 5 exchanges, 10 messages, or 40,000 characters, after 5 idle minutes, before compaction, and at session end |
 | System prompt | Appends memory policy to every agent turn |
 
 ## Agent Tool
@@ -118,11 +118,13 @@ Memories are scoped using Mem0's `user_id`, `app_id`, and `run_id` parameters:
 
 | Scope | Filters | Use Case |
 |-------|---------|----------|
-| `project` | user_id + app_id (git root) | **Default.** Project-specific knowledge: decisions, architecture, config |
+| `project` | repository agent_id, or user_id + app_id | **Default.** Project-specific knowledge: decisions, architecture, config |
 | `session` | user_id + app_id + run_id | Memories saved with the current session ID (no automatic expiration) |
 | `global` | user_id only | All memories across all your projects |
 
-The `app_id` is auto-detected from the git repository root (`git rev-parse --show-toplevel`), so all subdirectories within a monorepo share the same memory pool. Falls back to the working directory name for non-git directories. The `run_id` is derived from Pi's session file path. Automatic recall and capture use project scope, regardless of `defaultScope`; automatic writes do not include `run_id`. Use session-scoped tools or commands to save and recall session-specific memories. Captured user and assistant message text is redacted without a per-message character cutoff.
+The `app_id` comes from your git remote (`owner-repo`), falling back to the repository root's directory name, so all subdirectories within a monorepo share the same memory pool. The `run_id` is derived from Pi's session file path.
+
+Recall and capture work like the Mem0 Claude Code plugin, regardless of `defaultScope`. Recall runs once per session, on the first prompt of 20 characters or more, and adds the top 5 memories for this repository to the system prompt. Capture sends each session's redacted prompts and Pi's final responses with `infer=true`. Mem0 extracts repository facts under a hashed repository `agent_id` and personal facts under your `user_id`, using the same instructions and categories as the Claude Code plugin.
 
 Global tool operations require `/mem0-scope global` or `defaultScope: "global"` in plugin configuration. A model-supplied `scope` argument cannot enable cross-project access on its own. Empty or wildcard user, project, and session identities are rejected.
 
@@ -150,7 +152,7 @@ You: What do you know about my preferences?
 - **"No API key found"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
 - **Extension not loading**: Check Pi startup output for errors. For a source checkout, run `pnpm build`, then `pi -e ./dist/entry.js` from the plugin directory
 - **Memories not capturing**: Verify `autoCapture` is `true` (default). Check `/mem0-status` for connection health
-- **Wrong project detected**: The plugin uses the git repository root as `app_id`. If not in a git repo, it falls back to the working directory name. Run `/mem0-status` to see the detected project
+- **Wrong project detected**: The plugin derives `app_id` from the git remote (`owner-repo`). Without a remote it uses the repository root's directory name. Run `/mem0-status` to see the detected project
 
 <CardGroup cols={2}>
   <Card title="Claude Code Integration" icon="/images/provider-icons/anthropic.svg" href="/integrations/claude-code">

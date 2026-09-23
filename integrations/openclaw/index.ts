@@ -8,8 +8,8 @@
  * - 6 core tools: memory_search, memory_add, memory_get, memory_list,
  *   memory_update, memory_delete
  * - Short-term (session-scoped) and long-term (user-scoped) memory
- * - Auto-recall: injects relevant memories (both scopes) before each agent turn
- * - Auto-capture: stores key facts scoped to the current session after each agent turn
+ * - Auto-recall: injects relevant long-term memories once per session, on the first prompt
+ * - Auto-capture: sends each turn's prompt and reply at checkpoints and when the session ends
  * - Per-agent isolation: multi-agent setups write/read from separate userId namespaces
  *   automatically via sessionKey routing (zero breaking changes for single-agent setups)
  * - CLI: openclaw mem0 search, openclaw mem0 status
@@ -33,7 +33,6 @@ import {
 import { mem0ConfigSchema } from "./config.ts";
 import type { FileConfig } from "./config.ts";
 import { createPublicArtifactsProvider } from "./public-artifacts.ts";
-import { filterMessagesForExtraction } from "./filtering.ts";
 import {
   effectiveUserId,
   agentUserId,
@@ -53,7 +52,11 @@ import { readPluginAuth } from "./cli/config-file.ts";
 import { registerAllTools } from "./tools/index.ts";
 import type { ToolDeps } from "./tools/index.ts";
 import { captureEvent } from "./telemetry.ts";
-import { createMemoryLifecycle } from "../agent-plugin-core/typescript/src/lifecycle.ts";
+import {
+  createMemoryLifecycle,
+  type ConversationMessage,
+} from "../agent-plugin-core/typescript/src/lifecycle.ts";
+import { USER_RECALL_HEADING } from "../agent-plugin-core/typescript/src/prompts.ts";
 import { bootstrapTelemetryFlag } from "./fs-safe.ts";
 
 // ============================================================================
@@ -541,387 +544,131 @@ function registerHooks(
     return; // Skip legacy hook registration
   }
 
-  // ========================================================================
-  // LEGACY MODE: Original auto-recall + auto-capture behavior
-  // ========================================================================
+  if (!cfg.autoRecall && !cfg.autoCapture) return;
 
-  // Track last seen session ID to detect actual new sessions (not every turn)
-  let lastRecallSessionId: string | undefined;
+  const sessions = new Map<string, { lifecycle: ReturnType<typeof createMemoryLifecycle>; recalled: boolean }>();
+  const memoryFor = (sessionKey = "") => {
+    let state = sessions.get(sessionKey);
+    if (!state) {
+      state = { lifecycle: createMemoryLifecycle({ recallHeading: USER_RECALL_HEADING }), recalled: false };
+      state.lifecycle.beginSession();
+      sessions.set(sessionKey, state);
+    }
+    return state;
+  };
 
-  // Auto-recall: inject relevant memories before prompt is built
-  if (cfg.autoRecall) {
-    const RECALL_TIMEOUT_MS = 8_000;
-
-    api.on("before_prompt_build", async (event: any, ctx: any) => {
-      if (!event.prompt || event.prompt.length < 5) return;
-
-      // Skip non-interactive triggers (cron, heartbeat, automation)
-      const trigger = (ctx as any)?.trigger ?? undefined;
-      const sessionId = (ctx as any)?.sessionKey ?? undefined;
-      if (isNonInteractiveTrigger(trigger, sessionId)) {
-        api.logger.info(
-          "openclaw-mem0: skipping recall for non-interactive trigger",
-        );
-        return;
-      }
-
-      const promptLower = event.prompt.toLowerCase();
-      const isSystemPrompt =
-        promptLower.includes("a new session was started") ||
-        promptLower.includes("session startup sequence") ||
-        promptLower.includes("/new or /reset") ||
-        promptLower.startsWith("run your session");
-      if (isSystemPrompt) {
-        api.logger.info(
-          "openclaw-mem0: skipping recall for system/bootstrap prompt",
-        );
-        return;
-      }
-
-      // Update shared state for tools (best-effort — tools don't have ctx)
-      if (sessionId) session.setCurrentSessionId(sessionId);
-
-      // Detect actual new session (first turn with a different sessionKey)
-      const isNewSession =
-        sessionId !== undefined && sessionId !== lastRecallSessionId;
-      if (sessionId) lastRecallSessionId = sessionId;
-
-      // Subagents have ephemeral UUIDs — their namespace is always empty.
-      // Search the parent (main) user namespace instead so subagents get
-      // the user's long-term context.
-      const isSubagent = isSubagentSession(sessionId);
-      const recallSessionKey = isSubagent ? undefined : sessionId;
-
-      // Strip OpenClaw sender metadata from the prompt before searching
-      const cleanPrompt = event.prompt
-        .replace(
-          /Sender\s*\(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi,
-          "",
-        )
-        .trim();
-      const safePrompt = lifecycle.prepareUserText(cleanPrompt);
-
-      const recallStart = Date.now();
-      const recallWork = async () => {
-        // Single search with a reasonable candidate pool
-        const recallTopK = Math.max((cfg.topK ?? 5) * 2, 10);
-
-        // Search long-term memories (user-scoped; subagents read from parent namespace)
-        let longTermResults = await provider.search(
-          safePrompt,
-          buildSearchOptions(
-            undefined,
-            recallTopK,
-            undefined,
-            recallSessionKey,
-          ),
-        );
-
-        longTermResults = longTermResults.filter(
-          (r) => (r.score ?? 0) >= cfg.searchThreshold,
-        );
-
-        // Dynamic thresholding: drop memories scoring less than 50% of
-        // the top result's score to filter out the long tail of weak matches
-        if (longTermResults.length > 1) {
-          const topScore = longTermResults[0]?.score ?? 0;
-          if (topScore > 0) {
-            longTermResults = longTermResults.filter(
-              (r) => (r.score ?? 0) >= topScore * 0.5,
-            );
-          }
+  const sender =
+    (sessionKey?: string) =>
+    async (messages: ConversationMessage[], reason: string) => {
+      const captureStart = Date.now();
+      try {
+        const result = await provider.add(messages, buildAddOptions(undefined, undefined, sessionKey));
+        const capturedCount = result.results?.length ?? 0;
+        _captureEvent("openclaw.hook.capture", {
+          reason,
+          message_count: messages.length,
+          captured_count: capturedCount,
+          latency_ms: Date.now() - captureStart,
+        });
+        if (capturedCount > 0) {
+          api.logger.info(`openclaw-mem0: auto-captured ${capturedCount} memories`);
         }
+      } catch (err) {
+        api.logger.warn(`openclaw-mem0: capture failed: ${String(err)}`);
+      }
+    };
 
-        // Only broaden for genuinely new sessions with short prompts
-        // (cold-start blindness). Skip on subsequent turns to save API calls.
-        if (isNewSession && safePrompt.length < 100) {
-          const broadOpts = buildSearchOptions(
-            undefined,
-            5,
-            undefined,
-            recallSessionKey,
-          );
-          broadOpts.threshold = cfg.searchThreshold;
-          const broadResults = await provider.search(
-            "recent decisions, preferences, active projects, and configuration",
-            broadOpts,
-          );
-          const existingIds = new Set(longTermResults.map((r) => r.id));
-          for (const r of broadResults) {
-            if (!existingIds.has(r.id)) {
-              longTermResults.push(r);
-            }
-          }
-        }
+  api.on("before_prompt_build", async (event: any, ctx: any) => {
+    if (!event.prompt) return;
 
-        // Cap at configured topK after filtering
-        longTermResults = longTermResults.slice(0, cfg.topK);
+    const trigger = ctx?.trigger ?? undefined;
+    const sessionId = ctx?.sessionKey ?? undefined;
+    if (isNonInteractiveTrigger(trigger, sessionId)) {
+      api.logger.info("openclaw-mem0: skipping non-interactive trigger");
+      return;
+    }
 
-        if (longTermResults.length === 0) return undefined;
+    const promptLower = event.prompt.toLowerCase();
+    const isSystemPrompt =
+      promptLower.includes("a new session was started") ||
+      promptLower.includes("session startup sequence") ||
+      promptLower.includes("/new or /reset") ||
+      promptLower.startsWith("run your session");
+    if (isSystemPrompt) {
+      api.logger.info("openclaw-mem0: skipping system/bootstrap prompt");
+      return;
+    }
 
-        // Build context with clear labels
-        const memoryContext = longTermResults
-          .map(
-            (r) =>
-              `- ${r.memory}${r.categories?.length ? ` [${r.categories.join(", ")}]` : ""}`,
-          )
-          .join("\n");
+    if (sessionId) session.setCurrentSessionId(sessionId);
 
+    const isSubagent = isSubagentSession(sessionId);
+    const prompt = event.prompt
+      .replace(/Sender\s*\(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi, "")
+      .trim();
+    const state = memoryFor(sessionId);
+    if (cfg.autoCapture && !isSubagent) state.lifecycle.recordUserPrompt(prompt);
+    if (!cfg.autoRecall || state.recalled) return;
+    state.recalled = true;
+
+    const recallStart = Date.now();
+    const context = await state.lifecycle.recall(prompt, true, async (query) => {
+      try {
+        const results = await provider.search(query, {
+          ...buildSearchOptions(undefined, cfg.topK, undefined, isSubagent ? undefined : sessionId),
+          threshold: undefined,
+          rerank: false,
+          latest_only: true,
+        });
         _captureEvent("openclaw.hook.recall", {
-          strategy: "legacy",
-          memory_count: longTermResults.length,
+          strategy: "first_prompt",
+          memory_count: results.length,
           latency_ms: Date.now() - recallStart,
         });
-
-        api.logger.info(
-          `openclaw-mem0: injecting ${longTermResults.length} memories into context`,
-        );
-
-        const preamble = isSubagent
-          ? `The following are stored memories for user "${cfg.userId}". You are a subagent — use these memories for context but do not assume you are this user.`
-          : `The following are stored memories for user "${cfg.userId}". Use them to personalize your response:`;
-
-        return {
-          prependContext: `<relevant-memories>\n${preamble}\n${memoryContext}\n</relevant-memories>`,
-        };
-      };
-
-      try {
-        const timeout = new Promise<undefined>((resolve) => {
-          setTimeout(() => resolve(undefined), RECALL_TIMEOUT_MS);
-        });
-        const result = await Promise.race([
-          recallWork(),
-          timeout.then(() => {
-            api.logger.warn(
-              `openclaw-mem0: recall timed out after ${RECALL_TIMEOUT_MS}ms, skipping`,
-            );
-            return undefined;
-          }),
-        ]);
-        return result;
+        return { results };
       } catch (err) {
         api.logger.warn(`openclaw-mem0: recall failed: ${String(err)}`);
+        throw err;
       }
     });
-  }
+    if (!context) return;
+    api.logger.info("openclaw-mem0: injecting recalled memories into context");
+    return { prependContext: context };
+  });
 
-  // Auto-capture: store conversation context after agent ends.
-  if (cfg.autoCapture) {
-    api.on("agent_end", async (event, ctx) => {
-      if (!event.success || !event.messages || event.messages.length === 0) {
-        return;
-      }
+  api.on("session_end", async (event: any, ctx: any) => {
+    const sessionKey = ctx?.sessionKey ?? event?.sessionKey ?? "";
+    const state = sessions.get(sessionKey);
+    if (!state) return;
+    sessions.delete(sessionKey);
+    await state.lifecycle.end("session-end", sender(sessionKey || undefined));
+  });
 
-      // Skip non-interactive triggers (cron, heartbeat, automation)
-      const trigger = (ctx as any)?.trigger ?? undefined;
-      const sessionId = (ctx as any)?.sessionKey ?? undefined;
-      if (isNonInteractiveTrigger(trigger, sessionId)) {
-        api.logger.info(
-          "openclaw-mem0: skipping capture for non-interactive trigger",
-        );
-        return;
-      }
+  if (!cfg.autoCapture) return;
 
-      // Skip capture for subagents — their ephemeral UUIDs create orphaned
-      // namespaces that are never read again. The main agent's agent_end
-      // hook captures the consolidated result including subagent output.
-      if (isSubagentSession(sessionId)) {
-        api.logger.info(
-          "openclaw-mem0: skipping capture for subagent (main agent captures consolidated result)",
-        );
-        return;
-      }
+  api.on("agent_end", async (event: any, ctx: any) => {
+    const trigger = ctx?.trigger ?? undefined;
+    const sessionId = ctx?.sessionKey ?? undefined;
+    if (isNonInteractiveTrigger(trigger, sessionId) || isSubagentSession(sessionId)) return;
+    if (sessionId) session.setCurrentSessionId(sessionId);
 
-      // Update shared state for tools (best-effort — tools don't have ctx)
-      if (sessionId) session.setCurrentSessionId(sessionId);
+    const state = memoryFor(sessionId);
+    if (event.success) {
+      const messages: unknown[] = event.messages ?? [];
+      let lastUser = messages.length - 1;
+      while (lastUser >= 0 && (messages[lastUser] as any)?.role !== "user") lastUser--;
+      const reply = state.lifecycle
+        .prepareConversation(messages.slice(lastUser + 1) as any[])
+        .filter((message) => message.role === "assistant")
+        .at(-1);
+      if (reply) state.lifecycle.recordAssistantResponse(reply.content);
+    }
+    void state.lifecycle.afterResponse(sender(sessionId));
+  });
 
-      const MEMORY_MUTATE_TOOLS = new Set([
-        "memory_add",
-        "memory_update",
-        "memory_delete",
-      ]);
-      const agentUsedMemoryTool = event.messages.some((msg: any) => {
-        if (msg?.role !== "assistant" || !Array.isArray(msg?.content))
-          return false;
-        return msg.content.some(
-          (block: any) =>
-            (block?.type === "tool_use" || block?.type === "toolCall") &&
-            MEMORY_MUTATE_TOOLS.has(block.name),
-        );
-      });
-      if (agentUsedMemoryTool) {
-        api.logger.info(
-          "openclaw-mem0: skipping auto-capture — agent already used memory tools this turn",
-        );
-        return;
-      }
-
-      // --- Build capture payload synchronously (cheap), then fire-and-forget ---
-
-      // Patterns indicating an assistant message contains a summary of
-      // completed work — these are high-value for extraction and should
-      // be included even if they fall outside the recent-message window.
-      const SUMMARY_PATTERNS = [
-        /## What I (Accomplished|Built|Updated)/i,
-        /✅\s*(Done|Complete|All done)/i,
-        /Here's (what I updated|the recap|a summary)/i,
-        /### Changes Made/i,
-        /Implementation Status/i,
-        /All locked in\. Quick summary/i,
-      ];
-
-      // First pass: extract all messages into a typed array
-      const allParsed: Array<{
-        role: string;
-        content: string;
-        index: number;
-        isSummary: boolean;
-      }> = [];
-
-      for (let i = 0; i < event.messages.length; i++) {
-        const msg = event.messages[i];
-        if (!msg || typeof msg !== "object") continue;
-        const msgObj = msg as Record<string, unknown>;
-
-        const role = msgObj.role;
-        if (role !== "user" && role !== "assistant") continue;
-
-        let textContent = "";
-        const content = msgObj.content;
-
-        if (typeof content === "string") {
-          textContent = content;
-        } else if (Array.isArray(content)) {
-          for (const block of content) {
-            if (
-              block &&
-              typeof block === "object" &&
-              "text" in block &&
-              typeof (block as Record<string, unknown>).text === "string"
-            ) {
-              textContent +=
-                (textContent ? "\n" : "") +
-                ((block as Record<string, unknown>).text as string);
-            }
-          }
-        }
-
-        if (!textContent) continue;
-        // Strip injected memory context, keep the actual user text
-        if (textContent.includes("<relevant-memories>")) {
-          textContent = textContent
-            .replace(/<relevant-memories>[\s\S]*?<\/relevant-memories>\s*/g, "")
-            .trim();
-          if (!textContent) continue;
-        }
-        // Strip OpenClaw sender metadata prefix (prevents storing TUI identity as memory)
-        if (
-          textContent.includes("Sender") &&
-          textContent.includes("untrusted metadata")
-        ) {
-          textContent = textContent
-            .replace(
-              /Sender\s*\(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi,
-              "",
-            )
-            .trim();
-          if (!textContent) continue;
-        }
-
-        const isSummary =
-          role === "assistant" &&
-          SUMMARY_PATTERNS.some((p) => p.test(textContent));
-
-        allParsed.push({
-          role: role as string,
-          content: textContent,
-          index: i,
-          isSummary,
-        });
-      }
-
-      if (allParsed.length === 0) return;
-
-      // Select messages: last 20 + any earlier summary messages,
-      // sorted by original index to preserve chronological order.
-      const recentWindow = 20;
-      const recentCutoff = allParsed.length - recentWindow;
-
-      const candidates: typeof allParsed = [];
-
-      // Include summary messages from anywhere in the conversation
-      for (const msg of allParsed) {
-        if (msg.isSummary && msg.index < recentCutoff) {
-          candidates.push(msg);
-        }
-      }
-
-      // Include recent messages
-      const seenIndices = new Set(candidates.map((m) => m.index));
-      for (const msg of allParsed) {
-        if (msg.index >= recentCutoff && !seenIndices.has(msg.index)) {
-          candidates.push(msg);
-        }
-      }
-
-      // Sort by original position so the extraction model sees
-      // messages in the order they actually occurred
-      candidates.sort((a, b) => a.index - b.index);
-
-      const selected = candidates.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      // Filter noise and redact secrets without truncating message text.
-      const formattedMessages: Array<{ role: string; content: string }> =
-        lifecycle.prepareConversation(filterMessagesForExtraction(selected));
-
-      if (formattedMessages.length === 0) return;
-
-      // Skip if no meaningful user content remains after filtering
-      if (!formattedMessages.some((m) => m.role === "user")) return;
-      const userContent = formattedMessages
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-        .join(" ");
-      if (userContent.length < 50) {
-        api.logger.info(
-          "openclaw-mem0: skipping capture — user content too short for meaningful extraction",
-        );
-        return;
-      }
-
-      // Inject a timestamp preamble so the extraction model can anchor
-      // time-sensitive facts to a concrete date and attribute to the correct user
-      const timestamp = new Date().toISOString().split("T")[0];
-      formattedMessages.unshift({
-        role: "system",
-        content: `Current date: ${timestamp}. The user is identified as "${cfg.userId}". Extract durable facts from this conversation. Include this date when storing time-sensitive information.`,
-      });
-
-      const addOpts = buildAddOptions(undefined, undefined, sessionId);
-      const captureStart = Date.now();
-      provider
-        .add(formattedMessages, addOpts)
-        .then((result) => {
-          const capturedCount = result.results?.length ?? 0;
-          _captureEvent("openclaw.hook.capture", {
-            captured_count: capturedCount,
-            latency_ms: Date.now() - captureStart,
-          });
-          if (capturedCount > 0) {
-            api.logger.info(
-              `openclaw-mem0: auto-captured ${capturedCount} memories`,
-            );
-          }
-        })
-        .catch((err) => {
-          api.logger.warn(`openclaw-mem0: capture failed: ${String(err)}`);
-        });
-    });
-  }
+  api.on("before_compaction", async (_event: any, ctx: any) => {
+    const sessionKey = ctx?.sessionKey ?? undefined;
+    await sessions.get(sessionKey ?? "")?.lifecycle.flush("pre-compact", sender(sessionKey));
+  });
 }
 
 export default memoryPlugin;

@@ -20,7 +20,11 @@ import { formatMemoryList, formatAddResult } from "./formatting.ts";
 import { truncateOutput } from "./output.ts";
 import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 import { captureEvent, errorKind } from "./telemetry.ts";
-import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
+import {
+  createMemoryLifecycle,
+  RECALL_TOP_K,
+  type ConversationMessage,
+} from "../../agent-plugin-core/typescript/src/lifecycle.ts";
 import {
   USER_RECALL_HEADING,
   USER_SEARCH_QUERY_DESCRIPTION,
@@ -37,7 +41,6 @@ export const inject = ["tools", "systemPrompt"];
 const SOURCE = "DEEPSEEK_HARNESS";
 
 const DEFAULT_SEARCH_LIMIT = 10;
-const AUTO_RECALL_LIMIT = 5;
 
 interface HarnessMessage {
   role: string;
@@ -47,7 +50,7 @@ interface HarnessMessage {
 
 interface SessionState {
   lifecycle: ReturnType<typeof createMemoryLifecycle>;
-  messages: HarnessMessage[];
+  reply?: HarnessMessage;
 }
 
 export interface Config {
@@ -114,7 +117,7 @@ export function apply(ctx: Context, config: Config): void {
     if (!state) {
       const lifecycle = createMemoryLifecycle({ recallHeading: USER_RECALL_HEADING });
       lifecycle.beginSession();
-      state = { lifecycle, messages: [] };
+      state = { lifecycle };
       sessionStates.set(session, state);
     }
     return state;
@@ -145,7 +148,9 @@ export function apply(ctx: Context, config: Config): void {
         try {
           const result = await client.search(query, {
             filters: resolveSearchFilters({}, userId),
-            topK: AUTO_RECALL_LIMIT,
+            topK: RECALL_TOP_K,
+            rerank: false,
+            latestOnly: true,
           });
           captureEvent("deepseek.recall.auto", {
             success: true,
@@ -171,29 +176,34 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   if (config.autoCapture !== false) {
+    const send = async (messages: ConversationMessage[], reason: string) => {
+      try {
+        await client.add(messages, { userId, source: SOURCE });
+        captureEvent("deepseek.capture.auto", { success: true, reason, message_count: messages.length }, client);
+      } catch (err) {
+        captureEvent("deepseek.capture.auto", { success: false, reason, error_kind: errorKind(err) }, client);
+      }
+    };
+
     ctx.on("session/event", (session, event) => {
       const state = stateFor(session);
+      const text = (message?: HarnessMessage) =>
+        message ? (state.lifecycle.prepareConversation([message])[0]?.content ?? "") : "";
       if (event.type === "turn/start") {
-        state.messages = [];
+        state.reply = undefined;
       } else if (event.type === "user/message" && event.data.source.kind === "user") {
-        state.messages.push(event.data);
+        state.lifecycle.recordUserPrompt(text(event.data));
       } else if (event.type === "assistant/message") {
-        state.messages.push(event.data.message);
-      } else if (event.type === "turn/end") {
-        const conversation = state.lifecycle.prepareConversation(state.messages);
-        state.messages = [];
-        if (event.data.reason.kind !== "completed" || conversation.length === 0) return;
-        void client
-          .add(conversation, { userId, source: SOURCE })
-          .then(() => captureEvent("deepseek.capture.auto", {
-            success: true,
-            message_count: conversation.length,
-          }, client))
-          .catch((err: unknown) => captureEvent("deepseek.capture.auto", {
-            success: false,
-            error_kind: errorKind(err),
-          }, client));
+        state.reply = event.data.message;
+      } else if (event.type === "turn/end" && event.data.reason.kind === "completed") {
+        state.lifecycle.recordAssistantResponse(text(state.reply));
+        state.reply = undefined;
+        void state.lifecycle.afterResponse(send);
       }
+    });
+
+    ctx.on("session/disposed", (session) => {
+      void sessionStates.get(session)?.lifecycle.end("session-end", send);
     });
   }
 

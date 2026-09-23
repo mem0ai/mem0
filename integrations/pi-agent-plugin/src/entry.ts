@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import MemoryClient from "mem0ai";
 import { loadConfig } from "./config/index.ts";
-import { detectAppId, detectRunId, resolveSearchFilters } from "./memory/scoping.ts";
+import { detectRunId, resolveSearchFilters } from "./memory/scoping.ts";
 import { registerMemoryTool } from "./memory/tools.ts";
 import { registerCommands } from "./commands.ts";
 import { setupAutoCapture } from "./capture/index.ts";
@@ -9,7 +9,8 @@ import { MEMORY_POLICY } from "./prompt.ts";
 import { captureEvent } from "./telemetry.ts";
 import * as os from "node:os";
 import type { ScopeContext } from "./types.ts";
-import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
+import { createMemoryLifecycle, RECALL_TOP_K } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
+import { resolveRepoContext } from "../../agent-plugin-core/typescript/src/identity.ts";
 import { applySurfaceHeaders } from "./attribution.ts";
 
 export { buildRecallContext } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
@@ -62,7 +63,9 @@ export default function mem0Extension(pi: ExtensionAPI): void {
   // ── session_start: detect project + session, reconstruct scope ──────
   pi.on("session_start", async (_event, ctx) => {
     lifecycle.beginSession();
-    scopeCtx.appId = detectAppId(ctx.cwd);
+    const repo = resolveRepoContext(ctx.cwd);
+    scopeCtx.appId = repo.appId;
+    scopeCtx.projectIds = repo.projectIds;
 
     const sessionFile = ctx.sessionManager?.getSessionFile?.();
     scopeCtx.runId = detectRunId(sessionFile);
@@ -78,12 +81,15 @@ export default function mem0Extension(pi: ExtensionAPI): void {
   pi.on("before_agent_start", async (event, _ctx) => {
     let extra = MEMORY_POLICY;
 
-    // Guaranteed retrieval: prefetch memories relevant to this prompt so the
-    // agent always has them, rather than depending on it to call the tool.
     const recall = await lifecycle.recall(
       event.prompt ?? "",
       config.contextInjection,
-      (q) => mem0.search(q, { filters: resolveSearchFilters("project", scopeCtx) }),
+      (q) => mem0.search(q, {
+        filters: resolveSearchFilters("project", scopeCtx),
+        topK: RECALL_TOP_K,
+        rerank: false,
+        latestOnly: true,
+      } as any),
     );
     if (recall) extra += "\n\n" + recall;
 

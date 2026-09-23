@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { extractConversation } from "../src/capture/index.ts";
+import { describe, it, expect, vi } from "vitest";
+import { extractConversation, setupAutoCapture } from "../src/capture/index.ts";
+import { resolveRepoContext } from "../../agent-plugin-core/typescript/src/identity.ts";
 
 describe("extractConversation", () => {
   it("extracts user and assistant text messages", () => {
@@ -64,5 +65,66 @@ describe("extractConversation", () => {
     expect(extractConversation([
       { role: "user", content: "api_key=do-not-store-this" },
     ])).toEqual([{ role: "user", content: "api_key=[REDACTED]" }]);
+  });
+});
+
+describe("setupAutoCapture", () => {
+  function start() {
+    const handlers: Record<string, (event: any, ctx: any) => Promise<void>> = {};
+    const pi = { on: (name: string, handler: any) => { handlers[name] = handler; } };
+    const mem0 = { add: vi.fn().mockResolvedValue({}) };
+    const config = { autoCapture: true } as any;
+    setupAutoCapture(pi as any, mem0 as any, config, () => ({ userId: "alice", appId: "", runId: "run1" }));
+    const ctx = { cwd: process.cwd() };
+    const emit = (name: string, event: any = {}) => handlers[name](event, ctx);
+    return { mem0, emit };
+  }
+
+  it("captures the prompts and final response at checkpoints and on shutdown", async () => {
+    const { mem0, emit } = start();
+    for (let turn = 0; turn < 6; turn++) {
+      await emit("agent_end", {
+        messages: [
+          { role: "user", content: `question ${turn}` },
+          { role: "assistant", content: [{ type: "text", text: "checking" }, { type: "toolCall", id: "t" }] },
+          { role: "toolResult", content: [{ type: "text", text: "tool output" }] },
+          { role: "assistant", content: [{ type: "text", text: `answer ${turn}` }] },
+        ],
+      });
+    }
+
+    expect(mem0.add).toHaveBeenCalledTimes(1);
+    const [messages, options] = mem0.add.mock.calls[0];
+    expect(messages).toHaveLength(10);
+    expect(messages.slice(0, 2)).toEqual([
+      { role: "user", content: "question 0" },
+      { role: "assistant", content: "answer 0" },
+    ]);
+    const repo = resolveRepoContext(process.cwd());
+    expect(options).toMatchObject({
+      agent_id: repo.projectId,
+      app_id: repo.appId,
+      user_id: "alice",
+      run_id: "run1",
+      source: "PI_AGENT",
+      infer: true,
+      metadata: { source: "pi", author: "alice", dirs: repo.dirs },
+    });
+    expect(options.custom_categories.map((c: object) => Object.keys(c)[0])).toContain("problems_and_fixes");
+
+    await emit("session_shutdown", { reason: "quit" });
+    expect(mem0.add).toHaveBeenCalledTimes(2);
+    expect(mem0.add.mock.calls[1][0]).toEqual([
+      { role: "user", content: "question 5" },
+      { role: "assistant", content: "answer 5" },
+    ]);
+  });
+
+  it("sends everything pending before compaction", async () => {
+    const { mem0, emit } = start();
+    await emit("agent_end", { messages: [{ role: "user", content: "hi" }, { role: "assistant", content: "hello" }] });
+    expect(mem0.add).not.toHaveBeenCalled();
+    await emit("session_before_compact");
+    expect(mem0.add.mock.calls[0][0]).toHaveLength(2);
   });
 });

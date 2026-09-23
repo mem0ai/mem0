@@ -45,7 +45,6 @@ PASS if `user_id` and `project_id` are non-empty. WARN if `project_id` is empty 
 
 Call `search_memories` with:
 - `query="health check"`
-- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`
 - `top_k=1`
 
 - If returns successfully (even empty): PASS
@@ -102,7 +101,7 @@ When invoked with `--deep` (e.g., `/mem0-status --deep`), run the standard 5 che
 
 ### Quality Check 1: Duplicates
 
-Call `get_memories` with `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `page_size=200`. Compare all pairs within the same `metadata.type` group for high textual overlap (shared nouns/keywords > 60%). Report:
+Call `get_memories` with `page_size=200` and no `filters`. Compare all pairs within the same `metadata.type` group for high textual overlap (shared nouns/keywords > 60%). Report:
 
 ```
 Potential duplicates: <N> pairs

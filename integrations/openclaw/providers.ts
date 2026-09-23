@@ -146,6 +146,8 @@ class PlatformProvider implements Mem0Provider {
     if (options.top_k != null) opts.topK = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;
     if (options.categories != null) opts.categories = options.categories;
+    if (options.rerank != null) opts.rerank = options.rerank;
+    if (options.latest_only != null) opts.latestOnly = options.latest_only;
 
     // Build filters with user_id/run_id inside (v3.0.0 requirement)
     // Filters use snake_case as they're passed directly to the API

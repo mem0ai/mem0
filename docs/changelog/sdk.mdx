@@ -2514,12 +2514,17 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="OpenCode">
 
-<Update label="2026-09-23" description="OpenCode plugin v0.4.1">
+<Update label="2026-09-23" description="OpenCode plugin v0.5.0">
+
+**Changes:**
+- **Recall:** Automatic recall now matches the Claude Code plugin. It runs once per session, on the first prompt of 20 characters or more, and returns the top 5 memories for this repository. The plugin no longer searches on every prompt, at session start, after Bash errors, on "resume" prompts, or during compaction ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Capture:** Automatic capture now matches the Claude Code plugin. It sends the session's redacted prompts and final assistant responses after 5 exchanges, 10 messages, or 40,000 characters, after 5 idle minutes, before compaction, and when the session is deleted. Writes carry a hashed repository `agent_id`, your `user_id`, the `app_id`, the session as `run_id`, and the Claude Code extraction instructions and categories. Previously it sent every third user prompt and wrote a session-state memory on compaction ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Scope:** The default `project` scope now reads the shared repository memories as well as your own, the same repository lanes as the Claude Code plugin ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Removed:** The "remember this" and memory-count nudges, the Bash error lookup, the `MEMORY.md` write block, and automatic project category setup ([#7420](https://github.com/mem0ai/mem0/pull/7420))
 
 **Improvements:**
 - **Search:** The `search_memories` tool description no longer asks the agent to search proactively or to run several searches for multi-part questions. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, the same wording as the other coding-agent plugins ([#7420](https://github.com/mem0ai/mem0/pull/7420))
-- **Session context:** Removed two system-context lines that told the agent to run 2 parallel searches before responding and 2-4 parallel searches for non-trivial tasks ([#7420](https://github.com/mem0ai/mem0/pull/7420))
-- **Skills:** `/mem0-search` and `/mem0-context-loader` make one `search_memories` call instead of 2 and 2-4 parallel calls. `/mem0-context-loader` now uses the search skill description from the other coding-agent plugins instead of asking to load at every new task or context switch ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Skills:** `/mem0-search` and `/mem0-context-loader` make one `search_memories` call instead of 2 and 2-4 parallel calls, and the skills no longer pass hard-coded `user_id` and `app_id` filters. `/mem0-context-loader` now uses the search skill description from the other coding-agent plugins ([#7420](https://github.com/mem0ai/mem0/pull/7420))
 
 </Update>
 
@@ -2797,7 +2802,12 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="OpenClaw">
 
-<Update label="2026-09-23" description="openclaw-mem0 v1.2.1">
+<Update label="2026-09-23" description="openclaw-mem0 v1.3.0">
+
+**Changes:**
+- **Automatic recall:** `autoRecall` now matches the Claude Code plugin. It runs once per session, on the first prompt of 20 characters or more, and injects up to `topK` memories with reranking off, only the latest version of each memory, and no score threshold. Later prompts in the session do not search again. Previously it searched on every turn, filtered by `searchThreshold` and by half the top score, and ran a second broad search at the start of a session ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Automatic capture:** `autoCapture` now matches the Claude Code plugin. It keeps each turn's redacted prompt and final reply, and sends them after 5 exchanges, 10 messages, or 40,000 characters, after 5 idle minutes, before compaction, and when the session ends. Previously every turn sent up to the last 20 messages plus earlier work summaries, with a date preamble, and skipped turns with under 50 characters of user text or that used a memory tool ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Docs:** The `autoRecall` and `autoCapture` hooks are not registered while skills mode is active. The docs said they also ran alongside skills mode ([#7420](https://github.com/mem0ai/mem0/pull/7420))
 
 **Improvements:**
 - **Search:** The `memory_search` tool description no longer asks the agent to search proactively or to run several searches for multi-part questions. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help. Recall strategies (`smart`, `always`, `manual`) are unchanged ([#7420](https://github.com/mem0ai/mem0/pull/7420))
@@ -3100,7 +3110,14 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Pi Agent">
 
-<Update label="2026-09-23" description="Pi Agent plugin v0.3.2">
+<Update label="2026-09-23" description="Pi Agent plugin v0.4.0">
+
+**Changes:**
+- **Recall:** Automatic recall now matches the Claude Code plugin. It runs once per session, on the first prompt of 20 characters or more, and returns the top 5 memories for this repository. Later prompts reuse that context instead of searching again ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Capture:** Automatic capture now matches the Claude Code plugin. It keeps the session's redacted prompts and Pi's final responses, and sends them after 5 exchanges, 10 messages, or 40,000 characters, after 5 idle minutes, before compaction, and when the session ends. Writes carry a hashed repository `agent_id`, your `user_id`, the `app_id`, the session as `run_id`, and the Claude Code extraction instructions and categories. Previously every `agent_end` sent that run's messages with the 10 general-purpose categories ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Project id:** `app_id` now comes from the git remote (`owner-repo`), the same as the Claude Code plugin, falling back to the repository root's directory name. Memories captured by earlier versions in a repository with a remote are stored under the directory name and no longer match the default `project` scope ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Scope:** The default `project` scope now reads the shared repository memories as well as your own, the same repository lanes as the Claude Code plugin ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Removed:** The memory policy's "be proactive about saving" instruction, and the `detectAppId` export ([#7420](https://github.com/mem0ai/mem0/pull/7420))
 
 **Improvements:**
 - **Search:** The memory policy, `mem0_memory` tool description, and prompt guidelines no longer ask the agent to search before answering anything that may depend on earlier context or to run several searches per question. They now ask for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help ([#7420](https://github.com/mem0ai/mem0/pull/7420))
@@ -3229,7 +3246,11 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="DeepSeek Harness">
 
-<Update label="2026-09-23" description="deepseek-plugin v0.3.2">
+<Update label="2026-09-23" description="deepseek-plugin v0.4.0">
+
+**Changes:**
+- **Recall:** Automatic recall now matches the Claude Code plugin. It runs once per session, on the first human prompt of 20 characters or more, and returns your top 5 memories with reranking off and only the latest version of each memory. Later prompts reuse that context instead of searching again. Previously it searched with the latest human prompt ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Capture:** Automatic capture now uses the Claude Code plugin's timing. It keeps each completed turn's redacted human prompt and final assistant message, and sends them after 5 exchanges, 10 messages, or 40,000 characters, after 5 idle minutes, and when the session is disposed. Previously every completed turn was sent on its own. DeepSeek exposes no compaction event, so there is no pre-compaction flush. Writes stay scoped to the configured user ([#7420](https://github.com/mem0ai/mem0/pull/7420))
 
 **Improvements:**
 - **Search:** The `search_memory` tool description no longer asks the agent to search proactively before answering anything that may depend on earlier context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help ([#7420](https://github.com/mem0ai/mem0/pull/7420))

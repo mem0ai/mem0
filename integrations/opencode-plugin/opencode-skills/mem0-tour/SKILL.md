@@ -37,7 +37,7 @@ When `/mem0-tour` receives a search query argument (e.g., `/mem0-tour auth middl
 WITHOUT `--all-projects`, run in **peek mode** — compact one-liner results:
 
 1. Run 2 parallel `search_memories` calls:
-   - Broad: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
+   - Broad: `query=<query>`, `top_k=10`, `rerank=true`
    - Targeted: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "decision"}}]}`, `top_k=5`, `rerank=true`
 2. Deduplicate by ID, display compact results:
    ```
@@ -58,15 +58,15 @@ If no query argument and no `--all-projects` flag, use the full tour flow below.
 
 Call `get_memories` to fetch all memories for this project:
 
-`filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `page_size=100`
+`page_size=100`, no `filters`
 
 ### Step 2: Run supplementary semantic searches
 
 In parallel, run these `search_memories` calls to get relevance-ranked results for key topics:
 
-- `query="architecture decisions design choices"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
-- `query="bugs errors failures anti-patterns"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
-- `query="project setup tooling conventions preferences"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
+- `query="architecture decisions design choices"`, `top_k=10`, `rerank=true`
+- `query="bugs errors failures anti-patterns"`, `top_k=10`, `rerank=true`
+- `query="project setup tooling conventions preferences"`, `top_k=10`, `rerank=true`
 
 **Do NOT filter by `metadata.type` in these calls.** The platform auto-assigns `categories` — filtering on `metadata.type` misses memories that were auto-categorized but don't have an explicit `metadata.type`.
 

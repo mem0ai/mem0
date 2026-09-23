@@ -13,6 +13,7 @@ export interface ScopeContext {
   userId: string;
   appId: string;
   runId: string;
+  projectIds?: string[];
 }
 
 export interface CustomCategory {
