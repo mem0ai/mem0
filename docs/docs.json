@@ -72,6 +72,7 @@
                         "pages": [
                           "platform/features/v2-memory-filters",
                           "platform/features/entity-scoped-memory",
+                          "platform/features/user-profiles",
                           "platform/features/graph-memory",
                           "platform/features/async-client",
                           "platform/features/multimodal-support",
@@ -511,6 +512,17 @@
                     "pages": [
                       "api-reference/entities/get-users",
                       "api-reference/entities/delete-user"
+                    ]
+                  },
+                  {
+                    "group": "Profiles",
+                    "icon": "id-card",
+                    "pages": [
+                      "api-reference/profiles/get-profile",
+                      "api-reference/profiles/get-profile-settings",
+                      "api-reference/profiles/update-profile-settings",
+                      "api-reference/profiles/generate-profiles",
+                      "api-reference/profiles/get-profile-job"
                     ]
                   },
                   {
