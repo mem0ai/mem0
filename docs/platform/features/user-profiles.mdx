@@ -200,7 +200,7 @@ while True:
 print(status["status"], status["succeeded"], "of", status["total"])
 
 # The create response lists the sampled entities; read each one's saved profile.
-for entity_id in job["entity_ids"]:
+for entity_id in job.get("entity_ids", []):
     print(client.get_profile(entity_id))
 ```
 

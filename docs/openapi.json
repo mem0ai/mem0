@@ -8450,8 +8450,13 @@
 										"entity_type": {
 											"type": "string"
 										},
-										"usage_units": {
-											"type": "integer"
+										"entity_count_reserved": {
+											"type": "integer",
+											"description": "Entities reserved against usage for this job."
+										},
+										"event_id": {
+											"type": "string",
+											"nullable": true
 										},
 										"replayed": {
 											"type": "boolean",
@@ -8461,13 +8466,12 @@
 											"type": "integer",
 											"description": "`sample` only."
 										},
-										"results": {
+										"entity_ids": {
 											"type": "array",
 											"items": {
-												"type": "object",
-												"additionalProperties": true
+												"type": "string"
 											},
-											"description": "`sample` only."
+											"description": "`sample` only: the entity ids picked. Read each with `GET /v2/entities/user/{entity_id}/profile/`."
 										}
 									}
 								}
