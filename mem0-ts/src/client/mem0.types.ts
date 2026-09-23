@@ -239,3 +239,98 @@ export interface GetMemoryExportPayload {
   filters?: Record<string, any>;
   memoryExportId?: string;
 }
+
+// ─── Profile Types ──────────────────────────────────────────
+
+/** The entity kind that carries a profile. */
+export type ProfileEntityType = "user";
+
+/**
+ * `succeeded` is the only state in which `profile` is guaranteed to hold content.
+ *
+ * These are values, not keys, so the client does not camel-case them: the wire
+ * spelling is what a comparison has to match.
+ */
+export type ProfileStatus =
+  | "succeeded"
+  | "pending"
+  | "failed"
+  | "not_enabled"
+  | "insufficient_data";
+
+export interface ProfileResponse {
+  /** Shaped by the project's schema; keys are not camel-cased. */
+  profile: Record<string, any>;
+  status: ProfileStatus;
+  entityType: ProfileEntityType;
+  entityId: string;
+  updatedAt: string | null;
+  generationCount: number;
+  /** The last generation's failure reason, when `status` is `failed`. */
+  error?: string | null;
+}
+
+/** Every accepted generation. `statusUrl` is the server's own poll path. */
+export interface ProfileJobResponse {
+  jobId: string;
+  status: string;
+  statusUrl: string;
+  operation: string;
+  entityType: ProfileEntityType;
+  /** Entities reserved against usage for this job. */
+  entityCountReserved?: number;
+  /** Null when the job has no associated event. */
+  eventId?: string | null;
+  replayed?: boolean;
+  /** Sample runs only: how many entities were picked. */
+  sampled?: number;
+  /** Sample runs only: the entity ids picked. Read each one with `getProfile`. */
+  entityIds?: string[];
+}
+
+/** The settings to write. `schema` and `customInstructions` apply to user profiles. */
+export interface ProfileSettings {
+  /** Turn profile generation on or off. Project-wide. */
+  enabled?: boolean;
+  /** JSON Schema for the profile. Every property needs a `description`. */
+  schema?: Record<string, any> | null;
+  customInstructions?: string | null;
+}
+
+/** One entity type's stored configuration. */
+export interface EntityProfileSettings {
+  /** The customer's JSON Schema, with its property names verbatim. */
+  schema?: Record<string, any> | null;
+  customInstructions?: string | null;
+  [key: string]: any;
+}
+
+/**
+ * The settings as stored. `schema` and `customInstructions` are per entity
+ * type and nest under `entities`; only `enabled` is project-wide.
+ */
+export interface ProfileSettingsResponse {
+  enabled?: boolean;
+  entities?: Partial<Record<ProfileEntityType, EntityProfileSettings>>;
+  capabilities?: Record<string, any>;
+  [key: string]: any;
+}
+
+/** `GET /v2/profiles/jobs/{id}/`. The job nests under `job`. */
+export interface ProfileJobStatus {
+  job: {
+    id: string;
+    operation: string;
+    entityType: ProfileEntityType;
+    status: string;
+    /** Null until `enumerationComplete`. */
+    total: number | null;
+    enumerationComplete: boolean;
+    /** succeeded + failed + skipped. */
+    completed: number;
+    succeeded: number;
+    failed: number;
+    skipped: number;
+    [key: string]: any;
+  };
+}
