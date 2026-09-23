@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 PROVIDERS = [
     "ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer",
     "deepseek", "gpt-oss", "perplexity", "snowflake", "titan", "command", "j2", "llama",
-    "minimax",
+    "minimax", "openai",
 ]
 
 
@@ -508,6 +508,11 @@ class AWSBedrockLLM(LLMBase):
             "maxTokens": self.model_config.get("max_tokens", self._default_max_tokens_for_converse()),
             "temperature": self.model_config.get("temperature", 0.1),
         }
+        if self.provider == "openai":
+            # GPT-5.6 / GPT-6 on Bedrock reject both temperature and topP:
+            # "This model doesn't support the temperature field."
+            del inference_config["temperature"]
+            return inference_config
 
         top_p = self.model_config.get("top_p")
         if top_p is not None:
@@ -587,8 +592,9 @@ class AWSBedrockLLM(LLMBase):
             else:
                 return str(response)
 
-        elif self.provider == "minimax":
-            # MiniMax models (e.g. minimax.minimax-m2.5) use the Bedrock Converse API.
+        elif self.provider in ("minimax", "gpt-oss", "openai"):
+            # MiniMax (e.g. minimax.minimax-m2.5) and OpenAI (gpt-oss, GPT-5.6, GPT-6)
+            # models use the Bedrock Converse API.
             # M2.5 is a reasoning model whose response content array may include a
             # `reasoningContent` block before the actual `text` block, so we iterate
             # to find the first block that contains a "text" key.
