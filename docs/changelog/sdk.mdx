@@ -10,7 +10,7 @@ mode: "wide"
 <Update label="2026-09-23" description="v2.2.0">
 
 **New Features:**
-- **Client:** Add User Profiles to `MemoryClient` and `AsyncMemoryClient`: `get_profile()`, `generate_profile()`, `get_profile_settings()`, `update_profile_settings()`, `sample_profiles()`, and `get_profile_job()`. A profile is a structured, always-current JSON summary of one user, shaped by a JSON Schema you configure per project and filled by an LLM from that user's memories. Generation is asynchronous, and every job POST carries an `Idempotency-Key` so a retry reuses the job instead of paying twice ([#7340](https://github.com/mem0ai/mem0/pull/7340))
+- **Client:** Add User Profiles to `MemoryClient` and `AsyncMemoryClient`: `get_profile()`, `generate_profile()`, `get_profile_settings()`, `update_profile_settings()`, `sample_profiles()`, and `get_profile_job()`. A profile is a structured, always-current JSON summary of one user, shaped by a JSON Schema you configure per project and filled by an LLM from that user's memories. Generation is asynchronous. Every job POST carries an `Idempotency-Key`; to retry a lost request without starting a second job, pass the same `idempotency_key` on each attempt ([#7340](https://github.com/mem0ai/mem0/pull/7340))
 
 </Update>
 
@@ -1245,7 +1245,7 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 <Update label="2026-09-23" description="v3.3.0">
 
 **New Features:**
-- **Client:** Add User Profiles to `MemoryClient`: `getProfile()`, `generateProfile()`, `getProfileSettings()`, `updateProfileSettings()`, `sampleProfiles()`, and `getProfileJob()`. A profile is a structured, always-current JSON summary of one user, shaped by a JSON Schema you configure per project and filled by an LLM from that user's memories. Generation is asynchronous, and every job POST carries an `Idempotency-Key` so a retry reuses the job instead of paying twice ([#7340](https://github.com/mem0ai/mem0/pull/7340))
+- **Client:** Add User Profiles to `MemoryClient`: `getProfile()`, `generateProfile()`, `getProfileSettings()`, `updateProfileSettings()`, `sampleProfiles()`, and `getProfileJob()`. A profile is a structured, always-current JSON summary of one user, shaped by a JSON Schema you configure per project and filled by an LLM from that user's memories. Generation is asynchronous. Every job POST carries an `Idempotency-Key`; to retry a lost request without starting a second job, pass the same `idempotencyKey` on each attempt ([#7340](https://github.com/mem0ai/mem0/pull/7340))
 
 </Update>
 

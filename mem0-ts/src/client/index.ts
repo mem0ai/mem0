@@ -31,7 +31,6 @@ export type {
   ProfileSettings,
   ProfileSettingsResponse,
   EntityProfileSettings,
-  ProfileSampleResult,
 } from "./mem0.types";
 
 // Re-export enums as values (not type-only)

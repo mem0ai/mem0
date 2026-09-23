@@ -199,10 +199,10 @@ describe("MemoryClient - profile settings", () => {
     const body = getFetchBody(call!);
 
     // Mixed casing goes out exactly as written, nested under the entity type.
-    expect(body.entities.user.schema).toEqual(schema);
-    expect(body.entities.user.custom_instructions).toBe(
-      "Focus on durable preferences",
-    );
+    // Exact, not a subset match: the customer's keys must go out unchanged.
+    expect(body.entities).toEqual({
+      user: { schema, custom_instructions: "Focus on durable preferences" },
+    });
     expect(body.enabled).toBe(true);
     // A flat schema is rejected by the API with "Unsupported settings".
     expect("schema" in body).toBe(false);
@@ -230,7 +230,7 @@ describe("MemoryClient - profile settings", () => {
     const body = getFetchBody(
       findFetchCall(mock, "/v2/profiles/settings/", "POST")!,
     );
-    expect(Object.keys(body.entities)).toEqual(["user"]);
+    expect(Object.keys(body.entities as object)).toEqual(["user"]);
   });
 
   test("omits fields the caller did not set", async () => {

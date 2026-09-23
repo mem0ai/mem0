@@ -1,5 +1,5 @@
 import axios from "axios";
-import { v4 as uuidv4 } from "uuid";
+import { v7 as uuidv7 } from "uuid";
 import {
   AllUsers,
   PaginatedMemories,
@@ -872,7 +872,7 @@ export default class MemoryClient {
         method: "POST",
         headers: {
           ...this.headers,
-          "Idempotency-Key": data.idempotencyKey ?? uuidv4(),
+          "Idempotency-Key": data.idempotencyKey ?? uuidv7(),
         },
         body: JSON.stringify({
           operation: "trigger",
@@ -906,10 +906,6 @@ export default class MemoryClient {
     const settings = snakeToCamelKeys(raw) as ProfileSettingsResponse;
     if (!raw || typeof raw !== "object") {
       return settings;
-    }
-
-    if ("schema" in raw) {
-      settings.schema = raw.schema;
     }
 
     const rawEntities = raw.entities;
@@ -991,7 +987,7 @@ export default class MemoryClient {
         method: "POST",
         headers: {
           ...this.headers,
-          "Idempotency-Key": data?.idempotencyKey ?? uuidv4(),
+          "Idempotency-Key": data?.idempotencyKey ?? uuidv7(),
         },
         body: JSON.stringify({
           operation: "sample",

@@ -279,7 +279,8 @@ export interface ProfileJobResponse {
   entityType: ProfileEntityType;
   /** Entities reserved against usage for this job. */
   entityCountReserved?: number;
-  eventId?: string;
+  /** Null when the job has no associated event. */
+  eventId?: string | null;
   replayed?: boolean;
   /** Sample runs only: how many entities were picked. */
   sampled?: number;
@@ -315,13 +316,6 @@ export interface ProfileSettingsResponse {
   [key: string]: any;
 }
 
-export interface ProfileSampleResult {
-  entityType: ProfileEntityType;
-  entityId: string;
-  profileId?: string;
-  [key: string]: any;
-}
-
 /** `GET /v2/profiles/jobs/{id}/`. The job nests under `job`. */
 export interface ProfileJobStatus {
   job: {
@@ -337,7 +331,6 @@ export interface ProfileJobStatus {
     succeeded: number;
     failed: number;
     skipped: number;
-    results?: Array<ProfileSampleResult>;
     [key: string]: any;
   };
 }
