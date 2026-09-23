@@ -98,13 +98,13 @@ describe("MemoryClient - generateProfile()", () => {
     extra.set("/v2/profiles/jobs/", {
       status: 202,
       body: {
-        job_id: "01a0ceb6-97c5-7cb2-80c4-b81a97876ef1",
+        job_id: "00000000-0000-7000-8000-000000000001",
         status: "QUEUED",
-        status_url: "/v2/profiles/jobs/01a0ceb6-97c5-7cb2-80c4-b81a97876ef1/",
+        status_url: "/v2/profiles/jobs/00000000-0000-7000-8000-000000000001/",
         operation: "trigger",
         entity_type: "user",
         entity_count_reserved: 1,
-        event_id: "01a0ceb6-9865-7841-9b25-d280511382ff",
+        event_id: "00000000-0000-7000-8000-000000000002",
         replayed: false,
       },
     });
@@ -122,9 +122,9 @@ describe("MemoryClient - generateProfile()", () => {
     // A generated Idempotency-Key is always sent so the create can be retried safely.
     const headers = call![1].headers as Record<string, string>;
     expect(headers["Idempotency-Key"]).toBeTruthy();
-    expect(result.jobId).toBe("01a0ceb6-97c5-7cb2-80c4-b81a97876ef1");
+    expect(result.jobId).toBe("00000000-0000-7000-8000-000000000001");
     expect(result.statusUrl).toBe(
-      "/v2/profiles/jobs/01a0ceb6-97c5-7cb2-80c4-b81a97876ef1/",
+      "/v2/profiles/jobs/00000000-0000-7000-8000-000000000001/",
     );
     expect(result.replayed).toBe(false);
   });
