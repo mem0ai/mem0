@@ -44,6 +44,15 @@ class TestExtractScore:
         # A distractor integer before the score must not be picked up.
         assert reranker._extract_score("Confidence 100%. Relevance: 0.1") == 0.1
 
+    def test_think_block_numbers_are_ignored(self, reranker):
+        # Reasoning models (qwen3, deepseek-r1) emit <think>...</think> before the answer.
+        text = "<think>\nOn a 0.0-1.0 scale this is clearly relevant.\n</think>\n\n0.95"
+        assert reranker._extract_score(text) == 0.95
+
+    def test_unterminated_think_block_returns_fallback(self, reranker):
+        # max_tokens can cut the reasoning off before the answer; don't score from it.
+        assert reranker._extract_score("<think>\nMaybe 0.2, maybe 0.8. Let me") == 0.5
+
 
 class TestRerank:
     def test_empty_documents(self, mock_llm):
@@ -68,6 +77,21 @@ class TestRerank:
         assert result[0]["rerank_score"] == 0.9
         assert result[1]["rerank_score"] == 0.6
         assert result[2]["rerank_score"] == 0.3
+
+    def test_reasoning_model_output_ranks_by_final_answer(self, mock_llm):
+        _, mock_llm_instance = mock_llm
+        mock_llm_instance.generate_response.side_effect = [
+            "<think>\nOn a 0.0-1.0 scale the dog is relevant to pets.\n</think>\n\n0.95",
+            "<think>\nTaxes are unrelated to pets.\n</think>\n\n0.05",
+        ]
+
+        reranker = LLMReranker({"provider": "ollama", "model": "qwen3"})
+        docs = [{"memory": "User has a dog named Max"}, {"memory": "User filed taxes in April"}]
+
+        result = reranker.rerank("what pets does the user have?", docs)
+
+        assert [d["memory"] for d in result] == ["User has a dog named Max", "User filed taxes in April"]
+        assert result[0]["rerank_score"] == 0.95
 
     def test_top_k_limits_results(self, mock_llm):
         _, mock_llm_instance = mock_llm
