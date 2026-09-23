@@ -82,7 +82,9 @@ class TestGetProfile:
 
 class TestGenerateProfile:
     def test_posts_entity_type_and_id(self, mock_memory_client):
-        mock_memory_client.client.post.return_value = _mock_response({"profile_id": "p_1", "status": "PENDING"})
+        mock_memory_client.client.post.return_value = _mock_response(
+            {"job_id": "j1", "status": "QUEUED", "status_url": "/v2/profiles/jobs/j1/"}
+        )
 
         mock_memory_client.generate_profile("alice")
 
@@ -90,6 +92,15 @@ class TestGenerateProfile:
             mock_memory_client.client.post,
             {"operation": "trigger", "entity_type": "user", "entity_id": "alice"},
         )
+
+    def test_reuses_caller_idempotency_key(self, mock_memory_client):
+        """A caller-supplied key lets a retry hit the same job instead of billing twice."""
+        mock_memory_client.client.post.return_value = _mock_response({"job_id": "j1", "status": "QUEUED"})
+
+        mock_memory_client.generate_profile("alice", idempotency_key="retry-key-123")
+
+        _, kwargs = mock_memory_client.client.post.call_args
+        assert kwargs["headers"]["Idempotency-Key"] == "retry-key-123"
 
 
 class TestProfileSettings:
@@ -160,6 +171,15 @@ class TestProfileSettings:
             },
         )
 
+    def test_update_clears_fields_with_explicit_none(self, mock_memory_client):
+        """Explicit ``None`` clears a field; the sentinel default leaves it untouched."""
+        mock_memory_client.client.post.return_value = _mock_response({"enabled": True})
+
+        mock_memory_client.update_profile_settings(schema=None, custom_instructions=None)
+
+        _, kwargs = mock_memory_client.client.post.call_args
+        assert kwargs["json"] == {"entities": {"user": {"schema": None, "custom_instructions": None}}}
+
 
 class TestSampleProfiles:
     def test_sample_without_limit(self, mock_memory_client):
@@ -210,7 +230,7 @@ class TestAsyncClientParity:
         async_client.async_client.get.assert_called_once_with("/v2/entities/user/alice/profile/")
 
     def test_generate_profile(self, async_client):
-        async_client.async_client.post = AsyncMock(return_value=_mock_response({"profile_id": "p_1"}))
+        async_client.async_client.post = AsyncMock(return_value=_mock_response({"job_id": "j1", "status": "QUEUED"}))
 
         asyncio.run(async_client.generate_profile("alice"))
 
@@ -239,4 +259,14 @@ class TestAsyncClientParity:
         async_client.async_client.post.assert_called_once_with(
             "/v2/profiles/settings/",
             json={"enabled": True, "entities": {"user": {"schema": schema}}},
+        )
+
+    def test_update_settings_clears_with_none(self, async_client):
+        async_client.async_client.post = AsyncMock(return_value=_mock_response({"enabled": True}))
+
+        asyncio.run(async_client.update_profile_settings(custom_instructions=None))
+
+        async_client.async_client.post.assert_called_once_with(
+            "/v2/profiles/settings/",
+            json={"entities": {"user": {"custom_instructions": None}}},
         )

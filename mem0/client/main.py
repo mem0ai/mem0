@@ -44,11 +44,14 @@ ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
 PROFILE_JOBS_PATH = "/v2/profiles/jobs/"
 PROFILE_SETTINGS_PATH = "/v2/profiles/settings/"
 
+# Distinguishes an omitted argument from an explicit ``None`` that clears a field.
+_UNSET: Any = object()
+
 
 def _profile_settings_payload(
     enabled: Optional[bool],
-    schema: Optional[Dict[str, Any]],
-    custom_instructions: Optional[str],
+    schema: Any = _UNSET,
+    custom_instructions: Any = _UNSET,
 ) -> Dict[str, Any]:
     """Build the settings body the API accepts.
 
@@ -57,7 +60,7 @@ def _profile_settings_payload(
     ``get_profile_settings`` returns, so the two round-trip.
 
     Sending them flat is rejected with ``Unsupported settings``, so this shape is
-    not cosmetic.
+    not cosmetic. ``_UNSET`` leaves a field unchanged; an explicit ``None`` clears it.
     """
 
     payload: Dict[str, Any] = {}
@@ -65,9 +68,9 @@ def _profile_settings_payload(
         payload["enabled"] = enabled
 
     entity_settings: Dict[str, Any] = {}
-    if schema is not None:
+    if schema is not _UNSET:
         entity_settings["schema"] = schema
-    if custom_instructions is not None:
+    if custom_instructions is not _UNSET:
         entity_settings["custom_instructions"] = custom_instructions
 
     if entity_settings:
@@ -406,7 +409,9 @@ class MemoryClient:
         payload = {k: v for k, v in payload.items() if v is not None or k == "expiration_date"}
 
         if not payload:
-            raise ValueError("At least one of text, metadata, timestamp, or expiration_date must be provided for update.")
+            raise ValueError(
+                "At least one of text, metadata, timestamp, or expiration_date must be provided for update."
+            )
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "sync"})
         params = self._prepare_params()
@@ -743,7 +748,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def generate_profile(self, entity_id: str) -> Dict[str, Any]:
+    def generate_profile(self, entity_id: str, idempotency_key: Optional[str] = None) -> Dict[str, Any]:
         """Generate or refresh the profile for a single user, now.
 
         Profiles are otherwise built once a user crosses an internal message
@@ -752,10 +757,15 @@ class MemoryClient:
 
         Args:
             entity_id: The user's id, as you supplied it on ``add``.
+            idempotency_key: Optional key that makes the create idempotent. Reuse
+                the same value to safely retry a lost request without starting
+                (and being billed for) a second job. A fresh key is generated when
+                omitted.
 
         Returns:
-            Dict containing ``profile_id``, ``entity_type``, ``entity_id`` and
-            ``status``.
+            Dict containing ``job_id``, ``status``, ``status_url``, ``operation``,
+            ``entity_type``, ``entity_count_reserved``, ``event_id`` and
+            ``replayed``. Poll :meth:`get_profile` and branch on ``status``.
 
         Raises:
             ValidationError: If profiles are not enabled and configured for the
@@ -766,7 +776,7 @@ class MemoryClient:
         response = self.client.post(
             PROFILE_JOBS_PATH,
             json={"operation": "trigger", "entity_type": "user", "entity_id": entity_id},
-            headers={"Idempotency-Key": uuid.uuid4().hex},
+            headers={"Idempotency-Key": idempotency_key or uuid.uuid4().hex},
         )
         response.raise_for_status()
         capture_client_event("client.generate_profile", self, {"sync_type": "sync"})
@@ -791,8 +801,8 @@ class MemoryClient:
     def update_profile_settings(
         self,
         enabled: Optional[bool] = None,
-        schema: Optional[Dict[str, Any]] = None,
-        custom_instructions: Optional[str] = None,
+        schema: Any = _UNSET,
+        custom_instructions: Any = _UNSET,
     ) -> Dict[str, Any]:
         """Update the profile settings for the current project.
 
@@ -801,9 +811,11 @@ class MemoryClient:
         Args:
             enabled: Turn profile generation on or off. Project-wide.
             schema: JSON Schema for the profile. Every property needs a
-                ``description``. Applies to user profiles.
-            custom_instructions: Extra guidance for the extraction step.
-                Applies to user profiles.
+                ``description``. Pass ``None`` to clear it; omit to leave it
+                unchanged. Applies to user profiles.
+            custom_instructions: Extra guidance for the extraction step. Pass
+                ``None`` to clear it; omit to leave it unchanged. Applies to user
+                profiles.
 
         Returns:
             Dict with the settings as stored after the update, in the same
@@ -824,7 +836,7 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def sample_profiles(self, limit: Optional[int] = None) -> Dict[str, Any]:
+    def sample_profiles(self, limit: Optional[int] = None, idempotency_key: Optional[str] = None) -> Dict[str, Any]:
         """Generate profiles for a few real users, to check a schema.
 
         Real generations against real memories, and the results are kept. The
@@ -832,6 +844,9 @@ class MemoryClient:
 
         Args:
             limit: How many users to sample, 1-10. Defaults to the server value.
+            idempotency_key: Optional key that makes the create idempotent. Reuse
+                the same value to safely retry without starting a second sample
+                run. A fresh key is generated when omitted.
 
         Returns:
             Dict containing ``job_id``, ``status``, ``status_url``, ``sampled``
@@ -849,7 +864,7 @@ class MemoryClient:
         response = self.client.post(
             PROFILE_JOBS_PATH,
             json=payload,
-            headers={"Idempotency-Key": uuid.uuid4().hex},
+            headers={"Idempotency-Key": idempotency_key or uuid.uuid4().hex},
         )
         response.raise_for_status()
         capture_client_event("client.sample_profiles", self, {"sync_type": "sync"})
@@ -1484,7 +1499,9 @@ class AsyncMemoryClient:
         payload = {k: v for k, v in payload.items() if v is not None or k == "expiration_date"}
 
         if not payload:
-            raise ValueError("At least one of text, metadata, timestamp, or expiration_date must be provided for update.")
+            raise ValueError(
+                "At least one of text, metadata, timestamp, or expiration_date must be provided for update."
+            )
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "async"})
         params = self._prepare_params()
@@ -1807,7 +1824,7 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def generate_profile(self, entity_id: str) -> Dict[str, Any]:
+    async def generate_profile(self, entity_id: str, idempotency_key: Optional[str] = None) -> Dict[str, Any]:
         """Generate or refresh the profile for a single user, now.
 
         Profiles are otherwise built once a user crosses an internal message
@@ -1816,10 +1833,15 @@ class AsyncMemoryClient:
 
         Args:
             entity_id: The user's id, as you supplied it on ``add``.
+            idempotency_key: Optional key that makes the create idempotent. Reuse
+                the same value to safely retry a lost request without starting
+                (and being billed for) a second job. A fresh key is generated when
+                omitted.
 
         Returns:
-            Dict containing ``profile_id``, ``entity_type``, ``entity_id`` and
-            ``status``.
+            Dict containing ``job_id``, ``status``, ``status_url``, ``operation``,
+            ``entity_type``, ``entity_count_reserved``, ``event_id`` and
+            ``replayed``. Poll :meth:`get_profile` and branch on ``status``.
 
         Raises:
             ValidationError: If profiles are not enabled and configured for the
@@ -1830,7 +1852,7 @@ class AsyncMemoryClient:
         response = await self.async_client.post(
             PROFILE_JOBS_PATH,
             json={"operation": "trigger", "entity_type": "user", "entity_id": entity_id},
-            headers={"Idempotency-Key": uuid.uuid4().hex},
+            headers={"Idempotency-Key": idempotency_key or uuid.uuid4().hex},
         )
         response.raise_for_status()
         capture_client_event("client.generate_profile", self, {"sync_type": "async"})
@@ -1855,8 +1877,8 @@ class AsyncMemoryClient:
     async def update_profile_settings(
         self,
         enabled: Optional[bool] = None,
-        schema: Optional[Dict[str, Any]] = None,
-        custom_instructions: Optional[str] = None,
+        schema: Any = _UNSET,
+        custom_instructions: Any = _UNSET,
     ) -> Dict[str, Any]:
         """Update the profile settings for the current project.
 
@@ -1865,9 +1887,11 @@ class AsyncMemoryClient:
         Args:
             enabled: Turn profile generation on or off. Project-wide.
             schema: JSON Schema for the profile. Every property needs a
-                ``description``. Applies to user profiles.
-            custom_instructions: Extra guidance for the extraction step.
-                Applies to user profiles.
+                ``description``. Pass ``None`` to clear it; omit to leave it
+                unchanged. Applies to user profiles.
+            custom_instructions: Extra guidance for the extraction step. Pass
+                ``None`` to clear it; omit to leave it unchanged. Applies to user
+                profiles.
 
         Returns:
             Dict with the settings as stored after the update, in the same
@@ -1888,7 +1912,9 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def sample_profiles(self, limit: Optional[int] = None) -> Dict[str, Any]:
+    async def sample_profiles(
+        self, limit: Optional[int] = None, idempotency_key: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Generate profiles for a few real users, to check a schema.
 
         Real generations against real memories, and the results are kept. The
@@ -1896,6 +1922,9 @@ class AsyncMemoryClient:
 
         Args:
             limit: How many users to sample, 1-10. Defaults to the server value.
+            idempotency_key: Optional key that makes the create idempotent. Reuse
+                the same value to safely retry without starting a second sample
+                run. A fresh key is generated when omitted.
 
         Returns:
             Dict containing ``job_id``, ``status``, ``status_url``, ``sampled``
@@ -1913,7 +1942,7 @@ class AsyncMemoryClient:
         response = await self.async_client.post(
             PROFILE_JOBS_PATH,
             json=payload,
-            headers={"Idempotency-Key": uuid.uuid4().hex},
+            headers={"Idempotency-Key": idempotency_key or uuid.uuid4().hex},
         )
         response.raise_for_status()
         capture_client_event("client.sample_profiles", self, {"sync_type": "async"})

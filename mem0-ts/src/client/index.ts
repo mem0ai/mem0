@@ -26,12 +26,12 @@ export type {
   ProfileEntityType,
   ProfileStatus,
   ProfileResponse,
-  ProfileTriggerResponse,
+  ProfileJobResponse,
+  ProfileJobStatus,
   ProfileSettings,
   ProfileSettingsResponse,
   EntityProfileSettings,
   ProfileSampleResult,
-  ProfileSamplesResponse,
 } from "./mem0.types";
 
 // Re-export enums as values (not type-only)

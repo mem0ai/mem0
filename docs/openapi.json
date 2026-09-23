@@ -8175,18 +8175,63 @@
 									"properties": {
 										"enabled": {
 											"type": "boolean",
-											"description": "Whether profile generation runs for this project."
+											"description": "Whether profile generation runs for this project. Project-wide."
 										},
-										"schema": {
+										"entities": {
 											"type": "object",
-											"additionalProperties": true,
-											"nullable": true,
-											"description": "JSON Schema describing the profile. Every property needs a description."
+											"description": "Per-entity-type settings. Only `user` is available in this release.",
+											"properties": {
+												"user": {
+													"type": "object",
+													"properties": {
+														"schema": {
+															"type": "object",
+															"additionalProperties": true,
+															"nullable": true,
+															"description": "JSON Schema describing the profile. Every property needs a description."
+														},
+														"custom_instructions": {
+															"type": "string",
+															"nullable": true,
+															"description": "Extra guidance for the extraction step."
+														}
+													}
+												},
+												"agent": {
+													"type": "object",
+													"properties": {
+														"schema": {
+															"type": "object",
+															"additionalProperties": true,
+															"nullable": true,
+															"description": "JSON Schema describing the profile. Every property needs a description."
+														},
+														"custom_instructions": {
+															"type": "string",
+															"nullable": true,
+															"description": "Extra guidance for the extraction step."
+														}
+													}
+												}
+											}
 										},
-										"custom_instructions": {
-											"type": "string",
-											"nullable": true,
-											"description": "Extra guidance for the extraction step."
+										"capabilities": {
+											"type": "object",
+											"properties": {
+												"jobs": {
+													"type": "boolean"
+												},
+												"estimates": {
+													"type": "boolean"
+												},
+												"samples": {
+													"type": "boolean"
+												},
+												"full_rebuild": {
+													"type": "boolean",
+													"description": "Whether a project-wide rebuild (regenerate/backfill) is available. Currently false."
+												}
+											}
 										}
 									}
 								}
@@ -8208,21 +8253,33 @@
 						"application/json": {
 							"schema": {
 								"type": "object",
+								"description": "Only the fields present are written. `schema` and `custom_instructions` nest under `entities.user`; a flat body is rejected.",
 								"properties": {
 									"enabled": {
 										"type": "boolean",
-										"description": "Whether profile generation runs for this project."
+										"description": "Whether profile generation runs for this project. Project-wide."
 									},
-									"schema": {
+									"entities": {
 										"type": "object",
-										"additionalProperties": true,
-										"nullable": true,
-										"description": "JSON Schema describing the profile. Every property needs a description."
-									},
-									"custom_instructions": {
-										"type": "string",
-										"nullable": true,
-										"description": "Extra guidance for the extraction step."
+										"description": "Per-entity-type settings. Only `user` is available in this release.",
+										"properties": {
+											"user": {
+												"type": "object",
+												"properties": {
+													"schema": {
+														"type": "object",
+														"additionalProperties": true,
+														"nullable": true,
+														"description": "JSON Schema describing the profile. Every property needs a description. Send null to clear it."
+													},
+													"custom_instructions": {
+														"type": "string",
+														"nullable": true,
+														"description": "Extra guidance for the extraction step. Send null to clear it."
+													}
+												}
+											}
+										}
 									}
 								}
 							}
@@ -8239,18 +8296,63 @@
 									"properties": {
 										"enabled": {
 											"type": "boolean",
-											"description": "Whether profile generation runs for this project."
+											"description": "Whether profile generation runs for this project. Project-wide."
 										},
-										"schema": {
+										"entities": {
 											"type": "object",
-											"additionalProperties": true,
-											"nullable": true,
-											"description": "JSON Schema describing the profile. Every property needs a description."
+											"description": "Per-entity-type settings. Only `user` is available in this release.",
+											"properties": {
+												"user": {
+													"type": "object",
+													"properties": {
+														"schema": {
+															"type": "object",
+															"additionalProperties": true,
+															"nullable": true,
+															"description": "JSON Schema describing the profile. Every property needs a description."
+														},
+														"custom_instructions": {
+															"type": "string",
+															"nullable": true,
+															"description": "Extra guidance for the extraction step."
+														}
+													}
+												},
+												"agent": {
+													"type": "object",
+													"properties": {
+														"schema": {
+															"type": "object",
+															"additionalProperties": true,
+															"nullable": true,
+															"description": "JSON Schema describing the profile. Every property needs a description."
+														},
+														"custom_instructions": {
+															"type": "string",
+															"nullable": true,
+															"description": "Extra guidance for the extraction step."
+														}
+													}
+												}
+											}
 										},
-										"custom_instructions": {
-											"type": "string",
-											"nullable": true,
-											"description": "Extra guidance for the extraction step."
+										"capabilities": {
+											"type": "object",
+											"properties": {
+												"jobs": {
+													"type": "boolean"
+												},
+												"estimates": {
+													"type": "boolean"
+												},
+												"samples": {
+													"type": "boolean"
+												},
+												"full_rebuild": {
+													"type": "boolean",
+													"description": "Whether a project-wide rebuild (regenerate/backfill) is available. Currently false."
+												}
+											}
 										}
 									}
 								}
@@ -8291,7 +8393,8 @@
 							"schema": {
 								"type": "object",
 								"required": [
-									"operation"
+									"operation",
+									"entity_type"
 								],
 								"properties": {
 									"operation": {
@@ -8306,8 +8409,7 @@
 										"type": "string",
 										"enum": [
 											"user"
-										],
-										"default": "user"
+										]
 									},
 									"entity_id": {
 										"type": "string",

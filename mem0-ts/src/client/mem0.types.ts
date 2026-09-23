@@ -263,6 +263,8 @@ export interface ProfileResponse {
   entityId: string;
   updatedAt: string | null;
   generationCount: number;
+  /** The last generation's failure reason, when `status` is `failed`. */
+  error?: string | null;
 }
 
 /** Every accepted generation. `statusUrl` is the server's own poll path. */
@@ -272,19 +274,15 @@ export interface ProfileJobResponse {
   statusUrl: string;
   operation: string;
   entityType: ProfileEntityType;
-  usageUnits?: number;
+  /** Entities reserved against usage for this job. */
+  entityCountReserved?: number;
   eventId?: string;
   replayed?: boolean;
   /** Sample runs only: how many entities were picked. */
   sampled?: number;
   /** Sample runs only: the entity ids picked. Read each one with `getProfile`. */
   entityIds?: string[];
-  /** @deprecated The API returns `entityIds`; this is never populated. */
-  results?: Array<ProfileSampleResult>;
 }
-
-/** @deprecated Use {@link ProfileJobResponse}. */
-export type ProfileTriggerResponse = ProfileJobResponse;
 
 /** The settings to write. `schema` and `customInstructions` apply to user profiles. */
 export interface ProfileSettings {
@@ -320,9 +318,6 @@ export interface ProfileSampleResult {
   profileId?: string;
   [key: string]: any;
 }
-
-/** @deprecated Use {@link ProfileJobResponse}. */
-export type ProfileSamplesResponse = ProfileJobResponse;
 
 /** `GET /v2/profiles/jobs/{id}/`. The job nests under `job`. */
 export interface ProfileJobStatus {

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
 import {
   AllUsers,
   PaginatedMemories,
@@ -24,10 +25,8 @@ import {
   ProfileResponse,
   ProfileJobResponse,
   ProfileJobStatus,
-  ProfileTriggerResponse,
   ProfileSettings,
   ProfileSettingsResponse,
-  ProfileSamplesResponse,
 } from "./mem0.types";
 import {
   captureClientEvent,
@@ -795,10 +794,14 @@ export default class MemoryClient {
    * Profiles are otherwise built once a user crosses an internal message
    * threshold, so a new user has none for its first few memories. Returns as
    * soon as the work is queued: poll {@link getProfile} and branch on `status`.
+   *
+   * Pass `idempotencyKey` and reuse it to retry a lost request without starting
+   * (and being billed for) a second job.
    */
   async generateProfile(data: {
     entityId: string;
-  }): Promise<ProfileTriggerResponse> {
+    idempotencyKey?: string;
+  }): Promise<ProfileJobResponse> {
     this._captureEvent("generate_profile", []);
     await this._awaitIdentity();
 
@@ -806,7 +809,10 @@ export default class MemoryClient {
       `${this.host}${PROFILE_JOBS_PATH}`,
       {
         method: "POST",
-        headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
+        headers: {
+          ...this.headers,
+          "Idempotency-Key": data.idempotencyKey ?? uuidv4(),
+        },
         body: JSON.stringify({
           operation: "trigger",
           entity_type: "user",
@@ -911,7 +917,10 @@ export default class MemoryClient {
    * Real generations against real memories, and the results are kept: the
    * profiles are written to those users and count toward usage.
    */
-  async sampleProfiles(data?: { limit?: number }): Promise<ProfileJobResponse> {
+  async sampleProfiles(data?: {
+    limit?: number;
+    idempotencyKey?: string;
+  }): Promise<ProfileJobResponse> {
     this._captureEvent("sample_profiles", []);
     await this._awaitIdentity();
 
@@ -919,7 +928,10 @@ export default class MemoryClient {
       `${this.host}${PROFILE_JOBS_PATH}`,
       {
         method: "POST",
-        headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
+        headers: {
+          ...this.headers,
+          "Idempotency-Key": data?.idempotencyKey ?? uuidv4(),
+        },
         body: JSON.stringify({
           operation: "sample",
           // Required: the API refuses a job that does not name an entity kind.

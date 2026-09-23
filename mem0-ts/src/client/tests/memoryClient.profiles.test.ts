@@ -98,11 +98,14 @@ describe("MemoryClient - generateProfile()", () => {
     extra.set("/v2/profiles/jobs/", {
       status: 202,
       body: {
-        message: "Profile generation started.",
+        job_id: "01a0ceb6-97c5-7cb2-80c4-b81a97876ef1",
+        status: "QUEUED",
+        status_url: "/v2/profiles/jobs/01a0ceb6-97c5-7cb2-80c4-b81a97876ef1/",
+        operation: "trigger",
         entity_type: "user",
-        entity_id: "alice",
-        profile_id: "p_1",
-        status: "PENDING",
+        entity_count_reserved: 1,
+        event_id: "01a0ceb6-9865-7841-9b25-d280511382ff",
+        replayed: false,
       },
     });
     const mock = setupMockFetch(extra);
@@ -116,7 +119,39 @@ describe("MemoryClient - generateProfile()", () => {
     expect(body.operation).toBe("trigger");
     expect(body.entity_type).toBe("user");
     expect(body.entity_id).toBe("alice");
-    expect(result.profileId).toBe("p_1");
+    // A generated Idempotency-Key is always sent so the create can be retried safely.
+    const headers = call![1].headers as Record<string, string>;
+    expect(headers["Idempotency-Key"]).toBeTruthy();
+    expect(result.jobId).toBe("01a0ceb6-97c5-7cb2-80c4-b81a97876ef1");
+    expect(result.statusUrl).toBe(
+      "/v2/profiles/jobs/01a0ceb6-97c5-7cb2-80c4-b81a97876ef1/",
+    );
+    expect(result.replayed).toBe(false);
+  });
+
+  test("reuses a caller-supplied idempotency key", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v2/profiles/jobs/", {
+      status: 202,
+      body: {
+        job_id: "j1",
+        status: "QUEUED",
+        status_url: "/v2/profiles/jobs/j1/",
+        operation: "trigger",
+        entity_type: "user",
+      },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.generateProfile({
+      entityId: "alice",
+      idempotencyKey: "retry-key-123",
+    });
+
+    const call = findFetchCall(mock, "/v2/profiles/jobs/", "POST");
+    const headers = call![1].headers as Record<string, string>;
+    expect(headers["Idempotency-Key"]).toBe("retry-key-123");
   });
 });
 

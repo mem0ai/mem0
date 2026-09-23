@@ -182,27 +182,48 @@ Sampling is asynchronous: the call returns a job as soon as it is queued. Poll `
 
 <CodeGroup>
 ```python Python
+import time
+
 job = client.sample_profiles(limit=5)
 
-# Poll until the sample job finishes.
-status = client.get_profile_job(job["status_url"])["job"]
+# Poll until the sample job reaches a terminal state (job status is UPPERCASE).
+TERMINAL = {"SUCCEEDED", "PARTIALLY_SUCCEEDED", "FAILED", "CANCELLED"}
+deadline = time.time() + 120
+while True:
+    status = client.get_profile_job(job["status_url"])["job"]
+    if status["status"] in TERMINAL:
+        break
+    if time.time() > deadline:
+        raise TimeoutError("Sample job did not finish in time")
+    time.sleep(3)
+
 print(status["status"], status["succeeded"], "of", status["total"])
 
-# Each result names one sampled entity; read its saved profile.
-for row in status["results"]:
-    print(client.get_profile(row["entity_id"]))
+# The create response lists the sampled entities; read each one's saved profile.
+for entity_id in job["entity_ids"]:
+    print(client.get_profile(entity_id))
 ```
 
 ```typescript TypeScript
 const job = await client.sampleProfiles({ limit: 5 });
 
-// Poll until the sample job finishes.
-const { job: status } = await client.getProfileJob(job.statusUrl);
+// Poll until the sample job reaches a terminal state (job status is UPPERCASE).
+const TERMINAL = ["SUCCEEDED", "PARTIALLY_SUCCEEDED", "FAILED", "CANCELLED"];
+const deadline = Date.now() + 120_000;
+let status;
+while (true) {
+  status = (await client.getProfileJob(job.statusUrl)).job;
+  if (TERMINAL.includes(status.status)) break;
+  if (Date.now() > deadline)
+    throw new Error("Sample job did not finish in time");
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+}
+
 console.log(status.status, status.succeeded, "of", status.total);
 
-// Each result names one sampled entity; read its saved profile.
-for (const row of status.results ?? []) {
-  console.log(await client.getProfile({ entityId: row.entityId }));
+// The create response lists the sampled entities; read each one's saved profile.
+for (const entityId of job.entityIds ?? []) {
+  console.log(await client.getProfile({ entityId }));
 }
 ```
 </CodeGroup>
