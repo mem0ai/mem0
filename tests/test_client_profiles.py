@@ -57,13 +57,6 @@ class TestGetProfile:
 
         mock_memory_client.client.get.assert_called_once_with("/v2/entities/user/alice/profile/")
 
-    def test_supports_agents(self, mock_memory_client):
-        mock_memory_client.client.get.return_value = _mock_response({"profile": {}, "status": "pending"})
-
-        mock_memory_client.get_profile("support-bot", entity_type="agent")
-
-        mock_memory_client.client.get.assert_called_once_with("/v2/entities/agent/support-bot/profile/")
-
     def test_encodes_path_segments(self, mock_memory_client):
         """An id with a slash must not open a new path segment."""
         mock_memory_client.client.get.return_value = _mock_response({"profile": {}, "status": "pending"})
@@ -96,16 +89,6 @@ class TestGenerateProfile:
         _assert_job_call(
             mock_memory_client.client.post,
             {"operation": "trigger", "entity_type": "user", "entity_id": "alice"},
-        )
-
-    def test_agent_entity_type(self, mock_memory_client):
-        mock_memory_client.client.post.return_value = _mock_response({"profile_id": "p_2", "status": "PENDING"})
-
-        mock_memory_client.generate_profile("support-bot", entity_type="agent")
-
-        _assert_job_call(
-            mock_memory_client.client.post,
-            {"operation": "trigger", "entity_type": "agent", "entity_id": "support-bot"},
         )
 
 
@@ -145,14 +128,14 @@ class TestProfileSettings:
         assert set(kwargs["json"]) == {"enabled", "entities"}
         assert "schema" not in kwargs["json"]
 
-    def test_update_targets_the_named_entity_type(self, mock_memory_client):
+    def test_update_targets_the_user_entity_type(self, mock_memory_client):
         schema = {"type": "object", "properties": {"x": {"type": "string", "description": "d"}}}
         mock_memory_client.client.post.return_value = _mock_response({"enabled": True})
 
-        mock_memory_client.update_profile_settings(schema=schema, entity_type="agent")
+        mock_memory_client.update_profile_settings(schema=schema)
 
         _, kwargs = mock_memory_client.client.post.call_args
-        assert kwargs["json"] == {"entities": {"agent": {"schema": schema}}}
+        assert kwargs["json"] == {"entities": {"user": {"schema": schema}}}
 
     def test_update_passes_schema_verbatim(self, mock_memory_client):
         schema = {
@@ -178,7 +161,7 @@ class TestProfileSettings:
         )
 
 
-class TestSampleAndRegenerate:
+class TestSampleProfiles:
     def test_sample_without_limit(self, mock_memory_client):
         mock_memory_client.client.post.return_value = _mock_response({"sampled": 5, "entity_ids": []})
 
@@ -195,23 +178,6 @@ class TestSampleAndRegenerate:
             mock_memory_client.client.post,
             {"operation": "sample", "limit": 3, "entity_type": "user"},
         )
-
-    def test_sample_names_the_entity_type(self, mock_memory_client):
-        """Every job names an entity kind: the API refuses one that does not."""
-        mock_memory_client.client.post.return_value = _mock_response({"sampled": 1, "entity_ids": []})
-
-        mock_memory_client.sample_profiles(entity_type="agent")
-
-        _assert_job_call(mock_memory_client.client.post, {"operation": "sample", "entity_type": "agent"})
-
-    def test_regenerate(self, mock_memory_client):
-        mock_memory_client.client.post.return_value = _mock_response(
-            {"status": "accepted", "project_id": "proj_abc", "existing_profile_count": 12}
-        )
-
-        mock_memory_client.regenerate_profiles()
-
-        _assert_job_call(mock_memory_client.client.post, {"operation": "regenerate", "entity_type": "user"})
 
 
 class TestAsyncClientParity:
@@ -246,11 +212,11 @@ class TestAsyncClientParity:
     def test_generate_profile(self, async_client):
         async_client.async_client.post = AsyncMock(return_value=_mock_response({"profile_id": "p_1"}))
 
-        asyncio.run(async_client.generate_profile("alice", entity_type="agent"))
+        asyncio.run(async_client.generate_profile("alice"))
 
         _assert_job_call(
             async_client.async_client.post,
-            {"operation": "trigger", "entity_type": "agent", "entity_id": "alice"},
+            {"operation": "trigger", "entity_type": "user", "entity_id": "alice"},
         )
 
     def test_update_settings_partial(self, async_client):
@@ -274,10 +240,3 @@ class TestAsyncClientParity:
             "/v2/profiles/settings/",
             json={"enabled": True, "entities": {"user": {"schema": schema}}},
         )
-
-    def test_regenerate(self, async_client):
-        async_client.async_client.post = AsyncMock(return_value=_mock_response({"status": "accepted"}))
-
-        asyncio.run(async_client.regenerate_profiles())
-
-        _assert_job_call(async_client.async_client.post, {"operation": "regenerate", "entity_type": "user"})

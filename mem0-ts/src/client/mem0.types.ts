@@ -239,8 +239,8 @@ export interface GetMemoryExportPayload {
 
 // ─── Profile Types ──────────────────────────────────────────
 
-/** Entity kinds that can carry a profile. */
-export type ProfileEntityType = "user" | "agent";
+/** The entity kind that carries a profile. */
+export type ProfileEntityType = "user";
 
 /**
  * `succeeded` is the only state in which `profile` is guaranteed to hold content.
@@ -249,7 +249,11 @@ export type ProfileEntityType = "user" | "agent";
  * spelling is what a comparison has to match.
  */
 export type ProfileStatus =
-  "succeeded" | "pending" | "failed" | "not_enabled" | "insufficient_data";
+  | "succeeded"
+  | "pending"
+  | "failed"
+  | "not_enabled"
+  | "insufficient_data";
 
 export interface ProfileResponse {
   /** Shaped by the project's schema; keys are not camel-cased. */
@@ -282,15 +286,13 @@ export interface ProfileJobResponse {
 /** @deprecated Use {@link ProfileJobResponse}. */
 export type ProfileTriggerResponse = ProfileJobResponse;
 
-/** The settings to write. `schema` and `customInstructions` apply to one entity type. */
+/** The settings to write. `schema` and `customInstructions` apply to user profiles. */
 export interface ProfileSettings {
   /** Turn profile generation on or off. Project-wide. */
   enabled?: boolean;
   /** JSON Schema for the profile. Every property needs a `description`. */
   schema?: Record<string, any> | null;
   customInstructions?: string | null;
-  /** Which entity kind `schema` and `customInstructions` belong to. Defaults to "user". */
-  entityType?: ProfileEntityType;
 }
 
 /** One entity type's stored configuration. */
@@ -321,9 +323,6 @@ export interface ProfileSampleResult {
 
 /** @deprecated Use {@link ProfileJobResponse}. */
 export type ProfileSamplesResponse = ProfileJobResponse;
-
-/** @deprecated Use {@link ProfileJobResponse}. */
-export type ProfileRegenerateResponse = ProfileJobResponse;
 
 /** `GET /v2/profiles/jobs/{id}/`. The job nests under `job`. */
 export interface ProfileJobStatus {

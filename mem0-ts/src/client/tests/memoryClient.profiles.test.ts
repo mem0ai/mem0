@@ -76,18 +76,18 @@ describe("MemoryClient - getProfile()", () => {
     expect(status).not.toBe("insufficientData");
   });
 
-  test("defaults to user and encodes the entity id", async () => {
+  test("scopes to user and encodes the entity id", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/entities/agent/", {
+    extra.set("/v2/entities/user/", {
       status: 200,
-      body: { profile: {}, status: "pending", entity_type: "agent" },
+      body: { profile: {}, status: "pending", entity_type: "user" },
     });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.getProfile({ entityId: "a/b", entityType: "agent" });
+    await client.getProfile({ entityId: "a/b" });
 
-    const call = findFetchCall(mock, "/v2/entities/agent/a%2Fb/profile/");
+    const call = findFetchCall(mock, "/v2/entities/user/a%2Fb/profile/");
     expect(call).toBeDefined();
   });
 });
@@ -179,7 +179,7 @@ describe("MemoryClient - profile settings", () => {
     );
   });
 
-  test("targets the entity type the caller named", async () => {
+  test("scopes entity-level settings under user", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v2/profiles/settings/", {
       status: 200,
@@ -190,13 +190,12 @@ describe("MemoryClient - profile settings", () => {
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.updateProfileSettings({
       schema: { type: "object", properties: {} },
-      entityType: "agent",
     });
 
     const body = getFetchBody(
       findFetchCall(mock, "/v2/profiles/settings/", "POST")!,
     );
-    expect(Object.keys(body.entities)).toEqual(["agent"]);
+    expect(Object.keys(body.entities)).toEqual(["user"]);
   });
 
   test("omits fields the caller did not set", async () => {
@@ -251,7 +250,7 @@ describe("MemoryClient - profile settings", () => {
   });
 });
 
-describe("MemoryClient - sampleProfiles() / regenerateProfiles()", () => {
+describe("MemoryClient - sampleProfiles()", () => {
   test("sampleProfiles omits limit when unset", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v2/profiles/jobs/", {
@@ -303,47 +302,5 @@ describe("MemoryClient - sampleProfiles() / regenerateProfiles()", () => {
     expect(getFetchBody(call!).limit).toBe(3);
     expect(getFetchBody(call!).entity_type).toBe("user");
     expect(result.sampled).toBe(3);
-  });
-
-  test("sampleProfiles targets the entity type the caller named", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/profiles/jobs/", {
-      status: 202,
-      body: { job_id: "job_4", status: "QUEUED", entity_type: "agent" },
-    });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.sampleProfiles({ entityType: "agent" });
-
-    const call = findFetchCall(mock, "/v2/profiles/jobs/", "POST");
-    expect(getFetchBody(call!).entity_type).toBe("agent");
-  });
-
-  test("sends operation regenerate to the jobs collection", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/profiles/jobs/", {
-      status: 202,
-      body: {
-        job_id: "job_3",
-        status: "QUEUED",
-        status_url: "/v2/profiles/jobs/job_3/",
-        operation: "regenerate",
-        entity_type: "user",
-      },
-    });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result = await client.regenerateProfiles();
-
-    const call = findFetchCall(mock, "/v2/profiles/jobs/", "POST");
-    expect(call).toBeDefined();
-    expect(getFetchBody(call!)).toEqual({
-      operation: "regenerate",
-      entity_type: "user",
-    });
-    expect(result.jobId).toBe("job_3");
-    expect(result.statusUrl).toBe("/v2/profiles/jobs/job_3/");
   });
 });

@@ -28,7 +28,6 @@ import {
   ProfileSettings,
   ProfileSettingsResponse,
   ProfileSamplesResponse,
-  ProfileRegenerateResponse,
 } from "./mem0.types";
 import {
   captureClientEvent,
@@ -772,21 +771,17 @@ export default class MemoryClient {
   }
 
   /**
-   * Get the memory profile for a single entity.
+   * Get the memory profile for a single user.
    *
    * Branch on `status`, not on an empty `profile`: generation is asynchronous,
-   * so a known entity without a profile yet is a normal response.
+   * so a known user without a profile yet is a normal response.
    */
-  async getProfile(data: {
-    entityId: string;
-    entityType?: ProfileEntityType;
-  }): Promise<ProfileResponse> {
+  async getProfile(data: { entityId: string }): Promise<ProfileResponse> {
     this._captureEvent("get_profile", []);
     await this._awaitIdentity();
 
-    const entityType = data.entityType ?? "user";
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v2/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(data.entityId)}/profile/`,
+      `${this.host}/v2/entities/user/${encodeURIComponent(data.entityId)}/profile/`,
       {
         headers: this.headers,
       },
@@ -795,15 +790,14 @@ export default class MemoryClient {
   }
 
   /**
-   * Generate or refresh the profile for one entity, now.
+   * Generate or refresh the profile for one user, now.
    *
-   * Profiles are otherwise built once an entity crosses an internal message
-   * threshold, so a new entity has none for its first few memories. Returns as
+   * Profiles are otherwise built once a user crosses an internal message
+   * threshold, so a new user has none for its first few memories. Returns as
    * soon as the work is queued: poll {@link getProfile} and branch on `status`.
    */
   async generateProfile(data: {
     entityId: string;
-    entityType?: ProfileEntityType;
   }): Promise<ProfileTriggerResponse> {
     this._captureEvent("generate_profile", []);
     await this._awaitIdentity();
@@ -815,7 +809,7 @@ export default class MemoryClient {
         headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify({
           operation: "trigger",
-          entity_type: data.entityType ?? "user",
+          entity_type: "user",
           entity_id: data.entityId,
         }),
       },
@@ -873,7 +867,7 @@ export default class MemoryClient {
   /**
    * Update profile settings. Only the fields you pass are written.
    *
-   * `schema` and `customInstructions` are per entity type and are nested under
+   * `schema` and `customInstructions` are per user and are nested under
    * `entities` for the API; only `enabled` is project-wide. Sending them flat
    * is rejected with `Unsupported settings`.
    */
@@ -884,12 +878,7 @@ export default class MemoryClient {
     this._captureEvent("update_profile_settings", [payloadKeys]);
     await this._awaitIdentity();
 
-    const {
-      schema,
-      customInstructions,
-      enabled,
-      entityType = "user",
-    } = settings || {};
+    const { schema, customInstructions, enabled } = settings || {};
 
     const body: Record<string, any> = {};
     if (enabled !== undefined) {
@@ -905,7 +894,7 @@ export default class MemoryClient {
       entitySettings.custom_instructions = customInstructions;
     }
     if (Object.keys(entitySettings).length > 0) {
-      body.entities = { [entityType]: entitySettings };
+      body.entities = { user: entitySettings };
     }
 
     const raw = await this._fetchRawJson(`${this.host}/v2/profiles/settings/`, {
@@ -917,15 +906,12 @@ export default class MemoryClient {
   }
 
   /**
-   * Generate profiles for a few real entities, to check a schema.
+   * Generate profiles for a few real users, to check a schema.
    *
    * Real generations against real memories, and the results are kept: the
-   * profiles are written to those entities and count toward usage.
+   * profiles are written to those users and count toward usage.
    */
-  async sampleProfiles(data?: {
-    limit?: number;
-    entityType?: ProfileEntityType;
-  }): Promise<ProfileJobResponse> {
+  async sampleProfiles(data?: { limit?: number }): Promise<ProfileJobResponse> {
     this._captureEvent("sample_profiles", []);
     await this._awaitIdentity();
 
@@ -937,35 +923,8 @@ export default class MemoryClient {
         body: JSON.stringify({
           operation: "sample",
           // Required: the API refuses a job that does not name an entity kind.
-          entity_type: data?.entityType ?? "user",
+          entity_type: "user",
           ...this._prepareParams({ limit: data?.limit }),
-        }),
-      },
-    );
-    return response;
-  }
-
-  /**
-   * Rebuild the profile of every entity of one kind in the project.
-   *
-   * Not available yet: the server answers 409 `not_yet_available` and creates
-   * nothing. Use {@link sampleProfiles} or {@link generateProfile} until
-   * `capabilities.full_rebuild` from {@link getProfileSettings} is true.
-   */
-  async regenerateProfiles(data?: {
-    entityType?: ProfileEntityType;
-  }): Promise<ProfileJobResponse> {
-    this._captureEvent("regenerate_profiles", []);
-    await this._awaitIdentity();
-
-    const response = await this._fetchWithErrorHandling(
-      `${this.host}${PROFILE_JOBS_PATH}`,
-      {
-        method: "POST",
-        headers: { ...this.headers, "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({
-          operation: "regenerate",
-          entity_type: data?.entityType ?? "user",
         }),
       },
     );
