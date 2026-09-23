@@ -198,9 +198,9 @@ export function apply(ctx: Context, config: Config): void {
     defineTool({
       name: "search_memory",
       description:
-        "Search the user's long-term Mem0 memory for facts relevant to a query. Use proactively before answering anything that may depend on what the user told you earlier.",
+        "Search memories from earlier work. Use it before repeating investigation or when earlier decisions, fixes, commands, or results may help.",
       parameters: {
-        query: { type: "string", description: "What to recall.", required: true },
+        query: { type: "string", description: "A direct question about earlier work.", required: true },
         limit: {
           type: "integer",
           description: `Max results to return (default ${DEFAULT_SEARCH_LIMIT}).`,

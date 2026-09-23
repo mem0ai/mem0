@@ -8,9 +8,9 @@ export function createMemorySearchTool(deps: ToolDeps) {
   return {
     name: "memory_search",
     label: "Memory Search",
-    description: "Search long-term memories stored in Mem0 by semantic meaning. Use this proactively before answering when the request may depend on the user's past work, preferences, or decisions -- relevant memories are not always already in context. For multi-part or comparative questions, run several searches with different phrasings and combine the results rather than stopping after one (multi-hop).",
+    description: "Search memories from earlier work. Use it before repeating investigation or when earlier decisions, fixes, commands, or results may help.",
     parameters: Type.Object({
-      query: Type.String({ description: "Search query" }),
+      query: Type.String({ description: "A direct question about earlier work." }),
       limit: Type.Optional(Type.Number({ description: `Max results (default: ${cfg.topK})` })),
       userId: Type.Optional(Type.String({ description: "User ID to scope search" })),
       agentId: Type.Optional(Type.String({ description: "Agent ID to search a specific agent's memories" })),
