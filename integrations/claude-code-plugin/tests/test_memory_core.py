@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -2306,8 +2307,8 @@ def test_sidekick_instructions_reject_unrequested_related_changes():
     prompt = (PLUGIN_ROOT / "agents" / "sidekick.md").read_text()
     normalized = " ".join(prompt.split())
     assert "Skill" in prompt.split("---", 2)[1]
-    assert "ALWAYS call `search_memories` before answering anything" in normalized
-    assert "Do not rely on the chat window" in normalized
+    assert "call `search_memories` with a" in normalized
+    assert "focused question before searching the repository again" in normalized
     assert "Complete only the work the main agent assigned" in normalized
     assert "Do not make related improvements" in normalized
     assert "report them separately" in normalized
@@ -3460,7 +3461,12 @@ def test_automatic_flush_can_be_disabled_for_external_harnesses(isolated_env):
 def test_version_is_single_sourced():
     manifest = json.loads((PLUGIN_ROOT / ".claude-plugin" / "plugin.json").read_text())
     assert manifest["name"] == "mem0"
-    assert manifest["version"] == memory_core.PLUGIN_VERSION == "0.3.1"
+    # Compared against PLUGIN_VERSION, never a literal. A hardcoded version here
+    # was one more place to edit on every release, inside the test asserting the
+    # version is single-sourced, and it caught nothing that the agreement checks
+    # below do not: fifteen places set to the same wrong value would still pass.
+    assert re.fullmatch(r"\d+\.\d+\.\d+", memory_core.PLUGIN_VERSION), memory_core.PLUGIN_VERSION
+    assert manifest["version"] == memory_core.PLUGIN_VERSION
     root = REPOSITORY_ROOT
     for mp in (root / "marketplace.json", root / ".claude-plugin" / "marketplace.json"):
         entry = next(p for p in json.loads(mp.read_text())["plugins"] if p["name"] == "mem0")
@@ -4327,7 +4333,7 @@ def test_flush_sends_unified_body_with_both_agent_and_user_id(isolated_env, monk
     assert sent_body["run_id"] == "s1"
     assert "lane" not in sent_body["metadata"]
     assert "Save concise repository facts" in sent_body["agent_custom_instructions"]
-    assert "invocation that succeeded" in sent_body["agent_custom_instructions"]
+    assert "Write about the repository, not the user" in sent_body["agent_custom_instructions"]
     assert "Do not save repository facts" in sent_body["custom_instructions"]
     assert sent_body["custom_categories"] == memory_core.CODING_MEMORY_CATEGORIES
     store.close()

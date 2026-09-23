@@ -171,6 +171,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Introduction](https://docs.mem0.ai/introduction) [Both]: Use when the user wants a one-page overview of how memory fits between the LLM and the app.
 - [Vibe Code with Mem0](https://docs.mem0.ai/vibecoding) [Both]: Use when the user is in Claude Code, Cursor, or Windsurf and wants memory wired into their editor.
 - [Platform Overview](https://docs.mem0.ai/platform/overview) [Platform]: Use when the user picks the managed product - 4-line integration, hosted API, dashboard.
+- [Mem0 Copilot](https://docs.mem0.ai/platform/copilot) [Platform]: Use when inspecting project memories, reviewing configuration changes, or testing extraction in the dashboard.
 - [Sign up as an agent](https://docs.mem0.ai/platform/agent-signup) [Platform]: Use when an AI agent needs to mint a Mem0 API key autonomously - four commands, no email or dashboard, human claims ownership later.
 - [Platform vs Open Source](https://docs.mem0.ai/platform/platform-vs-oss) [Both]: Use when the user is deciding between managed and self-hosted.
 - [Platform Quickstart](https://docs.mem0.ai/platform/quickstart) [Platform]: Use for the first Platform integration - API key plus `MemoryClient.add/search`.
@@ -326,6 +327,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Healthcare Google ADK](https://docs.mem0.ai/cookbooks/integrations/healthcare-google-adk) [Platform]: Use when the domain is medical and the framework is Google ADK.
 - [AWS Bedrock](https://docs.mem0.ai/cookbooks/integrations/aws-bedrock) [OSS]: Use when deploying with AWS managed model services.
 - [Tavily Search](https://docs.mem0.ai/cookbooks/integrations/tavily-search) [Platform]: Use when the agent layers web search on memory.
+- [Company Brain (Mem0 Platform + Supabase)](https://docs.mem0.ai/cookbooks/integrations/supabase) [Platform]: Use to build a shared org brain on Mem0 Platform with Supabase as system of record and the MCP server as the access layer (with a new-hire onboarding demo).
 
 ### Framework Examples
 - [LlamaIndex React](https://docs.mem0.ai/cookbooks/frameworks/llamaindex-react) [Both]: Use when building a React UI with LlamaIndex and memory.

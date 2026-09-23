@@ -79,9 +79,11 @@ the tool share one Mem0 backend and namespace.
 
 ## Telemetry
 
-The store sends anonymous usage events (store configuration, operation, duration,
-result counts, coarse failure kind) over the Mem0 SDK's existing telemetry client,
-tagged `source="STRANDS"`. Queries, memory text, message content, entity ids, and
+The store sends usage events (store configuration, operation, duration, result
+counts, coarse failure kind) over the Mem0 SDK's existing telemetry client,
+tagged `source="STRANDS"`. These are **not anonymous**: when an API key is
+configured they are sent under your Mem0 account email, the same way the SDK
+attributes its own. Queries, memory text, message content, entity ids, and
 metadata are never sent. Turn it off with `MEM0_TELEMETRY=false`.
 
 ## Development

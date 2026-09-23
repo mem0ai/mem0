@@ -21,15 +21,19 @@ import { truncateOutput } from "./output.ts";
 import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 import { captureEvent, errorKind } from "./telemetry.ts";
 import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
+import {
+  USER_RECALL_HEADING,
+  USER_SEARCH_QUERY_DESCRIPTION,
+  USER_SEARCH_TOOL_DESCRIPTION,
+} from "../../agent-plugin-core/typescript/src/prompts.ts";
 
 export const name = "mem0";
 export const inject = ["tools", "systemPrompt"];
 
 // Tags writes so Mem0's backend attributes them to this integration in
-// telemetry. The backend keeps recognized values via its KNOWN_EVENT_SOURCES
-// allowlist; unknown values bucket into "OTHERS", so "DEEPSEEK_HARNESS" must be
-// added to that allowlist for usage to surface by name (a one-line backend PR,
-// same pattern as the ZAPIER / STRANDS sources).
+// telemetry. Values outside the backend's KNOWN_EVENT_SOURCES allowlist bucket
+// into "OTHERS"; this one is added by mem0ai/platform#3602 and reads as OTHERS
+// until that ships.
 const SOURCE = "DEEPSEEK_HARNESS";
 
 const DEFAULT_SEARCH_LIMIT = 10;
@@ -108,7 +112,7 @@ export function apply(ctx: Context, config: Config): void {
   const stateFor = (session: object): SessionState => {
     let state = sessionStates.get(session);
     if (!state) {
-      const lifecycle = createMemoryLifecycle();
+      const lifecycle = createMemoryLifecycle({ recallHeading: USER_RECALL_HEADING });
       lifecycle.beginSession();
       state = { lifecycle, messages: [] };
       sessionStates.set(session, state);
@@ -198,10 +202,9 @@ export function apply(ctx: Context, config: Config): void {
   ctx.tools.register(
     defineTool({
       name: "search_memory",
-      description:
-        "Search the user's long-term Mem0 memory for facts relevant to a query. Use proactively before answering anything that may depend on what the user told you earlier.",
+      description: USER_SEARCH_TOOL_DESCRIPTION,
       parameters: {
-        query: { type: "string", description: "What to recall.", required: true },
+        query: { type: "string", description: USER_SEARCH_QUERY_DESCRIPTION, required: true },
         limit: {
           type: "integer",
           description: `Max results to return (default ${DEFAULT_SEARCH_LIMIT}).`,

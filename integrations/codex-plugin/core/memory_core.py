@@ -29,7 +29,7 @@ from typing import Any, Iterable
 import telemetry
 
 DEFAULT_API_URL = "https://api.mem0.ai"
-PLUGIN_VERSION = "0.3.1"
+PLUGIN_VERSION = "0.3.3"
 
 _harness_name: str = "generic"
 _harness_env_prefix: str = "MEM0_PLUGIN"
@@ -71,15 +71,13 @@ MAX_FLUSH_ATTEMPTS = 5
 FORGET_PAGE_SIZE = 100
 FORGET_MAX_PAGES = 50
 
-PROJECT_MEMORY_INSTRUCTIONS = """Save concise repository facts that will help anyone with future coding work in this repository.
+PROJECT_MEMORY_INSTRUCTIONS = """Save concise repository facts that will help with future coding work.
 
 A completed change should produce one memory explaining the resulting behavior, where it is implemented when useful, and any important constraints or reasoning. Exploration or accepted decisions may produce separate memories only when they are independently useful.
 
-A command that failed and was then made to work should produce one memory naming the failing invocation, the error it returned, and the invocation that succeeded. Do not save one-off errors caused by an edit still in progress, transient network failures, or anything a rerun would fix on its own.
+Use the coding agent's final response for conclusions about current repository behavior. Do not save proposed or recommended changes unless the user accepted them or the coding agent completed them. Treat subagent responses as supporting repository evidence, not as decisions.
 
-Use the current coding agent's final response for conclusions about current repository behavior. Do not save proposed or recommended changes unless the user accepted them or the coding agent completed them. Treat subagent responses as supporting repository evidence, not as decisions.
-
-Write about the repository, not the user, assistant, session, or task. Do not save personal preferences. Do not save a memory that only states which repository, branch, or directory the session worked in. Do not include test results, documentation updates, release notes, or temporary state.
+Write about the repository, not the user, assistant, session, or task. Do not include test results, documentation updates, release notes, or temporary state.
 
 If nothing useful was established, return no memories."""
 
@@ -1800,6 +1798,34 @@ def extraction_message_batches(
     return batches
 
 
+# Platform surface attribution. Read from the generated per-host module so a new
+# entrypoint is correct without remembering to configure anything.
+try:  # pragma: no cover - absent only in the un-built shared source tree
+    from _harness_id import PLATFORM_APPLICATION as _PLATFORM_APPLICATION
+    from _harness_id import PLATFORM_SOURCE as _PLATFORM_SOURCE
+except ImportError:
+    _PLATFORM_SOURCE = "MEM0_PLUGIN"
+    _PLATFORM_APPLICATION = ""
+
+
+def platform_headers(key: str) -> dict[str, str]:
+    """Auth plus the three surface-identity headers.
+
+    X-Mem0-Source and X-Application are set-once by contract: this is the
+    outermost layer, so it sets them, and nothing below may overwrite them.
+    X-Mem0-Client is append-only — anything downstream adds itself to the tail.
+    """
+    headers = {
+        "Authorization": f"Token {key}",
+        "Content-Type": "application/json",
+        "X-Mem0-Source": _PLATFORM_SOURCE,
+        "X-Mem0-Client": f"mem0-plugin/{PLUGIN_VERSION}",
+    }
+    if _PLATFORM_APPLICATION:
+        headers["X-Application"] = _PLATFORM_APPLICATION
+    return headers
+
+
 def _request_json(
     url: str, key: str, payload: dict[str, Any], timeout: float
 ) -> tuple[dict[str, Any] | list[Any], int, int]:
@@ -1807,7 +1833,7 @@ def _request_json(
     request = urllib.request.Request(
         url,
         data=raw,
-        headers={"Authorization": f"Token {key}", "Content-Type": "application/json"},
+        headers=platform_headers(key),
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -1834,7 +1860,7 @@ def _get_json(
 ) -> tuple[dict[str, Any] | list[Any], int]:
     request = urllib.request.Request(
         url,
-        headers={"Authorization": f"Token {key}", "Content-Type": "application/json"},
+        headers=platform_headers(key),
         method="GET",
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -1980,6 +2006,13 @@ def flush_session(
         "user_id": write_user,
         "app_id": repo.app_id,
         "run_id": session_id,
+        # Top level, not metadata: the backend reads `source` from the body or
+        # the query string, never from metadata, which is where this used to
+        # sit. The X-Mem0-Source header is also read, but only from the
+        # platform release that ships alongside this change, so the body value
+        # is what makes attribution work on both. The harness tag stays in
+        # metadata as hook provenance.
+        "source": _PLATFORM_SOURCE,
         "metadata": {**metadata, "author": write_user, "dirs": directory_chain(repo)},
         "agent_custom_instructions": PROJECT_MEMORY_INSTRUCTIONS,
         "custom_instructions": PERSONAL_MEMORY_INSTRUCTIONS,
@@ -2523,7 +2556,7 @@ def _collect_memory_ids(
 def _delete_memory(api_url: str, key: str, memory_id: str) -> bool:
     request = urllib.request.Request(
         f"{api_url}/v1/memories/{urllib.parse.quote(memory_id)}/",
-        headers={"Authorization": f"Token {key}", "Content-Type": "application/json"},
+        headers=platform_headers(key),
         method="DELETE",
     )
     try:

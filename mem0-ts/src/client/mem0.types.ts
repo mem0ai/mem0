@@ -30,6 +30,9 @@ export interface SearchMemoryOptions {
   showExpired?: boolean;
   referenceDate?: string | number;
   keywordSearch?: boolean;
+  /** Surface that produced the call, e.g. "OPENCLAW". Must be a value the
+   *  backend's EventSource enum knows, or it buckets into OTHERS. */
+  source?: string;
 }
 
 export interface GetAllMemoryOptions {

@@ -86,9 +86,9 @@ Per-call `userId` overrides are rejected unless the operator enables `allowUserO
 
 ## Telemetry
 
-Writes are tagged `source="DEEPSEEK_HARNESS"` so Mem0's backend can attribute usage to this integration. For it to surface by name (rather than bucketing into `OTHERS`), `DEEPSEEK_HARNESS` must be present in the backend's `KNOWN_EVENT_SOURCES` allowlist, a one-line platform change matching the existing `ZAPIER` / `STRANDS` sources.
+Writes are tagged `source="DEEPSEEK_HARNESS"`. That value has to exist in the backend's `EventSource` enum for usage to surface by name; until it does, these writes read as `OTHERS`. It is added by [mem0ai/platform#3602](https://github.com/mem0ai/platform/pull/3602), which has to ship before this claim is true.
 
-The plugin also sends anonymous usage events (which tool ran, duration, result counts, coarse failure kind) so Mem0 can tell how the plugin is used and where it breaks. Queries, memory text, and entity ids are never sent. Turn it off with `MEM0_TELEMETRY=false`.
+The plugin also sends usage events (which tool ran, duration, result counts, coarse failure kind) so Mem0 can tell how the plugin is used and where it breaks. These are **not anonymous**: when an API key is configured they are sent under your Mem0 account email, the same way the SDK attributes its own. Queries, memory text, and entity ids are never sent. Turn it off with `MEM0_TELEMETRY=false`.
 
 ## Status
 
