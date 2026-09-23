@@ -7,21 +7,17 @@ import type {Plugin} from "@opencode-ai/plugin";
 import {tool} from "@opencode-ai/plugin";
 import {MemoryClient} from "mem0ai";
 import {userInfo} from "os";
-import {resolve, dirname} from "path";
+import {basename, resolve, dirname} from "path";
 import {randomBytes} from "crypto";
-import {existsSync, readFileSync, readdirSync} from "fs";
+import {existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync} from "fs";
 import {homedir} from "os";
 import {join} from "path";
+import {createHash} from "crypto";
 import {captureEvent} from "./telemetry";
-import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, type Scope} from "./scope";
+import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
+import {parseProjectFromRemote} from "./project";
 import {resolveApiKey} from "./api-key";
-import {
-  createMemoryLifecycle,
-  RECALL_TOP_K,
-  repoCaptureOptions,
-  type ConversationMessage,
-} from "../agent-plugin-core/typescript/src/lifecycle.ts";
-import {resolveRepoContext} from "../agent-plugin-core/typescript/src/identity.ts";
+import {createMemoryLifecycle} from "../agent-plugin-core/typescript/src/lifecycle.ts";
 import {SEARCH_QUERY_DESCRIPTION, SEARCH_TOOL_DESCRIPTION} from "../agent-plugin-core/typescript/src/prompts.ts";
 
 async function getUserId(): Promise<string> {
@@ -31,6 +27,42 @@ async function getUserId(): Promise<string> {
   } catch {
   }
   return process.env.USER || process.env.USERNAME || "unknown";
+}
+
+async function getProjectId($: any): Promise<string> {
+  if (process.env.MEM0_APP_ID) return process.env.MEM0_APP_ID;
+  // Prefer the git remote's owner/repo — stable across clones, worktrees, and
+  // sub-directories (handles https + ssh, incl. custom host aliases).
+  try {
+    const r = await $`git remote get-url origin`.quiet();
+    const project = parseProjectFromRemote(r.stdout.toString());
+    if (project) return project;
+  } catch {
+  }
+  // No usable remote: use the git repo ROOT dir name, not cwd (which may be a
+  // sub-directory, or your home dir if OpenCode was launched outside a repo).
+  try {
+    const r = await $`git rev-parse --show-toplevel`.quiet();
+    const top = r.stdout.toString().trim();
+    if (top) return basename(top);
+  } catch {
+  }
+  return basename(process.cwd());
+}
+
+async function getBranch($: any): Promise<string> {
+  try {
+    const r = await $`git branch --show-current`.quiet();
+    return r.stdout.toString().trim() || "main";
+  } catch {
+  }
+  return "main";
+}
+
+function extractMemories(res: any): Array<{ memory: string; id: string }> {
+  const arr = res?.results ?? res;
+  if (!Array.isArray(arr)) return [];
+  return arr.map((m: any) => ({memory: m.memory ?? "", id: m.id ?? ""}));
 }
 
 function generateSessionId(): string {
@@ -62,6 +94,70 @@ function loadGlobalSearch(): boolean {
 function loadDefaultScope(): Scope {
   return resolveDefaultScope(loadSettings());
 }
+
+const CODING_CATEGORIES = [
+  "architecture_decisions", "api_design", "data_models", "algorithms",
+  "dependencies", "environment_setup", "testing_strategy", "debugging_notes",
+  "performance", "security", "deployment", "code_conventions",
+  "error_handling", "refactoring_history", "integrations", "onboarding",
+  "project_meta",
+];
+
+function categoriesFingerprint(): string {
+  const sorted = [...CODING_CATEGORIES].sort();
+  return createHash("sha256").update(sorted.join("\n")).digest("hex").slice(0, 16);
+}
+
+function apiKeyFingerprint(apiKey: string): string {
+  return createHash("sha256").update(apiKey).digest("hex").slice(0, 16);
+}
+
+async function autoSetupCategories(mem0: MemoryClient, apiKey: string): Promise<void> {
+  const stateDir = join(homedir(), ".mem0");
+  const stateFile = join(stateDir, "categories_setup.json");
+  const keyFp = apiKeyFingerprint(apiKey);
+  const catFp = categoriesFingerprint();
+
+  let state: Record<string, string> = {};
+  try {
+    if (existsSync(stateFile)) {
+      state = JSON.parse(readFileSync(stateFile, "utf8"));
+    }
+  } catch {}
+
+  if (state[keyFp] === catFp) return;
+
+  try {
+    const project = await mem0.getProject({fields: ["customCategories"]});
+    const existing: string[] = (project as any)?.custom_categories ?? (project as any)?.customCategories ?? [];
+    const sortedExisting = [...existing].sort();
+    const sortedTarget = [...CODING_CATEGORIES].sort();
+    if (JSON.stringify(sortedExisting) === JSON.stringify(sortedTarget)) {
+      state[keyFp] = catFp;
+      mkdirSync(stateDir, {recursive: true});
+      writeFileSync(stateFile, JSON.stringify(state, null, 2) + "\n");
+      return;
+    }
+
+    await mem0.updateProject({customCategories: CODING_CATEGORIES as any});
+
+    state[keyFp] = catFp;
+    mkdirSync(stateDir, {recursive: true});
+    writeFileSync(stateFile, JSON.stringify(state, null, 2) + "\n");
+  } catch {
+  }
+}
+
+const NUDGE_RE =
+  /\b(remember\s+(this|that)|memorize|save\s+this|note\s+(this|that)|don'?t\s+forget|always\s+remember|never\s+forget|keep\s+(this|that)\s+in\s+(mind|memory)|store\s+(this|that))\b/i;
+
+const RESUME_RE =
+  /where\s+(did\s+)?(we|I)\s+(leave|left)\s+off|continue\s+(from\s+)?(where|last)|what\s+were\s+we\s+(working|doing)|pick\s+up\s+where|resume\s+(from\s+|where\s+)|what.s\s+the\s+(current|latest)\s+(state|status)|catch\s+me\s+up|where\s+are\s+we/i;
+
+const ERROR_STRONG_RE =
+  /Traceback \(most recent call last\)|panic: |FATAL:|error\[E\d+\]/;
+const ERROR_MULTI_RE = /(Error:|Exception:)/g;
+const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "write", "edit", "multiEdit"]);
 
 function resolveFilters(args: any, globalSearch: boolean, userId: string, appId: string): any {
   if (args.filters) {
@@ -136,14 +232,8 @@ function extractUserText(input: any, output: any): string {
   return "";
 }
 
-interface SessionMemory {
-  lifecycle: ReturnType<typeof createMemoryLifecycle>;
-  context: string;
-  assistant: { messageID: string; text: string };
-}
-
 const Mem0Plugin: Plugin = async (ctx) => {
-  const {client} = ctx;
+  const {$, client} = ctx;
 
   const apiKey = resolveApiKey(process.env, process.env.HOME || process.env.USERPROFILE || homedir());
 
@@ -164,15 +254,21 @@ const Mem0Plugin: Plugin = async (ctx) => {
 
   const mem0 = new MemoryClient({apiKey});
   const userId = await getUserId();
-  const repo = resolveRepoContext(ctx.directory || process.cwd(), process.env.MEM0_APP_ID ?? "");
-  const {appId, branch} = repo;
+  const appId = await getProjectId($);
+  const branch = await getBranch($);
   const stats = {adds: 0, searches: 0, messages: 0};
   const sessionId = generateSessionId();
   const globalSearch = loadGlobalSearch();
   const lifecycle = createMemoryLifecycle();
-  const sessions = new Map<string, SessionMemory>();
-  const childSessions = new Set<string>();
+  lifecycle.beginSession();
 
+  let initialized = false;
+  let memoryCount = 0;
+  let msgCount = 0;
+
+  const systemContext: string[] = [];
+
+  // Emit a session_stop telemetry event once when the process winds down.
   let sessionStopSent = false;
   const emitSessionStop = () => {
     if (sessionStopSent) return;
@@ -184,14 +280,14 @@ const Mem0Plugin: Plugin = async (ctx) => {
       appId,
     );
   };
-  const shutdown = async () => {
-    await Promise.all([...sessions.keys()].map(endSession));
-    emitSessionStop();
-  };
   try {
-    process.on("beforeExit", () => void shutdown());
+    process.on("beforeExit", emitSessionStop);
   } catch {
   }
+
+  // Auto-configure coding categories in background (idempotent, never blocks)
+  Promise.resolve().then(() => autoSetupCategories(mem0, apiKey)).catch(() => {
+  });
 
   // Register a `/mem0-<skill>` slash command per bundled skill. OpenCode's TUI
   // slash menu is populated from `config.command` entries (skills discovered via
@@ -221,7 +317,7 @@ Identity context (resolved at plugin startup):
 - user_id: ${userId}
 - app_id: ${appId}
 - session_id: ${sessionId}
-- branch: ${branch || "unknown"}`,
+- branch: ${branch}`,
         description: desc,
       };
     }
@@ -231,31 +327,30 @@ Identity context (resolved at plugin startup):
   // arg wins; then explicit `filters`/`agent_id`; otherwise fall back to the
   // user's persisted default scope (read fresh so /mem0-scope applies at once).
   // A "project" default preserves the existing behavior, including global_search.
-  function readScopeFilters(args: any, runId: string): any {
-    if (args.scope) return scopeSearchFilters(resolveToolScope(asScope(args.scope), loadDefaultScope()), userId, appId, runId, repo.projectIds);
+  function readScopeFilters(args: any): any {
+    if (args.scope) return scopeSearchFilters(resolveToolScope(asScope(args.scope), loadDefaultScope()), userId, appId, sessionId);
     if (args.filters || args.agent_id) return resolveFilters(args, globalSearch, userId, appId);
     const ds = loadDefaultScope();
-    return ds === "project" && (globalSearch || args.user_id || args.app_id)
+    return ds === "project"
       ? resolveFilters(args, globalSearch, userId, appId)
-      : scopeSearchFilters(ds, userId, appId, runId, repo.projectIds);
+      : scopeSearchFilters(ds, userId, appId, sessionId);
   }
 
   return {
     "chat.message": chatMessageHook,
     "experimental.chat.messages.transform": chatMessagesTransformHook,
-    "experimental.text.complete": textCompleteHook,
+    "tool.execute.before": toolExecuteBeforeHook,
+    "tool.execute.after": toolExecuteAfterHook,
     "experimental.session.compacting": compactionHook,
-    event: eventHook,
-    dispose: shutdown,
 
     "shell.env": async (
-      input: { cwd: string; sessionID?: string },
+      _input: { cwd: string; sessionID?: string },
       output: { env: Record<string, string> },
     ) => {
       if (output?.env) {
         output.env.MEM0_USER_ID = userId;
         output.env.MEM0_APP_ID = appId;
-        output.env.MEM0_SESSION_ID = input?.sessionID || sessionId;
+        output.env.MEM0_SESSION_ID = sessionId;
         output.env.MEM0_BRANCH = branch;
         output.env.MEM0_GLOBAL_SEARCH = globalSearch ? "true" : "false";
       }
@@ -293,12 +388,11 @@ Identity context (resolved at plugin startup):
           infer: tool.schema.boolean().optional().describe("Set to false to store memory verbatim without LLM fact extraction"),
           scope: tool.schema.string().optional().describe('Write scope: "project" (this repo, default), "session" (this run), or "global" (user-wide, all projects). Use "global" only when explicitly asked.')
         },
-        async execute(args, context) {
+        async execute(args) {
           stats.adds++;
           captureEvent("tool_use", {tool: "add_memory"}, apiKey, appId);
-          const runId = context?.sessionID || sessionId;
           const effScope: Scope = resolveToolScope(args.scope ? asScope(args.scope) : undefined, loadDefaultScope());
-          const sp = scopeWriteParams(effScope, userId, appId, runId);
+          const sp = scopeWriteParams(effScope, userId, appId, sessionId);
           const finalUserId = args.agent_id ? args.user_id : (args.user_id ?? sp.user_id);
           const finalAppId = args.app_id ?? sp.app_id;
 
@@ -306,9 +400,9 @@ Identity context (resolved at plugin startup):
           if (meta.confidence === undefined) meta.confidence = 0.7;
           if (!meta.source) meta.source = "opencode";
           if (!meta.type) meta.type = "task_learning";
-          if (!meta.session_id) meta.session_id = runId;
+          if (!meta.session_id) meta.session_id = sessionId;
           if (!meta.files) meta.files = ["*"];
-          if (!meta.branch && branch) meta.branch = branch;
+          if (!meta.branch) meta.branch = branch;
 
           let infer = args.infer;
           if (meta.confidence >= 1.0 && infer === undefined) {
@@ -342,11 +436,11 @@ Identity context (resolved at plugin startup):
           top_k: tool.schema.number().optional().describe("Maximum number of results to return (alternative parameter)"),
           scope: tool.schema.string().optional().describe('Search scope: "project" (this repo, default), "session" (this run only), or "global" (across ALL your projects). Only use "global" when the user explicitly asks to search across projects.'),
         },
-        async execute(args, context) {
+        async execute(args) {
           stats.searches++;
           captureEvent("tool_use", {tool: "search_memories"}, apiKey, appId);
           const topK = args.limit ?? args.top_k ?? 10;
-          const filters = readScopeFilters(args, context?.sessionID || sessionId);
+          const filters = readScopeFilters(args);
 
           const res = await mem0.search(lifecycle.prepareUserText(args.query), {
             filters,
@@ -367,9 +461,9 @@ Identity context (resolved at plugin startup):
           page_size: tool.schema.number().optional().describe("Page size"),
           scope: tool.schema.string().optional().describe('Scope: "project" (default), "session", or "global" (across ALL your projects). Use "global" only when explicitly asked.'),
         },
-        async execute(args, context) {
+        async execute(args) {
           captureEvent("tool_use", {tool: "get_memories"}, apiKey, appId);
-          const filters = readScopeFilters(args, context?.sessionID || sessionId);
+          const filters = readScopeFilters(args);
 
           const res = await mem0.getAll({
             page: args.page,
@@ -432,9 +526,9 @@ Identity context (resolved at plugin startup):
           agent_id: tool.schema.string().optional().describe("Agent ID whose memories to delete"),
           scope: tool.schema.string().optional().describe('Scope to delete: "project" (default), "session", or "global" (user-wide). Use "global" only when explicitly asked.'),
         },
-        async execute(args, context) {
+        async execute(args) {
           captureEvent("tool_use", {tool: "delete_all_memories"}, apiKey, appId);
-          const sp = args.scope ? scopeWriteParams(resolveToolScope(asScope(args.scope), loadDefaultScope()), userId, appId, context?.sessionID || sessionId) : null;
+          const sp = args.scope ? scopeWriteParams(resolveToolScope(asScope(args.scope), loadDefaultScope()), userId, appId, sessionId) : null;
           const res = await mem0.deleteAll({
             user_id: sp ? sp.user_id : (args.agent_id ? args.user_id : (args.user_id ?? userId)),
             app_id: sp ? sp.app_id : (args.app_id ?? appId),
@@ -495,105 +589,341 @@ Identity context (resolved at plugin startup):
     },
   };
 
-  async function send(runId: string, messages: ConversationMessage[], reason: string) {
-    try {
-      await mem0.add(messages, repoCaptureOptions(repo, userId, runId, "opencode") as any);
-      stats.adds++;
-      captureEvent("flush", {reason, message_count: messages.length, success: true}, apiKey, appId);
-    } catch (err: any) {
-      captureEvent("flush", {reason, message_count: messages.length, success: false}, apiKey, appId);
+  async function chatMessageHook(input: any, output: any) {
+    const userText = extractUserText(input, output);
+    if (!userText || userText.length < 10) return;
+
+    const safeText = lifecycle.prepareUserText(userText);
+    msgCount++;
+    stats.messages++;
+
+    if (!initialized) {
+      initialized = true;
+
+      const searchFilters = globalSearch
+        ? {OR: [{user_id: "*"}]}
+        : {AND: [{user_id: userId}, {app_id: appId}]};
+
       try {
-        await client.app.log({body: {service: "mem0", level: "error", message: `Memory capture failed: ${err?.message}`}});
+        const all = await mem0.getAll({
+          filters: searchFilters,
+          page: 1,
+          pageSize: 1,
+        });
+        const a: any = all;
+        memoryCount =
+          typeof a?.count === "number"
+            ? a.count
+            : Array.isArray(a)
+              ? a.length
+              : Array.isArray(a?.results)
+                ? a.results.length
+                : 0;
+
+        if (globalSearch) {
+          systemContext.push(
+            `Global search is ON — searches return all memories across all users and projects. Writes still use user_id="${userId}", app_id="${appId}".`,
+          );
+        } else {
+          systemContext.push(
+            `Always include user_id="${userId}" and app_id="${appId}" in every search_memories filter and add_memory call.`,
+          );
+        }
+
+        if (memoryCount === 0) {
+          systemContext.push(
+            "New project with 0 memories. Capture decisions, conventions, and learnings as you work via the add_memory tool or the remember skill.",
+          );
+        }
+
+        if (memoryCount > 0) {
+          try {
+            const res = await mem0.search(
+              "recent session state decisions and learnings",
+              {
+                filters: searchFilters,
+                topK: 5,
+              },
+            );
+            stats.searches++;
+            const memories = extractMemories(res);
+            if (memories.length > 0) {
+              const memLines = memories
+                .map((m) => `- ${m.memory}`)
+                .join("\n");
+              systemContext.push(`Prior context from mem0:\n${memLines}`);
+            }
+          } catch {
+          }
+        }
+
+        systemContext.push(SCOPE_GUIDANCE);
+        const activeScope = loadDefaultScope();
+        if (activeScope !== "project") {
+          systemContext.push(
+            `Active default memory scope is "${activeScope}" (set via /mem0-scope). Memory tools use this when no explicit scope is given: "session" limits to this run (run_id="${sessionId}"); "global" spans all your projects (app_id="*"). Pass an explicit scope to override per call. delete_all_memories still requires an explicit scope="global" to delete user-wide.`,
+          );
+        }
+      } catch (err: any) {
+        try {
+          await client.app.log({
+            body: {
+              service: "mem0",
+              level: "error",
+              message: `Session init error: ${err?.message}`,
+            },
+          });
+        } catch {
+        }
+      }
+
+      captureEvent("session_start", {memory_count: memoryCount}, apiKey, appId);
+
+    }
+
+    const hasRemember = NUDGE_RE.test(safeText);
+    if (hasRemember) {
+      systemContext.push(
+        "[MEMORY TRIGGER] User asked to remember something. Call add_memory with the user's statement, confidence=1.0, infer=false.",
+      );
+    }
+
+    const hasResume = RESUME_RE.test(safeText);
+    if (hasResume) {
+      try {
+        const resumeFilters = globalSearch
+          ? {OR: [{user_id: "*"}]}
+          : {
+            AND: [
+              {user_id: userId},
+              {app_id: appId},
+            ],
+          };
+        const [stateRes, decisionsRes] = await Promise.all([
+          mem0.search("session state current task", {
+            filters: resumeFilters,
+            topK: 3,
+          }),
+          mem0.search("recent decisions and learnings", {
+            filters: resumeFilters,
+            topK: 3,
+          }),
+        ]);
+        stats.searches += 2;
+        const all = [
+          ...extractMemories(stateRes),
+          ...extractMemories(decisionsRes),
+        ];
+        const seen = new Set<string>();
+        const unique = all.filter((m) => {
+          if (seen.has(m.id)) return false;
+          seen.add(m.id);
+          return true;
+        });
+        if (unique.length > 0) {
+          const memLines = unique.map((m) => `- ${m.memory}`).join("\n");
+          systemContext.push(
+            `Session resume context:\n${memLines}\n\nThese memories provide context for resuming work.`,
+          );
+        }
+      } catch {
+      }
+    }
+
+    if (!hasResume && memoryCount > 0) {
+      try {
+        const msgFilters = globalSearch
+          ? {OR: [{user_id: "*"}]}
+          : {AND: [{user_id: userId}, {app_id: appId}]};
+        const res = await mem0.search(safeText, {
+          filters: msgFilters,
+          topK: 5,
+        });
+        stats.searches++;
+        const memories = extractMemories(res);
+        if (memories.length > 0) {
+          const memLines = memories.map((m) => `- ${m.memory}`).join("\n");
+          systemContext.push(`Relevant memories:\n${memLines}`);
+        }
+      } catch {
+      }
+    }
+
+    if (msgCount % 3 === 0) {
+      Promise.resolve().then(async () => {
+        try {
+          await mem0.add([{role: "user", content: safeText}], {
+            user_id: userId,
+            app_id: appId,
+            metadata: {
+              type: "auto_capture",
+              source: "opencode",
+              confidence: 0.7,
+              session_id: sessionId,
+              branch,
+            },
+            infer: true,
+          } as any);
+          stats.adds++;
+        } catch {
+        }
+      });
+    }
+
+    if (msgCount % 5 === 0 && stats.adds < Math.floor(msgCount / 3)) {
+      systemContext.push(
+        "After responding, store any new decisions, learnings, or preferences from this exchange via add_memory. Keep it to 1 sentence per memory.",
+      );
+    }
+
+    captureEvent(
+      "user_prompt",
+      {remember_detected: hasRemember, resume_detected: hasResume},
+      apiKey,
+      appId,
+    );
+  }
+
+  async function toolExecuteBeforeHook(input: any, output: any) {
+    const toolName: string = input?.tool ?? "";
+
+    if (WRITE_TOOLS.has(toolName)) {
+      const fp = String(
+        output?.args?.file_path ?? output?.args?.filePath ?? "",
+      );
+      if (/MEMORY\.md|\.claude\/memory/i.test(fp)) {
+        throw new Error(
+          "Use the add_memory tool instead of writing to MEMORY.md",
+        );
+      }
+    }
+  }
+
+  async function chatMessagesTransformHook(_input: any, output: { messages: { info: any; parts: any[] }[] }) {
+    if (systemContext.length === 0 || !output?.messages?.length) return;
+
+    const firstUser = output.messages.find(
+      (m) => m.info.role === "user",
+    );
+    if (!firstUser || !firstUser.parts.length) return;
+
+    const marker = "## Mem0 Memory Context";
+    if (firstUser.parts.some((p: any) => p.type === "text" && p.text?.includes(marker))) return;
+
+    const block = `${marker}\n\n${systemContext.join("\n\n")}`;
+    const ref = firstUser.parts[0];
+    firstUser.parts.unshift({...ref, type: "text", text: block});
+  }
+
+  async function toolExecuteAfterHook(input: any, _output: any) {
+    const toolName: string = input?.tool ?? "";
+    const toolOutput: string = input?.output ?? _output?.output ?? "";
+
+    if (toolName === "bash" && toolOutput.length >= 50) {
+      const command: string = input?.args?.command ?? "";
+      if (/git\s+(commit|merge|rebase)/.test(command)) return;
+
+      const hasStrongError = ERROR_STRONG_RE.test(toolOutput);
+      const multiErrors = (toolOutput.match(ERROR_MULTI_RE) ?? []).length;
+      if (!hasStrongError && multiErrors < 2) return;
+
+      try {
+        const errorLine =
+          toolOutput
+            .split("\n")
+            .find((l: string) =>
+              /Error:|Exception:|panic:|FAIL:|fatal:/i.test(l),
+            )
+            ?.replace(/^\s+/, "")
+            .slice(0, 120) ?? "";
+
+        const traceFiles = [
+          ...new Set(
+            toolOutput.match(
+              /[a-zA-Z0-9_./-]+\.(py|ts|tsx|js|jsx|rs|go|rb|java|sh)(:\d+)?/g,
+            ) ?? [],
+          ),
+        ].slice(0, 5);
+
+        const errorQuery = errorLine.slice(0, 80);
+        if (errorQuery.length < 10) return;
+
+        captureEvent("bash_error", {error_detected: true}, apiKey, appId);
+
+        const errorFilters = globalSearch
+          ? {OR: [{user_id: "*"}]}
+          : {
+            AND: [
+              {user_id: userId},
+              {app_id: appId},
+            ],
+          };
+        const res = await mem0.search(`error: ${errorQuery}`, {
+          filters: errorFilters,
+          topK: 6,
+        });
+        stats.searches++;
+        const unique = extractMemories(res);
+
+        let ctx = `Error detected: \`${command.slice(0, 100)}\` produced:\n> ${errorLine}`;
+        if (traceFiles.length > 0) {
+          ctx += `\nFiles in stack trace: ${traceFiles.join(", ")}`;
+        }
+        if (unique.length > 0) {
+          const lines = unique.map((m) => `- ${m.memory}`).join("\n");
+          ctx += `\nPrior error memories:\n${lines}`;
+        }
+        ctx +=
+          "\nStore resolved errors as anti_pattern or bug_fix memories for future reference.";
+        systemContext.push(ctx);
       } catch {
       }
     }
   }
 
-  function sender(runId: string) {
-    return (messages: ConversationMessage[], reason: string) => send(runId, messages, reason);
-  }
+  async function compactionHook(input: { sessionID?: string }, output: { context: string[]; prompt?: string }) {
+    try {
+      const compactSessionId = input?.sessionID ?? sessionId;
+      captureEvent(
+        "pre_compact",
+        {adds: stats.adds, searches: stats.searches, messages: stats.messages},
+        apiKey,
+        appId,
+      );
+      const summaryContent = `Session compacting. Project: ${appId}. Branch: ${branch}. Session: ${compactSessionId}. Stats: ${stats.adds} memories stored, ${stats.searches} searches, ${stats.messages} messages.`;
+      Promise.resolve().then(async () => {
+        try {
+          await mem0.add([{role: "user", content: summaryContent}], {
+            user_id: userId,
+            app_id: appId,
+            metadata: {
+              type: "session_state",
+              source: "pre-compaction",
+              session_id: compactSessionId,
+              branch,
+            },
+            infer: true,
+          } as any);
+        } catch {
+        }
+      });
 
-  function recordAssistant(state: SessionMemory) {
-    state.lifecycle.recordAssistantResponse(state.assistant.text);
-    state.assistant = {messageID: "", text: ""};
-  }
-
-  async function endSession(runId: string) {
-    const state = sessions.get(runId);
-    if (!state) return;
-    sessions.delete(runId);
-    recordAssistant(state);
-    await state.lifecycle.end("session-end", sender(runId));
-  }
-
-  async function chatMessageHook(input: any, output: any) {
-    const runId: string = input?.sessionID ?? "";
-    if (!runId || childSessions.has(runId)) return;
-    let state = sessions.get(runId);
-    if (!state) {
-      const sessionLifecycle = createMemoryLifecycle();
-      sessionLifecycle.beginSession();
-      state = {lifecycle: sessionLifecycle, context: "", assistant: {messageID: "", text: ""}};
-      sessions.set(runId, state);
-      captureEvent("session_start", {}, apiKey, appId);
+      const compactFilters = globalSearch
+        ? {OR: [{user_id: "*"}]}
+        : {AND: [{user_id: userId}, {app_id: appId}]};
+      const res = await mem0.search("session state decisions learnings", {
+        filters: compactFilters,
+        topK: 10,
+      });
+      const memories = extractMemories(res);
+      if (memories.length > 0 && output?.context) {
+        const lines = memories.map((m) => `- ${m.memory}`).join("\n");
+        output.context.push(
+          `## Mem0 Memories (preserve across compaction)\n\n${lines}\n\nIMPORTANT: After compaction, store any key decisions or learnings using the add_memory tool.`,
+        );
+      }
+    } catch {
     }
-    const userText = extractUserText(input, output);
-    state.lifecycle.recordUserPrompt(userText);
-    stats.messages++;
-    state.context = await state.lifecycle.recall(userText, true, async (query) => {
-      stats.searches++;
-      return mem0.search(query, {
-        filters: scopeSearchFilters("project", userId, appId, runId, repo.projectIds),
-        topK: RECALL_TOP_K,
-        rerank: false,
-        latestOnly: true,
-      } as any);
-    });
-    captureEvent("user_prompt", {}, apiKey, appId);
-  }
-
-  async function chatMessagesTransformHook(_input: any, output: { messages: { info: any; parts: any[] }[] }) {
-    const firstUser = output?.messages?.find((m) => m.info.role === "user");
-    const context = firstUser ? sessions.get(firstUser.info.sessionID)?.context : "";
-    if (!context || !firstUser?.parts.length) return;
-    if (firstUser.parts.some((p: any) => p.type === "text" && p.text === context)) return;
-    firstUser.parts.unshift({...firstUser.parts[0], type: "text", text: context});
-  }
-
-  async function textCompleteHook(input: { sessionID: string; messageID: string }, output: { text: string }) {
-    const state = sessions.get(input?.sessionID);
-    if (!state || !output?.text) return;
-    state.assistant = state.assistant.messageID === input.messageID
-      ? {messageID: input.messageID, text: `${state.assistant.text}\n${output.text}`}
-      : {messageID: input.messageID, text: output.text};
-  }
-
-  async function onIdle(runId: string) {
-    const state = sessions.get(runId);
-    if (!state) return;
-    recordAssistant(state);
-    await state.lifecycle.afterResponse(sender(runId));
-  }
-
-  async function eventHook({event}: { event: any }) {
-    const info = event?.properties?.info;
-    if (event?.type === "session.created" && info?.parentID) childSessions.add(info.id);
-    else if (event?.type === "session.idle") await onIdle(event.properties?.sessionID);
-    else if (event?.type === "session.deleted" && info?.id) {
-      childSessions.delete(info.id);
-      await endSession(info.id);
-    }
-  }
-
-  async function compactionHook(input: { sessionID?: string }, _output: { context: string[]; prompt?: string }) {
-    const runId = input?.sessionID ?? "";
-    captureEvent(
-      "pre_compact",
-      {adds: stats.adds, searches: stats.searches, messages: stats.messages},
-      apiKey,
-      appId,
-    );
-    await sessions.get(runId)?.lifecycle.flush("pre-compact", sender(runId));
   }
 };
 

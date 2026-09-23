@@ -9,7 +9,7 @@ export { DEFAULT_CUSTOM_CATEGORIES } from "./types.ts";
 export { loadConfig, CONFIG_DIR } from "./config/index.ts";
 
 export { registerMemoryTool, buildToolExecute } from "./memory/tools.ts";
-export { detectRunId, resolveSearchFilters, resolveAddParams } from "./memory/scoping.ts";
+export { detectAppId, detectRunId, resolveSearchFilters, resolveAddParams } from "./memory/scoping.ts";
 export { formatAge, formatMemoryCompact, formatMemoryList, groupByCategory } from "./memory/formatting.ts";
 
 export { setupAutoCapture, extractConversation } from "./capture/index.ts";

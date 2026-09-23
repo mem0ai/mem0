@@ -17,27 +17,6 @@ test("resolves project, session, and global search filters", () => {
   assert.deepEqual(scopeSearchFilters("global", context), { user_id: "u" });
 });
 
-test("repository lanes union shared project memories with the user's own", () => {
-  const repo = { ...context, projectIds: ["app-abc", "app"] };
-  const lanes = {
-    OR: [
-      {
-        OR: [
-          { AND: [{ agent_id: "app-abc" }, { app_id: "app" }] },
-          { AND: [{ agent_id: "app" }, { app_id: "app" }] },
-        ],
-      },
-      { AND: [{ user_id: "u" }, { app_id: "app" }] },
-    ],
-  };
-  assert.deepEqual(scopeSearchFilters("project", repo), lanes);
-  assert.deepEqual(scopeSearchFilters("session", repo), { AND: [lanes, { run_id: "run" }] });
-  assert.deepEqual(scopeSearchFilters("global", repo), { user_id: "u" });
-  assert.deepEqual(scopeSearchFilters("project", { ...context, projectIds: ["local-app-abc"] }), {
-    OR: [{ AND: [{ agent_id: "local-app-abc" }, { app_id: "app" }] }, { AND: [{ user_id: "u" }, { app_id: "app" }] }],
-  });
-});
-
 test("resolves camel-case add params", () => {
   assert.deepEqual(scopeAddParams("project", context), { userId: "u", appId: "app" });
   assert.deepEqual(scopeAddParams("session", context), { userId: "u", appId: "app", runId: "run" });

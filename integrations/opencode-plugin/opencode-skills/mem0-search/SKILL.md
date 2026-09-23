@@ -27,7 +27,7 @@ When an ID is detected:
 
 ### Step 2: Search
 
-Call `search_memories` once with the user's question: `query=<user's query>`, `top_k=10`. Omit `filters` so the tool searches this repository's memories.
+Call `search_memories` once with the user's question: `query=<user's query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`.
 
 ### Step 3: Display
 

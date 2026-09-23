@@ -10,10 +10,10 @@ Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/REA
 
 ## Features
 
-- **Automatic memory capture**: works like the Mem0 Claude Code plugin, sending your prompts and Pi's final responses at checkpoints
+- **Automatic memory capture**: learns from every conversation (both user and assistant messages)
 - **Semantic search**: find memories by meaning, not just keywords
 - **Scoped memory**: project, session, or global scope
-- **Monorepo-aware**: derives the project from the git remote, consistent across subdirectories
+- **Monorepo-aware**: uses git root for project detection, consistent app_id across subdirectories
 - **Confirmation dialogs**: destructive commands ask before acting
 - **6 slash commands**: essential memory management from the command line
 - **Agent tool**: `mem0_memory` tool lets the agent search and store memories autonomously
@@ -82,27 +82,23 @@ The plugin includes 6 skills that guide the agent on how to use each capability:
 
 | Scope | Filters | Use case |
 |-------|---------|----------|
-| `project` | repository `agent_id`, or user + app_id | Default. Project-specific knowledge |
+| `project` | user + app_id (git root) | Default. Project-specific knowledge |
 | `session` | user + app_id + run_id | Recall restricted to memories saved with the current session ID |
 | `global` | user only | All memories across all your projects |
 
-The project id (`app_id`) comes from your git remote (`owner-repo`), falling back to the repository root's directory name, so every subdirectory of a monorepo shares one memory pool. Project recall also covers the hashed repository `agent_id` that automatic capture writes to.
+Project scoping uses `git rev-parse --show-toplevel` to detect the repository root, so all subdirectories within a monorepo share the same memory pool.
 
 Global tool operations require `/mem0-scope global` or `defaultScope: "global"` in plugin configuration. A model-supplied `scope` argument cannot enable cross-project access on its own. Empty or wildcard user, project, and session identities are rejected.
 
 ## Automatic recall and capture
 
-Recall and capture work like the Mem0 Claude Code plugin, regardless of the default scope selected for explicit commands.
+Before an agent response, the extension searches project memories and injects relevant results. After `agent_end`, automatic capture sends the user and assistant text supplied by Pi to Mem0 in **project** scope, regardless of the default scope selected for explicit commands. Captured text is redacted without the former 6,000-character per-message cutoff.
 
-Automatic recall runs once per session, on the first prompt of 20 characters or more. It searches this repository's memories (top 5) and adds them to the system prompt for the rest of the session. Later prompts do not search automatically; the agent can call `mem0_memory` with `action="search"` when earlier work may help.
-
-Automatic capture keeps each session's prompts and Pi's final response to each of them, redacts secrets, and sends them to Mem0 with `infer=true`. It sends them after 5 exchanges, 10 messages, or 40,000 characters, after 5 idle minutes, before compaction, and when the session ends. Mem0 extracts repository facts under a hashed repository `agent_id` and personal facts under your `user_id`, using the same instructions and categories as the Claude Code plugin. The Pi session ID is the `run_id`.
+Automatic project writes do not attach `run_id`. Session-scoped recall applies to memories explicitly saved in session scope; it does not make project memories session-specific or automatically expire them. Recall queries and displayed tool results keep separate size limits.
 
 ## Memory Categories
 
-Automatic capture uses the Claude Code plugin's coding categories: `project_knowledge`, `decisions_and_constraints`, `workflows`, `problems_and_fixes`, and `results`.
-
-Memories saved with the `mem0_memory` tool or `/mem0-remember` are classified into 10 general-purpose categories:
+Memories are automatically classified into 10 general-purpose categories:
 
 | Category | Description |
 |----------|-------------|
@@ -129,8 +125,8 @@ pi-agent-plugin/
 │   ├── types.ts          # Shared interfaces and categories
 │   ├── telemetry.ts      # PostHog telemetry (batched, PII-safe)
 │   ├── config/           # Config loading (~/.pi/agent/mem0-config.json)
-│   ├── memory/           # Tool registration, scoping, formatting
-│   └── capture/          # Checkpoint capture of prompts and final responses
+│   ├── memory/           # Tool registration, scoping (git root), formatting
+│   └── capture/          # Auto-capture from conversations (user + assistant)
 ├── skills/               # 6 SKILL.md files for Pi Agent
 ├── tests/                # Vitest unit tests
 └── dist/                 # Built output (ESM + DTS)

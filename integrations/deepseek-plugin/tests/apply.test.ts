@@ -82,7 +82,7 @@ describe("apply() config validation", () => {
 });
 
 describe("Harness lifecycle", () => {
-  it("recalls memory once, for the first human prompt of the session", async () => {
+  it("automatically recalls memory into the prompt for the latest human message", async () => {
     mockSearch.mockResolvedValue({
       results: [{ id: "m1", memory: "Likes tea" }],
     });
@@ -90,75 +90,73 @@ describe("Harness lifecycle", () => {
     const assemble = listeners.get("system-prompt/assemble")!;
     const base = { sections: [], contexts: [], tools: [], variables: {} };
 
-    const messages = [
-      { role: "user", content: [{ type: "text", text: "What do I usually drink?" }], source: { kind: "user" } },
-    ];
-    const context = { agent: { session: { deriveMessages: () => messages } } };
+    const result = await assemble(
+      base,
+      {
+        agent: {
+          session: {
+            deriveMessages: () => [
+              {
+                role: "user",
+                content: [{ type: "text", text: "What do I drink?" }],
+                source: { kind: "user" },
+              },
+            ],
+          },
+        },
+      },
+      async () => base,
+    );
 
-    const result = await assemble(base, context, async () => base);
-    messages.push({ role: "user", content: [{ type: "text", text: "And what do I eat?" }], source: { kind: "user" } });
-    const second = await assemble(base, context, async () => base);
-
-    expect(mockSearch).toHaveBeenCalledTimes(1);
-    expect(mockSearch).toHaveBeenCalledWith("What do I usually drink?", {
+    expect(mockSearch).toHaveBeenCalledWith("What do I drink?", {
       filters: { user_id: "u" },
       topK: 5,
-      rerank: false,
-      latestOnly: true,
     });
-    for (const assembly of [result, second]) {
-      expect(assembly).toMatchObject({
-        contexts: [{ name: "mem0:recall", text: expect.stringContaining("Likes tea") }],
-      });
-    }
+    expect(result).toMatchObject({
+      contexts: [{ name: "mem0:recall", text: expect.stringContaining("Likes tea") }],
+    });
   });
 
-  it("skips recall for a first prompt shorter than 20 characters", async () => {
-    const listeners = applyAndCollectListeners({ apiKey: "k", userId: "u" });
-    const base = { sections: [], contexts: [], tools: [], variables: {} };
-    const deriveMessages = () => [{ role: "user", content: "hi", source: { kind: "user" } }];
-
-    await listeners.get("system-prompt/assemble")!(base, { agent: { session: { deriveMessages } } }, async () => base);
-
-    expect(mockSearch).not.toHaveBeenCalled();
-  });
-
-  it("captures at the five-exchange checkpoint and flushes the rest when the session is disposed", async () => {
+  it("automatically captures a completed human and assistant turn", async () => {
     mockAdd.mockResolvedValue({ eventId: "evt-1", status: "PENDING" });
     const listeners = applyAndCollectListeners({ apiKey: "k", userId: "u" });
     const onSessionEvent = listeners.get("session/event")!;
     const session = {};
-    const turn = (n: number) => {
-      onSessionEvent(session, { type: "turn/start", data: { turn: n } });
-      onSessionEvent(session, {
-        type: "user/message",
-        data: { role: "user", content: [{ type: "text", text: `question ${n}` }], source: { kind: "user" } },
-      });
-      onSessionEvent(session, {
-        type: "assistant/message",
-        data: { turn: n, message: { role: "assistant", content: [{ type: "text", text: `answer ${n}` }] } },
-      });
-      onSessionEvent(session, { type: "turn/end", data: { turn: n, reason: { kind: "completed" } } });
-    };
 
-    for (let n = 0; n < 4; n++) turn(n);
-    await Promise.resolve();
-    expect(mockAdd).not.toHaveBeenCalled();
+    onSessionEvent(session, { type: "turn/start", data: { turn: 1 } });
+    onSessionEvent(session, {
+      type: "user/message",
+      data: {
+        role: "user",
+        content: [{ type: "text", text: "Remember I like tea" }],
+        source: { kind: "user" },
+      },
+    });
+    onSessionEvent(session, {
+      type: "assistant/message",
+      data: {
+        turn: 1,
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "I will remember that." }],
+          source: { kind: "model" },
+        },
+      },
+    });
+    onSessionEvent(session, {
+      type: "turn/end",
+      data: { turn: 1, reason: { kind: "completed" } },
+    });
 
-    turn(4);
-    turn(5);
-    await vi.waitFor(() => expect(mockAdd).toHaveBeenCalledTimes(1));
-    const [batch, options] = mockAdd.mock.calls[0];
-    expect(batch).toHaveLength(10);
-    expect(batch.at(-1)).toEqual({ role: "assistant", content: "answer 4" });
-    expect(options).toEqual({ userId: "u", source: "DEEPSEEK_HARNESS" });
-
-    listeners.get("session/disposed")!(session);
-    await vi.waitFor(() => expect(mockAdd).toHaveBeenCalledTimes(2));
-    expect(mockAdd.mock.calls[1][0]).toEqual([
-      { role: "user", content: "question 5" },
-      { role: "assistant", content: "answer 5" },
-    ]);
+    await vi.waitFor(() => {
+      expect(mockAdd).toHaveBeenCalledWith(
+        [
+          { role: "user", content: "Remember I like tea" },
+          { role: "assistant", content: "I will remember that." },
+        ],
+        { userId: "u", source: "DEEPSEEK_HARNESS" },
+      );
+    });
   });
 
   it("can disable automatic recall and capture without removing the memory tools", () => {
@@ -171,7 +169,6 @@ describe("Harness lifecycle", () => {
 
     expect(listeners.has("system-prompt/assemble")).toBe(false);
     expect(listeners.has("session/event")).toBe(false);
-    expect(listeners.has("session/disposed")).toBe(false);
   });
 });
 

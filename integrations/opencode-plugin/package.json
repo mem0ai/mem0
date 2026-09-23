@@ -1,6 +1,6 @@
 {
   "name": "@mem0/opencode-plugin",
-  "version": "0.5.0",
+  "version": "0.4.1",
   "type": "module",
   "description": "Mem0 persistent memory plugin for OpenCode — add, search, and manage memories across sessions",
   "main": "dist/index.js",
@@ -47,9 +47,9 @@
     "hooks": [
       "config",
       "chat.message",
-      "event",
+      "tool.execute.before",
+      "tool.execute.after",
       "experimental.chat.messages.transform",
-      "experimental.text.complete",
       "experimental.session.compacting",
       "shell.env"
     ]

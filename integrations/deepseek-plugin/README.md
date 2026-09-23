@@ -6,8 +6,8 @@ It gives a Harness agent automatic long-term memory plus two explicit memory too
 
 | Capability | Does |
 |---|---|
-| Auto-recall | Searches Mem0 once per session, with the first human prompt of 20 characters or more, and adds the top 5 results to the model context |
-| Auto-capture | Stores completed human/assistant turns every 5 exchanges, after 5 idle minutes, and when the session is disposed |
+| Auto-recall | Searches Mem0 for the latest human prompt and adds unseen results to the model context |
+| Auto-capture | Stores the human/assistant messages from each completed turn |
 | `search_memory` | Recall facts from Mem0 relevant to a query |
 | `add_memory` | Store a fact in Mem0 for future sessions |
 
@@ -22,7 +22,7 @@ Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/REA
 A Cordis plugin is a module exporting `apply(ctx, config)`. This one waits for the Harness tool and system-prompt services, then uses the native extension points:
 
 - `system-prompt/assemble` recalls memory before a model request.
-- `session/event` records completed turns from the durable event stream, and `session/disposed` sends whatever is left.
+- `session/event` captures only completed turns from the durable event stream.
 - `ctx.tools.register(...)` exposes explicit search and add tools.
 
 Completed human and assistant text is preserved after secret redaction, without the former 6,000-character per-message cutoff. Recall queries and displayed tool results retain separate size limits. These behaviors use [agent-plugin-core](../agent-plugin-core/README.md); this integration keeps its native tools and user-based scoping.
@@ -73,7 +73,7 @@ For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that
 | `userId` | yes | | Entity that owns the memories |
 | `allowUserOverride` | no | `false` | Permit model-selected access to a different user only in a trusted multi-user deployment |
 | `host` | no | `api.mem0.ai` | Platform base URL (on-prem / dedicated) |
-| `autoRecall` | no | `true` | Recall relevant memory once per session, before the first model request |
+| `autoRecall` | no | `true` | Recall relevant memory before model requests |
 | `autoCapture` | no | `true` | Store completed human/assistant turns |
 
 ## Memory scope

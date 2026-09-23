@@ -115,14 +115,14 @@ The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SD
 | OpenCode Event | Hook | What happens |
 |----------------|------|-------------|
 | `config` | **Config** | Registers the `/mem0-*` slash commands (`config.command`) and adds the plugin's own `opencode-skills/` dir to OpenCode's `skills.paths` for in-place skill discovery (no copying) |
-| `chat.message` | **Chat message** | Records each prompt. On the first prompt of a session (20 characters or more) it searches this repository's memories once |
-| `experimental.chat.messages.transform` | **Messages transform** | Adds the first-prompt memories to the session's first user message |
-| `experimental.text.complete` | **Text complete** | Records the assistant's final response |
-| `event` | **Session events** | On `session.idle`, sends the conversation to Mem0 after 5 exchanges, 10 messages, or 40,000 characters, otherwise after 5 idle minutes. On `session.deleted`, sends what is left. Subagent sessions are ignored |
-| `experimental.session.compacting` | **Compaction** | Sends the pending conversation before OpenCode compacts it |
+| `chat.message` | **Chat message** | Searches prior memories on session start, searches relevant memories before each prompt, sends every third qualifying user prompt for extraction |
+| `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
+| `tool.execute.after` | **Post-tool** | Scans Bash errors and pre-fetches related error memories |
+| `experimental.chat.messages.transform` | **Messages transform** | Injects memory context (session memories, search results, error lookups) into the prompt |
+| `experimental.session.compacting` | **Compaction** | Stores session state memory, then injects prior memories into compaction context |
 | `shell.env` | **Shell env** | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to all shell executions |
 
-Recall and capture work like the Mem0 Claude Code plugin. Recall runs once per session, on the first prompt, and returns the top 5 memories for this repository. Later prompts do not search automatically. Capture sends each session's redacted prompts and final assistant responses with `infer=true`. Mem0 extracts repository facts under a hashed repository `agent_id` and personal facts under your `user_id`, using the same instructions and categories as the Claude Code plugin. The OpenCode session ID is the `run_id`.
+Automatic capture sends the selected user prompt with its full redacted text, without a per-message character cutoff. It does not capture every prompt or the full assistant transcript. These automatic writes use user and project scope, with the session ID in `metadata.session_id`; session-scoped tools use top-level `run_id`. A session-scoped search therefore does not include automatic writes that lack `run_id`.
 
 ## Troubleshooting
 

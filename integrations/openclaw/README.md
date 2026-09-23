@@ -4,9 +4,9 @@ Long-term memory for [OpenClaw](https://github.com/openclaw/openclaw) agents, po
 
 Your agent forgets everything between sessions. This plugin stores conversations and recalls relevant memories.
 
-By default, the plugin runs in **skills mode**: the agent controls what to remember (triage) and how to recall (recall). `openclaw mem0 init` enables skills mode. With skills mode off, `autoRecall` and `autoCapture` follow the Claude Code plugin's recall and capture.
+By default, the plugin runs in **skills mode**: the agent controls what to remember (triage) and how to recall (recall). Skills mode, `autoRecall`, and `autoCapture` are all enabled by default during `openclaw mem0 init`.
 
-Current package version: `1.3.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); OpenClaw keeps its own tools, skills, and memory scopes.
+Current package version: `1.1.0`. Shared redaction and lifecycle utilities come from [agent-plugin-core](../agent-plugin-core/README.md); OpenClaw keeps its own tools, skills, and memory scopes.
 
 Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent).
 
@@ -218,22 +218,22 @@ Enabled automatically during `openclaw mem0 init`. The agent controls memory thr
 - **Triage**: Extracts durable facts from conversations using a structured protocol. Categories, importance gates, and domain overlays control what gets stored.
 - **Recall**: Before each turn, rewrites the user message into search queries, retrieves relevant memories with reranking, and injects them into context.
 
-When skills mode is active, the skills handle memory operations and the `autoRecall` and `autoCapture` hooks are not registered. The built-in `session-memory` hook is disabled to avoid conflicts.
+When skills mode is active, the skills handle memory operations. `autoRecall` and `autoCapture` remain `true` by default alongside skills mode. The built-in `session-memory` hook is disabled to avoid conflicts.
 
 ### Auto-Recall & Auto-Capture
 
-With skills mode off, the plugin registers `autoRecall` and `autoCapture` when their flags are enabled (both default to `true`). Both follow the Claude Code plugin:
+The plugin also registers `autoRecall` and `autoCapture` when their flags are enabled (both default to `true`), including alongside skills mode:
 
-- **Auto-Recall**: Recall runs once per session, on the first prompt of 20 characters or more, and injects up to `topK` memories with reranking off, only the latest version of each memory, and no score threshold.
-- **Auto-Capture**: Capture keeps each turn's redacted prompt and final reply, and sends them after 5 exchanges, 10 messages, or 40,000 characters, after 5 idle minutes, before compaction, and when the session ends. Mem0 stores new facts, updates stale ones, and merges duplicates.
+- **Auto-Recall**: Before the agent responds, the plugin searches Mem0 for relevant memories and injects them into context.
+- **Auto-Capture**: After the agent responds, the conversation is filtered through a noise-removal pipeline and sent to Mem0. New facts get stored, stale ones updated, duplicates merged.
 
-Both hooks skip non-interactive triggers and system prompts. Subagents read the parent user's memories and are never captured.
+Automatic capture selects a recent-message window and earlier assistant summaries, removes injected context and noise, and redacts secrets. Selected message text is no longer cut off at 2,000 characters. This preserves full redacted text for selected messages, not every message in the session. Capture skips non-interactive triggers, subagent sessions, and turns that already used memory mutation tools.
 
 Set `autoRecall: false` or `autoCapture: false` to disable these automatic hooks individually. The agent can also use memory tools (`memory_add`, `memory_search`, etc.) explicitly regardless of these settings.
 
 ### Memory Scopes
 
-- **Session (short-term)**: Scoped to the current conversation via `run_id`. Searched by skills-mode recall with `strategy: "always"`.
+- **Session (short-term)**: Scoped to the current conversation via `run_id`. Recalled alongside long-term memories.
 - **User (long-term)**: Persistent across all sessions. Default for `memory_add`.
 
 ### Multi-Agent Isolation
@@ -299,14 +299,14 @@ openclaw mem0 help --json                                   # discover all comma
 | --- | ---- | ------- | ----------- |
 | `mode` | `"platform"` \| `"open-source"` | `"platform"` | Backend mode |
 | `userId` | `string` | OS username | User identifier. All memories scoped to this value. |
-| `autoRecall` | `boolean` | `true` | Inject relevant memories once per session, on the first prompt. Not registered in skills mode. |
-| `autoCapture` | `boolean` | `true` | Store each turn's prompt and reply at checkpoints and when the session ends. Not registered in skills mode. |
+| `autoRecall` | `boolean` | `true` | Inject relevant memories before each turn. Also runs when skills mode is enabled. |
+| `autoCapture` | `boolean` | `true` | Extract and store facts after each turn. Also runs when skills mode is enabled. |
 | `topK` | `number` | `5` | Max memories returned per recall |
-| `searchThreshold` | `number` | `0.1` | Minimum similarity score (0-1) for `memory_search`. Automatic recall uses no threshold. |
+| `searchThreshold` | `number` | `0.1` | Minimum similarity score (0-1) |
 
 ### Skills Mode (Recommended)
 
-Enabled by default during `openclaw mem0 init`. While skills mode is active, the `autoRecall` and `autoCapture` hooks are not registered.
+Enabled by default during `openclaw mem0 init`. `autoRecall` and `autoCapture` are also `true` by default and work alongside skills mode.
 
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
@@ -363,9 +363,9 @@ To avoid plaintext credentials:
 
 In **skills mode** (default after `openclaw mem0 init`), the agent uses structured triage and recall protocols to decide what to store and recall. The built-in `session-memory` hook is disabled to avoid conflicts.
 
-With skills mode off, `autoCapture` and `autoRecall` are both enabled by default:
-- `autoCapture`: sends each turn's prompt and reply to your configured backend at checkpoints and when the session ends
-- `autoRecall`: queries your memory store once per session, on the first prompt, and injects results into context
+`autoCapture` and `autoRecall` are both enabled by default, including alongside skills:
+- `autoCapture`: sends conversation content to your configured backend after each agent turn
+- `autoRecall`: queries your memory store before each agent turn and injects results into context
 
 In platform mode, conversation content is sent to `api.mem0.ai` for processing. Do not use with sensitive data you do not want stored on Mem0 cloud.
 

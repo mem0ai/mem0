@@ -11,7 +11,7 @@ Pre-fetches relevant memories to prime context before working on a task.
 
 1. **Extract topics** from current message/task. Identify: file paths, module names, feature areas, error patterns.
 
-2. **Call `search_memories` once** with a focused question about the task: `top_k=10`, no `filters`.
+2. **Call `search_memories` once** with a focused question about the task: `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`.
 
 3. **Output compact context block** (max 10 memories):
 

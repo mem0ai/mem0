@@ -26,6 +26,7 @@ If no argument, ask: "What should I forget? Provide a search query or memory ID.
 **If search query provided:**
 - Call `search_memories` with:
   - `query=<user's query>`
+  - `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<project_id>"}]}`
   - `top_k=10`
 - Show numbered list:
   ```
