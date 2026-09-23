@@ -2083,6 +2083,15 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Tabs>
 <Tab title="Mem0 Plugin">
 
+<Update label="2026-09-23" description="Portable plugin v0.3.3">
+
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer tells the agent to call it before answering anything that could depend on prior context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, which reduces unnecessary searches ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Search skill:** `/search` no longer describes categories as best-effort labels or asks for a retry without the category ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.3`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with these prompts ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
 <Update label="2026-09-08" description="Shared agent plugin runtime">
 
 **Changed:**
@@ -2394,6 +2403,17 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Claude Code">
 
+<Update label="2026-09-23" description="Claude Code plugin v0.3.3">
+
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer tells the agent to call it before answering anything that could depend on prior context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, which reduces unnecessary searches ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Sidekick:** Sidekick searches memories when earlier sessions could help, instead of before every answer ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Extraction:** Repository memory instructions are shorter. They no longer ask for a dedicated memory for each command that failed and was then fixed, and no longer carry separate rules against saving personal preferences or memories that only name the repository, branch, or directory ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Search skill:** `/search` no longer describes categories as best-effort labels or asks for a retry without the category ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.3`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with these prompts ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
 <Update label="2026-09-18" description="Claude Code plugin v0.3.2">
 
 **Improvements:**
@@ -2424,6 +2444,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Cursor">
 
+<Update label="2026-09-23" description="Cursor plugin v0.3.3">
+
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer tells the agent to call it before answering anything that could depend on prior context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, which reduces unnecessary searches ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Extraction:** Repository memory instructions are shorter. They no longer ask for a dedicated memory for each command that failed and was then fixed, and no longer carry separate rules against saving personal preferences or memories that only name the repository, branch, or directory ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Search skill:** `/search` no longer describes categories as best-effort labels or asks for a retry without the category ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.3`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with these prompts ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
 <Update label="2026-09-18" description="Cursor plugin v0.3.2">
 
 **Improvements:**
@@ -2453,6 +2483,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 </Tab>
 
 <Tab title="Codex">
+
+<Update label="2026-09-23" description="Codex plugin v0.3.3">
+
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer tells the agent to call it before answering anything that could depend on prior context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, which reduces unnecessary searches ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Extraction:** Repository memory instructions are shorter. They no longer ask for a dedicated memory for each command that failed and was then fixed, and no longer carry separate rules against saving personal preferences or memories that only name the repository, branch, or directory ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Search skill:** `/search` no longer describes categories as best-effort labels or asks for a retry without the category ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.3`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with these prompts ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
 
 <Update label="2026-09-18" description="Codex plugin v0.3.2">
 
@@ -2589,6 +2629,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Antigravity">
 
+<Update label="2026-09-23" description="Antigravity plugin v0.3.3">
+
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer tells the agent to call it before answering anything that could depend on prior context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, which reduces unnecessary searches ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Extraction:** Repository memory instructions are shorter. They no longer ask for a dedicated memory for each command that failed and was then fixed, and no longer carry separate rules against saving personal preferences or memories that only name the repository, branch, or directory ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Search skill:** `/search` no longer describes categories as best-effort labels or asks for a retry without the category ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.3`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with these prompts ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
 <Update label="2026-09-18" description="Antigravity plugin v0.3.2">
 
 **Improvements:**
@@ -2691,6 +2741,16 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="Kimi">
+
+<Update label="2026-09-23" description="Kimi Code plugin v0.3.3">
+
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer tells the agent to call it before answering anything that could depend on prior context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, which reduces unnecessary searches ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Extraction:** Repository memory instructions are shorter. They no longer ask for a dedicated memory for each command that failed and was then fixed, and no longer carry separate rules against saving personal preferences or memories that only name the repository, branch, or directory ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Search skill:** `/search` no longer describes categories as best-effort labels or asks for a retry without the category ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.3`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with these prompts ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
 
 <Update label="2026-09-18" description="Kimi Code plugin v0.3.2">
 

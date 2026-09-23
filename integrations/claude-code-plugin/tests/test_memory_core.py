@@ -4333,7 +4333,7 @@ def test_flush_sends_unified_body_with_both_agent_and_user_id(isolated_env, monk
     assert sent_body["run_id"] == "s1"
     assert "lane" not in sent_body["metadata"]
     assert "Save concise repository facts" in sent_body["agent_custom_instructions"]
-    assert "Do not save personal preferences." in sent_body["agent_custom_instructions"]
+    assert "Write about the repository, not the user" in sent_body["agent_custom_instructions"]
     assert "Do not save repository facts" in sent_body["custom_instructions"]
     assert sent_body["custom_categories"] == memory_core.CODING_MEMORY_CATEGORIES
     store.close()
