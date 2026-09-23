@@ -1,7 +1,9 @@
+import { SEARCH_WHEN } from "../../agent-plugin-core/typescript/src/prompts.ts";
+
 export const MEMORY_POLICY = `<mem0-memory-policy>
 You have persistent semantic memory via the mem0_memory tool, powered by Mem0. Relevant memories may be auto-injected under <mem0-relevant-memories>.
 
-Use mem0_memory with action "search" before repeating investigation or when earlier decisions, fixes, commands, or results may help.
+Use mem0_memory with action "search" ${SEARCH_WHEN}.
 
 Be proactive about saving:
 - Save important facts, preferences, goals, decisions, lessons learned, identity, relationships, and routines the user shares.

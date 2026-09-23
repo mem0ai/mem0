@@ -1,4 +1,5 @@
 import { resolveToolScope } from "../../../agent-plugin-core/typescript/src/scoping.ts";
+import { SEARCH_QUERY_DESCRIPTION, SEARCH_WHEN } from "../../../agent-plugin-core/typescript/src/prompts.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { StringEnum } from "@earendil-works/pi-ai";
@@ -144,10 +145,10 @@ export function registerMemoryTool(
     name: "mem0_memory",
     label: "Mem0 Memory",
     description:
-      "Search, add, update, and manage persistent semantic memories powered by Mem0. Memories persist across sessions and devices. Use action \"search\" before repeating investigation or when earlier decisions, fixes, commands, or results may help. Output is truncated to 200 lines / 50KB.",
+      `Search, add, update, and manage persistent semantic memories powered by Mem0. Memories persist across sessions and devices. Use action "search" ${SEARCH_WHEN}. Output is truncated to 200 lines / 50KB.`,
     promptSnippet: "Semantic memory search and storage via Mem0",
     promptGuidelines: [
-      'Use mem0_memory with action "search" before repeating investigation or when earlier decisions, fixes, commands, or results may help',
+      `Use mem0_memory with action "search" ${SEARCH_WHEN}`,
       'Use mem0_memory with action "add" to save important facts, preferences, goals, decisions, or lessons the user shares',
       'Use mem0_memory with action "update" to modify an existing memory — requires memory_id and content. Preserves the memory ID',
       "Always use the default project scope unless the user EXPLICITLY asks to search across all projects — only after the user selects /mem0-scope global use scope \"global\"",
@@ -171,7 +172,7 @@ export function registerMemoryTool(
       query: Type.Optional(
         Type.String({
           description:
-            "Search text -- required for action \"search\". A direct question about earlier work in this repository.",
+            `Search text -- required for action "search". ${SEARCH_QUERY_DESCRIPTION}`,
         }),
       ),
       content: Type.Optional(

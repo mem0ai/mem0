@@ -18,6 +18,7 @@ import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOP
 import {parseProjectFromRemote} from "./project";
 import {resolveApiKey} from "./api-key";
 import {createMemoryLifecycle} from "../agent-plugin-core/typescript/src/lifecycle.ts";
+import {SEARCH_QUERY_DESCRIPTION, SEARCH_TOOL_DESCRIPTION} from "../agent-plugin-core/typescript/src/prompts.ts";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -424,9 +425,9 @@ Identity context (resolved at plugin startup):
       }),
 
       search_memories: tool({
-        description: "Search memories from earlier work in this repository. Use it before repeating investigation or when earlier decisions, fixes, commands, or results may help.",
+        description: SEARCH_TOOL_DESCRIPTION,
         args: {
-          query: tool.schema.string().describe("A direct question about earlier work in this repository."),
+          query: tool.schema.string().describe(SEARCH_QUERY_DESCRIPTION),
           user_id: tool.schema.string().optional().describe("User ID"),
           app_id: tool.schema.string().optional().describe("App/Project ID"),
           agent_id: tool.schema.string().optional().describe("Agent ID"),

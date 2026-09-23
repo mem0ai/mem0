@@ -21,6 +21,11 @@ import { truncateOutput } from "./output.ts";
 import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 import { captureEvent, errorKind } from "./telemetry.ts";
 import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
+import {
+  USER_RECALL_HEADING,
+  USER_SEARCH_QUERY_DESCRIPTION,
+  USER_SEARCH_TOOL_DESCRIPTION,
+} from "../../agent-plugin-core/typescript/src/prompts.ts";
 
 export const name = "mem0";
 export const inject = ["tools", "systemPrompt"];
@@ -107,7 +112,7 @@ export function apply(ctx: Context, config: Config): void {
   const stateFor = (session: object): SessionState => {
     let state = sessionStates.get(session);
     if (!state) {
-      const lifecycle = createMemoryLifecycle();
+      const lifecycle = createMemoryLifecycle({ recallHeading: USER_RECALL_HEADING });
       lifecycle.beginSession();
       state = { lifecycle, messages: [] };
       sessionStates.set(session, state);
@@ -197,10 +202,9 @@ export function apply(ctx: Context, config: Config): void {
   ctx.tools.register(
     defineTool({
       name: "search_memory",
-      description:
-        "Search memories from earlier work. Use it before repeating investigation or when earlier decisions, fixes, commands, or results may help.",
+      description: USER_SEARCH_TOOL_DESCRIPTION,
       parameters: {
-        query: { type: "string", description: "A direct question about earlier work.", required: true },
+        query: { type: "string", description: USER_SEARCH_QUERY_DESCRIPTION, required: true },
         limit: {
           type: "integer",
           description: `Max results to return (default ${DEFAULT_SEARCH_LIMIT}).`,
