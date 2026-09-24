@@ -5300,6 +5300,42 @@ describe("Memory class – backward compat with all providers", () => {
     expect(entityStore.initialize).toHaveBeenCalled();
   });
 
+  it("derives a hyphenated entity index name for Pinecone", async () => {
+    const primaryStore = createMockVectorStore();
+    const entityStore = createMockVectorStore();
+    mockVectorStoreFactory.create
+      .mockReturnValueOnce(primaryStore)
+      .mockReturnValueOnce(entityStore);
+
+    const mem = new MemoryClass({
+      embedder: { provider: "openai", config: { apiKey: "k" } },
+      vectorStore: {
+        provider: "pinecone",
+        config: {
+          apiKey: "pc-test",
+          collectionName: "my-index",
+          dimension: 1536,
+        },
+      },
+      llm: { provider: "openai", config: { apiKey: "k" } },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+    await (mem as any).getEntityStore();
+
+    // Pinecone index names may only contain lowercase letters, digits and
+    // "-", so "my-index_entities" is rejected outright by createIndex().
+    expect(mockVectorStoreFactory.create).toHaveBeenNthCalledWith(
+      2,
+      "pinecone",
+      expect.objectContaining({
+        collectionName: "my-index-entities",
+      }),
+    );
+    expect(entityStore.initialize).toHaveBeenCalled();
+  });
+
   // optional-peers.test.ts proves no optional peer is imported at module scope. This asserts the
   // other half for Databricks: the driver is still loaded lazily (memoized dynamic import, with
   // retry-on-failure via getSqlModule()) rather than dropped entirely or made static/eager.

@@ -420,7 +420,7 @@ def _build_session_scope(filters):
 
 
 def _entity_collection_name(provider: str, collection_name: str) -> str:
-    separator = "-" if provider == "s3_vectors" else "_"
+    separator = "-" if provider in ("s3_vectors", "pinecone") else "_"
     return f"{collection_name}{separator}entities"
 
 

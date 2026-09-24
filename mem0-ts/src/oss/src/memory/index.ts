@@ -318,7 +318,8 @@ export class Memory {
   private async getEntityStore(): Promise<VectorStore> {
     if (!this._entityStore) {
       const entityProvider = this.config.vectorStore.provider;
-      const entityCollectionName = `${this.collectionName}_entities`;
+      const entitySeparator = entityProvider === "pinecone" ? "-" : "_";
+      const entityCollectionName = `${this.collectionName}${entitySeparator}entities`;
       const entityConfig: VectorStoreConfig = {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,

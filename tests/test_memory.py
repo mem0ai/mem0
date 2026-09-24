@@ -43,6 +43,10 @@ def test_entity_collection_name_uses_dash_for_s3_vectors():
     assert _entity_collection_name("s3_vectors", "test-index") == "test-index-entities"
 
 
+def test_entity_collection_name_uses_dash_for_pinecone():
+    assert _entity_collection_name("pinecone", "my-index") == "my-index-entities"
+
+
 def test_entity_collection_name_keeps_underscore_for_other_stores():
     assert _entity_collection_name("qdrant", "mem0") == "mem0_entities"
 
