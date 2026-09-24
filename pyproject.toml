@@ -22,6 +22,7 @@ dependencies = [
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",
     "protobuf>=5.29.6,<7.0.0",
+    "tiktoken>=0.7.0",
 ]
 
 [project.optional-dependencies]
