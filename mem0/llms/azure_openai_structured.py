@@ -1,11 +1,12 @@
 import copy
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AzureOpenAI
 
+from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 from mem0.memory.utils import extract_json
@@ -14,7 +15,28 @@ SCOPE = "https://cognitiveservices.azure.com/.default"
 
 
 class AzureOpenAIStructuredLLM(LLMBase):
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
+    def __init__(self, config: Optional[Union[BaseLlmConfig, AzureOpenAIConfig, Dict]] = None):
+        # Convert to AzureOpenAIConfig if needed
+        if config is None:
+            config = AzureOpenAIConfig()
+        elif isinstance(config, dict):
+            config = AzureOpenAIConfig(**config)
+        elif isinstance(config, BaseLlmConfig) and not isinstance(config, AzureOpenAIConfig):
+            # Convert BaseLlmConfig to AzureOpenAIConfig
+            config = AzureOpenAIConfig(
+                model=config.model,
+                temperature=config.temperature,
+                api_key=config.api_key,
+                max_tokens=config.max_tokens,
+                top_p=config.top_p,
+                top_k=config.top_k,
+                enable_vision=config.enable_vision,
+                vision_details=config.vision_details,
+                reasoning_effort=getattr(config, "reasoning_effort", None),
+                http_client_proxies=config.http_client_proxies,
+                is_reasoning_model=getattr(config, "is_reasoning_model", None),
+            )
+
         super().__init__(config)
 
         # Model name should match the custom deployment name chosen for it.

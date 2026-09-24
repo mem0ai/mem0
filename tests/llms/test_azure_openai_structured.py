@@ -1,6 +1,8 @@
 from unittest import mock
 from unittest.mock import Mock
 
+from mem0.configs.llms.azure import AzureOpenAIConfig
+from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.azure_openai_structured import SCOPE, AzureOpenAIStructuredLLM
 
 
@@ -322,3 +324,34 @@ def test_generate_response_handles_multimodal_content(mock_azure_openai):
     assert response == "ok"
     sent_messages = mock_client.chat.completions.create.call_args[1]["messages"]
     assert sent_messages[-1]["content"] == [{"type": "text", "text": "describe my assistant"}]
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_init_with_none_config(mock_azure_openai):
+    llm = AzureOpenAIStructuredLLM(None)
+    assert isinstance(llm.config, AzureOpenAIConfig)
+    assert llm.config.model == "gpt-5-mini"
+    assert hasattr(llm.config, "azure_kwargs")
+    mock_azure_openai.assert_called_once()
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_init_with_dict_config(mock_azure_openai):
+    llm = AzureOpenAIStructuredLLM({"model": "custom-deployment", "temperature": 0.2})
+    assert isinstance(llm.config, AzureOpenAIConfig)
+    assert llm.config.model == "custom-deployment"
+    assert llm.config.temperature == 0.2
+    assert hasattr(llm.config, "azure_kwargs")
+    mock_azure_openai.assert_called_once()
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_init_with_base_llm_config(mock_azure_openai):
+    base_config = BaseLlmConfig(model="base-deployment", max_tokens=500)
+    llm = AzureOpenAIStructuredLLM(base_config)
+    assert isinstance(llm.config, AzureOpenAIConfig)
+    assert llm.config.model == "base-deployment"
+    assert llm.config.max_tokens == 500
+    assert hasattr(llm.config, "azure_kwargs")
+    mock_azure_openai.assert_called_once()
+
