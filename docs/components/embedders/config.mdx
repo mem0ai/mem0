@@ -86,6 +86,12 @@ Here's a comprehensive list of all parameters that can be used across different 
 | `memory_update_embedding_type` | The type of embedding to use for the update memory action                       | VertexAI            |
 | `memory_search_embedding_type` | The type of embedding to use for the search memory action                       | VertexAI            |
 | `lmstudio_base_url` | Base URL for LM Studio API                    | LM Studio         |
+| `huggingface_base_url` | Base URL for the Text Embeddings Inference (TEI) API | Huggingface |
+| `output_dimensionality` | Output dimensionality for the embedding model (used when `embedding_dims` is not set) | Gemini |
+| `aws_access_key_id` | AWS access key ID for authentication | AWS Bedrock |
+| `aws_secret_access_key` | AWS secret access key for authentication | AWS Bedrock |
+| `aws_session_token` | AWS session token for temporary credentials | AWS Bedrock |
+| `aws_region` | AWS region for the Bedrock client | AWS Bedrock |
 </Tab>
 <Tab title="TypeScript">
 | Parameter | Description | Provider |
