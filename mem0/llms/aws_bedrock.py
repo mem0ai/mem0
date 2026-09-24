@@ -628,7 +628,14 @@ class AWSBedrockLLM(LLMBase):
                 messages=formatted_messages,
                 inferenceConfig=self._build_inference_config(),
             )
-            return self._parse_response(response)
+            # Parse the Converse response directly. _parse_response expects an
+            # invoke_model body (response["body"].read()), which a Converse
+            # response does not have, so it always raised, was swallowed, and
+            # returned "Error parsing response".
+            for block in response["output"]["message"]["content"]:
+                if "text" in block:
+                    return block["text"]
+            return ""
         else:
             # For other providers and legacy Amazon models (like Titan)
             if self.provider == "amazon":
