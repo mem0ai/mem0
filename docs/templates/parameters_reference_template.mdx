@@ -38,7 +38,6 @@ client.memories.add(
     user_id: str,
     memory: str,
     metadata: Optional[dict] = None,
-    memory_type: Literal["session", "long_term"] = "session",
 )
 ```
 
@@ -47,13 +46,13 @@ await mem0.memories.add({
   userId: string;
   memory: string;
   metadata?: Record<string, string>;
-  memoryType?: "session" | "long_term";
 });
 ```
 </CodeGroup>
 
 <Info>
-  Defaults to session memories. Override `memory_type` for long-term storage.
+  [Describe defaults supported by this operation and SDK. Do not infer a
+  memory type or retention policy from a scoping identifier.]
 </Info>
 
 <Warning>
@@ -67,7 +66,6 @@ await mem0.memories.add({
 | `user_id` | string | Yes | Unique identifier for the end user. | Must match follow-up operations. |
 | `memory` | string | Yes | Content to persist. | Managed & OSS. Markdown allowed. |
 | `metadata` | object | No | Key-value pairs for filters. | OSS stores as JSONB; limit to 2KB. |
-| `memory_type` | string | No | Retention bucket | Platform supports `shared`. |
 
 <Tip>
   Set `ttl_seconds` when you need memories to expire automatically (OSS only).
