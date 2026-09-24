@@ -54,7 +54,6 @@
                     "icon": "brain",
                     "pages": [
                       "core-concepts/how-it-works",
-                      "core-concepts/memory-types",
                       "core-concepts/memory-operations/add",
                       "core-concepts/memory-operations/search",
                       "core-concepts/memory-operations/update",
@@ -148,6 +147,7 @@
                     "icon": "server",
                     "pages": [
                       "open-source/features/overview",
+                      "core-concepts/memory-types",
                       "open-source/features/metadata-filtering",
                       "open-source/features/reranker-search",
                       "open-source/features/async-memory",

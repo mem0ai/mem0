@@ -1,29 +1,35 @@
 ---
 title: Memory Types
-description: "What memory_type actually does in Mem0: procedural memory is implemented, semantic and episodic are not."
+description: "Use procedural memory in the Python OSS SDK. Platform does not support selecting memory types."
 icon: "tag"
 iconType: "solid"
 ---
 
 # Memory Types
 
-Mem0's Python SDK exposes a `memory_type` parameter on `add()`. The underlying `MemoryType` enum defines three values, but only one of them is wired up. This page states plainly which is which so you don't build against a type that doesn't exist yet.
+The Python OSS SDK exposes a `memory_type` parameter on `Memory.add()` and `AsyncMemory.add()`. Only `procedural_memory` is implemented.
 
-## Status
+<Note>
+  Platform does not support selecting memory types with `memory_type`. Its Python clients can accept the keyword, but a successful request does not enable procedural, semantic, or episodic processing. Use [entity scoping](/platform/features/entity-scoped-memory) to organize Platform memories. Caller-supplied metadata labels do not select a different extraction pipeline.
+
+  Procedural memory is also unavailable in the TypeScript SDK, in either mode.
+</Note>
+
+## Python OSS support
 
 | Type | Enum value | Status | Notes |
 | --- | --- | --- | --- |
-| Procedural memory | `procedural_memory` | **Implemented** | Python OSS only (`Memory`/`AsyncMemory`). Pass `memory_type="procedural_memory"` and `agent_id` to `add()`. Not available on the Platform `MemoryClient`, and not available in the TypeScript SDK (OSS or Platform). |
-| Semantic memory | `semantic_memory` | **Not implemented** | Defined in the `MemoryType` enum but never read anywhere else in the codebase. Passing it to `add()` raises a validation error. There is no evidence in this repo of a roadmap date for this. |
-| Episodic memory | `episodic_memory` | **Not implemented** | Same as above: defined, never wired into the extraction pipeline, rejected by validation, no documented roadmap. |
+| Procedural memory | `procedural_memory` | **Implemented** | Pass `memory_type="procedural_memory"` and `agent_id` to `add()`. |
+| Semantic memory | `semantic_memory` | **Not implemented** | Defined in the `MemoryType` enum, but passing it to Python OSS `add()` raises a validation error. |
+| Episodic memory | `episodic_memory` | **Not implemented** | Defined in the `MemoryType` enum, but passing it to Python OSS `add()` raises a validation error. |
 
 <Warning>
-  Only `procedural_memory` is a real, working value. Calling `memory.add(messages, memory_type="semantic_memory")` (or `episodic_memory`) is rejected and tells you to pass `procedural_memory` instead. Sync `Memory.add()` raises `Mem0ValidationError`; `AsyncMemory.add()` raises a plain `ValueError`.
+  In Python OSS, only `procedural_memory` is a supported non-`None` value. Calling `memory.add(messages, memory_type="semantic_memory")` (or `episodic_memory`) is rejected and tells you to pass `procedural_memory` instead. Sync `Memory.add()` raises `mem0.exceptions.ValidationError`; `AsyncMemory.add()` raises a plain `ValueError`.
 </Warning>
 
 ## Procedural memory
 
-Procedural memory stores step-by-step task knowledge (how an agent performs a workflow) rather than facts about a user. It requires `agent_id`:
+Procedural memory stores step-by-step task knowledge (how an agent performs a workflow) rather than facts about a user. To activate this path, supply both `agent_id` and `memory_type="procedural_memory"`:
 
 ```python
 from mem0 import Memory
@@ -40,7 +46,11 @@ memory.add(
 )
 ```
 
-Omit `memory_type` entirely and Mem0 stores the messages as an ordinary memory: there is no semantic/episodic pathway for it to fall into. Any other explicit value is rejected by validation rather than quietly falling back to an ordinary memory.
+Omit `memory_type` or pass `None` to use ordinary memory processing. Python OSS rejects values other than `None` and `"procedural_memory"`.
+
+<Warning>
+  Passing `memory_type="procedural_memory"` without `agent_id` falls back to ordinary memory processing if you supply a valid `user_id` or `run_id`. When both the procedural type and `agent_id` are supplied, the SDK calls the LLM to create a summary even with `infer=False`.
+</Warning>
 
 ## How every other memory is scoped
 
@@ -76,7 +86,7 @@ results = memory.search(
 
 ## How memories are extracted and updated
 
-When `infer=True` (the default) on `add()`, Mem0 runs a single pipeline rather than routing through separate type-specific paths:
+For ordinary memories, `infer=True` (the default) on `add()` uses the extraction pipeline below. Python OSS procedural memory uses the separate summary path described above:
 
 1. **Context gathering**: pulls the most recent messages already stored for the same `user_id`/`agent_id`/`run_id` scope.
 2. **Existing memory retrieval**: embeds the new messages and runs a vector search against memories already in that same scope, to find candidates that might need to change.
