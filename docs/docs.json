@@ -147,7 +147,6 @@
                     "icon": "server",
                     "pages": [
                       "open-source/features/overview",
-                      "core-concepts/memory-types",
                       "open-source/features/metadata-filtering",
                       "open-source/features/reranker-search",
                       "open-source/features/async-memory",
@@ -1033,7 +1032,13 @@
     },
     {
       "source": "/concepts/memory-scoring",
-      "destination": "/core-concepts/memory-types"
+      "destination": "/core-concepts/how-it-works",
+      "permanent": true
+    },
+    {
+      "source": "/core-concepts/memory-types",
+      "destination": "/core-concepts/how-it-works",
+      "permanent": true
     },
     {
       "source": "/cookbooks/research-copilot",

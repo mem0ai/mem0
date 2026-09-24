@@ -76,7 +76,6 @@ The core memory loop is identical on both: `add`, `search`, `get`, `get_all`, `u
   <Accordion title="Configuration & data operations" icon="sliders">
     | Feature | Platform | Open Source |
     |---------|----------|-------------|
-    | **Procedural memory** | Not supported | Python `Memory`/`AsyncMemory` only: pass `memory_type="procedural_memory"` and `agent_id` to `add()` ([details](/core-concepts/memory-types)) |
     | **Custom categories** | Set per project or per `add` call ([details](/platform/features/custom-categories)) | Not supported. `Memory.add()` has no `custom_categories` parameter, and OSS project updates are rejected outright |
     | **Webhooks** | Project-scoped HTTP callbacks on memory and ingest events ([details](/platform/features/webhooks)) | Not available |
     | **Memory Export** | Schema-driven structured export jobs over filtered memories ([details](/platform/features/memory-export)) | Not available |
