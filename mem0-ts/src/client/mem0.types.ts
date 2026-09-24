@@ -125,6 +125,8 @@ export interface Memory {
   categories?: Array<string>;
   createdAt?: Date;
   updatedAt?: Date;
+  // TODO: Review this response field for removal in a future breaking release.
+  // It is not a selectable memory type; TypeScript has no procedural-memory path.
   memoryType?: string;
   score?: number;
   metadata?: any | null;
