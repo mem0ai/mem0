@@ -584,12 +584,19 @@ class Memory(MemoryBase):
         return " ".join(value.strip().lower().split())
 
     def _existing_entities_by_text(self, filters):
-        """Return existing entity rows keyed by normalized payload data."""
+        """Return existing entity rows keyed by normalized payload data.
+
+        Returns ``None`` when the exact-match index could not be read. That is
+        not the same as an empty index: treating a failed lookup as "no entity
+        exists" makes the caller fall through to the semantic threshold and
+        insert a duplicate row for an entity that is already stored, splitting
+        ``linked_memory_ids`` across the two rows.
+        """
         try:
             listed = self.entity_store.list(filters=filters, top_k=10000)
         except Exception as e:
-            logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
-            return {}
+            logger.warning(f"Exact entity lookup failed; skipping entity upsert to avoid a duplicate row: {e}")
+            return None
 
         rows_by_text = {}
         for row in _vector_store_list_rows(listed):
@@ -607,7 +614,14 @@ class Memory(MemoryBase):
         try:
             entity_embedding = self.embedding_model.embed(entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-            exact_match = self._existing_entities_by_text(search_filters).get(self._normalize_entity_text(entity_text))
+            existing_by_text = self._existing_entities_by_text(search_filters)
+            if existing_by_text is None:
+                # The exact-match index is unreadable, so "not found" cannot be
+                # distinguished from "not looked up". Inserting here would fork
+                # the entity into a second row; skip instead and let a later
+                # add() link this memory once the store recovers.
+                return
+            exact_match = existing_by_text.get(self._normalize_entity_text(entity_text))
 
             existing = []
             if exact_match is None:
@@ -1128,10 +1142,13 @@ class Memory(MemoryBase):
 
                 # Filter out entities with failed embeddings
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
-                if valid:
+                exact_matches = self._existing_entities_by_text(search_filters) if valid else {}
+                # A failed exact-match lookup cannot be told apart from an empty
+                # index, and inserting on it duplicates entities that already
+                # exist. Skip the batch rather than fork every entity in it.
+                if valid and exact_matches is not None:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
-                    exact_matches = self._existing_entities_by_text(search_filters)
 
                     # 7c: Batch search for existing entities
                     valid_texts = [global_entities[k][1] for k in valid_keys]
@@ -2248,12 +2265,19 @@ class AsyncMemory(MemoryBase):
         return " ".join(value.strip().lower().split())
 
     def _existing_entities_by_text(self, filters):
-        """Return existing entity rows keyed by normalized payload data."""
+        """Return existing entity rows keyed by normalized payload data.
+
+        Returns ``None`` when the exact-match index could not be read. That is
+        not the same as an empty index: treating a failed lookup as "no entity
+        exists" makes the caller fall through to the semantic threshold and
+        insert a duplicate row for an entity that is already stored, splitting
+        ``linked_memory_ids`` across the two rows.
+        """
         try:
             listed = self.entity_store.list(filters=filters, top_k=10000)
         except Exception as e:
-            logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
-            return {}
+            logger.warning(f"Exact entity lookup failed; skipping entity upsert to avoid a duplicate row: {e}")
+            return None
 
         rows_by_text = {}
         for row in _vector_store_list_rows(listed):
@@ -2271,9 +2295,12 @@ class AsyncMemory(MemoryBase):
         try:
             entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-            exact_match = (
-                await asyncio.to_thread(self._existing_entities_by_text, search_filters)
-            ).get(self._normalize_entity_text(entity_text))
+            existing_by_text = await asyncio.to_thread(self._existing_entities_by_text, search_filters)
+            if existing_by_text is None:
+                # See the sync variant: a failed lookup is not an absent entity,
+                # and inserting on it forks the entity into a second row.
+                return
+            exact_match = existing_by_text.get(self._normalize_entity_text(entity_text))
 
             existing = []
             if exact_match is None:
@@ -2785,10 +2812,14 @@ class AsyncMemory(MemoryBase):
                     entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
 
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
-                if valid:
+                exact_matches = (
+                    await asyncio.to_thread(self._existing_entities_by_text, search_filters) if valid else {}
+                )
+                # See the sync batch path: a failed lookup would fork every
+                # entity in this batch into a duplicate row.
+                if valid and exact_matches is not None:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
-                    exact_matches = await asyncio.to_thread(self._existing_entities_by_text, search_filters)
 
                     # 7c: Batch search for existing entities
                     valid_texts = [global_entities[k][1] for k in valid_keys]
