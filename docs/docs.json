@@ -1032,13 +1032,11 @@
     },
     {
       "source": "/concepts/memory-scoring",
-      "destination": "/core-concepts/how-it-works",
-      "permanent": true
+      "destination": "/core-concepts/how-it-works"
     },
     {
       "source": "/core-concepts/memory-types",
-      "destination": "/core-concepts/how-it-works",
-      "permanent": true
+      "destination": "/core-concepts/how-it-works"
     },
     {
       "source": "/cookbooks/research-copilot",
