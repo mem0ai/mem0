@@ -7,6 +7,18 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-09-25" description="v2.2.1">
+
+**Bug Fixes:**
+- **Core:** `add()` (`Memory` and `AsyncMemory`) no longer reports records the vector store rejected as successful `ADD` events. Only records that were actually inserted are written to history, entity-linked, and returned. If none of the extracted memories could be inserted, `add()` now raises `VectorStoreError` instead of returning memories that were never stored ([#7066](https://github.com/mem0ai/mem0/pull/7066))
+- **Core:** Restore the context-manager protocol on `Memory` (`with Memory() as m:`) and `AsyncMemory` (`async with AsyncMemory() as m:`), which closes the instance on exit ([#7354](https://github.com/mem0ai/mem0/pull/7354))
+- **LLMs:** The AWS Bedrock Anthropic path now returns the first Converse content block that carries text instead of always reading `content[0]`. Claude reasoning models can emit a `reasoningContent` block before the text block, which previously made the call fail with a `KeyError` ([#6369](https://github.com/mem0ai/mem0/pull/6369))
+- **Vector Stores:** Turbopuffer filters now apply every operator (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`). Only `gte` and `lte` were read before, so any other operator was silently dropped and the query returned unfiltered results. An unsupported operator now raises `ValueError` ([#6564](https://github.com/mem0ai/mem0/pull/6564))
+- **Vector Stores:** Turbopuffer `search()` scores now respect `distance_metric`. With `euclidean_squared`, the unbounded squared distance maps to `1 / (1 + distance)` instead of `1 - distance`, which went negative and inverted ranking for any distance above 1 ([#6559](https://github.com/mem0ai/mem0/pull/6559))
+- **Vector Stores:** S3 Vectors `search()` scores are now metric-aware. With `euclidean`, the distance maps to `1 / (1 + distance)` instead of `max(0, 1 - distance)`, which collapsed most scores to 0 ([#6547](https://github.com/mem0ai/mem0/pull/6547))
+
+</Update>
+
 <Update label="2026-09-23" description="v2.2.0">
 
 **New Features:**
@@ -1244,6 +1256,16 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-09-25" description="v3.3.1">
+
+**Bug Fixes:**
+- **Config (OSS):** `ConfigManager` no longer injects OpenAI's default `baseURL` and `model` into non-OpenAI LLM providers. The defaults now apply only to `openai` and `openai_structured`, so a DeepSeek, xAI, or other provider config without an explicit `baseURL` or `model` falls back to that provider's own defaults and env vars (`DEEPSEEK_API_BASE`, `XAI_API_BASE`, ...) instead of pointing at OpenAI with an OpenAI model name ([#7350](https://github.com/mem0ai/mem0/pull/7350))
+- **Vector Stores:** Turbopuffer filters now apply every operator (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`). Only the range operators were read before, so `eq`, `ne`, `in`, and `nin` were silently dropped. A `"*"` value now matches anything instead of nothing, an array value is treated as `in`, and an unsupported operator throws ([#6578](https://github.com/mem0ai/mem0/pull/6578))
+- **Vector Stores:** Turbopuffer `search()` with `euclidean_squared` now maps the unbounded squared distance to `1 / (1 + distance)` instead of `1 - distance`, which went negative and inverted ranking for any distance above 1 ([#6580](https://github.com/mem0ai/mem0/pull/6580))
+- **Packaging:** `pg`, `@types/pg`, and `natural` are now optional peer dependencies, and `pg` / `@types/pg` accept caret ranges instead of the exact `8.11.3` / `8.11.0` pins, so installing `mem0ai` no longer pulls in `pg` or conflicts with an app's own `pg` version. The PGVector store now imports `pg` only when it is used, so install it alongside `mem0ai` (`npm install pg`) if you use that store. `@types/jest` moved from peer dependencies to dev dependencies ([#7450](https://github.com/mem0ai/mem0/pull/7450))
+
+</Update>
 
 <Update label="2026-09-23" description="v3.3.0">
 
