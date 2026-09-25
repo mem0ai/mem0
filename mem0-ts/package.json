@@ -263,6 +263,9 @@
     },
     "@types/pg": {
       "optional": true
+    },
+    "natural": {
+      "optional": true
     }
   },
   "engines": {

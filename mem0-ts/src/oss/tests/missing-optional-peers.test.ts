@@ -2,7 +2,11 @@ jest.mock("pg", () => {
   throw new Error("Cannot find module 'pg'");
 });
 
-describe("pg is an optional peer", () => {
+jest.mock("natural", () => {
+  throw new Error("Cannot find module 'natural'");
+});
+
+describe("mem0ai/oss without pg or natural installed", () => {
   beforeEach(() => {
     jest.spyOn(console, "error").mockImplementation(() => {});
   });
@@ -11,7 +15,7 @@ describe("pg is an optional peer", () => {
     jest.restoreAllMocks();
   });
 
-  test("mem0ai/oss loads without pg installed", async () => {
+  test("mem0ai/oss loads", async () => {
     await expect(import("../src")).resolves.toHaveProperty("Memory");
   });
 
@@ -25,5 +29,11 @@ describe("pg is an optional peer", () => {
     await expect(store.initialize()).rejects.toThrow(
       "The 'pg' package is required to use the PGVector vector store. Install it with: npm install pg",
     );
+  });
+
+  test("BM25 lemmatization falls back to the built-in stemmer", async () => {
+    const { lemmatizeForBm25 } = await import("../src/utils/lemmatization");
+
+    expect(lemmatizeForBm25("The dogs were running")).toBe("dog runn running");
   });
 });
