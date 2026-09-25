@@ -706,6 +706,63 @@ class TestFAISSSecurityIntegration:
                 assert not os.path.exists(faiss_index_path), "FAISS index should be deleted"
 
 
+class TestFAISSLoadFailureRecovery:
+    """Regression coverage for recovery after persisted state fails to load."""
+
+    def test_corrupted_json_recreates_empty_collection(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            faiss_path = os.path.join(temp_dir, "faiss")
+            store = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+            store.insert(
+                vectors=[[1.0, 0.0]],
+                payloads=[{"name": "apple"}],
+                ids=["apple"],
+            )
+
+            with open(os.path.join(faiss_path, "test_collection.json"), "w", encoding="utf-8") as file:
+                file.write("{")
+
+            recovered = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+
+            assert recovered.index.ntotal == 0
+            assert recovered.docstore == {}
+            assert recovered.index_to_id == {}
+
+            recovered.insert(
+                vectors=[[0.0, 1.0]],
+                payloads=[{"name": "cherry"}],
+                ids=["cherry"],
+            )
+            results = recovered.search(query="", vectors=[[0.0, 1.0]], top_k=1)
+            assert [result.id for result in results] == ["cherry"]
+
+    def test_corrupted_index_recreates_empty_collection(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            faiss_path = os.path.join(temp_dir, "faiss")
+            store = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+            store.insert(
+                vectors=[[1.0, 0.0]],
+                payloads=[{"name": "apple"}],
+                ids=["apple"],
+            )
+
+            with open(os.path.join(faiss_path, "test_collection.faiss"), "wb") as file:
+                file.write(b"corrupted index")
+
+            recovered = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+
+            assert recovered.index.ntotal == 0
+            assert recovered.docstore == {}
+            assert recovered.index_to_id == {}
+
+            recovered.insert(
+                vectors=[[0.0, 1.0]],
+                payloads=[{"name": "cherry"}],
+                ids=["cherry"],
+            )
+            assert recovered.get("cherry").payload == {"name": "cherry"}
+
+
 class TestCosineNormalization:
     """Cosine distance must rank by angle, not raw inner-product magnitude.
 
