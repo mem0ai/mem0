@@ -100,7 +100,8 @@
     "tsup": "^8.3.0",
     "typescript": "5.5.4",
     "iovalkey": "^0.3.3",
-    "@mochow/mochow-sdk-node": "^2.1.5"
+    "@mochow/mochow-sdk-node": "^2.1.5",
+    "@types/jest": "^29.5.14"
   },
   "dependencies": {
     "axios": "^1.18.0",
@@ -127,8 +128,7 @@
     "@qdrant/js-client-rest": "^1.18.0",
     "@supabase/supabase-js": "^2.49.1",
     "@turbopuffer/turbopuffer": "^2.0.0",
-    "@types/jest": "29.5.14",
-    "@types/pg": "8.11.0",
+    "@types/pg": "^8.11.0",
     "@upstash/vector": "^1.2.3",
     "better-sqlite3": "^12.6.2",
     "cassandra-driver": "4.8.0",
@@ -141,7 +141,7 @@
     "weaviate-client": "^3.0.0",
     "ollama": "^0.5.14",
     "oracledb": "^6.5.0 || ^7.0.0",
-    "pg": "8.11.3",
+    "pg": "^8.11.3",
     "redis": "^4.6.13",
     "@elastic/elasticsearch": "^9.0.0",
     "iovalkey": "^0.3.3",
@@ -256,6 +256,12 @@
       "optional": true
     },
     "oracledb": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    },
+    "@types/pg": {
       "optional": true
     }
   },
