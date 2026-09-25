@@ -124,6 +124,21 @@ def _codex(host_env: dict[str, str], tmp_path: Path, repo: Path, setting: bool) 
 HOSTS = {"claude-code": _claude_code, "cursor": _cursor, "codex": _codex}
 
 
+def _mem0_init(home: Path, key: str) -> None:
+    (home / ".mem0").mkdir(parents=True, exist_ok=True)
+    (home / ".mem0" / "config.json").write_text(json.dumps({"platform": {"api_key": key}}), encoding="utf-8")
+
+
+def _host_env(home: Path, api_url: str) -> dict[str, str]:
+    return {
+        "HOME": str(home),
+        "PATH": os.environ["PATH"],
+        "MEM0_API_URL": api_url,
+        "MEM0_TELEMETRY": "false",
+        "MEM0_CODE_USER_ID": "test-user",
+    }
+
+
 @pytest.mark.parametrize("key_source", ["plugin setting", "mem0 init"])
 @pytest.mark.parametrize("host", sorted(HOSTS))
 def test_mcp_server_searches_with_the_key_the_user_configured(host, key_source, tmp_path, mem0_api):
@@ -133,18 +148,28 @@ def test_mcp_server_searches_with_the_key_the_user_configured(host, key_source, 
     repo = tmp_path / "repo"
     repo.mkdir()
     if key_source == "mem0 init":
-        (home / ".mem0").mkdir(parents=True)
-        (home / ".mem0" / "config.json").write_text(json.dumps({"platform": {"api_key": KEY}}), encoding="utf-8")
-    host_env = {
-        "HOME": str(home),
-        "PATH": os.environ["PATH"],
-        "MEM0_API_URL": api_url,
-        "MEM0_TELEMETRY": "false",
-        "MEM0_CODE_USER_ID": "test-user",
-    }
+        _mem0_init(home, KEY)
 
-    argv, cwd, env = HOSTS[host](host_env, tmp_path, repo, key_source == "plugin setting")
+    argv, cwd, env = HOSTS[host](_host_env(home, api_url), tmp_path, repo, key_source == "plugin setting")
     response = _search(argv, cwd, env)
 
     assert not response["result"].get("isError"), response
     assert authorizations == [f"Token {KEY}"]
+
+
+@pytest.mark.parametrize("host", sorted(HOSTS))
+def test_a_removed_plugin_setting_gives_way_to_a_later_mem0_init(host, tmp_path, mem0_api):
+    """The key saved from a plugin setting is dropped once the setting is gone, so a newer `mem0 init` key wins."""
+    api_url, authorizations = mem0_api
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    host_env = _host_env(home, api_url)
+    HOSTS[host](host_env, tmp_path, repo, True)
+    _mem0_init(home, "m0-mem0-init-key")
+
+    argv, cwd, env = HOSTS[host](host_env, tmp_path, repo, False)
+    response = _search(argv, cwd, env)
+
+    assert not response["result"].get("isError"), response
+    assert authorizations == ["Token m0-mem0-init-key"]
