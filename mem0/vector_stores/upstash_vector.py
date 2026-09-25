@@ -296,13 +296,13 @@ class UpstashVector(VectorStoreBase):
             filter=filters_str or "",
             include_metadata=True,
             namespace=self.collection_name,
-            top_k=100,
+            top_k=top_k,
         )
         with query:
             while True:
                 if len(results) >= top_k:
                     break
-                res = query.fetch_next(100)
+                res = query.fetch_next(top_k - len(results))
                 if not res:
                     break
                 results.extend(res)
@@ -313,7 +313,7 @@ class UpstashVector(VectorStoreBase):
                 score=res.score,
                 payload=res.metadata,
             )
-            for res in results
+            for res in results[:top_k]
         ]
         return [parsed_result]
 
