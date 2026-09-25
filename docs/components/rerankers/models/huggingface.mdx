@@ -31,11 +31,11 @@ m = Memory.from_config(config)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `model` | str | Required | Hugging Face model identifier |
-| `device` | str | "cpu" | Device to run model on ("cpu", "cuda", "mps") |
+| `model` | str | "BAAI/bge-reranker-base" | Hugging Face model identifier |
+| `device` | str | None | Device to run model on ("cpu", "cuda", "mps"). Auto-detected when unset |
 | `batch_size` | int | 32 | Batch size for processing |
 | `max_length` | int | 512 | Maximum input sequence length |
-| `trust_remote_code` | bool | False | Allow remote code execution |
+| `normalize` | bool | True | Sigmoid-normalize the cross-encoder logits into `[0, 1]` |
 
 ### Advanced Configuration
 
@@ -48,10 +48,7 @@ config = {
             "device": "cuda",
             "batch_size": 16,
             "max_length": 512,
-            "trust_remote_code": False,
-            "model_kwargs": {
-                "torch_dtype": "float16"
-            }
+            "normalize": False
         }
     }
 }
@@ -88,7 +85,7 @@ const results = await memory.search("What are the user's interests?", {
 ```
 
 <Note>
-  `batchSize` and `showProgressBar` are accepted for parity with the Python SDK but are no-ops in the TypeScript runtime. `trust_remote_code` and `model_kwargs` are Python-only.
+  `batchSize` and `showProgressBar` are accepted for parity with the Python SDK but are no-ops in the TypeScript runtime.
 </Note>
 
 ## Popular Models
@@ -242,10 +239,7 @@ config = {
             "model": "BAAI/bge-reranker-base",
             "device": "cpu",
             "batch_size": 8,   # Smaller batch size
-            "max_length": 256, # Shorter sequences
-            "model_kwargs": {
-                "torch_dtype": "float16"  # Half precision
-            }
+            "max_length": 256  # Shorter sequences
         }
     }
 }
