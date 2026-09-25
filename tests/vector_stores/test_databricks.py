@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -197,6 +198,25 @@ def test_search_delta_sync_text(db_instance_delta, mock_workspace_client):
     assert results[0].id == "id1"
     assert results[0].score == 0.42
     assert results[0].payload["data"] == "memory text"
+
+
+def test_search_wildcard_filter_dropped(db_instance_delta, mock_workspace_client):
+    """'*' wildcard entries are dropped from filters_json instead of literal-matching '*'."""
+    mock_workspace_client.vector_search_indexes.query_index.return_value = SimpleNamespace(
+        result=SimpleNamespace(data_array=[])
+    )
+    db_instance_delta.search(query="hello", vectors=None, top_k=1, filters={"agent_id": "*", "user_id": "u1"})
+    kwargs = mock_workspace_client.vector_search_indexes.query_index.call_args.kwargs
+    assert json.loads(kwargs["filters_json"]) == {"user_id": "u1"}
+
+
+def test_search_only_wildcard_filters_yields_no_filters_json(db_instance_delta, mock_workspace_client):
+    mock_workspace_client.vector_search_indexes.query_index.return_value = SimpleNamespace(
+        result=SimpleNamespace(data_array=[])
+    )
+    db_instance_delta.search(query="hello", vectors=None, top_k=1, filters={"agent_id": "*"})
+    kwargs = mock_workspace_client.vector_search_indexes.query_index.call_args.kwargs
+    assert kwargs["filters_json"] is None
 
 
 def test_search_direct_access_vector(db_instance_direct, mock_workspace_client):
