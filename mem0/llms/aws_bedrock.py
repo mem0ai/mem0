@@ -37,6 +37,24 @@ def extract_provider(model: str, explicit_provider: Optional[str] = None) -> str
     raise ValueError(f"Unknown provider in model: {model}")
 
 
+def _rejects_temperature(model: str) -> bool:
+    """Return True for Claude models that reject ``temperature`` other than 1 on Bedrock.
+
+    Mirrors ``AnthropicLLM._enable_sampling_parameters``: Opus 4.7+, Sonnet 5+ and
+    Fable return "`temperature` is deprecated for this model." for any value but 1.
+    Unknown IDs keep sending temperature so older Bedrock models are unchanged.
+    """
+    match = re.search(r"claude-(opus|sonnet|fable)-(\d+)(?:-(\d{1,2})(?!\d))?", model.lower())
+    if not match:
+        return False
+    family, major, minor = match.group(1), int(match.group(2)), int(match.group(3) or 0)
+    if family == "opus":
+        return (major, minor) >= (4, 7)
+    if family == "sonnet":
+        return major >= 5
+    return True
+
+
 class AWSBedrockLLM(LLMBase):
     """
     AWS Bedrock LLM integration for Mem0.
@@ -508,6 +526,8 @@ class AWSBedrockLLM(LLMBase):
             "maxTokens": self.model_config.get("max_tokens", self._default_max_tokens_for_converse()),
             "temperature": self.model_config.get("temperature", 0.1),
         }
+        if self.provider == "anthropic" and _rejects_temperature(self.config.model):
+            del inference_config["temperature"]
 
         top_p = self.model_config.get("top_p")
         if top_p is not None:
