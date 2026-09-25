@@ -186,6 +186,45 @@ def test_search(mock_boto_client):
     assert results[0].score == pytest.approx(0.1)
 
 
+def test_search_score_cosine_uses_one_minus_distance(mock_boto_client):
+    """Cosine metric keeps the 1 - distance similarity mapping."""
+    mock_boto_client.query_vectors.return_value = {"vectors": [{"key": "id1", "distance": 0.25, "metadata": {}}]}
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+        distance_metric="cosine",
+    )
+
+    results = store.search(query="test", vectors=[0.1, 0.2], top_k=1)
+
+    assert results[0].score == pytest.approx(0.75)
+
+
+def test_search_score_euclidean_uses_bounded_map(mock_boto_client):
+    """Euclidean distance is unbounded; scores must not collapse to 0."""
+    mock_boto_client.query_vectors.return_value = {
+        "vectors": [
+            {"key": "near", "distance": 0.5, "metadata": {}},
+            {"key": "far", "distance": 4.0, "metadata": {}},
+        ]
+    }
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+        distance_metric="euclidean",
+    )
+
+    results = store.search(query="test", vectors=[0.1, 0.2], top_k=2)
+
+    # 1 / (1 + d): a distance > 1 would give a negative (clamped 0) score under
+    # the old cosine-only formula; the bounded map keeps ranking intact.
+    assert results[0].score == pytest.approx(1.0 / 1.5)
+    assert results[1].score == pytest.approx(1.0 / 5.0)
+    assert results[0].score > results[1].score > 0.0
+
+
 def test_get(mock_boto_client):
     """Test retrieving a vector by ID."""
     mock_boto_client.get_vectors.return_value = {
