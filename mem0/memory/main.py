@@ -512,6 +512,7 @@ class Memory(MemoryBase):
 
         # Entity store is initialized lazily on first use
         self._entity_store = None
+        self._closed = False
 
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
@@ -757,6 +758,19 @@ class Memory(MemoryBase):
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
+    def _ensure_open(self) -> None:
+        """Fail fast on writes after ``close()`` instead of half-persisting them.
+
+        After close the vector store still accepts writes while every history
+        write fails on the nulled ``db`` (#7440), so a post-close write used to
+        land a retrievable memory with no audit row and nothing above per-record
+        ERROR logs. Refusing the write up front keeps the two stores consistent.
+        """
+        if getattr(self, "_closed", False):
+            raise RuntimeError(
+                "This Memory instance is closed; construct a new Memory for further writes."
+            )
+
     def add(
         self,
         messages,
@@ -814,6 +828,7 @@ class Memory(MemoryBase):
             LLMError: If LLM operations fail.
             DatabaseError: If database operations fail.
         """
+        self._ensure_open()
         if timestamp is not None:
             raise ValueError(get_temporal_feature_error_message("sync", "add", "timestamp"))
 
@@ -1090,7 +1105,13 @@ class Memory(MemoryBase):
         try:
             self.db.batch_add_history(history_records)
         except Exception:
-            # Fallback: add one by one
+            # Fallback: add one by one. Log the batch-level failure first: without it
+            # a db=None window (Memory closed mid-write) is invisible — only one line
+            # per record survives below, which is how audit rows vanished silently (#7440).
+            logger.exception(
+                "Failed to batch-add %d history records; falling back to per-record writes",
+                len(history_records),
+            )
             for hr in history_records:
                 try:
                     self.db.add_history(hr["memory_id"], None, hr["new_memory"], "ADD", created_at=hr.get("created_at"))
@@ -1854,6 +1875,7 @@ class Memory(MemoryBase):
             >>> m.update(memory_id="mem_123", text="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
         """
+        self._ensure_open()
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
         if data is not None:
@@ -1887,6 +1909,7 @@ class Memory(MemoryBase):
         Args:
             memory_id (str): ID of the memory to delete.
         """
+        self._ensure_open()
         capture_event("mem0.delete", self, {"memory_id": memory_id, "sync_type": "sync"})
 
         existing_memory = self.vector_store.get(vector_id=memory_id)
@@ -2174,10 +2197,16 @@ class Memory(MemoryBase):
         display_first_run_notice(self, "sync", "reset")
 
     def close(self):
-        """Release resources held by this Memory instance (SQLite connections, etc.)."""
+        """Release resources held by this Memory instance (SQLite connections, etc.).
+
+        Idempotent. Once closed, write operations (``add``/``update``/``delete``)
+        fail fast instead of writing to the vector store while every history write
+        fails — the half-dead state that silently dropped audit rows (#7440).
+        """
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
+        self._closed = True
 
     def __enter__(self):
         return self

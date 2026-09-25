@@ -1333,3 +1333,77 @@ class TestAsyncPartialInsertFailure:
             )
 
         mock_async_memory.db.save_messages.assert_called_once()
+
+
+class TestClosedMemoryWrites:
+    """Regression tests for #7440: writes after close() silently half-persisted.
+
+    close() used to null ``db`` while leaving the vector store writable, so a
+    write that raced or followed close landed a retrievable memory with no
+    audit row, and the batch-level failure never surfaced in the log.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        mock_llm.return_value.generate_response.return_value = '{"memory": []}'
+        memory = Memory()
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        return memory
+
+    @pytest.mark.parametrize("op", ["add", "update", "delete"])
+    def test_write_after_close_fails_fast_without_touching_stores(self, mock_memory, op):
+        mock_memory.close()
+        vector_store = mock_memory.vector_store
+
+        with pytest.raises(RuntimeError, match="closed"):
+            if op == "add":
+                mock_memory.add([{"role": "user", "content": "written after close"}], user_id="u1", infer=False)
+            elif op == "update":
+                mock_memory.update("mem-1", text="written after close")
+            else:
+                mock_memory.delete("mem-1")
+
+        vector_store.insert.assert_not_called()
+        vector_store.update.assert_not_called()
+        vector_store.delete.assert_not_called()
+
+    def test_close_is_idempotent(self, mock_memory):
+        # Replace the whole db: the real SQLiteManager has a __del__ that would
+        # route through any instance-level close replacement and double-count.
+        fake_db = Mock()
+        mock_memory.db = fake_db
+        mock_memory.close()
+        mock_memory.close()
+        assert fake_db.close.call_count == 1
+        assert mock_memory.db is None
+        assert mock_memory._closed is True
+
+    def test_batch_history_failure_is_logged(self, mock_memory, mocker, caplog):
+        """The reporter's invisible case: db=None mid-write, batch AND per-record fallback fail."""
+        mock_memory.llm.generate_response.return_value = '{"memory": [{"text": "Alice met Bob"}]}'
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1] * 10, [0.1] * 10])
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search_batch = Mock(return_value=[[]])
+        mock_memory._entity_store.insert = Mock()
+        mock_memory._entity_store.update = Mock()
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        mock_memory.db.batch_add_history = MagicMock(side_effect=Exception("db is None"))
+        mock_memory.db.add_history = MagicMock(side_effect=Exception("db is None"))
+
+        with caplog.at_level(logging.ERROR):
+            mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "Alice met Bob"}],
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        batch_logs = [r for r in caplog.records if "batch-add" in r.getMessage()]
+        assert batch_logs, "the batch-level failure stayed silent (only per-record errors surfaced)"
+        assert batch_logs[0].levelno == logging.ERROR
