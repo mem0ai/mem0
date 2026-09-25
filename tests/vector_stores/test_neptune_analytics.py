@@ -11,6 +11,7 @@ from mem0.utils.factory import VectorStoreFactory
 from mem0.vector_stores.neptune_analytics import (
     NeptuneAnalyticsVector,
     _escape_cypher,
+    _distance_to_similarity,
     _validate_filter,
 )
 
@@ -33,6 +34,12 @@ EMBEDDING_MODEL_DIMS = 1024
 VECTOR_1 = [-0.1] * EMBEDDING_MODEL_DIMS
 VECTOR_2 = [-0.2] * EMBEDDING_MODEL_DIMS
 VECTOR_3 = [-0.3] * EMBEDDING_MODEL_DIMS
+
+
+def test_neptune_distance_is_normalized_to_similarity():
+    assert _distance_to_similarity(0.0) == pytest.approx(1.0)
+    assert _distance_to_similarity(3.0) == pytest.approx(0.25)
+    assert _distance_to_similarity(None) is None
 
 SAMPLE_PAYLOADS = [
     {"test_text": "text_value", "another_field": "field_2_value"},
