@@ -182,6 +182,47 @@ describe("MemoryVectorStore - list", () => {
   });
 });
 
+describe("MemoryVectorStore - compound field operators", () => {
+  let store: MemoryVectorStore;
+
+  beforeAll(async () => {
+    store = createStore();
+    await store.insert(
+      [vec([1, 0, 0, 0]), vec([0, 1, 0, 0]), vec([0, 0, 1, 0])],
+      ["c1", "c2", "c3"],
+      [
+        { data: "young", userId: "u1", age: 5 },
+        { data: "mid", userId: "u1", age: 15 },
+        { data: "old", userId: "u1", age: 25 },
+      ],
+    );
+  });
+
+  test("applies BOTH bounds of a range ({gte, lte}) on the same field", async () => {
+    // age in [10, 20] must match only the mid record. A store that stops at the
+    // first operator would apply gte:10 only and wrongly include age=25.
+    const [results, count] = await store.list({
+      user_id: "u1",
+      age: { gte: 10, lte: 20 },
+    });
+    expect(count).toBe(1);
+    expect(results.map((r) => r.payload.data)).toEqual(["mid"]);
+  });
+
+  test("applies an exclusive range ({gt, lt})", async () => {
+    const [results] = await store.list({
+      user_id: "u1",
+      age: { gt: 5, lt: 25 },
+    });
+    expect(results.map((r) => r.payload.data)).toEqual(["mid"]);
+  });
+
+  test("still matches a single-operator condition", async () => {
+    const [, count] = await store.list({ user_id: "u1", age: { gte: 15 } });
+    expect(count).toBe(2); // 15 and 25
+  });
+});
+
 describe("MemoryVectorStore - userId tracking", () => {
   test("getUserId generates and persists a random ID", async () => {
     const store = createStore();
