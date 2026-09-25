@@ -1766,6 +1766,15 @@ export class Memory {
       deletedCount += batch.length;
     }
 
+    const sessionScope = this.buildSessionScope(filters);
+    if (sessionScope && typeof this.db.deleteMessages === "function") {
+      try {
+        await this.db.deleteMessages(sessionScope);
+      } catch (e) {
+        logger.warn(`Failed to delete scoped messages: ${e}`);
+      }
+    }
+
     const result = { message: "Memories deleted successfully!" };
     if (deletedCount > 0) {
       await this._displayDecayUsageNotice({

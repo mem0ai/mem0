@@ -107,6 +107,13 @@ export class SQLiteManager implements HistoryManager {
     txn();
   }
 
+  async deleteMessages(sessionScope: string): Promise<void> {
+    if (!sessionScope) return;
+    this.db
+      .prepare(`DELETE FROM messages WHERE session_scope = ?`)
+      .run(sessionScope);
+  }
+
   async getLastMessages(
     sessionScope: string,
     limit = 10,

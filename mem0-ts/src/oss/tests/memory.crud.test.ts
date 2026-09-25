@@ -719,6 +719,22 @@ describe("Memory - deleteAll()", () => {
     expect(listSpy).toHaveBeenCalledTimes(2);
     expect(deleteSpy).toHaveBeenCalledTimes(2);
   });
+
+  test("regression #7452: deletes the scope's raw messages so they aren't resent on the next add()", async () => {
+    const mem = createMemory();
+    const scopedUserId = `deleteall_messages_${Date.now()}`;
+
+    await mem.add("My SSN is 123-45-6789", { userId: scopedUserId });
+
+    const db = (mem as any).db;
+    expect(
+      await db.getLastMessages(`user_id=${scopedUserId}`),
+    ).not.toHaveLength(0);
+
+    await mem.deleteAll({ userId: scopedUserId });
+
+    expect(await db.getLastMessages(`user_id=${scopedUserId}`)).toHaveLength(0);
+  });
 });
 
 // ─── getAll() ────────────────────────────────────────────

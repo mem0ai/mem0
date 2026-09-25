@@ -104,6 +104,40 @@ describe("SQLiteManager", () => {
     expect(await db.getHistory("mem1")).toHaveLength(1);
     expect(await db.getHistory("mem2")).toHaveLength(1);
   });
+
+  // ─── deleteMessages ────────────────────────────────────
+
+  test("deleteMessages clears only the target scope", async () => {
+    await db.saveMessages(
+      [{ role: "user", content: "My SSN is 123-45-6789" }],
+      "user_id=alice",
+    );
+    await db.saveMessages(
+      [{ role: "user", content: "unrelated" }],
+      "user_id=bob",
+    );
+
+    await db.deleteMessages("user_id=alice");
+
+    expect(await db.getLastMessages("user_id=alice")).toHaveLength(0);
+    expect(await db.getLastMessages("user_id=bob")).toHaveLength(1);
+  });
+
+  test("deleteMessages on an empty scope is a no-op", async () => {
+    await db.saveMessages(
+      [{ role: "user", content: "hello" }],
+      "user_id=alice",
+    );
+
+    await db.deleteMessages("");
+
+    expect(await db.getLastMessages("user_id=alice")).toHaveLength(1);
+  });
+
+  test("deleteMessages on a scope with no messages does not throw", async () => {
+    await expect(db.deleteMessages("user_id=nobody")).resolves.toBeUndefined();
+    expect(await db.getLastMessages("user_id=nobody")).toHaveLength(0);
+  });
 });
 
 // ─── DummyHistoryManager ────────────────────────────────
