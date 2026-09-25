@@ -323,15 +323,27 @@ export class Memory {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,
       };
-      // For file-based stores (memory/SQLite), always use a separate DB for entities
+      // For file-based stores (memory/SQLite), always use a separate DB for entities.
+      // The suffix swap only fires on a .db path, so anything else needs appending
+      // or both stores open the same file and the same table.
       if (entityProvider === "memory") {
         const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
-        entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
+        if (basePath !== ":memory:") {
+          entityConfig.dbPath = basePath.endsWith(".db")
+            ? basePath.replace(/\.db$/, "_entities.db")
+            : `${basePath}_entities`;
+        }
       }
-      if (entityProvider === "databricks") {
-        entityConfig.tableName = entityConfig.tableName
-          ? `${entityConfig.tableName}_entities`
-          : entityCollectionName;
+      // Some stores name their physical storage with tableName or indexName and
+      // never read collectionName, so renaming the collection alone would leave
+      // the entity store pointing at the memory store's own table.
+      if (entityConfig.tableName) {
+        entityConfig.tableName = `${entityConfig.tableName}_entities`;
+      } else if (entityProvider === "databricks") {
+        entityConfig.tableName = entityCollectionName;
+      }
+      if (entityConfig.indexName) {
+        entityConfig.indexName = `${entityConfig.indexName}_entities`;
       }
       this._entityStore = VectorStoreFactory.create(
         entityProvider,
