@@ -2,12 +2,29 @@ import OpenAI from "openai";
 import { Embedder } from "./base";
 import { EmbeddingConfig } from "../types";
 
+function validateOpenAIEmbedderConfig(config: EmbeddingConfig): void {
+  if (!config.apiKey) {
+    const hasWrongApiKey = "openaiApiKey" in config;
+    const errorMsg = "OpenAI Embedder config validation failed: 'apiKey' is required." +
+      (hasWrongApiKey ? " Did you mean 'apiKey' (not 'openaiApiKey')?" : "");
+    throw new Error(errorMsg);
+  }
+
+  if ("openaiApiKey" in config) {
+    console.warn("Warning: 'openaiApiKey' is not a valid config key. Use 'apiKey' instead.");
+  }
+  if ("baseUrl" in config) {
+    console.warn("Warning: 'baseUrl' is not a valid config key. Use 'baseURL' instead.");
+  }
+}
+
 export class OpenAIEmbedder implements Embedder {
   private openai: OpenAI;
   private model: string;
   private embeddingDims: number | undefined;
 
   constructor(config: EmbeddingConfig) {
+    validateOpenAIEmbedderConfig(config);
     this.openai = new OpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseURL || config.url,
