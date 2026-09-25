@@ -44,7 +44,7 @@ function mockPgQuery(sql: string) {
 jest.mock("pg", () => {
   const clients: any[] = [];
 
-  const Client = jest.fn().mockImplementation((config: any) => {
+  const Pool = jest.fn().mockImplementation((config: any) => {
     const client = {
       config,
       connect: jest.fn().mockResolvedValue(undefined),
@@ -62,10 +62,10 @@ jest.mock("pg", () => {
 
   return {
     __esModule: true,
-    default: { Client, escapeIdentifier },
-    Client,
+    default: { Pool, escapeIdentifier },
+    Pool,
     escapeIdentifier,
-    __mock: { Client, clients },
+    __mock: { Pool, clients },
   };
 });
 
@@ -79,7 +79,7 @@ describe("PGVector", () => {
   beforeEach(() => {
     const pg = require("pg");
     mockState.databaseExists = true;
-    pg.__mock.Client.mockClear();
+    pg.__mock.Pool.mockClear();
     pg.__mock.clients.length = 0;
   });
 
@@ -99,8 +99,8 @@ describe("PGVector", () => {
     await store.initialize();
 
     const pg = require("pg");
-    expect(pg.__mock.Client).toHaveBeenCalledTimes(1);
-    expect(pg.__mock.Client).toHaveBeenCalledWith({
+    expect(pg.__mock.Pool).toHaveBeenCalledTimes(1);
+    expect(pg.__mock.Pool).toHaveBeenCalledWith({
       connectionString:
         "postgresql://postgres:postgres@db.example.com:5432/neondb",
       ssl,
@@ -144,8 +144,8 @@ describe("PGVector", () => {
     await store.initialize();
 
     const pg = require("pg");
-    expect(pg.__mock.Client).toHaveBeenCalledTimes(2);
-    expect(pg.__mock.Client).toHaveBeenNthCalledWith(1, {
+    expect(pg.__mock.Pool).toHaveBeenCalledTimes(2);
+    expect(pg.__mock.Pool).toHaveBeenNthCalledWith(1, {
       database: "postgres",
       user: "postgres",
       password: "postgres",
@@ -153,7 +153,7 @@ describe("PGVector", () => {
       port: 5432,
       ssl,
     });
-    expect(pg.__mock.Client).toHaveBeenNthCalledWith(2, {
+    expect(pg.__mock.Pool).toHaveBeenNthCalledWith(2, {
       database: "vector_store",
       user: "postgres",
       password: "postgres",
@@ -233,7 +233,7 @@ describe("PGVector", () => {
     ]);
 
     const pg = require("pg");
-    expect(pg.__mock.Client).toHaveBeenCalledTimes(2);
+    expect(pg.__mock.Pool).toHaveBeenCalledTimes(2);
 
     const activeClient = pg.__mock.clients[1];
     expect(activeClient.query).toHaveBeenCalledWith(
