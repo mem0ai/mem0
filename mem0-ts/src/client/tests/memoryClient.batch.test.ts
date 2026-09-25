@@ -46,6 +46,33 @@ describe("MemoryClient - batchUpdate()", () => {
     ]);
   });
 
+  test("forwards metadata and preserves metadata-free item shapes", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/batch/", { status: 200, body: { message: "OK" } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.batchUpdate([
+      {
+        memoryId: "mem_1",
+        text: "updated 1",
+        metadata: { SourceId: "A_1", nested: { Camel: 1 } },
+      },
+      { memoryId: "mem_2", text: "updated 2", metadata: undefined },
+    ]);
+
+    const call = findFetchCall(mock, "/v1/batch/", "PUT");
+    expect(getFetchBody(call!).memories).toEqual([
+      {
+        memory_id: "mem_1",
+        text: "updated 1",
+        metadata: { SourceId: "A_1", nested: { Camel: 1 } },
+      },
+      { memory_id: "mem_2", text: "updated 2" },
+    ]);
+    expect(getFetchBody(call!).memories[1]).not.toHaveProperty("metadata");
+  });
+
   test("handles empty array without crashing", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v1/batch/", { status: 200, body: { message: "OK" } });
