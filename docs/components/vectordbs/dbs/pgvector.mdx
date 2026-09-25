@@ -5,6 +5,12 @@ description: "Use the pgvector extension as a vector store in Mem0 for PostgreSQ
 
 [pgvector](https://github.com/pgvector/pgvector) is an open-source vector similarity search extension for Postgres. After connecting to Postgres, run `CREATE EXTENSION IF NOT EXISTS vector;` to create the vector extension.
 
+The TypeScript SDK loads the `pg` driver only when you use this store, so install it alongside `mem0ai`:
+
+```bash
+npm install pg
+```
+
 ### Usage
 
 <CodeGroup>
