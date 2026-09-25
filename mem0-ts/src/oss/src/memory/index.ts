@@ -768,7 +768,9 @@ export class Memory {
       has_filters: !!config.filters,
       infer: config.infer,
     });
-    const { filters = {}, infer = true } = config;
+    // Copy: scope keys are written into this object below, and the caller's next add() must not inherit them (#6796).
+    const filters: SearchFilters = { ...(config.filters ?? {}) };
+    const { infer = true } = config;
     const metadata = stripIdentityKeys(config.metadata);
 
     // Validate and trim entity IDs
