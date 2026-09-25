@@ -521,16 +521,39 @@ class AWSBedrockLLM(LLMBase):
 
         return inference_config
 
+    @staticmethod
+    def _format_messages_converse(
+        messages: List[Dict[str, str]],
+    ) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        """Convert messages to Converse shape, hoisting system into a separate string.
+
+        The Converse API requires the system prompt via the top-level ``system`` param
+        (never a ``role="system"`` message) and message content as a list of blocks.
+        Multiple system messages are joined with newlines.
+        """
+        formatted_messages = []
+        system_parts = []
+
+        for message in messages:
+            role = message["role"]
+            content = message["content"]
+            if role == "system":
+                system_parts.append(content)
+            else:
+                formatted_messages.append({"role": role, "content": [{"text": content}]})
+
+        system_message = "\n".join(system_parts) if system_parts else None
+        return formatted_messages, system_message
+
     def _generate_with_tools(self, messages: List[Dict[str, str]], tools: List[Dict], stream: bool = False) -> Dict[str, Any]:
         """Generate response with tool calling support using correct message format."""
-        # Format messages for tool-enabled models
-        system_message = None
+        # Format messages for tool-enabled models. All supported providers use the
+        # Converse API, so messages must be Converse-shaped and the system prompt
+        # hoisted into the top-level `system` param (see _format_messages_converse).
         if self.provider == "anthropic":
             formatted_messages, system_message = self._format_messages_anthropic(messages)
-        elif self.provider == "amazon":
-            formatted_messages = self._format_messages_amazon(messages)
         else:
-            formatted_messages = [{"role": "user", "content": [{"text": messages[-1]["content"]}]}]
+            formatted_messages, system_message = self._format_messages_converse(messages)
 
         # Prepare tool configuration in Converse API format
         tool_config = None
@@ -546,7 +569,7 @@ class AWSBedrockLLM(LLMBase):
             "inferenceConfig": self._build_inference_config(),
         }
 
-        # Add system message if present (for Anthropic)
+        # Add system message if present
         if system_message:
             converse_params["system"] = [{"text": system_message}]
 
