@@ -221,8 +221,10 @@ class FAISS(VectorStoreBase):
             raise ValueError(f"Failed to load FAISS docstore: potentially malicious pickle file. {e}") from e
         except Exception as e:
             logger.warning(f"Failed to load FAISS index: {e}")
+            self.index = None
             self.docstore = {}
             self.index_to_id = {}
+            raise ValueError(f"Failed to load FAISS index: {e}") from e
 
     def _save(self):
         """Save FAISS index and docstore to disk using JSON format (secure)."""
