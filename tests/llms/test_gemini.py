@@ -120,6 +120,30 @@ def test_generate_response_with_tools(mock_gemini_client: Mock):
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
 
 
+def test_assistant_role_mapped_to_model(mock_gemini_client: Mock):
+    """Gemini only accepts "user" and "model" roles; the OpenAI-style "assistant"
+    role must be mapped to "model" instead of passed through (issue #6393)."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hi, I prefer window seats."},
+        {"role": "assistant", "content": "Noted, window seats it is."},
+        {"role": "user", "content": "Create procedural memory of the above conversation."},
+    ]
+
+    mock_part = Mock(text="ok")
+    mock_content = Mock(parts=[mock_part])
+    mock_candidate = Mock(content=mock_content)
+    mock_response = Mock(candidates=[mock_candidate])
+    mock_gemini_client.models.generate_content.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    contents = mock_gemini_client.models.generate_content.call_args.kwargs["contents"]
+    assert [c.role for c in contents] == ["user", "model", "user"]
+
+
 def test_parse_response_none_content_no_tools(mock_gemini_client: Mock):
     """Gemini can return content=None when response is blocked by safety filters."""
     config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
