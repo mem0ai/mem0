@@ -161,6 +161,7 @@ class GeminiLLM(LLMBase):
         response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
+        **kwargs,
     ):
         """
         Generate a response based on the given messages using Gemini.
@@ -170,6 +171,8 @@ class GeminiLLM(LLMBase):
             response_format (str or object, optional): Format for the response. Defaults to "text".
             tools (list, optional): List of tools that the model can call. Defaults to None.
             tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            **kwargs: Additional Gemini-specific parameters. A per-call ``max_tokens``
+                overrides the configured value.
 
         Returns:
             str: The generated response.
@@ -178,13 +181,17 @@ class GeminiLLM(LLMBase):
         # Extract system instruction and reformat messages
         system_instruction, contents = self._reformat_messages(messages)
 
+        # A per-call max_tokens overrides the configured value, matching the
+        # per-call override contract the other providers honour via kwargs.
+        max_tokens = kwargs.get("max_tokens", self.config.max_tokens)
+
         # Prepare generation config — only include non-None values so the
         # Gemini SDK uses its own defaults instead of rejecting None.
         config_params = {}
         if self.config.temperature is not None:
             config_params["temperature"] = self.config.temperature
-        if self.config.max_tokens is not None:
-            config_params["max_output_tokens"] = self.config.max_tokens
+        if max_tokens is not None:
+            config_params["max_output_tokens"] = max_tokens
         if self.config.top_p is not None:
             config_params["top_p"] = self.config.top_p
 
@@ -202,9 +209,13 @@ class GeminiLLM(LLMBase):
             config_params["tools"] = formatted_tools
 
             if tool_choice:
+                # "required" is the cross-provider value for "must call a tool"
+                # (see LLMBase and the OpenAI/Anthropic providers); Gemini spells
+                # that mode ANY. Anything else falls back to NONE.
+                force_tool_call = tool_choice in ("any", "required")
                 if tool_choice == "auto":
                     mode = types.FunctionCallingConfigMode.AUTO
-                elif tool_choice == "any":
+                elif force_tool_call:
                     mode = types.FunctionCallingConfigMode.ANY
                 else:
                     mode = types.FunctionCallingConfigMode.NONE
@@ -213,7 +224,7 @@ class GeminiLLM(LLMBase):
                     function_calling_config=types.FunctionCallingConfig(
                         mode=mode,
                         allowed_function_names=(
-                            [tool["function"]["name"] for tool in tools] if tool_choice == "any" else None
+                            [tool["function"]["name"] for tool in tools] if force_tool_call else None
                         ),
                     )
                 )
