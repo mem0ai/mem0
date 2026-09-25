@@ -31,6 +31,17 @@ def test_base_to_openai_preserves_reasoning_fields():
     assert built.is_reasoning_model is True
 
 
+def test_base_to_openai_preserves_max_retries():
+    # max_retries opts into the retry layer; it must survive the base->provider
+    # conversion so LlmFactory.create("openai", BaseLlmConfig(max_retries=...)) stays enabled.
+    base_config = BaseLlmConfig(model="gpt-4.1-nano-2025-04-14", max_retries=5)
+
+    built = _capture_config("openai", base_config)
+
+    assert isinstance(built, OpenAIConfig)
+    assert built.max_retries == 5
+
+
 def test_base_to_kwargs_provider_preserves_reasoning_fields():
     # AWSBedrockConfig accepts the reasoning fields via **kwargs, so they must survive.
     base_config = BaseLlmConfig(model="amazon.nova", reasoning_effort="medium", is_reasoning_model=True)
