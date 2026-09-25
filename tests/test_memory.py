@@ -504,6 +504,26 @@ def test_normalize_facts_filters_empty_strings():
     assert normalize_facts(["", "valid", ""]) == ["valid"]
 
 
+def test_normalize_facts_wrapped_facts_object():
+    """Full LLM response object must unwrap facts, not iterate dict keys."""
+    assert normalize_facts({"facts": ["User likes Python", "User codes"]}) == [
+        "User likes Python",
+        "User codes",
+    ]
+
+
+def test_normalize_facts_single_fact_object():
+    assert normalize_facts({"fact": "User likes Python"}) == ["User likes Python"]
+    assert normalize_facts({"text": "User is a developer"}) == ["User is a developer"]
+
+
+def test_normalize_facts_bare_string():
+    """A bare string is one fact, not a sequence of characters."""
+    assert normalize_facts("User likes Python") == ["User likes Python"]
+    assert normalize_facts("") == []
+    assert normalize_facts("   ") == []
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')

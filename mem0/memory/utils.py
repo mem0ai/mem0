@@ -93,9 +93,23 @@ def normalize_facts(raw_facts):
     Smaller LLMs (e.g. llama3.1:8b) sometimes return facts as objects
     like {"fact": "..."} or {"text": "..."} instead of plain strings.
     This mirrors the TypeScript FactRetrievalSchema validation.
+
+    Also accepts the full response object ``{"facts": [...]}`` and a bare
+    fact string. Iterating those shapes used to yield the key ``"facts"`` or
+    individual characters instead of usable fact strings.
     """
     if not raw_facts:
         return []
+    if isinstance(raw_facts, dict):
+        wrapped = raw_facts.get("facts")
+        if isinstance(wrapped, list):
+            raw_facts = wrapped
+        else:
+            fact = raw_facts.get("fact") or raw_facts.get("text")
+            return [fact] if fact else []
+    if isinstance(raw_facts, str):
+        return [raw_facts] if raw_facts.strip() else []
+
     normalized = []
     for item in raw_facts:
         if isinstance(item, str):
