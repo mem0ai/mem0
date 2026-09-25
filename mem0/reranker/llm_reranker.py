@@ -91,11 +91,30 @@ class LLMReranker(BaseReranker):
     # Maximum character length for query and document inputs to prevent prompt flooding.
     _MAX_INPUT_LEN = 4000
 
+    # Reasoning models (qwen3, deepseek-r1, and anything else serving a `<think>`
+    # block, e.g. through Ollama/vLLM/Together) emit their chain of thought before
+    # the answer. Numbers mentioned while reasoning are not the score.
+    _REASONING_BLOCK_RE = re.compile(r'<think>.*?</think>', re.DOTALL | re.IGNORECASE)
+
+    @classmethod
+    def _strip_reasoning(cls, response_text: str) -> str:
+        """Drop `<think>...</think>` blocks from a model response.
+
+        A response truncated mid-reasoning has no closing tag, so anything from a
+        stray `<think>` to the end is dropped as well rather than being parsed.
+        """
+        stripped = cls._REASONING_BLOCK_RE.sub('', response_text)
+        start = stripped.lower().find('<think>')
+        return stripped[:start] if start != -1 else stripped
+
     def _extract_score(self, response_text: str) -> float:
         """Extract numerical score from LLM response."""
+        # Only the answer text is parsed: a reasoning block can mention several
+        # numbers, and the first one found there would otherwise win.
+        answer_text = self._strip_reasoning(response_text)
         # Prefer a decimal, fall back to an integer, then clamp: out-of-range outputs
         # like "2.0"/"5" become 1.0 instead of being mis-parsed into a stray 0/1 digit.
-        matches = re.findall(r'-?\d+\.\d+', response_text) or re.findall(r'-?\d+', response_text)
+        matches = re.findall(r'-?\d+\.\d+', answer_text) or re.findall(r'-?\d+', answer_text)
 
         if matches:
             score = float(matches[0])

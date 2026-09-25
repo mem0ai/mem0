@@ -44,6 +44,25 @@ class TestExtractScore:
         # A distractor integer before the score must not be picked up.
         assert reranker._extract_score("Confidence 100%. Relevance: 0.1") == 0.1
 
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            # Reasoning runs first; the score is the only number after it.
+            (
+                "<think>The query asks about pets. On a 0.0-1.0 scale this document is "
+                "clearly relevant, so maybe 0.3 is too low.\n</think>\n\n0.95",
+                0.95,
+            ),
+            ("<think>This is about tax filing, nothing to do with pets.</think>\n\n0.05", 0.05),
+            ("<THINK>0.2</THINK>\n0.8", 0.8),
+            # Truncated mid-reasoning: no score was emitted, so stay neutral rather
+            # than scoring one of the numbers mentioned while reasoning.
+            ("<think>The document mentions 0.9 and similar values", 0.5),
+        ],
+    )
+    def test_reasoning_blocks_are_not_scored(self, reranker, text, expected):
+        assert reranker._extract_score(text) == expected
+
 
 class TestRerank:
     def test_empty_documents(self, mock_llm):
@@ -131,6 +150,22 @@ class TestRerank:
         assert messages[0]["content"] == custom_prompt
         assert "my query" in messages[1]["content"]
         assert "my doc" in messages[1]["content"]
+
+    def test_reasoning_numbers_do_not_demote_relevant_documents(self, mock_llm):
+        _, mock_llm_instance = mock_llm
+        # Both scores appear inside <think> as decoys; only the trailing numbers are
+        # the model's answer. Parsing the reasoning text would rank the second doc last.
+        mock_llm_instance.generate_response.side_effect = [
+            "<think>Maybe 0.3 is too low; this deserves a high score.</think>\n\n0.95",
+            "<think>Nothing to do with pets. Score should be low, say 0.9.</think>\n\n0.05",
+        ]
+
+        reranker = LLMReranker({"provider": "openai"})
+        docs = [{"memory": "the user's dog"}, {"memory": "a tax return"}]
+
+        result = reranker.rerank("what pets does the user have?", docs)
+
+        assert [doc["memory"] for doc in result] == ["the user's dog", "a tax return"]
 
     def test_original_doc_not_mutated(self, mock_llm):
         _, mock_llm_instance = mock_llm
