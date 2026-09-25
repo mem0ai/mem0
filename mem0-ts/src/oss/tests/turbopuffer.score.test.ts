@@ -2,24 +2,20 @@
 /**
  * Turbopuffer vector store — score conversion unit tests.
  *
- * Drives parseRows() through the public search() API with a virtually-mocked
+ * Drives parseRows() through the public search() API with a mocked
  * @turbopuffer/turbopuffer peer, asserting the score returned per metric.
  */
 
 const mockQuery = jest.fn();
 
-jest.mock(
-  "@turbopuffer/turbopuffer",
-  () => ({
-    __esModule: true,
-    default: class {
-      namespace() {
-        return { query: mockQuery };
-      }
-    },
-  }),
-  { virtual: true },
-);
+jest.mock("@turbopuffer/turbopuffer", () => ({
+  __esModule: true,
+  default: class {
+    namespace() {
+      return { query: mockQuery };
+    }
+  },
+}));
 
 import { TurbopufferDB } from "../src/vector_stores/turbopuffer";
 

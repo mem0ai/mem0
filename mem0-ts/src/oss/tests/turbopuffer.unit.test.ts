@@ -3,27 +3,22 @@
  * Turbopuffer vector store — filter translation unit tests.
  *
  * Drives the private convertFilters() through the public search() API with a
- * virtually-mocked @turbopuffer/turbopuffer peer, and asserts the filter tuple
- * handed to ns.query().
+ * mocked @turbopuffer/turbopuffer peer, and asserts the filter tuple handed to
+ * ns.query().
  */
 
 const mockQuery = jest.fn().mockResolvedValue({ rows: [] });
 
-// The peer is an optional dependency and may not be installed; mock it
-// virtually. createClient() does `new sdk.default({...})`, whose namespace()
-// returns the object search() calls query() on.
-jest.mock(
-  "@turbopuffer/turbopuffer",
-  () => ({
-    __esModule: true,
-    default: class {
-      namespace() {
-        return { query: mockQuery };
-      }
-    },
-  }),
-  { virtual: true },
-);
+// createClient() does `new sdk.default({...})`, whose namespace() returns the
+// object search() calls query() on.
+jest.mock("@turbopuffer/turbopuffer", () => ({
+  __esModule: true,
+  default: class {
+    namespace() {
+      return { query: mockQuery };
+    }
+  },
+}));
 
 import { TurbopufferDB } from "../src/vector_stores/turbopuffer";
 
