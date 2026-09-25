@@ -28,12 +28,23 @@ from typing import Any, Iterable
 
 import telemetry
 
+# Read from the generated per-host module so a new entrypoint is correct without
+# remembering to configure anything.
+try:  # pragma: no cover - absent only in the un-built shared source tree
+    from _harness_id import DATA_DIR_NAME as _DATA_DIR_NAME
+    from _harness_id import PLATFORM_APPLICATION as _PLATFORM_APPLICATION
+    from _harness_id import PLATFORM_SOURCE as _PLATFORM_SOURCE
+except ImportError:
+    _DATA_DIR_NAME = "mem0-plugin"
+    _PLATFORM_SOURCE = "MEM0_PLUGIN"
+    _PLATFORM_APPLICATION = ""
+
 DEFAULT_API_URL = "https://api.mem0.ai"
-PLUGIN_VERSION = "0.3.3"
+PLUGIN_VERSION = "0.3.4"
 
 _harness_name: str = "generic"
 _harness_env_prefix: str = "MEM0_PLUGIN"
-_harness_data_dir_name: str = "mem0-plugin"
+_harness_data_dir_name: str = _DATA_DIR_NAME
 _harness_source_tag: str = "mem0_plugin"
 
 
@@ -1800,16 +1811,6 @@ def extraction_message_batches(
     if batch:
         batches.append(batch)
     return batches
-
-
-# Platform surface attribution. Read from the generated per-host module so a new
-# entrypoint is correct without remembering to configure anything.
-try:  # pragma: no cover - absent only in the un-built shared source tree
-    from _harness_id import PLATFORM_APPLICATION as _PLATFORM_APPLICATION
-    from _harness_id import PLATFORM_SOURCE as _PLATFORM_SOURCE
-except ImportError:
-    _PLATFORM_SOURCE = "MEM0_PLUGIN"
-    _PLATFORM_APPLICATION = ""
 
 
 def platform_headers(key: str) -> dict[str, str]:

@@ -2100,6 +2100,16 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Tabs>
 <Tab title="Mem0 Plugin">
 
+<Update label="2026-09-25" description="Portable agent plugin v0.3.4">
+
+**Fixes:**
+- **Auth:** Falls back to the API key `mem0 init` saved in `~/.mem0/config.json` when no key is set in the plugin settings or `MEM0_API_KEY`, so search and the status check no longer report a missing key after `mem0 init` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Auth:** A plugin setting that reaches the plugin as an unexpanded `${api_key}` or `${user_id}` placeholder is treated as unset. It is no longer sent as the API key, cached to disk, or used as the user ID ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **State:** The `search_memories` MCP server now keeps its state in `~/.mem0/coding-agent-plugin`, the same directory the status, pause, resume and forget skills use, instead of `~/.mem0/mem0-plugin` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.4`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with this fix ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+
+</Update>
+
 <Update label="2026-09-08" description="Shared agent plugin runtime">
 
 **Changed:**
@@ -2411,6 +2421,15 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Claude Code">
 
+<Update label="2026-09-25" description="Claude Code plugin v0.3.4">
+
+**Fixes:**
+- **Auth:** Falls back to the API key `mem0 init` saved in `~/.mem0/config.json` when no key is set in the plugin settings or `MEM0_API_KEY`, so search and the status check no longer report a missing key after `mem0 init` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Auth:** A plugin setting that reaches the plugin as an unexpanded `${api_key}` or `${user_id}` placeholder is treated as unset. It is no longer sent as the API key, cached to disk, or used as the user ID ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.4`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with this fix ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+
+</Update>
+
 <Update label="2026-09-23" description="Claude Code plugin v0.3.3">
 
 **Improvements:**
@@ -2452,6 +2471,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Cursor">
 
+<Update label="2026-09-25" description="Cursor plugin v0.3.4">
+
+**Fixes:**
+- **Auth:** An API key set in the Cursor plugin settings now reaches the `search_memories` MCP server. The server looked for the cached key in `~/.mem0/mem0-plugin` while the hooks cached it in `~/.mem0/cursor-plugin`, so search asked for auth whenever Cursor did not pass the setting to the MCP server directly ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Auth:** Falls back to the API key `mem0 init` saved in `~/.mem0/config.json` when no key is set in the plugin settings or `MEM0_API_KEY`, so search and the status check no longer report a missing key after `mem0 init` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Auth:** A plugin setting that reaches the plugin as an unexpanded `${api_key}` or `${user_id}` placeholder is treated as unset. It is no longer sent as the API key, cached to disk, or used as the user ID ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.4`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with this fix ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+
+</Update>
+
 <Update label="2026-09-23" description="Cursor plugin v0.3.3">
 
 **Improvements:**
@@ -2492,6 +2521,14 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Codex">
 
+<Update label="2026-09-25" description="Codex plugin v0.3.4">
+
+**Fixes:**
+- **Auth:** Falls back to the API key `mem0 init` saved in `~/.mem0/config.json` when `MEM0_API_KEY` is not set, so search and the status check no longer report a missing key after `mem0 init` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.4`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with this fix ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+
+</Update>
+
 <Update label="2026-09-23" description="Codex plugin v0.3.3">
 
 **Improvements:**
@@ -2530,6 +2567,13 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 </Tab>
 
 <Tab title="OpenCode">
+
+<Update label="2026-09-25" description="OpenCode plugin v0.4.2">
+
+**Fixes:**
+- **Auth:** Falls back to the API key `mem0 init` saved in `~/.mem0/config.json` when neither `MEM0_API_KEY` nor a shell profile sets one, so search and the status check no longer report a missing key after `mem0 init` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+
+</Update>
 
 <Update label="2026-09-23" description="OpenCode plugin v0.4.1">
 
@@ -2646,6 +2690,15 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Antigravity">
 
+<Update label="2026-09-25" description="Antigravity plugin v0.3.4">
+
+**Fixes:**
+- **Auth:** Falls back to the API key `mem0 init` saved in `~/.mem0/config.json` when `MEM0_API_KEY` is not set, so search and the status check no longer report a missing key after `mem0 init` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Data directory:** The `search_memories` MCP server uses `~/.mem0/antigravity-plugin`, the data directory the hooks use, instead of `~/.mem0/mem0-plugin` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.4`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with this fix ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+
+</Update>
+
 <Update label="2026-09-23" description="Antigravity plugin v0.3.3">
 
 **Improvements:**
@@ -2758,6 +2811,15 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="Kimi">
+
+<Update label="2026-09-25" description="Kimi Code plugin v0.3.4">
+
+**Fixes:**
+- **Auth:** Falls back to the API key `mem0 init` saved in `~/.mem0/config.json` when `MEM0_API_KEY` is not set, so search and the status check no longer report a missing key after `mem0 init` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Data directory:** The `search_memories` MCP server uses `~/.mem0/kimi-plugin`, the data directory the hooks use, instead of `~/.mem0/mem0-plugin` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.4`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with this fix ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+
+</Update>
 
 <Update label="2026-09-23" description="Kimi Code plugin v0.3.3">
 
@@ -3117,6 +3179,13 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Pi Agent">
 
+<Update label="2026-09-25" description="Pi Agent plugin v0.3.3">
+
+**Fixes:**
+- **Auth:** Falls back to the API key `mem0 init` saved in `~/.mem0/config.json` when neither `MEM0_API_KEY` nor `~/.pi/agent/mem0-config.json` sets one, so search and the status check no longer report a missing key after `mem0 init` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+
+</Update>
+
 <Update label="2026-09-23" description="Pi Agent plugin v0.3.2">
 
 **Improvements:**
@@ -3245,6 +3314,14 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="DeepSeek Harness">
+
+<Update label="2026-09-25" description="deepseek-plugin v0.3.3">
+
+**Fixes:**
+- **Auth:** Falls back to the API key `mem0 init` saved in `~/.mem0/config.json` when neither `config.apiKey` nor `MEM0_API_KEY` is set, so search and the status check no longer report a missing key after `mem0 init` ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+- **Config:** An empty `apiKey` now counts as unset and falls through to `MEM0_API_KEY` and the `mem0 init` key, instead of failing validation ([#7449](https://github.com/mem0ai/mem0/pull/7449))
+
+</Update>
 
 <Update label="2026-09-23" description="deepseek-plugin v0.3.2">
 
