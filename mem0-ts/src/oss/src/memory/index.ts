@@ -756,9 +756,7 @@ export class Memory {
       has_filters: !!config.filters,
       infer: config.infer,
     });
-    // Copy: the scope keys below are written into this object, and mutating the
-    // caller's would carry this call's scope into their next add(). search() and
-    // getAll() already build a fresh object from config.filters.
+    // Copy: scope keys are written into this object below, and the caller's next add() must not inherit them (#6796).
     const filters: SearchFilters = { ...(config.filters ?? {}) };
     const { infer = true } = config;
     const metadata = stripIdentityKeys(config.metadata);
