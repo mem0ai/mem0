@@ -532,7 +532,12 @@ class TestFAISSSecurityIntegration:
             mock_index.ntotal = 0
 
             with patch("mem0.vector_stores.faiss.faiss.IndexFlatL2", return_value=mock_index):
-                with patch("mem0.vector_stores.faiss.faiss.write_index"):
+                # write_index must create the target file: _save() writes to a
+                # temp path and renames it into place.
+                with patch(
+                    "mem0.vector_stores.faiss.faiss.write_index",
+                    side_effect=lambda index, path: open(path, "wb").close(),
+                ):
                     faiss_store = FAISS(
                         collection_name="test_security",
                         path=os.path.join(temp_dir, "test_faiss"),
@@ -651,7 +656,10 @@ class TestFAISSSecurityIntegration:
             mock_index.ntotal = 1
 
             with patch("mem0.vector_stores.faiss.faiss.read_index", return_value=mock_index):
-                with patch("mem0.vector_stores.faiss.faiss.write_index"):
+                with patch(
+                    "mem0.vector_stores.faiss.faiss.write_index",
+                    side_effect=lambda index, path: open(path, "wb").close(),
+                ):
                     faiss_store = FAISS.__new__(FAISS)
                     faiss_store.collection_name = "legacy"
                     faiss_store.path = faiss_path
@@ -754,3 +762,105 @@ class TestCosineNormalization:
 
             assert results[0].id == "x"
             assert results[0].score == pytest.approx(1.0, abs=1e-5)
+
+
+class TestLoadFailureRecovery:
+    """Regression tests for #7117: a failed _load() must leave the store consistent.
+
+    Before the fix, a corrupted .json docstore kept the old vectors in the
+    index while clearing the mapping (subsequent inserts were numbered from 0
+    but appended at ntotal, so search returned the wrong memory), and a
+    corrupted .faiss index left self.index as None permanently.
+    """
+
+    DIMS = 8
+
+    def _vec(self, i):
+        v = np.zeros(self.DIMS, dtype=np.float32)
+        v[i] = 1.0
+        return v.tolist()
+
+    def _store(self, temp_dir):
+        return FAISS(
+            collection_name="recovery",
+            path=os.path.join(temp_dir, "recovery"),
+            embedding_model_dims=self.DIMS,
+        )
+
+    def test_corrupted_json_recovers_into_consistent_state(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            store.insert(
+                [self._vec(0), self._vec(1)],
+                payloads=[{"data": "apple"}, {"data": "banana"}],
+                ids=["id-apple", "id-banana"],
+            )
+            json_path = os.path.join(temp_dir, "recovery", "recovery.json")
+            with open(json_path, "r+", encoding="utf-8") as f:
+                content = f.read()
+                f.seek(0)
+                f.truncate()
+                f.write(content[: len(content) // 2])
+
+            store2 = self._store(temp_dir)
+
+            # Fresh empty collection: index and mapping agree.
+            assert store2.index is not None
+            assert store2.index.ntotal == 0
+            assert store2.index_to_id == {}
+            assert store2.docstore == {}
+
+            # New inserts map to the right memory again.
+            store2.insert([self._vec(2)], payloads=[{"data": "cherry"}], ids=["id-cherry"])
+            results = store2.search(query="", vectors=self._vec(2), top_k=1)
+            assert results[0].id == "id-cherry"
+            assert results[0].payload == {"data": "cherry"}
+
+            # Searching an old vector must not resolve to a wrong memory.
+            results = store2.search(query="", vectors=self._vec(0), top_k=5)
+            assert all(r.id == "id-cherry" for r in results)
+
+    def test_corrupted_json_is_backed_up_not_overwritten(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            store.insert([self._vec(0)], payloads=[{"data": "apple"}], ids=["id-apple"])
+            json_path = os.path.join(temp_dir, "recovery", "recovery.json")
+            with open(json_path, "w", encoding="utf-8") as f:
+                f.write("{ not json")
+
+            self._store(temp_dir)
+
+            assert os.path.exists(f"{json_path}.corrupt")
+            with open(f"{json_path}.corrupt", encoding="utf-8") as f:
+                assert f.read() == "{ not json"
+
+    def test_corrupted_index_recovers_usable_store(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            store.insert([self._vec(0)], payloads=[{"data": "apple"}], ids=["id-apple"])
+            index_path = os.path.join(temp_dir, "recovery", "recovery.faiss")
+            with open(index_path, "wb") as f:
+                f.write(b"garbage")
+
+            store2 = self._store(temp_dir)
+
+            # Not permanently dead: insert and search work on the fresh collection.
+            assert store2.index is not None
+            store2.insert([self._vec(1)], payloads=[{"data": "banana"}], ids=["id-banana"])
+            results = store2.search(query="", vectors=self._vec(1), top_k=1)
+            assert results[0].id == "id-banana"
+            assert os.path.exists(f"{index_path}.corrupt")
+
+    def test_save_failure_leaves_previous_docstore_intact(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            store.insert([self._vec(0)], payloads=[{"data": "apple"}], ids=["id-apple"])
+            json_path = os.path.join(temp_dir, "recovery", "recovery.json")
+
+            with patch("json.dump", side_effect=RuntimeError("disk full")):
+                store._save()  # logs a warning, must not corrupt the file
+
+            with open(json_path, encoding="utf-8") as f:
+                data = json.load(f)
+            assert data["docstore"] == {"id-apple": {"data": "apple"}}
+            assert data["index_to_id"] == {"0": "id-apple"}
