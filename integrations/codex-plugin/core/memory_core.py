@@ -378,30 +378,46 @@ def resolve_repo(cwd: str | None) -> RepoContext:
     return _resolve_repo_cached(os.path.abspath(cwd or os.getcwd()))
 
 
+_PLUGIN_API_KEY_ENV = (
+    "PLUGIN_OPTION_API_KEY",
+    "CLAUDE_PLUGIN_OPTION_API_KEY",
+    "CLAUDE_PLUGIN_OPTION_MEM0_API_KEY",
+)
+
+
+def _configured(value: object) -> str:
+    """The stripped value, or empty when the host left its ${placeholder} unexpanded."""
+    text = value.strip() if isinstance(value, str) else ""
+    return "" if text.startswith("${") and text.endswith("}") else text
+
+
+def _first_env(*names: str) -> str:
+    return next((value for name in names if (value := _configured(os.environ.get(name)))), "")
+
+
+def _mem0_cli_api_key() -> str:
+    """The key `mem0 init` saved to the Mem0 CLI config."""
+    try:
+        config = json.loads((Path.home() / ".mem0" / "config.json").read_text(encoding="utf-8"))
+        return _configured(config["platform"]["api_key"])
+    except (OSError, ValueError, LookupError, TypeError):
+        return ""
+
+
 def api_key() -> str:
-    configured = (
-        os.environ.get("MEM0_API_KEY")
-        or os.environ.get("PLUGIN_OPTION_API_KEY")
-        or os.environ.get("CLAUDE_PLUGIN_OPTION_API_KEY")
-        or os.environ.get("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY")
-        or ""
-    ).strip()
+    configured = _first_env("MEM0_API_KEY", *_PLUGIN_API_KEY_ENV)
     if configured:
         return configured
     try:
-        return (data_dir() / "api-key").read_text(encoding="utf-8").strip()
+        cached = _configured((data_dir() / "api-key").read_text(encoding="utf-8"))
     except OSError:
-        return ""
+        cached = ""
+    return cached or _mem0_cli_api_key()
 
 
 def cache_plugin_api_key() -> bool:
     """Bridge host's hook-only sensitive config into plugin-owned storage."""
-    configured = (
-        os.environ.get("PLUGIN_OPTION_API_KEY")
-        or os.environ.get("CLAUDE_PLUGIN_OPTION_API_KEY")
-        or os.environ.get("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY")
-        or ""
-    ).strip()
+    configured = _first_env(*_PLUGIN_API_KEY_ENV)
     if not configured:
         return False
 
@@ -429,14 +445,7 @@ def cache_plugin_api_key() -> bool:
 
 def clear_stale_api_key_cache() -> bool:
     """Drop the cached key file once every configured key source is gone."""
-    configured = (
-        os.environ.get("MEM0_API_KEY")
-        or os.environ.get("PLUGIN_OPTION_API_KEY")
-        or os.environ.get("CLAUDE_PLUGIN_OPTION_API_KEY")
-        or os.environ.get("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY")
-        or ""
-    ).strip()
-    if configured:
+    if _first_env("MEM0_API_KEY", *_PLUGIN_API_KEY_ENV):
         return False
     path = data_dir() / "api-key"
     if not path.exists():
@@ -459,12 +468,7 @@ def detached_process_kwargs(platform: str | None = None) -> dict:
 
 
 def _plugin_option(name: str, fallback: str = "") -> str:
-    return (
-        os.environ.get(f"PLUGIN_OPTION_{name.upper()}")
-        or os.environ.get(f"CLAUDE_PLUGIN_OPTION_{name.upper()}")
-        or os.environ.get(fallback)
-        or ""
-    ).strip()
+    return _first_env(f"PLUGIN_OPTION_{name.upper()}", f"CLAUDE_PLUGIN_OPTION_{name.upper()}", fallback)
 
 
 def user_id() -> str:

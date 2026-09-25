@@ -35,6 +35,10 @@ source ~/.bashrc
 ```
 </CodeGroup>
 
+<Tip>
+  Already set up the [Mem0 CLI](/platform/cli) with `mem0 init`? The full plugin (Option A) also reads the key it saved in `~/.mem0/config.json`, so you can skip this step. That includes Cursor opened from the Dock, which does not load your shell profile. A key from the plugin configuration or the environment takes precedence.
+</Tip>
+
 <Warning>
   Already have `mem0` configured as an MCP server in Cursor? Remove the existing entry from your Cursor MCP settings before installing to avoid duplicate tools.
 </Warning>
@@ -164,6 +168,7 @@ Captured prompts and responses retain their full redacted text without a per-mes
 ## Troubleshooting
 
 - **"Connection failed"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
+- **Still asked for an API key**: Run `mem0 init` with the [Mem0 CLI](/platform/cli). The full plugin falls back to the key it saves.
 - **Duplicate tools**: Do not combine the full plugin with an MCP-only option. Remove the standalone `mem0` MCP entry before installing the plugin.
 - **No tools appearing**: Go to Cursor Settings > MCP and verify the `mem0` server shows as connected
 
