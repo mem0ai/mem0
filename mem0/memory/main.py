@@ -1948,6 +1948,10 @@ class Memory(MemoryBase):
                 self._delete_memory(memory.id)
             deleted_count += len(memories)
 
+        session_scope = _build_session_scope(filters)
+        if session_scope:
+            self.db.delete_messages(session_scope)
+
         logger.info(f"Deleted {deleted_count} memories")
 
         decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
@@ -3638,6 +3642,10 @@ class AsyncMemory(MemoryBase):
 
         if self._entity_store is not None:
             await self._bulk_clear_entity_store(filters)
+
+        session_scope = _build_session_scope(filters)
+        if session_scope:
+            await asyncio.to_thread(self.db.delete_messages, session_scope)
 
         if errors:
             logger.warning("Failed to delete %d memories", len(errors))

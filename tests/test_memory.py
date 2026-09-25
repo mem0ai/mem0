@@ -1008,6 +1008,55 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_delete_all_clears_scoped_messages(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Regression #7452: delete_all() should remove the scope's raw messages.
+
+    Without this, delete_all() leaves the last N raw messages for the scope in
+    the `messages` table, and they get re-sent to the LLM on the next add().
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_store.list.side_effect = [([],)]
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    memory.delete_all(user_id="alice")
+
+    memory.db.delete_messages.assert_called_once_with("user_id=alice")
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_all_clears_scoped_messages(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Regression #7452: async delete_all() should remove the scope's raw messages."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_store.list.side_effect = [([],)]
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    await memory.delete_all(user_id="alice", agent_id="bot")
+
+    memory.db.delete_messages.assert_called_once_with("agent_id=bot&user_id=alice")
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
 class TestProcessMetadataFiltersMerge:
     """Regression tests for issue #3952: multiple operators on the same key must be merged."""

@@ -295,6 +295,23 @@ class SQLiteManager:
                 logger.error(f"Failed to save messages: {e}")
                 raise
 
+    def delete_messages(self, session_scope: str) -> None:
+        """Delete all stored raw messages for a given session scope."""
+        if not session_scope:
+            return
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN")
+                self.connection.execute(
+                    "DELETE FROM messages WHERE session_scope = ?",
+                    (session_scope,),
+                )
+                self.connection.execute("COMMIT")
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error(f"Failed to delete messages: {e}")
+                raise
+
     def get_last_messages(self, session_scope: str, limit: int = 10) -> List[Dict[str, Any]]:
         with self._lock:
             # Subquery picks the latest N rows (DESC + LIMIT), outer query

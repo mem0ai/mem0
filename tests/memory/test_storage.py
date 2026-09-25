@@ -281,6 +281,31 @@ class TestSQLiteManager:
         assert history[0]["is_deleted"] is False
         mgr.close()
 
+    # ========== Tests for delete_messages ==========
+
+    def test_delete_messages_clears_only_target_scope(self, sqlite_manager):
+        """delete_messages must remove all rows for the given scope and leave others untouched."""
+        sqlite_manager.save_messages([{"role": "user", "content": "My SSN is 123-45-6789"}], "user_id=alice")
+        sqlite_manager.save_messages([{"role": "user", "content": "unrelated"}], "user_id=bob")
+
+        sqlite_manager.delete_messages("user_id=alice")
+
+        assert sqlite_manager.get_last_messages("user_id=alice") == []
+        assert len(sqlite_manager.get_last_messages("user_id=bob")) == 1
+
+    def test_delete_messages_empty_scope_is_noop(self, sqlite_manager):
+        """delete_messages must not touch the table when given a falsy scope."""
+        sqlite_manager.save_messages([{"role": "user", "content": "hello"}], "user_id=alice")
+
+        sqlite_manager.delete_messages("")
+
+        assert len(sqlite_manager.get_last_messages("user_id=alice")) == 1
+
+    def test_delete_messages_nonexistent_scope_does_not_raise(self, sqlite_manager):
+        """delete_messages should be safe to call for a scope with no stored messages."""
+        sqlite_manager.delete_messages("user_id=nobody")
+        assert sqlite_manager.get_last_messages("user_id=nobody") == []
+
     def test_reset_drops_tables(self, temp_db_path):
         """reset() must drop both history and messages tables."""
         mgr = SQLiteManager(temp_db_path)
