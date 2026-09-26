@@ -237,8 +237,7 @@ class PGVector(VectorStoreBase):
         try:
             with self._get_cursor() as cur:
                 cur.execute(
-                    "SELECT atttypmod FROM pg_attribute "
-                    "WHERE attrelid = to_regclass(%s) AND attname = 'vector'",
+                    "SELECT atttypmod FROM pg_attribute WHERE attrelid = to_regclass(%s) AND attname = 'vector'",
                     (self.collection_name,),
                 )
                 row = cur.fetchone()
