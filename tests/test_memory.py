@@ -504,6 +504,37 @@ def test_normalize_facts_filters_empty_strings():
     assert normalize_facts(["", "valid", ""]) == ["valid"]
 
 
+def test_normalize_facts_unwraps_facts_response_object():
+    # Issue #7446: the full {"facts": [...]} response used to yield ["facts"].
+    assert normalize_facts({"facts": ["a", "b"]}) == ["a", "b"]
+
+
+def test_normalize_facts_unwraps_facts_wrapper_with_dict_items():
+    raw = {"facts": [{"fact": "a"}, {"text": "b"}, "c"]}
+    assert normalize_facts(raw) == ["a", "b", "c"]
+
+
+def test_normalize_facts_empty_facts_wrapper():
+    assert normalize_facts({"facts": []}) == []
+    assert normalize_facts({"facts": None}) == []
+
+
+def test_normalize_facts_single_fact_object():
+    assert normalize_facts({"fact": "a"}) == ["a"]
+    assert normalize_facts({"text": "a"}) == ["a"]
+
+
+def test_normalize_facts_bare_string():
+    # Issue #7446: a bare string used to be split into characters.
+    assert normalize_facts("User likes Python") == ["User likes Python"]
+
+
+def test_normalize_facts_unknown_dict_shape_returns_empty(caplog):
+    with caplog.at_level("WARNING", logger="mem0.memory.utils"):
+        assert normalize_facts({"memory": ["a"]}) == []
+    assert "Unexpected facts shape" in caplog.text
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
