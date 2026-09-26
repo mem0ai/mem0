@@ -661,6 +661,42 @@ def test_search_and_get_all_consistent_after_update(mocker):
     assert search_results[0]["updated_at"] == "2026-03-23T10:00:00+00:00"
 
 
+def _non_chroma_langchain_store():
+    """Langchain wrapper around a non-Chroma client (no `_collection`), e.g. FAISS."""
+    from langchain_community.vectorstores import VectorStore
+
+    from mem0.vector_stores.langchain import Langchain
+
+    return Langchain(client=Mock(spec=VectorStore), collection_name="test_collection")
+
+
+def test_get_all_with_non_chroma_langchain_store_returns_empty(mocker):
+    """Regression for #7439: get_all must not crash when Langchain.list() has no listing support."""
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store = _non_chroma_langchain_store()
+
+    assert memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100) == []
+
+
+def test_delete_all_with_non_chroma_langchain_store_does_not_crash(mocker):
+    """Regression for #7439: delete_all indexes list()[0], so list() must return [[]]."""
+    mocker.patch("mem0.memory.main.capture_event")
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store = _non_chroma_langchain_store()
+
+    assert memory.delete_all(user_id="alice") == {"message": "Memories deleted successfully!"}
+
+
+@pytest.mark.asyncio
+async def test_async_get_all_and_delete_all_with_non_chroma_langchain_store(mocker):
+    mocker.patch("mem0.memory.main.capture_event")
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store = _non_chroma_langchain_store()
+
+    assert await memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100) == []
+    assert await memory.delete_all(user_id="alice") == {"message": "Memories deleted successfully!"}
+
+
 class TestMetadataNotMutated:
     """Tests that metadata dicts passed to memory methods are not mutated in-place (issue #2648)."""
 

@@ -225,8 +225,30 @@ def test_list_with_exception(langchain_instance):
 
     results = langchain_instance.list(filters={"user_id": "alice"}, top_k=10)
 
-    # Verify that an empty list is returned when an exception occurs
-    assert results == []
+    # Verify that a nested empty list is returned when an exception occurs
+    # (delete_all indexes list()[0], so a flat [] would raise IndexError)
+    assert results == [[]]
+
+
+def test_list_non_chroma_client_returns_nested_empty_list(langchain_instance, caplog):
+    """Regression for #7439: non-Chroma clients (FAISS, Qdrant, PGVector...) have no
+    `_collection`; list() must return [[]] instead of falling through to None."""
+    assert not hasattr(langchain_instance.client, "_collection")
+
+    with caplog.at_level("WARNING", logger="mem0.vector_stores.langchain"):
+        results = langchain_instance.list(filters={"user_id": "alice"}, top_k=10)
+
+    assert results == [[]]
+    assert "not supported" in caplog.text
+
+
+def test_list_chroma_empty_result_returns_nested_empty_list(langchain_instance):
+    """An empty/falsy Chroma result must keep the nested [[]] shape."""
+    mock_collection = Mock()
+    mock_collection.get.return_value = None
+    langchain_instance.client._collection = mock_collection
+
+    assert langchain_instance.list(filters=None, top_k=10) == [[]]
 
 
 def test_search_score_is_never_none(langchain_instance):

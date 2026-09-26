@@ -205,10 +205,19 @@ class Langchain(VectorStoreBase):
                 # Convert the result to the expected format
                 if result and isinstance(result, dict):
                     return [self._parse_output(result)]
-                return []
+                return [[]]
         except Exception as e:
             logger.error(f"Error listing vectors from Chroma: {e}")
-            return []
+            return [[]]
+
+        # Only Chroma-backed clients expose `_collection.get`; other LangChain
+        # vector stores have no generic "list all" API. Return the nested empty
+        # shape callers expect (e.g. delete_all indexes [0]) instead of None.
+        logger.warning(
+            f"Listing vectors is not supported for LangChain client type {type(self.client).__name__}; "
+            "returning an empty result."
+        )
+        return [[]]
 
     def reset(self):
         """Reset the index by deleting and recreating it."""
