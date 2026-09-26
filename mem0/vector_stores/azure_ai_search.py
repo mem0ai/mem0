@@ -169,6 +169,49 @@ class AzureAISearch(VectorStoreBase):
                 document[field] = payload[field]
         return document
 
+    @staticmethod
+    def _indexing_result_field(doc, *names, default=None):
+        """Read the first present field from an IndexingResult dict or SDK object."""
+        if isinstance(doc, dict):
+            for name in names:
+                if name in doc and doc[name] is not None:
+                    return doc[name]
+            return default
+        for name in names:
+            value = getattr(doc, name, None)
+            if value is not None:
+                return value
+        return default
+
+    @staticmethod
+    def _assert_indexing_succeeded(
+        doc, operation: str, expected_status: Optional[int] = None, fallback_id: Optional[str] = None
+    ):
+        """Raise if an Azure IndexingResult (object or dict) did not succeed.
+
+        Prefers the SDK ``succeeded`` attribute (matching the TypeScript client),
+        then falls back to ``status_code`` when ``succeeded`` is absent.
+        """
+        succeeded = AzureAISearch._indexing_result_field(doc, "succeeded")
+        status_code = AzureAISearch._indexing_result_field(doc, "status_code")
+        key = AzureAISearch._indexing_result_field(doc, "key", "id", default=fallback_id)
+        error_message = AzureAISearch._indexing_result_field(doc, "error_message", "errorMessage", default=doc)
+
+        if succeeded is None and status_code is not None:
+            try:
+                code = int(status_code)
+            except (TypeError, ValueError):
+                raise RuntimeError(
+                    f"{operation} failed for document {key}: invalid status_code {status_code!r}; {error_message}"
+                ) from None
+            if expected_status is not None:
+                succeeded = code == expected_status
+            else:
+                succeeded = 200 <= code < 300
+
+        if not succeeded:
+            raise RuntimeError(f"{operation} failed for document {key}: {error_message}")
+
     # Note: Explicit "insert" calls may later be decoupled from memory management decisions.
     def insert(self, vectors, payloads=None, ids=None):
         """
@@ -185,8 +228,7 @@ class AzureAISearch(VectorStoreBase):
         ]
         response = self.search_client.upload_documents(documents)
         for doc in response:
-            if not hasattr(doc, "status_code") and doc.get("status_code") != 201:
-                raise Exception(f"Insert failed for document {doc.get('id')}: {doc}")
+            self._assert_indexing_succeeded(doc, "Insert", expected_status=201)
         return response
 
     def _sanitize_key(self, key: str) -> str:
@@ -205,8 +247,7 @@ class AzureAISearch(VectorStoreBase):
                 condition = f"{safe_key} eq {value}"
             else:
                 raise ValueError(
-                    f"Filter value for {key!r} must be str, int, float, or bool, "
-                    f"got {type(value).__name__}"
+                    f"Filter value for {key!r} must be str, int, float, or bool, got {type(value).__name__}"
                 )
             filter_conditions.append(condition)
         filter_expression = " and ".join(filter_conditions)
@@ -290,8 +331,7 @@ class AzureAISearch(VectorStoreBase):
         """
         response = self.search_client.delete_documents(documents=[{"id": vector_id}])
         for doc in response:
-            if not hasattr(doc, "status_code") and doc.get("status_code") != 200:
-                raise Exception(f"Delete failed for document {vector_id}: {doc}")
+            self._assert_indexing_succeeded(doc, "Delete", expected_status=200, fallback_id=vector_id)
         logger.info(f"Deleted document with ID '{vector_id}' from index '{self.index_name}'.")
         return response
 
@@ -314,8 +354,7 @@ class AzureAISearch(VectorStoreBase):
                 document[field] = payload.get(field)
         response = self.search_client.merge_or_upload_documents(documents=[document])
         for doc in response:
-            if not hasattr(doc, "status_code") and doc.get("status_code") != 200:
-                raise Exception(f"Update failed for document {vector_id}: {doc}")
+            self._assert_indexing_succeeded(doc, "Update", expected_status=200, fallback_id=vector_id)
         return response
 
     def get(self, vector_id) -> OutputData:
