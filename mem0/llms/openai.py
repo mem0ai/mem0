@@ -52,6 +52,12 @@ class OpenAILLM(LLMBase):
 
             self.client = OpenAI(api_key=api_key, base_url=base_url)
 
+    @staticmethod
+    def _is_gemma_4_model(model: str) -> bool:
+        """Return whether an OpenAI-compatible model belongs to the Gemma 4 family."""
+        base_model = (model or "").lower().rsplit("/", 1)[-1]
+        return base_model == "gemma-4" or base_model.startswith(("gemma-4-", "gemma-4.", "gemma-4_"))
+
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
@@ -127,6 +133,16 @@ class OpenAILLM(LLMBase):
             params.update(**openrouter_params)
         
         else:
+            # Bedrock Mantle's OpenAI-compatible Gemma 4 endpoint rejects the
+            # legacy max_tokens field and expects max_output_tokens in the body.
+            if self._is_gemma_4_model(self.config.model):
+                max_output_tokens = params.pop("max_tokens", None)
+                extra_body = dict(params.get("extra_body") or {})
+                if max_output_tokens is not None:
+                    extra_body.setdefault("max_output_tokens", max_output_tokens)
+                if extra_body:
+                    params["extra_body"] = extra_body
+
             # Only send OpenAI-specific parameters when the user has explicitly
             # configured them. OpenAI-compatible backends (Gemini, Groq, vLLM, etc.)
             # reject unknown fields, so `store` must be opt-in, not opt-out.
