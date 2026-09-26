@@ -40,11 +40,13 @@ class TestConfig:
     def test_save_and_load(self, isolate_config):
         config = Mem0Config()
         config.platform.api_key = "m0-test-key"
+        config.platform.user_email = "rolly+café@example.com"
 
         save_config(config)
 
         loaded = load_config()
         assert loaded.platform.api_key == "m0-test-key"
+        assert loaded.platform.user_email == "rolly+café@example.com"
 
     def test_env_var_override(self, isolate_config, monkeypatch):
         config = Mem0Config()
@@ -54,6 +56,26 @@ class TestConfig:
         monkeypatch.setenv("MEM0_API_KEY", "env-key")
         loaded = load_config()
         assert loaded.platform.api_key == "env-key"
+
+    def test_load_utf8_config_file(self, isolate_config):
+        import json
+
+        from mem0_cli.config import CONFIG_FILE, ensure_config_dir
+
+        ensure_config_dir()
+        data = {
+            "version": 1,
+            "platform": {
+                "api_key": "m0-test",
+                "base_url": "https://api.mem0.ai",
+                "user_email": "rolly+café@example.com",
+            },
+        }
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+
+        loaded = load_config()
+        assert loaded.platform.user_email == "rolly+café@example.com"
 
     def test_load_nonexistent_config(self, isolate_config):
         config = load_config()
@@ -108,7 +130,7 @@ class TestConfig:
             "version": 1,
             "platform": {"api_key": "m0-test", "base_url": "https://api.mem0.ai"},
         }
-        with open(CONFIG_FILE, "w") as f:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
 
         loaded = load_config()
