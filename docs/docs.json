@@ -205,6 +205,7 @@
                             "pages": [
                               "components/vectordbs/dbs/qdrant",
                               "components/vectordbs/dbs/chroma",
+                              "components/vectordbs/dbs/clickhouse",
                               "components/vectordbs/dbs/pgvector",
                               "components/vectordbs/dbs/milvus",
                               "components/vectordbs/dbs/pinecone",
