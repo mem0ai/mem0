@@ -1474,28 +1474,42 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         assert failed[0]["error_class"] == EmbeddingErrorClass.VALIDATION
 
     def test_insert_failure_recorded_in_failed_and_dropped_from_results(self, mock_memory, mocker):
-        mock_memory.llm.generate_response.return_value = '{"memory": [{"text": "fact one"}]}'
+        # Two facts: the batch insert fails for both, and the per-item fallback
+        # recovers "fact one" but not "fact two" — a total-batch failure with one
+        # persisted survivor, distinct from #6911's all-fail-and-raise case above.
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
         mock_memory.embedding_model = Mock()
-        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1] * 10])
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1] * 10, [0.2] * 10])
         mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
-        # Both the batch insert and the per-item fallback fail: the memory embedded
-        # but never persisted.
-        mock_memory.vector_store.insert = Mock(side_effect=Exception("store down"))
-        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        real_insert = mock_memory.vector_store.insert
+
+        def flaky_insert(vectors, ids, payloads):
+            if len(ids) > 1:
+                raise RuntimeError("batch insert rejected")
+            if payloads[0]["data"] == "fact two":
+                raise RuntimeError("store down")
+            return real_insert(vectors=vectors, ids=ids, payloads=payloads)
+
+        mock_memory.vector_store.insert = Mock(side_effect=flaky_insert)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
         mocker.patch("mem0.memory.main.capture_event")
 
         failed = []
         result = mock_memory._add_to_vector_store(
-            messages=[{"role": "user", "content": "a fact"}],
+            messages=[{"role": "user", "content": "two facts"}],
             metadata={},
             filters={"user_id": "u1"},
             infer=True,
             failed=failed,
         )
 
-        # Not in results (never stored), surfaced under failed as internal_error.
-        assert result == []
+        # "fact one" persisted and is reported; "fact two" never stored, surfaced
+        # under failed as internal_error and dropped from results.
+        assert [r["memory"] for r in result] == ["fact one"]
         assert len(failed) == 1
+        assert failed[0]["text"] == "fact two"
         assert failed[0]["error_class"] == EmbeddingErrorClass.INTERNAL
         assert "insert" in failed[0]["error"]
 
