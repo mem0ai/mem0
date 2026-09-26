@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from mem0.exceptions import LLMError, VectorStoreError
+import mem0.memory.main as memory_main
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -1333,3 +1334,126 @@ class TestAsyncPartialInsertFailure:
             )
 
         mock_async_memory.db.save_messages.assert_called_once()
+
+
+class _HonoringEntityStore:
+    """Entity store whose list(top_k) returns up to top_k rows — a store that
+    honors the cap (e.g. Qdrant after following its scroll pages)."""
+
+    def __init__(self, rows):
+        self.rows = list(rows)
+        self.list_calls = []
+
+    def list(self, filters=None, top_k=100):
+        self.list_calls.append(top_k)
+        return self.rows[:top_k]
+
+    def delete(self, vector_id):
+        self.rows = [r for r in self.rows if r.id != vector_id]
+
+
+class _PageCappedEntityStore:
+    """Entity store that never returns more than `page_cap` rows per list()
+    call, no matter the requested top_k — Qdrant's scroll behavior before it
+    followed next_page_offset (#7454)."""
+
+    def __init__(self, rows, page_cap):
+        self.rows = list(rows)
+        self.page_cap = page_cap
+        self.deleted = []
+
+    def list(self, filters=None, top_k=100):
+        return self.rows[: min(top_k, self.page_cap)]
+
+    def delete(self, vector_id):
+        self.deleted.append(vector_id)
+        self.rows = [r for r in self.rows if r.id != vector_id]
+
+
+def _entity_row(i):
+    return SimpleNamespace(id=f"entity-{i}", payload={"data": f"user fact {i}", "linked_memory_ids": []})
+
+
+class TestEntityScopeDrain:
+    """#7454: entity scans used a single list(top_k=10_000) and silently
+    dropped everything past it."""
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        mock_llm.return_value.generate_response.return_value = '{"memory": []}'
+        return Memory()
+
+    def test_drain_stops_when_listing_comes_back_short(self, monkeypatch):
+        rows = [_entity_row(i) for i in range(9)]
+        store = _HonoringEntityStore(rows)
+        monkeypatch.setattr("mem0.memory.main._ENTITY_SCAN_START", 3)
+
+        drained = memory_main._drain_entity_rows(store, {"user_id": "u1"})
+
+        assert len(drained) == 9
+        assert store.list_calls == [3, 12]  # grew once, then the short listing ended the scan
+
+    def test_drain_dedups_rows_across_overlapping_listings(self, monkeypatch):
+        rows = [_entity_row(i) for i in range(4)]
+        store = _HonoringEntityStore(rows)
+        monkeypatch.setattr("mem0.memory.main._ENTITY_SCAN_START", 3)
+
+        drained = memory_main._drain_entity_rows(store, {"user_id": "u1"})
+
+        assert sorted(r.id for r in drained) == [f"entity-{i}" for i in range(4)]
+
+    def test_existing_entities_by_text_sees_rows_past_a_full_first_listing(self, mock_memory):
+        rows = [_entity_row(i) for i in range(10001)]
+        mock_memory._entity_store = _HonoringEntityStore(rows)
+
+        index = mock_memory._existing_entities_by_text({"user_id": "u1"})
+
+        assert len(index) == 10001
+        assert "user fact 10000" in index  # the row the old single listing dropped
+
+    def test_existing_entities_by_text_survives_listing_failure(self, mock_memory):
+        store = Mock()
+        store.list.side_effect = RuntimeError("store down")
+        mock_memory._entity_store = store
+
+        assert mock_memory._existing_entities_by_text({"user_id": "u1"}) == {}
+
+    @pytest.mark.asyncio
+    async def test_async_bulk_clear_deletes_every_page(self, mocker, monkeypatch):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        rows = [_entity_row(i) for i in range(5)]
+        store = _PageCappedEntityStore(rows, page_cap=2)
+        memory._entity_store = store
+        monkeypatch.setattr("mem0.memory.main._ENTITY_BULK_BATCH_SIZE", 2)
+
+        await memory._bulk_clear_entity_store({"user_id": "u1"})
+
+        assert sorted(store.deleted) == [f"entity-{i}" for i in range(5)]
+
+    @pytest.mark.asyncio
+    async def test_async_bulk_clear_stops_on_repeated_batch(self, mocker, monkeypatch):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        rows = [_entity_row(i) for i in range(2)]
+
+        class _UndeletableStore:
+            def __init__(self, rows):
+                self.rows = list(rows)
+                self.delete_calls = 0
+
+            def list(self, filters=None, top_k=100):
+                return self.rows[: min(top_k, 2)]
+
+            def delete(self, vector_id):
+                self.delete_calls += 1
+                raise RuntimeError("delete refused")
+
+        store = _UndeletableStore(rows)
+        memory._entity_store = store
+        monkeypatch.setattr("mem0.memory.main._ENTITY_BULK_BATCH_SIZE", 2)
+
+        await memory._bulk_clear_entity_store({"user_id": "u1"})
+
+        assert store.delete_calls == 2  # one round, then the repeated batch stopped the loop

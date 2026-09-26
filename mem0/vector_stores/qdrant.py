@@ -574,6 +574,13 @@ class Qdrant(VectorStoreBase):
         """
         List all vectors in a collection.
 
+        Qdrant's scroll API pages its results: a single call returns at most one
+        page plus a ``next_page_offset``, and servers can return a page shorter
+        than the requested limit (response size caps). Following the offset here
+        makes ``top_k`` a true cap on the result instead of a silent page
+        boundary (#7454). A scroll result that is not a ``(records, offset)``
+        pair is returned unchanged.
+
         Args:
             filters (dict, optional): Filters to apply to the list. Defaults to None.
             top_k (int, optional): Number of vectors to return. Defaults to 100.
@@ -589,7 +596,24 @@ class Qdrant(VectorStoreBase):
             with_payload=True,
             with_vectors=False,
         )
-        return result
+        if not (isinstance(result, tuple) and len(result) == 2):
+            return result
+
+        collected, next_offset = result
+        collected = list(collected or [])
+        while next_offset is not None and len(collected) < top_k:
+            page, next_offset = self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=query_filter,
+                limit=top_k - len(collected),
+                with_payload=True,
+                with_vectors=False,
+                offset=next_offset,
+            )
+            if not page:
+                break
+            collected.extend(page)
+        return collected, next_offset
 
     def reset(self):
         """Reset the index by deleting and recreating it."""

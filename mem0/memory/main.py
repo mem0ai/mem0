@@ -90,6 +90,55 @@ def _vector_store_list_rows(listed):
     return []
 
 
+# Entity-scope scans used to be a single list(top_k=10_000): a scope with more
+# entity rows than that never saw the rest (#7454). The scan now grows its cap
+# until a listing comes back short of it, which is the signal that the store
+# exhausted the scope. Stores that page their responses (Qdrant) follow their
+# pages internally, so growth only has to raise the cap, not chase cursors.
+_ENTITY_SCAN_START = 10_000
+_ENTITY_SCAN_GROWTH = 4
+_ENTITY_SCAN_MAX_ROUNDS = 6
+
+# Delete-driven entity cleanup lists in batches and re-lists after each round
+# of deletes, the way the memory delete_all loop does: deleted rows stop
+# matching the filter, so the next listing returns the following batch.
+_ENTITY_BULK_BATCH_SIZE = 1000
+
+
+def _drain_entity_rows(store, filters):
+    """Return every entity row matching ``filters``, growing the listing cap until stable.
+
+    One ``list(top_k=N)`` returns at most N rows, so a scope bigger than the
+    caller's cap was silently truncated. Re-list with a larger cap while a
+    listing fills it completely; a listing shorter than the cap means the scope
+    is exhausted. Rows already seen are deduped, so a store that pages cannot
+    hand out a row twice without harm. A failed growth round keeps what was
+    collected (never worse than a single listing) and stops.
+    """
+    rows = []
+    seen_ids = set()
+    top_k = _ENTITY_SCAN_START
+    for _ in range(_ENTITY_SCAN_MAX_ROUNDS):
+        try:
+            listed = store.list(filters=filters, top_k=top_k)
+        except Exception:
+            if rows:
+                break
+            raise
+        page = _vector_store_list_rows(listed)
+        for row in page:
+            row_id = getattr(row, "id", None)
+            if row_id is not None and row_id in seen_ids:
+                continue
+            if row_id is not None:
+                seen_ids.add(row_id)
+            rows.append(row)
+        if len(page) < top_k:
+            break
+        top_k *= _ENTITY_SCAN_GROWTH
+    return rows
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -586,13 +635,13 @@ class Memory(MemoryBase):
     def _existing_entities_by_text(self, filters):
         """Return existing entity rows keyed by normalized payload data."""
         try:
-            listed = self.entity_store.list(filters=filters, top_k=10000)
+            rows = _drain_entity_rows(self.entity_store, filters)
         except Exception as e:
             logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
             return {}
 
         rows_by_text = {}
-        for row in _vector_store_list_rows(listed):
+        for row in rows:
             payload = getattr(row, "payload", None) or {}
             text = payload.get("data")
             if not isinstance(text, str):
@@ -666,8 +715,7 @@ class Memory(MemoryBase):
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = self.entity_store.list(filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+            rows = _drain_entity_rows(self.entity_store, search_filters)
             for row in rows or []:
                 try:
                     payload = getattr(row, "payload", None) or {}
@@ -2271,13 +2319,13 @@ class AsyncMemory(MemoryBase):
     def _existing_entities_by_text(self, filters):
         """Return existing entity rows keyed by normalized payload data."""
         try:
-            listed = self.entity_store.list(filters=filters, top_k=10000)
+            rows = _drain_entity_rows(self.entity_store, filters)
         except Exception as e:
             logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
             return {}
 
         rows_by_text = {}
-        for row in _vector_store_list_rows(listed):
+        for row in rows:
             payload = getattr(row, "payload", None) or {}
             text = payload.get("data")
             if not isinstance(text, str):
@@ -2343,18 +2391,34 @@ class AsyncMemory(MemoryBase):
         Used by delete_all to avoid the race condition that occurs when
         concurrent _delete_memory coroutines each try to read-modify-write
         the same entity rows' linked_memory_ids lists.
+
+        Lists in batches and re-lists after each round of deletes: deleted rows
+        stop matching the filter, so the next listing returns the following
+        batch. A single listing is capped by the store, which used to leave
+        every entity row beyond the first page undeleted (#7454).
         """
         if self._entity_store is None:
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        seen_batches = set()
         try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
-            for row in rows or []:
-                try:
-                    await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
-                except Exception as e:
-                    logger.debug(f"Bulk entity delete failed for id={row.id}: {e}")
+            while True:
+                listed = await asyncio.to_thread(
+                    self.entity_store.list, filters=search_filters, top_k=_ENTITY_BULK_BATCH_SIZE
+                )
+                rows = _vector_store_list_rows(listed)
+                if not rows:
+                    break
+                batch_ids = tuple(sorted(str(getattr(row, "id", "")) for row in rows))
+                if batch_ids in seen_batches:
+                    logger.warning("Stopping bulk entity cleanup after a repeated batch")
+                    break
+                seen_batches.add(batch_ids)
+                for row in rows:
+                    try:
+                        await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
+                    except Exception as e:
+                        logger.debug(f"Bulk entity delete failed for id={row.id}: {e}")
         except Exception as e:
             logger.warning(f"Bulk entity store cleanup failed: {e}")
 
@@ -2364,8 +2428,7 @@ class AsyncMemory(MemoryBase):
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+            rows = await asyncio.to_thread(self._drain_entity_rows, self.entity_store, search_filters)
             for row in rows or []:
                 try:
                     payload = getattr(row, "payload", None) or {}

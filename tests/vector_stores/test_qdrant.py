@@ -478,6 +478,47 @@ class TestQdrant(unittest.TestCase):
         # The list method returns the result directly
         self.assertEqual(len(results), 1)
 
+    def test_list_follows_scroll_offsets_up_to_top_k(self):
+        """A scope spanning multiple scroll pages must not be cut at the page boundary (#7454)."""
+        points = [MagicMock(id=str(uuid.uuid4()), payload={"i": i}) for i in range(5)]
+
+        def scroll(**kwargs):
+            if kwargs.get("offset") is None:
+                return points[:3], "page-2"
+            return points[3 : 3 + kwargs["limit"]], None
+
+        self.client_mock.scroll.side_effect = scroll
+
+        records, next_offset = self.qdrant.list(filters={"user_id": "alice"}, top_k=10)
+
+        self.assertEqual(records, points)
+        self.assertIsNone(next_offset)
+        limits = [call.kwargs["limit"] for call in self.client_mock.scroll.call_args_list]
+        self.assertEqual(limits, [10, 7])  # the second page asks only for what is left
+
+    def test_list_stops_at_top_k_and_reports_the_pending_offset(self):
+        points = [MagicMock(id=str(uuid.uuid4()), payload={"i": i}) for i in range(5)]
+
+        def scroll(**kwargs):
+            if kwargs.get("offset") is None:
+                return points[:3], "page-2"
+            return points[3 : 3 + kwargs["limit"]], "page-3"
+
+        self.client_mock.scroll.side_effect = scroll
+
+        records, next_offset = self.qdrant.list(top_k=4)
+
+        self.assertEqual(len(records), 4)
+        self.assertEqual(next_offset, "page-3")  # the scope continues past the cap
+
+    def test_list_returns_a_bare_list_scroll_result_unchanged(self):
+        point = MagicMock(id=str(uuid.uuid4()), payload={})
+        self.client_mock.scroll.return_value = [point]
+
+        result = self.qdrant.list(top_k=10)
+
+        self.assertEqual(result, [point])
+
     def test_delete_col(self):
         self.qdrant.delete_col()
         self.client_mock.delete_collection.assert_called_once_with(collection_name="test_collection")
