@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "mem0",
+  "version": "0.1.0",
+  "description": "Persistent long-term memory for your agent: remember preferences, decisions, and project context across sessions, and recall them on demand.",
+  "author": { "name": "Mem0", "email": "support@mem0.ai", "url": "https://mem0.ai" },
+  "homepage": "https://mem0.ai",
+  "repository": "https://github.com/mem0ai/mem0",
+  "license": "Apache-2.0",
+  "keywords": ["memory", "long-term-memory", "personalization", "mcp"]
+}
