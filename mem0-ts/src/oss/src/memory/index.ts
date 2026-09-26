@@ -149,6 +149,27 @@ function rejectTopLevelEntityParams(
   }
 }
 
+const ENTITY_ID_ALIASES: Record<string, string> = {
+  userId: "user_id",
+  agentId: "agent_id",
+  runId: "run_id",
+};
+
+/** Rewrites camelCase entity ids inside filters to the snake_case keys vector stores index on. */
+function normalizeEntityFilterKeys(
+  filters: Record<string, any>,
+): Record<string, any> {
+  const normalized = { ...filters };
+  for (const [camelKey, snakeKey] of Object.entries(ENTITY_ID_ALIASES)) {
+    if (!(camelKey in normalized)) continue;
+    if (normalized[snakeKey] === undefined) {
+      normalized[snakeKey] = normalized[camelKey];
+    }
+    delete normalized[camelKey];
+  }
+  return normalized;
+}
+
 /**
  * Validates and normalizes an entity ID.
  * - Coerces non-string ids (e.g. numeric database keys) to string
@@ -1357,16 +1378,20 @@ export class Memory {
     // receive `agent_id: undefined` / `run_id: undefined` and fail
     // (Qdrant rejects the malformed match, pgvector binds NULL, Redis
     // emits a literal "undefined" string in TAG filters).
+    const requestedFilters = normalizeEntityFilterKeys(config.filters ?? {});
     const normalizedFilters: Record<string, any> = config.filters
       ? Object.fromEntries(
           Object.entries({
-            ...config.filters,
-            user_id: validateAndTrimEntityId(config.filters.user_id, "user_id"),
+            ...requestedFilters,
+            user_id: validateAndTrimEntityId(
+              requestedFilters.user_id,
+              "user_id",
+            ),
             agent_id: validateAndTrimEntityId(
-              config.filters.agent_id,
+              requestedFilters.agent_id,
               "agent_id",
             ),
-            run_id: validateAndTrimEntityId(config.filters.run_id, "run_id"),
+            run_id: validateAndTrimEntityId(requestedFilters.run_id, "run_id"),
           }).filter(([, v]) => v !== undefined),
         )
       : {};
@@ -1853,12 +1878,16 @@ export class Memory {
     // Validate and trim entity IDs in filters. Drop keys that resolve to
     // undefined so downstream vector stores don't receive
     // `agent_id: undefined` / `run_id: undefined` and fail.
+    const requestedFilters = normalizeEntityFilterKeys(config.filters || {});
     const filters: Record<string, any> = Object.fromEntries(
       Object.entries({
-        ...(config.filters || {}),
-        user_id: validateAndTrimEntityId(config.filters?.user_id, "user_id"),
-        agent_id: validateAndTrimEntityId(config.filters?.agent_id, "agent_id"),
-        run_id: validateAndTrimEntityId(config.filters?.run_id, "run_id"),
+        ...requestedFilters,
+        user_id: validateAndTrimEntityId(requestedFilters.user_id, "user_id"),
+        agent_id: validateAndTrimEntityId(
+          requestedFilters.agent_id,
+          "agent_id",
+        ),
+        run_id: validateAndTrimEntityId(requestedFilters.run_id, "run_id"),
       }).filter(([, v]) => v !== undefined),
     );
 
