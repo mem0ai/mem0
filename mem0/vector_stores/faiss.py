@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import pickle
+import tempfile
 import uuid
 import warnings
 from pathlib import Path
@@ -223,21 +224,46 @@ class FAISS(VectorStoreBase):
             raise ValueError(f"Failed to load FAISS docstore: potentially malicious pickle file. {e}") from e
         except Exception as e:
             logger.warning(f"Failed to load FAISS index: {e}")
+            self._quarantine_corrupt_files(index_path, docstore_path)
             self.index = None
             self.docstore = {}
             self.index_to_id = {}
+
+    def _quarantine_corrupt_files(self, index_path: str, docstore_path: str) -> None:
+        """Move failed persistence files aside before rebuilding the collection."""
+        json_docstore_path = docstore_path.replace(".pkl", ".json")
+        for file_path in (index_path, json_docstore_path, docstore_path):
+            if not os.path.exists(file_path):
+                continue
+
+            backup_path = f"{file_path}.corrupt"
+            suffix = 1
+            while os.path.exists(backup_path):
+                backup_path = f"{file_path}.corrupt.{suffix}"
+                suffix += 1
+
+            try:
+                os.replace(file_path, backup_path)
+            except OSError as e:
+                logger.warning(f"Could not back up corrupted file {file_path}: {e}")
 
     def _save(self):
         """Save FAISS index and docstore to disk using JSON format (secure)."""
         if not self.path or not self.index:
             return
 
+        tmp_index_path = None
+        tmp_json_path = None
         try:
             os.makedirs(self.path, exist_ok=True)
             index_path = f"{self.path}/{self.collection_name}.faiss"
             json_docstore_path = f"{self.path}/{self.collection_name}.json"
 
-            faiss.write_index(self.index, index_path)
+            index_fd, tmp_index_path = tempfile.mkstemp(
+                prefix=f"{self.collection_name}.", suffix=".faiss.tmp", dir=self.path
+            )
+            os.close(index_fd)
+            faiss.write_index(self.index, tmp_index_path)
 
             # Save docstore as JSON (safe format, no code execution risk)
             # JSON keys must be strings, so convert int keys to str
@@ -245,11 +271,27 @@ class FAISS(VectorStoreBase):
                 "docstore": self.docstore,
                 "index_to_id": {str(k): v for k, v in self.index_to_id.items()},
             }
-            with open(json_docstore_path, "w", encoding="utf-8") as f:
+            json_fd, tmp_json_path = tempfile.mkstemp(
+                prefix=f"{self.collection_name}.", suffix=".json.tmp", dir=self.path
+            )
+            os.close(json_fd)
+            with open(tmp_json_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
+
+            os.replace(tmp_index_path, index_path)
+            tmp_index_path = None
+            os.replace(tmp_json_path, json_docstore_path)
+            tmp_json_path = None
 
         except Exception as e:
             logger.warning(f"Failed to save FAISS index: {e}")
+        finally:
+            for temp_path in (tmp_index_path, tmp_json_path):
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except OSError as e:
+                        logger.warning(f"Failed to remove temporary FAISS file {temp_path}: {e}")
 
     def _should_normalize(self) -> bool:
         """Whether vectors must be L2-normalized before indexing/searching.

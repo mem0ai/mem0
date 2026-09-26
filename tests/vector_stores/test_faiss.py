@@ -190,9 +190,7 @@ def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_
     search_indices = np.array([[0, 1, 2, 3]])
     mock_faiss_index.search.return_value = (search_scores, search_indices)
 
-    results = faiss_instance.search(
-        query="test query", vectors=query_vector, top_k=2, filters={"category": "A"}
-    )
+    results = faiss_instance.search(query="test query", vectors=query_vector, top_k=2, filters={"category": "A"})
 
     # Two matching vectors exist among the over-fetched set, so we must get top_k of them.
     assert len(results) == 2
@@ -727,6 +725,8 @@ class TestFAISSLoadFailureRecovery:
             assert recovered.index.ntotal == 0
             assert recovered.docstore == {}
             assert recovered.index_to_id == {}
+            assert os.path.exists(os.path.join(faiss_path, "test_collection.faiss.corrupt"))
+            assert os.path.exists(os.path.join(faiss_path, "test_collection.json.corrupt"))
 
             recovered.insert(
                 vectors=[[0.0, 1.0]],
@@ -754,6 +754,9 @@ class TestFAISSLoadFailureRecovery:
             assert recovered.index.ntotal == 0
             assert recovered.docstore == {}
             assert recovered.index_to_id == {}
+            assert os.path.exists(os.path.join(faiss_path, "test_collection.faiss.corrupt"))
+            with open(os.path.join(faiss_path, "test_collection.faiss.corrupt"), "rb") as file:
+                assert file.read() == b"corrupted index"
 
             recovered.insert(
                 vectors=[[0.0, 1.0]],
@@ -761,6 +764,27 @@ class TestFAISSLoadFailureRecovery:
                 ids=["cherry"],
             )
             assert recovered.get("cherry").payload == {"name": "cherry"}
+
+    def test_save_failure_preserves_previous_json(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            faiss_path = os.path.join(temp_dir, "faiss")
+            store = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+            store.insert(
+                vectors=[[1.0, 0.0]],
+                payloads=[{"name": "apple"}],
+                ids=["apple"],
+            )
+
+            json_path = os.path.join(faiss_path, "test_collection.json")
+            with open(json_path, encoding="utf-8") as file:
+                original_json = file.read()
+
+            with patch("mem0.vector_stores.faiss.json.dump", side_effect=OSError("disk full")):
+                store._save()
+
+            with open(json_path, encoding="utf-8") as file:
+                assert file.read() == original_json
+            assert not [name for name in os.listdir(faiss_path) if name.endswith(".tmp")]
 
 
 class TestCosineNormalization:
