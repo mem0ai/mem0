@@ -786,6 +786,41 @@ class TestFAISSLoadFailureRecovery:
                 assert file.read() == original_json
             assert not [name for name in os.listdir(faiss_path) if name.endswith(".tmp")]
 
+    def test_save_recovers_if_docstore_replace_fails(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            faiss_path = os.path.join(temp_dir, "faiss")
+            store = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+            store.insert(
+                vectors=[[1.0, 0.0]],
+                payloads=[{"name": "apple"}],
+                ids=["apple"],
+            )
+            with patch.object(store, "_save"):
+                store.insert(
+                    vectors=[[0.0, 1.0]],
+                    payloads=[{"name": "banana"}],
+                    ids=["banana"],
+                )
+
+            json_path = os.path.join(faiss_path, "test_collection.json")
+            original_replace = os.replace
+
+            def fail_docstore_replace(source, destination):
+                if destination == json_path and source.endswith(".json.tmp"):
+                    raise OSError("simulated replace failure")
+                original_replace(source, destination)
+
+            with patch("mem0.vector_stores.faiss.os.replace", side_effect=fail_docstore_replace):
+                store._save()
+
+            recovered = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+
+            assert recovered.index.ntotal == 2
+            assert recovered.get("apple").payload == {"name": "apple"}
+            assert recovered.get("banana").payload == {"name": "banana"}
+            assert not os.path.exists(os.path.join(faiss_path, "test_collection.save.json"))
+            assert not [name for name in os.listdir(faiss_path) if name.endswith(".tmp")]
+
 
 class TestCosineNormalization:
     """Cosine distance must rank by angle, not raw inner-product magnitude.

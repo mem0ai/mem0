@@ -159,6 +159,7 @@ class FAISS(VectorStoreBase):
         # Create directory if it doesn't exist
         if self.path:
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            self._recover_pending_save()
 
             # Try to load existing index if available
             index_path = f"{self.path}/{collection_name}.faiss"
@@ -229,6 +230,36 @@ class FAISS(VectorStoreBase):
             self.docstore = {}
             self.index_to_id = {}
 
+    def _save_transaction_path(self) -> str:
+        return os.path.join(self.path, f"{self.collection_name}.save.json")
+
+    def _recover_pending_save(self) -> None:
+        """Finish a save interrupted between replacing its paired files."""
+        if not self.path:
+            return
+
+        transaction_path = self._save_transaction_path()
+        if not os.path.exists(transaction_path):
+            return
+
+        with open(transaction_path, encoding="utf-8") as f:
+            transaction = json.load(f)
+
+        index_path = os.path.join(self.path, f"{self.collection_name}.faiss")
+        json_docstore_path = os.path.join(self.path, f"{self.collection_name}.json")
+        for key, destination in (("index", index_path), ("docstore", json_docstore_path)):
+            temp_name = transaction[key]
+            if os.path.basename(temp_name) != temp_name:
+                raise ValueError(f"Invalid FAISS save transaction path: {temp_name}")
+
+            temp_path = os.path.join(self.path, temp_name)
+            if os.path.exists(temp_path):
+                os.replace(temp_path, destination)
+            elif not os.path.exists(destination):
+                raise FileNotFoundError(f"Incomplete FAISS save transaction for {destination}")
+
+        os.remove(transaction_path)
+
     def _quarantine_corrupt_files(self, index_path: str, docstore_path: str) -> None:
         """Move failed persistence files aside before rebuilding the collection."""
         json_docstore_path = docstore_path.replace(".pkl", ".json")
@@ -252,8 +283,11 @@ class FAISS(VectorStoreBase):
         if not self.path or not self.index:
             return
 
+        self._recover_pending_save()
         tmp_index_path = None
         tmp_json_path = None
+        tmp_transaction_path = None
+        transaction_path = self._save_transaction_path()
         try:
             os.makedirs(self.path, exist_ok=True)
             index_path = f"{self.path}/{self.collection_name}.faiss"
@@ -278,15 +312,28 @@ class FAISS(VectorStoreBase):
             with open(tmp_json_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
 
+            transaction_fd, tmp_transaction_path = tempfile.mkstemp(
+                prefix=f"{self.collection_name}.", suffix=".save.tmp", dir=self.path
+            )
+            with os.fdopen(transaction_fd, "w", encoding="utf-8") as f:
+                json.dump({"index": os.path.basename(tmp_index_path), "docstore": os.path.basename(tmp_json_path)}, f)
+            os.replace(tmp_transaction_path, transaction_path)
+            tmp_transaction_path = None
+
             os.replace(tmp_index_path, index_path)
             tmp_index_path = None
             os.replace(tmp_json_path, json_docstore_path)
             tmp_json_path = None
+            os.remove(transaction_path)
 
         except Exception as e:
             logger.warning(f"Failed to save FAISS index: {e}")
         finally:
-            for temp_path in (tmp_index_path, tmp_json_path):
+            temp_paths = [tmp_transaction_path]
+            if not os.path.exists(transaction_path):
+                temp_paths.extend((tmp_index_path, tmp_json_path))
+
+            for temp_path in temp_paths:
                 if temp_path and os.path.exists(temp_path):
                     try:
                         os.remove(temp_path)
