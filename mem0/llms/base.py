@@ -93,6 +93,24 @@ class LLMBase(ABC):
         base_model = (model or "").lower().rsplit("/", 1)[-1]
         return base_model.startswith("gpt-5")
 
+    def _uses_max_output_tokens(self, model: str) -> bool:
+        """
+        Check if the model expects ``max_output_tokens`` instead of ``max_tokens``.
+
+        Gemma 4 reasoning models (e.g. ``gemma-4-31b`` on AWS Mantle) reject the
+        legacy ``max_tokens`` parameter and only accept ``max_output_tokens`` /
+        ``max_input_tokens``. Older Gemma models still accept ``max_tokens``.
+
+        Args:
+            model: The model name to check
+
+        Returns:
+            bool: True if the model requires ``max_output_tokens``
+        """
+        # Strip provider prefixes (e.g. "openai/gemma-4-31b" -> "gemma-4-31b")
+        base_model = (model or "").lower().rsplit("/", 1)[-1]
+        return base_model.startswith("gemma-4")
+
     def _get_supported_params(self, **kwargs) -> Dict:
         """
         Get parameters that are supported by the current model.
@@ -161,6 +179,8 @@ class LLMBase(ABC):
         model = getattr(self.config, "model", "")
         if self._uses_max_completion_tokens(model):
             params["max_completion_tokens"] = self.config.max_tokens
+        elif self._uses_max_output_tokens(model):
+            params["max_output_tokens"] = self.config.max_tokens
         else:
             params["max_tokens"] = self.config.max_tokens
 
