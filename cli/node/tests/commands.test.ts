@@ -637,24 +637,79 @@ describe("agent mode", () => {
 		expect(parsed.data).toBeDefined();
 	});
 
-	it("cmdEventList outputs JSON envelope", async () => {
-		setAgentMode(true);
-		const { cmdEventList } = await import("../src/commands/events.js");
-		await cmdEventList(mockBackend, { output: "agent" });
-		const parsed = JSON.parse(output.trim());
-		expect(parsed.status).toBe("success");
-		expect(parsed.command).toBe("event list");
-		expect(Array.isArray(parsed.data)).toBe(true);
-		expect(parsed.count).toBe(2);
-		expect(Object.keys(parsed.data[0]).sort()).toEqual([
-			"created_at",
-			"event_type",
-			"id",
-			"latency",
-			"status",
-		]);
-		expect(Object.keys(parsed.data[0])).not.toContain("updated_at");
-	});
+  it("cmdDeleteAll outputs scoped JSON envelope", async () => {
+    setAgentMode(true);
+    const { cmdDeleteAll } = await import("../src/commands/memory.js");
+    await cmdDeleteAll(mockBackend, {
+      force: true,
+      userId: "alice",
+      agentId: "agent-1",
+      output: "agent",
+    });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("delete-all");
+    expect(parsed.data).toEqual({ deleted: true });
+    expect(parsed.scope).toEqual({ user_id: "alice", agent_id: "agent-1" });
+    expect(parsed.duration_ms).toEqual(expect.any(Number));
+  });
+
+  it("cmdDeleteAll outputs project JSON envelope", async () => {
+    setAgentMode(true);
+    const { cmdDeleteAll } = await import("../src/commands/memory.js");
+    await cmdDeleteAll(mockBackend, {
+      force: true,
+      all: true,
+      output: "agent",
+    });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("delete-all");
+    expect(parsed.data).toEqual({ deleted: true });
+    expect(parsed.scope).toEqual({
+      user_id: "*",
+      agent_id: "*",
+      app_id: "*",
+      run_id: "*",
+    });
+    expect(parsed.duration_ms).toEqual(expect.any(Number));
+  });
+
+  it("cmdDeleteAll preserves background deletion state in agent output", async () => {
+    (mockBackend.delete as ReturnType<typeof vi.fn>).mockResolvedValue({
+      message: "Memories deletion started...",
+    });
+    setAgentMode(true);
+    const { cmdDeleteAll } = await import("../src/commands/memory.js");
+    await cmdDeleteAll(mockBackend, {
+      force: true,
+      userId: "alice",
+      output: "agent",
+    });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("delete-all");
+    expect(parsed.data).toEqual({
+      deletion_started: true,
+      message: "Memories deletion started...",
+    });
+    expect(parsed.scope).toEqual({ user_id: "alice" });
+  });
+
+  it("cmdEventList outputs JSON envelope", async () => {
+    setAgentMode(true);
+    const { cmdEventList } = await import("../src/commands/events.js");
+    await cmdEventList(mockBackend, { output: "agent" });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("event list");
+    expect(Array.isArray(parsed.data)).toBe(true);
+    expect(parsed.count).toBe(2);
+    expect(Object.keys(parsed.data[0]).sort()).toEqual(
+      ["created_at", "event_type", "id", "latency", "status"],
+    );
+    expect(Object.keys(parsed.data[0])).not.toContain("updated_at");
+  });
 
 	it("cmdEventStatus outputs JSON envelope", async () => {
 		setAgentMode(true);
