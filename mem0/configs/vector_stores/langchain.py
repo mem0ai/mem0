@@ -5,10 +5,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class LangchainConfig(BaseModel):
     try:
-        from langchain_community.vectorstores import VectorStore
+        from langchain_core.vectorstores import VectorStore
     except ImportError:
         raise ImportError(
-            "The 'langchain_community' library is required. Please install it using 'pip install langchain_community'."
+            "The 'langchain_core' library is required. Please install it using 'pip install langchain_core'."
         )
     VectorStore: ClassVar[type] = VectorStore
 
