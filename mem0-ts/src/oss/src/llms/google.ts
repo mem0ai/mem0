@@ -23,18 +23,39 @@ export class GoogleLLM implements LLM {
     this.google = new sdk.GoogleGenAI({ apiKey: this.apiKey });
   }
 
-  private formatContents(messages: Message[]) {
-    return messages.map((msg) => ({
-      parts: [
-        {
-          text:
-            typeof msg.content === "string"
-              ? msg.content
-              : JSON.stringify(msg.content),
-        },
-      ],
-      role: msg.role === "system" ? "model" : "user",
-    }));
+  private formatContents(messages: Message[]): {
+    systemInstruction?: string;
+    contents: Array<{ parts: Array<{ text: string }>; role: string }>;
+  } {
+    let systemInstruction: string | undefined;
+    const contents: Array<{ parts: Array<{ text: string }>; role: string }> =
+      [];
+
+    for (const msg of messages) {
+      const text =
+        typeof msg.content === "string"
+          ? msg.content
+          : JSON.stringify(msg.content);
+
+      // Gemini takes the system prompt via `systemInstruction`, not as a
+      // content turn. Mapping it to a "model" turn (as this used to) mislabels
+      // the extraction instructions as something the model already said, and
+      // leaves the conversation without a leading user turn. Mirrors the Python
+      // SDK's _reformat_messages (mem0/llms/gemini.py); last system wins.
+      if (msg.role === "system") {
+        systemInstruction = text;
+        continue;
+      }
+
+      // Gemini's content roles are "user" and "model"; assistant turns are
+      // "model". Previously assistant was mislabeled "user".
+      contents.push({
+        parts: [{ text }],
+        role: msg.role === "assistant" ? "model" : "user",
+      });
+    }
+
+    return { systemInstruction, contents };
   }
 
   async generateResponse(
@@ -43,10 +64,13 @@ export class GoogleLLM implements LLM {
     tools?: any[],
   ): Promise<string | LLMResponse> {
     await this.ensureClient();
-    const contents = this.formatContents(messages);
+    const { systemInstruction, contents } = this.formatContents(messages);
 
     // Build config with tools if provided
     const config: Record<string, any> = {};
+    if (systemInstruction) {
+      config.systemInstruction = systemInstruction;
+    }
     if (tools && tools.length > 0) {
       config.tools = [
         {
@@ -95,9 +119,15 @@ export class GoogleLLM implements LLM {
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
     await this.ensureClient();
+    const { systemInstruction, contents } = this.formatContents(messages);
+    const config: Record<string, any> = {};
+    if (systemInstruction) {
+      config.systemInstruction = systemInstruction;
+    }
     const completion = await this.google.models.generateContent({
-      contents: this.formatContents(messages),
+      contents,
       model: this.model,
+      config,
     });
     const response = completion.candidates?.[0]?.content;
     const content =
