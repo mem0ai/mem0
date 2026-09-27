@@ -56,7 +56,7 @@ class BaseEmbedderConfig(ABC):
         :type model_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param huggingface_base_url: Huggingface base URL to be use, defaults to None
         :type huggingface_base_url: Optional[str], optional
-        :param openai_base_url: Openai base URL to be use, defaults to "https://api.openai.com/v1"
+        :param openai_base_url: OpenAI-compatible base URL. If None, falls back to the OPENAI_BASE_URL (or deprecated OPENAI_API_BASE) environment variable, then to "https://api.openai.com/v1"
         :type openai_base_url: Optional[str], optional
         :param azure_kwargs: key-value arguments for the AzureOpenAI embedding model, defaults a dict inside init
         :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
