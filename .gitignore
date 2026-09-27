@@ -14,6 +14,10 @@ server/.env
 # Distribution / packaging
 .Python
 build/
+!integrations/agent-plugin-core/build/
+!integrations/agent-plugin-core/build/*.py
+!integrations/agent-plugin-core/build/schemas/
+!integrations/agent-plugin-core/build/schemas/*.json
 develop-eggs/
 dist/
 downloads/

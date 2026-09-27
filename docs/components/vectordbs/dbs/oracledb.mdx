@@ -14,7 +14,7 @@ description: "Use Oracle Database AI Vector Search as a vector store in Mem0 for
 
 <CodeGroup>
 ```bash Python
-pip install oracledb
+pip install mem0ai
 ```
 
 ```bash TypeScript
@@ -141,11 +141,13 @@ const config = {
 
 Here are the parameters available for configuring Oracle AI Vector Search:
 
+Provide either `connection_params`/`connectionParams` or an existing connection or pool as `client`.
+
 | Python | TypeScript | Description | Default Value |
 | --- | --- | --- | --- |
-| `connection_params` | `connectionParams` | Connection settings passed to the Oracle driver, such as `user`, `password` and `dsn` (`connectString` in TypeScript). See the [Python](https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html) or [Node.js](https://node-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html) connection handling guide. | `None` |
+| `connection_params` | `connectionParams` | Connection settings passed to the Oracle driver, such as `user`, `password` and `dsn` (`connectString` in TypeScript). Required unless `client` is provided. See the [Python](https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html) or [Node.js](https://node-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html) connection handling guide. | `None` |
 | `use_connection_pool` | `useConnectionPool` | Create a connection pool from the connection parameters instead of a single connection | `True` |
-| `client` | `client` | An existing Oracle connection or pool to use instead of building one from the connection parameters | `None` |
+| `client` | `client` | An existing Oracle connection or pool to use instead of building one from the connection parameters. Required unless connection parameters are provided. | `None` |
 | `collection_name` | `collectionName` | Name of the Oracle table that stores vectors and payloads | `mem0` |
 | `embedding_model_dims` | `embeddingModelDims` | Dimension of your embedding vectors, must be greater than 0 | `1536` |
 | `distance_metric` | `distanceMetric` | Distance function used for indexing and search: `COSINE`, `EUCLIDEAN`, `EUCLIDEAN_SQUARED`, `DOT`, `HAMMING` or `MANHATTAN` | `COSINE` |
@@ -222,15 +224,21 @@ Multiple fields at the top level are combined with `AND`:
 ```python Python
 m.search(
     "movie recommendations",
-    user_id="alice",
-    filters={"category": {"in": ["movies", "books"]}, "rating": {"gte": 4}},
+    filters={
+        "user_id": "alice",
+        "category": {"in": ["movies", "books"]},
+        "rating": {"gte": 4},
+    },
 )
 ```
 
 ```typescript TypeScript
 await memory.search("movie recommendations", {
-  userId: "alice",
-  filters: { category: { in: ["movies", "books"] }, rating: { gte: 4 } },
+  filters: {
+    user_id: "alice",
+    category: { in: ["movies", "books"] },
+    rating: { gte: 4 },
+  },
 });
 ```
 </CodeGroup>

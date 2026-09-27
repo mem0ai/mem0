@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'integrations/deepseek-plugin/**'
+      - 'integrations/agent-plugin-core/typescript/**'
       - '.github/workflows/deepseek-plugin-checks.yml'
   workflow_call:
 
@@ -84,7 +85,5 @@ jobs:
       - name: Build
         run: cd integrations/deepseek-plugin && pnpm build
 
-      - name: Verify dist output exists
-        run: |
-          test -f integrations/deepseek-plugin/dist/index.js || (echo "Build output missing: dist/index.js" && exit 1)
-          test -f integrations/deepseek-plugin/dist/index.d.ts || (echo "Build output missing: dist/index.d.ts" && exit 1)
+      - name: Verify package artifact
+        run: python3 integrations/agent-plugin-core/conformance/artifacts.py deepseek

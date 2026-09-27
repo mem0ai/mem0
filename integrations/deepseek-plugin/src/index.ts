@@ -6,37 +6,63 @@
  *   - `add_memory` stores a fact for future sessions
  *
  * A plugin is a Cordis module that exports `apply(ctx, config)`. Declaring
- * `inject = ['tools']` holds the plugin until the harness tool registry exists;
+ * `inject = ['tools', 'systemPrompt']` holds the plugin until the harness services exist;
  * tools registered via `ctx.tools.register(...)` are auto-unregistered when the
  * plugin unmounts (Cordis revertible effects).
  */
 import type { Context } from "@deepseek-ai/cordis";
+import type {} from "@deepseek-ai/dsh-agent";
+import type { PromptAssembly } from "@deepseek-ai/dsh-system-prompt";
+import type {} from "@deepseek-ai/dsh-session";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 import { MemoryClient } from "mem0ai";
 import { formatMemoryList, formatAddResult } from "./formatting.ts";
 import { truncateOutput } from "./output.ts";
 import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 import { captureEvent, errorKind } from "./telemetry.ts";
+import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
+import {
+  USER_RECALL_HEADING,
+  USER_SEARCH_QUERY_DESCRIPTION,
+  USER_SEARCH_TOOL_DESCRIPTION,
+} from "../../agent-plugin-core/typescript/src/prompts.ts";
 
 export const name = "mem0";
-export const inject = ["tools"];
+export const inject = ["tools", "systemPrompt"];
 
 // Tags writes so Mem0's backend attributes them to this integration in
-// telemetry. The backend keeps recognized values via its KNOWN_EVENT_SOURCES
-// allowlist; unknown values bucket into "OTHERS", so "DEEPSEEK_HARNESS" must be
-// added to that allowlist for usage to surface by name (a one-line backend PR,
-// same pattern as the ZAPIER / STRANDS sources).
+// telemetry. Values outside the backend's KNOWN_EVENT_SOURCES allowlist bucket
+// into "OTHERS"; this one is added by mem0ai/platform#3602 and reads as OTHERS
+// until that ships.
 const SOURCE = "DEEPSEEK_HARNESS";
 
 const DEFAULT_SEARCH_LIMIT = 10;
+const AUTO_RECALL_LIMIT = 5;
+
+interface HarnessMessage {
+  role: string;
+  content?: unknown;
+  source?: { kind?: string };
+}
+
+interface SessionState {
+  lifecycle: ReturnType<typeof createMemoryLifecycle>;
+  messages: HarnessMessage[];
+}
 
 export interface Config {
   /** Mem0 API key. Defaults to the MEM0_API_KEY env var. */
   apiKey?: string;
   /** Default entity that owns the memories (Mem0 user scope). */
   userId: string;
+  /** Explicitly allow model-selected cross-user access. Defaults to false. */
+  allowUserOverride?: boolean;
   /** Optional Mem0 Platform base-URL override (on-prem / dedicated); defaults to api.mem0.ai. Not a switch to self-hosted OSS. */
   host?: string;
+  /** Recall relevant memory before each model request. Defaults to true. */
+  autoRecall?: boolean;
+  /** Store completed turns automatically. Defaults to true. */
+  autoCapture?: boolean;
 }
 
 // Both tools return a single text string; the render is identical, so lift it
@@ -55,7 +81,7 @@ const scopeParams = {
   userId: {
     type: "string",
     description:
-      "Entity that owns the memory. Defaults to the plugin's configured userId; set this only to read or write another user's memories.",
+      "Entity that owns the memory. Defaults to the plugin's configured userId; cross-user overrides require allowUserOverride in plugin configuration.",
   },
   agentId: {
     type: "string",
@@ -72,8 +98,8 @@ export function apply(ctx: Context, config: Config): void {
   if (!apiKey) {
     throw new Error("deepseek-plugin: set config.apiKey or the MEM0_API_KEY env var");
   }
-  const userId = config.userId;
-  if (!userId) {
+  const userId = config.userId?.trim();
+  if (!userId || /^\*+$/.test(userId)) {
     throw new Error("deepseek-plugin: config.userId is required");
   }
 
@@ -81,18 +107,104 @@ export function apply(ctx: Context, config: Config): void {
     apiKey,
     ...(config.host ? { host: config.host } : {}),
   });
+  const toolLifecycle = createMemoryLifecycle();
+  const sessionStates = new WeakMap<object, SessionState>();
+  const stateFor = (session: object): SessionState => {
+    let state = sessionStates.get(session);
+    if (!state) {
+      const lifecycle = createMemoryLifecycle({ recallHeading: USER_RECALL_HEADING });
+      lifecycle.beginSession();
+      state = { lifecycle, messages: [] };
+      sessionStates.set(session, state);
+    }
+    return state;
+  };
 
-  captureEvent("deepseek.plugin.mounted", { has_host: Boolean(config.host) }, client);
+  captureEvent("deepseek.plugin.mounted", {
+    has_host: Boolean(config.host),
+    auto_recall: config.autoRecall !== false,
+    auto_capture: config.autoCapture !== false,
+  }, client);
+
+  if (config.autoRecall !== false) {
+    ctx.on("system-prompt/assemble", async (_input, context, next): Promise<PromptAssembly> => {
+      const assembly = await next();
+      const { agent, signal } = context;
+      if (!agent || signal?.aborted) return assembly;
+
+      const state = stateFor(agent.session);
+      const prompt = state.lifecycle.prepareConversation(
+        agent.session
+          .deriveMessages()
+          .filter((message) => message.role === "user" && message.source?.kind === "user"),
+      ).at(-1)?.content;
+      if (!prompt) return assembly;
+
+      const memoryContext = await state.lifecycle.recall(prompt, true, async (query) => {
+        const started = Date.now();
+        try {
+          const result = await client.search(query, {
+            filters: resolveSearchFilters({}, userId),
+            topK: AUTO_RECALL_LIMIT,
+          });
+          captureEvent("deepseek.recall.auto", {
+            success: true,
+            duration_ms: Date.now() - started,
+            result_count: result.results?.length ?? 0,
+          }, client);
+          return result;
+        } catch (err) {
+          captureEvent("deepseek.recall.auto", {
+            success: false,
+            duration_ms: Date.now() - started,
+            error_kind: errorKind(err),
+          }, client);
+          throw err;
+        }
+      });
+      if (!memoryContext || signal?.aborted) return assembly;
+      return {
+        ...assembly,
+        contexts: [...assembly.contexts, { name: "mem0:recall", text: memoryContext }],
+      };
+    });
+  }
+
+  if (config.autoCapture !== false) {
+    ctx.on("session/event", (session, event) => {
+      const state = stateFor(session);
+      if (event.type === "turn/start") {
+        state.messages = [];
+      } else if (event.type === "user/message" && event.data.source.kind === "user") {
+        state.messages.push(event.data);
+      } else if (event.type === "assistant/message") {
+        state.messages.push(event.data.message);
+      } else if (event.type === "turn/end") {
+        const conversation = state.lifecycle.prepareConversation(state.messages);
+        state.messages = [];
+        if (event.data.reason.kind !== "completed" || conversation.length === 0) return;
+        void client
+          .add(conversation, { userId, source: SOURCE })
+          .then(() => captureEvent("deepseek.capture.auto", {
+            success: true,
+            message_count: conversation.length,
+          }, client))
+          .catch((err: unknown) => captureEvent("deepseek.capture.auto", {
+            success: false,
+            error_kind: errorKind(err),
+          }, client));
+      }
+    });
+  }
 
   // Recall. The platform rejects top-level entity params on search, so scope
   // goes inside `filters` (unlike add below, which takes them top-level).
   ctx.tools.register(
     defineTool({
       name: "search_memory",
-      description:
-        "Search the user's long-term Mem0 memory for facts relevant to a query. Use proactively before answering anything that may depend on what the user told you earlier.",
+      description: USER_SEARCH_TOOL_DESCRIPTION,
       parameters: {
-        query: { type: "string", description: "What to recall.", required: true },
+        query: { type: "string", description: USER_SEARCH_QUERY_DESCRIPTION, required: true },
         limit: {
           type: "integer",
           description: `Max results to return (default ${DEFAULT_SEARCH_LIMIT}).`,
@@ -101,11 +213,15 @@ export function apply(ctx: Context, config: Config): void {
       },
       output: textOutput,
       async execute({ query, limit, userId: u, agentId, runId }) {
+        if (u?.trim() && u.trim() !== userId && config.allowUserOverride !== true) {
+          throw new Error("Cross-user access requires allowUserOverride in plugin configuration.");
+        }
+        const safeQuery = toolLifecycle.prepareUserText(query);
         const filters = resolveSearchFilters({ userId: u, agentId, runId }, userId);
         const topK = limit && limit > 0 ? limit : DEFAULT_SEARCH_LIMIT;
         const started = Date.now();
         try {
-          const { results } = await client.search(query, { filters, topK });
+          const { results } = await client.search(safeQuery, { filters, topK });
           captureEvent(
             "deepseek.tool.search_memory",
             {
@@ -150,13 +266,19 @@ export function apply(ctx: Context, config: Config): void {
       },
       output: textOutput,
       async execute({ text, userId: u, agentId, runId }) {
+        if (u?.trim() && u.trim() !== userId && config.allowUserOverride !== true) {
+          throw new Error("Cross-user access requires allowUserOverride in plugin configuration.");
+        }
         const addParams = resolveAddParams({ userId: u, agentId, runId }, userId);
         const started = Date.now();
         try {
-          const result = await client.add([{ role: "user", content: text }], {
-            ...addParams,
-            source: SOURCE,
-          });
+          const result = await client.add(
+            [{ role: "user", content: toolLifecycle.prepareUserText(text) }],
+            {
+              ...addParams,
+              source: SOURCE,
+            },
+          );
           captureEvent(
             "deepseek.tool.add_memory",
             {
