@@ -360,10 +360,11 @@ describe("Memory - add()", () => {
     expect(searchCall).toBeDefined();
     const embeddedQuery = searchCall![0] as string;
     expect(embeddedQuery.length).toBeLessThanOrEqual(32000);
-    expect(embeddedQuery.endsWith("user: Recent note: I live in New York.")).toBe(true);
+    expect(
+      embeddedQuery.endsWith("user: Recent note: I live in New York."),
+    ).toBe(true);
     expect(embeddedQuery[0]).not.toBe(" ");
 
     embedSpy.mockRestore();
   });
 });
-

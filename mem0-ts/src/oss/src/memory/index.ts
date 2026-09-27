@@ -891,7 +891,7 @@ export class Memory {
     let searchMessages = parsedMessages;
     if (searchMessages.length > MAX_SEARCH_EMBEDDING_CHARS) {
       console.warn(
-        `Search query text length (${searchMessages.length} characters) exceeds maximum safe embedding limit (${MAX_SEARCH_EMBEDDING_CHARS} characters). Truncating to keep the most recent context while preserving word boundaries.`
+        `Search query text length (${searchMessages.length} characters) exceeds maximum safe embedding limit (${MAX_SEARCH_EMBEDDING_CHARS} characters). Truncating to keep the most recent context while preserving word boundaries.`,
       );
       const tail = searchMessages.slice(-MAX_SEARCH_EMBEDDING_CHARS);
       const firstSpace = tail.indexOf(" ");
