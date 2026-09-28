@@ -452,7 +452,7 @@ def detached_process_kwargs(platform: str | None = None) -> dict:
     """Keep a spawned worker alive after the coding agent exits, on POSIX and Windows."""
     if (platform or sys.platform) == "win32":
         return {
-            "creationflags": subprocess.DETACHED_PROCESS
+            "creationflags": subprocess.CREATE_NO_WINDOW
             | subprocess.CREATE_NEW_PROCESS_GROUP
         }
     return {"start_new_session": True}

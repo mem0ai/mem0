@@ -1506,12 +1506,12 @@ def test_flush_worker_detaches_on_windows_as_well_as_posix(monkeypatch):
     assert hook_runner.detached_process_kwargs("darwin") == {"start_new_session": True}
     assert hook_runner.detached_process_kwargs("linux") == {"start_new_session": True}
 
-    monkeypatch.setattr(subprocess, "DETACHED_PROCESS", 0x00000008, raising=False)
+    monkeypatch.setattr(subprocess, "CREATE_NO_WINDOW", 0x08000000, raising=False)
     monkeypatch.setattr(
         subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200, raising=False
     )
     windows_kwargs = hook_runner.detached_process_kwargs("win32")
-    assert windows_kwargs == {"creationflags": 0x00000208}
+    assert windows_kwargs == {"creationflags": 0x08000200}
     assert "start_new_session" not in windows_kwargs
 
 
