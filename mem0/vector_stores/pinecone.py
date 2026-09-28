@@ -197,17 +197,61 @@ class PineconeDB(VectorStoreBase):
         "nin": "$nin",
     }
 
+    # Operator that matches exactly the records the key operator does not.
+    NEGATED_OPERATOR_MAP = {
+        "eq": "$ne",
+        "ne": "$eq",
+        "gt": "$lte",
+        "gte": "$lt",
+        "lt": "$gte",
+        "lte": "$gt",
+        "in": "$nin",
+        "nin": "$in",
+    }
+
+    def _negate_condition(self, condition: Dict) -> Dict:
+        """
+        Build the Pinecone filter for NOT(condition).
+
+        A condition's fields (and a field's operators) are ANDed together, so by
+        De Morgan's law its negation is the OR of each negated comparison.
+        """
+        negated = []
+        for key, value in condition.items():
+            if isinstance(value, dict):
+                for op, operand in value.items():
+                    pc_op = self.NEGATED_OPERATOR_MAP.get(op)
+                    if pc_op is None:
+                        raise ValueError(f"Pinecone filters cannot negate the '{op}' operator on '{key}'")
+                    negated.append({key: {pc_op: operand}})
+            else:
+                negated.append({key: {"$ne": value}})
+        return negated[0] if len(negated) == 1 else {"$or": negated}
+
     def _create_filter(self, filters: Optional[Dict]) -> Dict:
         """
         Create a filter dictionary from the provided filters.
+
+        Field conditions are translated to Pinecone operators. The logical keys
+        produced by Memory._process_metadata_filters ("$or", "$not") and their
+        unprefixed forms ("OR", "NOT", "AND") become Pinecone "$or"/"$and"
+        clauses; Pinecone has no list-valued "$not", so NOT is expressed by
+        negating each comparison.
         """
         if not filters:
             return {}
 
         pinecone_filter = {}
+        logical_clauses = []
 
         for key, value in filters.items():
-            if isinstance(value, dict):
+            if key in ("$or", "OR"):
+                logical_clauses.append({"$or": [self._create_filter(condition) for condition in value]})
+            elif key in ("$and", "AND"):
+                logical_clauses.extend(self._create_filter(condition) for condition in value)
+            elif key in ("$not", "NOT"):
+                logical_clauses.extend(self._negate_condition(condition) for condition in value)
+            elif isinstance(value, dict):
                 condition = {}
                 for op, operand in value.items():
                     pc_op = self.OPERATOR_MAP.get(op)
@@ -219,7 +263,11 @@ class PineconeDB(VectorStoreBase):
             else:
                 pinecone_filter[key] = {"$eq": value}
 
-        return pinecone_filter
+        if not logical_clauses:
+            return pinecone_filter
+
+        clauses = ([pinecone_filter] if pinecone_filter else []) + logical_clauses
+        return clauses[0] if len(clauses) == 1 else {"$and": clauses}
 
     def search(
         self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
