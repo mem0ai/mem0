@@ -92,6 +92,49 @@ class TestListOptions:
         assert "latest_only" not in payload.get("filters", {})
 
 
+class TestCompoundFilterScoping:
+    """A --filter with a top-level AND/OR must be ANDed with the entity scope,
+    not silently replace it (#7470)."""
+
+    def test_compound_and_filter_keeps_user_scope(self):
+        backend = _make_backend()
+        with patch.object(backend, "_request", return_value={"results": []}) as mock_request:
+            backend.search(
+                "invoices",
+                user_id="alice",
+                filters={"AND": [{"categories": {"in": ["work"]}}]},
+            )
+        filters = mock_request.call_args.kwargs["json"]["filters"]
+        assert filters == {
+            "AND": [{"user_id": "alice"}, {"AND": [{"categories": {"in": ["work"]}}]}]
+        }
+
+    def test_compound_or_filter_keeps_user_and_run_scope(self):
+        backend = _make_backend()
+        with patch.object(backend, "_request", return_value={"results": []}) as mock_request:
+            backend.search(
+                "invoices",
+                user_id="alice",
+                run_id="r1",
+                filters={"OR": [{"categories": {"in": ["work"]}}]},
+            )
+        filters = mock_request.call_args.kwargs["json"]["filters"]
+        assert filters == {
+            "AND": [
+                {"user_id": "alice"},
+                {"run_id": "r1"},
+                {"OR": [{"categories": {"in": ["work"]}}]},
+            ]
+        }
+
+    def test_compound_filter_without_entity_scope_is_unchanged(self):
+        backend = _make_backend()
+        with patch.object(backend, "_request", return_value={"results": []}) as mock_request:
+            backend.search("invoices", filters={"AND": [{"categories": {"in": ["work"]}}]})
+        filters = mock_request.call_args.kwargs["json"]["filters"]
+        assert filters == {"AND": [{"categories": {"in": ["work"]}}]}
+
+
 class TestUpdateOptions:
     def test_expires_and_timestamp_reach_payload(self):
         backend = _make_backend()

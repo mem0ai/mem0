@@ -144,11 +144,9 @@ class PlatformBackend(Backend):
 
         Entity IDs are ANDed (all provided IDs must match).
         Extra filters (date ranges, categories) are also ANDed.
+        A compound extra filter (top-level ``AND``/``OR``) is ANDed with the
+        entity scope so ``-u``/``--agent-id``/... still apply.
         """
-        # If caller passed a pre-built filter structure (e.g. --filter from CLI), use it directly
-        if extra_filters and ("AND" in extra_filters or "OR" in extra_filters):
-            return extra_filters
-
         # Build AND conditions for entity IDs
         and_conditions: list[dict[str, Any]] = []
         if user_id:
@@ -159,6 +157,13 @@ class PlatformBackend(Backend):
             and_conditions.append({"app_id": app_id})
         if run_id:
             and_conditions.append({"run_id": run_id})
+
+        # If caller passed a pre-built compound filter structure (e.g. --filter
+        # from CLI), AND it with the entity scope instead of replacing it.
+        if extra_filters and ("AND" in extra_filters or "OR" in extra_filters):
+            if not and_conditions:
+                return extra_filters
+            return {"AND": and_conditions + [extra_filters]}
 
         # Append any extra filters (dates, categories)
         if extra_filters:
