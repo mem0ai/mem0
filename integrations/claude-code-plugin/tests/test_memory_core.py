@@ -3491,7 +3491,8 @@ def test_version_is_single_sourced():
     assert response["result"]["serverInfo"]["version"] == memory_core.PLUGIN_VERSION
 
 
-def test_user_id_falls_back_to_the_windows_account_name(monkeypatch):
+def test_user_id_falls_back_to_the_windows_account_name(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEM0_CODE_DATA_DIR", str(tmp_path / "data"))
     for name in (
         "CLAUDE_PLUGIN_OPTION_USER_ID",
         "MEM0_CODE_USER_ID",
@@ -3924,7 +3925,8 @@ SCOPE_ENV_VARS = (
 
 
 @pytest.mark.parametrize("wildcard", ["*", "**", " * "])
-def test_a_wildcard_user_id_never_becomes_the_scope(monkeypatch, wildcard):
+def test_a_wildcard_user_id_never_becomes_the_scope(tmp_path, monkeypatch, wildcard):
+    monkeypatch.setenv("MEM0_CODE_DATA_DIR", str(tmp_path / "data"))
     for name in SCOPE_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
 
@@ -4634,3 +4636,47 @@ def test_delayed_handoff_survives_failed_atomic_rewrite(isolated_env, monkeypatc
 def test_json_secret_redaction_handles_escaped_quotes():
     value = json.dumps({"password": 'prefix"private suffix'})
     assert json.loads(memory_core.redact(value)) == {"password": "[REDACTED]"}
+
+
+def test_mcp_server_resolves_the_user_id_the_hooks_were_configured_with(
+    isolated_env, monkeypatch
+):
+    """The MCP server is spawned without CLAUDE_PLUGIN_OPTION_* (Claude Code
+    forwards plugin options to hook processes only), so the option the user
+    configured must reach it through the shared data directory (#7475)."""
+    data_dir = Path(os.environ["MEM0_CODE_DATA_DIR"])
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_USER_ID", "leftos")
+    assert memory_core.user_id() == "leftos"
+    assert json.loads((data_dir / "plugin-options.json").read_text()) == {"user_id": "leftos"}
+
+    # Second process: the MCP server's environment — option gone, OS account
+    # present, same data directory.
+    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_USER_ID", raising=False)
+    monkeypatch.delenv("MEM0_CODE_USER_ID", raising=False)
+    monkeypatch.setenv("USERNAME", "windows-account")
+
+    assert memory_core.user_id() == "leftos"
+
+
+def test_explicit_env_user_id_wins_over_the_persisted_option(isolated_env, monkeypatch):
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_USER_ID", "from-option")
+    assert memory_core.user_id() == "from-option"
+
+    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_USER_ID", raising=False)
+    monkeypatch.setenv("MEM0_CODE_USER_ID", "from-env")
+    assert memory_core.user_id() == "from-env"
+    assert json.loads((Path(os.environ["MEM0_CODE_DATA_DIR"]) / "plugin-options.json").read_text()) == {
+        "user_id": "from-env"
+    }
+
+
+def test_persisted_wildcard_user_id_is_ignored(isolated_env, monkeypatch):
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_USER_ID", "*")
+    monkeypatch.delenv("USER", raising=False)
+    monkeypatch.delenv("USERNAME", raising=False)
+    assert memory_core.user_id() == "default"
+
+    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_USER_ID", raising=False)
+    monkeypatch.delenv("MEM0_CODE_USER_ID", raising=False)
+    monkeypatch.setenv("USER", "posix-account")
+    assert memory_core.user_id() == "posix-account"

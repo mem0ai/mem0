@@ -467,11 +467,63 @@ def _plugin_option(name: str, fallback: str = "") -> str:
     ).strip()
 
 
+def _persisted_option_path() -> Path:
+    return data_dir() / "plugin-options.json"
+
+
+def _persist_option(name: str, value: str) -> None:
+    """Persist a plugin option for processes Claude Code does not hand it to.
+
+    Claude Code exports `CLAUDE_PLUGIN_OPTION_<NAME>` to hook processes only.
+    The plugin's MCP server is spawned from `.mcp.json`, whose `env` block can
+    forward just the three path variables (`CLAUDE_PLUGIN_ROOT`,
+    `CLAUDE_PLUGIN_DATA`, `CLAUDE_PROJECT_DIR`) — not options. Hooks (and the
+    workers they spawn, which inherit their environment) therefore see the
+    configured option while the MCP server falls through to the OS account
+    name. Persisting the resolved value into the plugin data directory — which
+    `.mcp.json` does forward as `MEM0_CODE_DATA_DIR` — lets the MCP server
+    resolve the same identity (#7475). Best-effort: env-only callers work
+    regardless, and a failed write never breaks the caller.
+    """
+    path = _persisted_option_path()
+    try:
+        existing: dict[str, Any] = {}
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                existing = data
+        if existing.get(name) == value:
+            return
+        existing[name] = value
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(json.dumps(existing, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, path)
+    except (OSError, ValueError):
+        pass
+
+
+def _persisted_option(name: str) -> str:
+    try:
+        data = json.loads(_persisted_option_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    return _scope_value(data.get(name))
+
+
 def user_id() -> str:
-    return (
+    env_value = (
         _scope_value(_plugin_option("user_id", "MEM0_CODE_USER_ID"))
         or _scope_value(os.environ.get("MEM0_USER_ID"))
         or _scope_value(os.environ.get("MEM0_RESOLVED_USER_ID"))
+    )
+    if env_value:
+        _persist_option("user_id", env_value)
+        return env_value
+    return (
+        _persisted_option("user_id")
         or _scope_value(os.environ.get("USER"))
         or _scope_value(os.environ.get("USERNAME"))
         or "default"
