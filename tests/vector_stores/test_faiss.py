@@ -190,9 +190,7 @@ def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_
     search_indices = np.array([[0, 1, 2, 3]])
     mock_faiss_index.search.return_value = (search_scores, search_indices)
 
-    results = faiss_instance.search(
-        query="test query", vectors=query_vector, top_k=2, filters={"category": "A"}
-    )
+    results = faiss_instance.search(query="test query", vectors=query_vector, top_k=2, filters={"category": "A"})
 
     # Two matching vectors exist among the over-fetched set, so we must get top_k of them.
     assert len(results) == 2
@@ -864,3 +862,29 @@ class TestLoadFailureRecovery:
                 data = json.load(f)
             assert data["docstore"] == {"id-apple": {"data": "apple"}}
             assert data["index_to_id"] == {"0": "id-apple"}
+
+    def test_interrupted_save_recovers_index_and_docstore_together(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            store.insert([self._vec(0)], payloads=[{"data": "apple"}], ids=["id-apple"])
+
+            with patch.object(store, "_save"):
+                store.insert([self._vec(1)], payloads=[{"data": "banana"}], ids=["id-banana"])
+
+            json_path = os.path.join(temp_dir, "recovery", "recovery.json")
+            original_replace = os.replace
+
+            def fail_json_replace(source, destination):
+                if destination == json_path:
+                    raise OSError("simulated interruption")
+                return original_replace(source, destination)
+
+            with patch("mem0.vector_stores.faiss.os.replace", side_effect=fail_json_replace):
+                store._save()
+
+            recovered = self._store(temp_dir)
+
+            assert recovered.index.ntotal == 2
+            assert recovered.index_to_id == {0: "id-apple", 1: "id-banana"}
+            assert recovered.get("id-apple").payload == {"data": "apple"}
+            assert recovered.get("id-banana").payload == {"data": "banana"}
