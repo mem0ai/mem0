@@ -319,8 +319,16 @@ def test_delete_col(faiss_instance):
             # Call delete_col
             faiss_instance.delete_col()
 
-            # Verify os.remove was called for index, json docstore, and legacy pkl files
-            assert mock_remove.call_count == 3
+            base_path = os.path.join(faiss_instance.path, faiss_instance.collection_name)
+            assert {call.args[0] for call in mock_remove.call_args_list} == {
+                f"{base_path}.faiss",
+                f"{base_path}.json",
+                f"{base_path}.pkl",
+                f"{base_path}.save",
+                f"{base_path}.save.tmp",
+                f"{base_path}.faiss.tmp",
+                f"{base_path}.json.tmp",
+            }
 
             # Verify the internal state was reset
             assert faiss_instance.index is None
@@ -832,6 +840,24 @@ class TestLoadFailureRecovery:
             with open(f"{json_path}.corrupt", encoding="utf-8") as f:
                 assert f.read() == "{ not json"
 
+    def test_repeated_corruption_keeps_previous_backups(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self._store(temp_dir)
+            json_path = os.path.join(temp_dir, "recovery", "recovery.json")
+
+            with open(json_path, "w", encoding="utf-8") as f:
+                f.write("{ first failure")
+            self._store(temp_dir)
+
+            with open(json_path, "w", encoding="utf-8") as f:
+                f.write("{ second failure")
+            self._store(temp_dir)
+
+            with open(f"{json_path}.corrupt", encoding="utf-8") as f:
+                assert f.read() == "{ first failure"
+            with open(f"{json_path}.corrupt.1", encoding="utf-8") as f:
+                assert f.read() == "{ second failure"
+
     def test_corrupted_index_recovers_usable_store(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = self._store(temp_dir)
@@ -863,6 +889,31 @@ class TestLoadFailureRecovery:
             assert data["docstore"] == {"id-apple": {"data": "apple"}}
             assert data["index_to_id"] == {"0": "id-apple"}
 
+            recovered = self._store(temp_dir)
+            assert recovered.index.ntotal == 1
+            assert recovered.get("id-apple").payload == {"data": "apple"}
+            assert not os.path.exists(os.path.join(temp_dir, "recovery", "recovery.save"))
+            assert not os.path.exists(os.path.join(temp_dir, "recovery", "recovery.faiss.tmp"))
+            assert not os.path.exists(os.path.join(temp_dir, "recovery", "recovery.json.tmp"))
+
+    def test_valid_but_mismatched_files_recover_cleanly(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            store.insert([self._vec(0)], payloads=[{"data": "apple"}], ids=["id-apple"])
+
+            with patch.object(store, "_save"):
+                store.insert([self._vec(1)], payloads=[{"data": "banana"}], ids=["id-banana"])
+
+            index_path = os.path.join(temp_dir, "recovery", "recovery.faiss")
+            faiss.write_index(store.index, index_path)
+
+            recovered = self._store(temp_dir)
+
+            assert recovered.index.ntotal == 0
+            assert recovered.index_to_id == {}
+            assert recovered.docstore == {}
+            assert os.path.exists(f"{index_path}.corrupt")
+
     def test_interrupted_save_recovers_index_and_docstore_together(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = self._store(temp_dir)
@@ -888,3 +939,54 @@ class TestLoadFailureRecovery:
             assert recovered.index_to_id == {0: "id-apple", 1: "id-banana"}
             assert recovered.get("id-apple").payload == {"data": "apple"}
             assert recovered.get("id-banana").payload == {"data": "banana"}
+
+    def test_completed_save_with_stale_marker_loads_normally(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            marker_path = os.path.join(temp_dir, "recovery", "recovery.save")
+            original_remove = os.remove
+
+            def fail_marker_remove(path):
+                if path == marker_path:
+                    raise OSError("simulated interruption")
+                return original_remove(path)
+
+            with patch("mem0.vector_stores.faiss.os.remove", side_effect=fail_marker_remove):
+                store.insert([self._vec(0)], payloads=[{"data": "apple"}], ids=["id-apple"])
+
+            assert os.path.exists(marker_path)
+
+            recovered = self._store(temp_dir)
+
+            assert recovered.index.ntotal == 1
+            assert recovered.get("id-apple").payload == {"data": "apple"}
+            assert not os.path.exists(marker_path)
+
+    def test_delete_col_discards_pending_save(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            store.insert([self._vec(0)], payloads=[{"data": "apple"}], ids=["id-apple"])
+
+            with patch.object(store, "_save"):
+                store.insert([self._vec(1)], payloads=[{"data": "banana"}], ids=["id-banana"])
+
+            json_path = os.path.join(temp_dir, "recovery", "recovery.json")
+            original_replace = os.replace
+
+            def fail_json_replace(source, destination):
+                if destination == json_path:
+                    raise OSError("simulated interruption")
+                return original_replace(source, destination)
+
+            with patch("mem0.vector_stores.faiss.os.replace", side_effect=fail_json_replace):
+                store._save()
+
+            store.delete_col()
+            recovered = self._store(temp_dir)
+
+            assert recovered.index.ntotal == 0
+            assert recovered.index_to_id == {}
+            assert recovered.docstore == {}
+            assert not os.path.exists(os.path.join(temp_dir, "recovery", "recovery.save"))
+            assert not os.path.exists(os.path.join(temp_dir, "recovery", "recovery.faiss.tmp"))
+            assert not os.path.exists(os.path.join(temp_dir, "recovery", "recovery.json.tmp"))
