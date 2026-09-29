@@ -1,3 +1,5 @@
+import io
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -489,8 +491,6 @@ class TestParseResponseLegacy:
         """When AI21 response lacks 'completions', the fallback default must
         be a valid dict (not a set literal), returning empty string."""
         llm = _make_llm("ai21.j2-mid-v1", mock_boto3)
-        import io
-        import json
         body = io.BytesIO(json.dumps({"not_completions": True}).encode())
         response = {"body": body}
         result = llm._parse_response(response, tools=None)
@@ -498,14 +498,78 @@ class TestParseResponseLegacy:
 
     def test_ai21_normal_response(self, mock_boto3):
         llm = _make_llm("ai21.j2-mid-v1", mock_boto3)
-        import io
-        import json
         body = io.BytesIO(json.dumps({
             "completions": [{"data": {"text": "hello from ai21"}}]
         }).encode())
         response = {"body": body}
         result = llm._parse_response(response, tools=None)
         assert result == "hello from ai21"
+
+    def test_ai21_empty_completions_returns_empty(self, mock_boto3):
+        """A present-but-empty completions list means the model returned nothing.
+        It must parse as empty string, not blow up on [0]."""
+        llm = _make_llm("ai21.j2-mid-v1", mock_boto3)
+        body = io.BytesIO(json.dumps({"completions": []}).encode())
+        result = llm._parse_response({"body": body}, tools=None)
+        assert result == ""
+
+    def test_anthropic_empty_content_returns_empty(self, mock_boto3):
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+        body = io.BytesIO(json.dumps({"content": []}).encode())
+        assert llm._parse_response({"body": body}, tools=None) == ""
+
+    def test_mistral_empty_outputs_returns_empty(self, mock_boto3):
+        llm = _make_llm("mistral.mistral-large-2402-v1:0", mock_boto3)
+        body = io.BytesIO(json.dumps({"outputs": []}).encode())
+        assert llm._parse_response({"body": body}, tools=None) == ""
+
+    def test_cohere_empty_generations_returns_empty(self, mock_boto3):
+        llm = _make_llm("cohere.command-r-plus-v1:0", mock_boto3)
+        body = io.BytesIO(json.dumps({"generations": []}).encode())
+        assert llm._parse_response({"body": body}, tools=None) == ""
+
+    def test_nova_empty_content_returns_empty(self, mock_boto3):
+        """Guards the Nova invoke_model shape itself: an empty content list
+        must parse as "", not IndexError into "Error parsing response".
+        On current main the no-tools Nova call is routed to Converse and does
+        not reach this branch; the routing problem is tracked separately."""
+        llm = _make_llm("amazon.nova-lite-v1:0", mock_boto3)
+        body = io.BytesIO(json.dumps({"content": []}).encode())
+        assert llm._parse_response({"body": body}, tools=None) == ""
+
+    def test_anthropic_content_returns_text(self, mock_boto3):
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+        body = io.BytesIO(json.dumps({"content": [{"text": "hello from claude"}]}).encode())
+        assert llm._parse_response({"body": body}, tools=None) == "hello from claude"
+
+    def test_mistral_outputs_returns_text(self, mock_boto3):
+        llm = _make_llm("mistral.mistral-large-2402-v1:0", mock_boto3)
+        body = io.BytesIO(json.dumps({"outputs": [{"text": "hello from mistral"}]}).encode())
+        assert llm._parse_response({"body": body}, tools=None) == "hello from mistral"
+
+    def test_cohere_generations_returns_text(self, mock_boto3):
+        llm = _make_llm("cohere.command-r-plus-v1:0", mock_boto3)
+        body = io.BytesIO(json.dumps({"generations": [{"text": "hello from cohere"}]}).encode())
+        assert llm._parse_response({"body": body}, tools=None) == "hello from cohere"
+
+    def test_nova_content_returns_text(self, mock_boto3):
+        """Non-empty Nova invoke_model shape (reachability note on the
+        empty-list test above applies here too)."""
+        llm = _make_llm("amazon.nova-lite-v1:0", mock_boto3)
+        body = io.BytesIO(json.dumps({"content": [{"text": "hello from nova"}]}).encode())
+        assert llm._parse_response({"body": body}, tools=None) == "hello from nova"
+
+    def test_empty_block_is_not_reported_as_a_parse_error(self, mock_boto3, caplog):
+        """The regression that matters: an empty block list is a valid response,
+        so it must not come back as the sentinel "Error parsing response".
+        Memory.add() feeds this string to json.loads and treats the failure as
+        "the LLM found no memories", so the sentinel hides the real outcome."""
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+        body = io.BytesIO(json.dumps({"content": []}).encode())
+        with caplog.at_level("WARNING"):
+            result = llm._parse_response({"body": body}, tools=None)
+        assert result != "Error parsing response"
+        assert "Could not parse response" not in caplog.text
 
 
 class TestAnthropicConverseContentParsing:

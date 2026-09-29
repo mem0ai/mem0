@@ -360,6 +360,26 @@ class AWSBedrockLLM(LLMBase):
 
         return new_tools
 
+    @staticmethod
+    def _first_block_text(blocks: Optional[List[Dict[str, Any]]], *keys: str) -> str:
+        """Read a text value out of a provider's response block list.
+
+        A present-but-empty block list is a valid response (content filtering,
+        an empty stop reason, or a model that returned no candidates), so it
+        yields "" rather than an IndexError. Missing keys along the way also
+        yield "", so a partial block degrades to empty text instead of raising.
+        """
+        if not blocks:
+            return ""
+        block = blocks[0]
+        for key in keys:
+            if not isinstance(block, dict):
+                return ""
+            block = block.get(key)
+            if block is None:
+                return ""
+        return block if isinstance(block, str) else ""
+
     def _parse_response(
         self, response: Dict[str, Any], tools: Optional[List[Dict]] = None
     ) -> Union[str, Dict[str, Any]]:
@@ -396,32 +416,37 @@ class AWSBedrockLLM(LLMBase):
 
             # Provider-specific response parsing
             if self.provider == "anthropic":
-                return response_json.get("content", [{"text": ""}])[0].get("text", "")
+                return self._first_block_text(response_json.get("content"), "text")
             elif self.provider == "amazon":
                 # Handle both Nova and legacy Amazon models
                 if "nova" in self.config.model.lower():
-                    # Nova models return content in a different format
+                    # Nova models return content in a different format.
+                    # NOTE: on current main the no-tools Nova call is routed to
+                    # Converse and never reaches this invoke_model shape (see
+                    # the routing issue tracking that); this branch guards the
+                    # shape itself for when the routing is fixed.
                     if "content" in response_json:
-                        return response_json["content"][0]["text"]
+                        return self._first_block_text(response_json["content"], "text")
                     elif "completion" in response_json:
                         return response_json["completion"]
+                    return ""
                 else:
                     # Legacy Amazon models
                     return response_json.get("completion", "")
             elif self.provider == "meta":
                 return response_json.get("generation", "")
             elif self.provider == "mistral":
-                return response_json.get("outputs", [{"text": ""}])[0].get("text", "")
+                return self._first_block_text(response_json.get("outputs"), "text")
             elif self.provider == "cohere":
-                return response_json.get("generations", [{"text": ""}])[0].get("text", "")
+                return self._first_block_text(response_json.get("generations"), "text")
             elif self.provider == "ai21":
-                return response_json.get("completions", [{"data": {"text": ""}}])[0].get("data", {}).get("text", "")
+                return self._first_block_text(response_json.get("completions"), "data", "text")
             else:
                 # Generic parsing - try common response fields
                 for field in ["content", "text", "completion", "generation"]:
                     if field in response_json:
                         if isinstance(response_json[field], list) and response_json[field]:
-                            return response_json[field][0].get("text", "")
+                            return self._first_block_text(response_json[field], "text")
                         elif isinstance(response_json[field], str):
                             return response_json[field]
 
