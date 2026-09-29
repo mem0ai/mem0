@@ -47,6 +47,11 @@ OPERATOR_SQL_MAP = {
 }
 
 
+def _sql_text(value):
+    """Lowercase JSON form for booleans so they match payload->> text ('true'/'false')."""
+    return json.dumps(value) if isinstance(value, bool) else str(value)
+
+
 def _build_filter_conditions(filters):
     """Translate a processed filter dict into SQL WHERE fragments and parameter list."""
     conditions = []
@@ -93,7 +98,7 @@ def _build_filter_conditions(filters):
                         raise ValueError(
                             f"Filter operator {op!r} for key {key!r} requires a list value, got {type(op_value).__name__}"
                         )
-                    str_list = [str(v) for v in op_value]
+                    str_list = [_sql_text(v) for v in op_value]
                     conditions.append(template)
                     params.extend([key, str_list])
                 elif op in ("contains", "icontains"):
@@ -105,10 +110,10 @@ def _build_filter_conditions(filters):
                     if is_numeric:
                         params.extend([key, float(op_value)])
                     else:
-                        params.extend([key, str(op_value)])
+                        params.extend([key, _sql_text(op_value)])
         elif isinstance(value, list):
             conditions.append("payload->>%s = ANY(%s)")
-            params.extend([key, [str(v) for v in value]])
+            params.extend([key, [_sql_text(v) for v in value]])
         else:
             conditions.append("payload->>%s = %s")
             if isinstance(value, bool):
