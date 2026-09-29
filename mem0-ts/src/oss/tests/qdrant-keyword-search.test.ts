@@ -29,7 +29,6 @@ function buildMockClient(
     scroll: jest.fn().mockResolvedValue({ points: [] }),
     upsert: jest.fn().mockResolvedValue(undefined),
     retrieve: jest.fn().mockResolvedValue([]),
-    search: jest.fn().mockResolvedValue([]),
     query: jest.fn().mockResolvedValue({ points: [] }),
     delete: jest.fn().mockResolvedValue(undefined),
     deleteCollection: jest.fn().mockResolvedValue(undefined),
@@ -545,24 +544,28 @@ describe("Qdrant BM25 keyword search — memory_migrations indexing", () => {
 });
 
 describe("Qdrant BM25 keyword search — semantic (dense) path", () => {
-  it("search() still targets the unnamed dense slot after BM25 init", async () => {
+  it("search() queries the unnamed dense slot via the Query API", async () => {
+    // The mock client has no search(): it was removed in @qdrant/js-client-rest 1.19.
     const client = buildMockClient({
-      search: jest
-        .fn()
-        .mockResolvedValue([
-          { id: "mem-1", score: 0.9, payload: { data: "x" } },
-        ]),
+      query: jest.fn().mockResolvedValue({
+        points: [{ id: "mem-1", score: 0.9, payload: { data: "x" } }],
+      }),
     });
     const store = makeStore(client);
     await store.initialize();
 
     const res = await store.search([0.1, 0.2, 0.3], 5);
 
-    // Plain number[] (not a named vector) keeps hitting the default dense slot.
-    expect(client.search).toHaveBeenCalledWith(
+    // Plain number[] with no `using` keeps hitting the default dense slot.
+    expect(client.query).toHaveBeenCalledWith(
       "test_memories",
-      expect.objectContaining({ vector: [0.1, 0.2, 0.3] }),
+      expect.objectContaining({
+        query: [0.1, 0.2, 0.3],
+        limit: 5,
+        with_payload: true,
+      }),
     );
-    expect(res[0].id).toBe("mem-1");
+    expect(client.query.mock.calls[0][1]).not.toHaveProperty("using");
+    expect(res).toEqual([{ id: "mem-1", score: 0.9, payload: { data: "x" } }]);
   });
 });

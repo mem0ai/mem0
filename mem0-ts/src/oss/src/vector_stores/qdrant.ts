@@ -398,13 +398,14 @@ export class Qdrant implements VectorStore {
   ): Promise<VectorStoreResult[]> {
     await this.initialize();
     const queryFilter = this.createFilter(filters);
-    const results = await this.client.search(this.collectionName, {
-      vector: query,
+    const response = await this.client.query(this.collectionName, {
+      query,
       filter: queryFilter,
       limit: topK,
+      with_payload: true,
     });
 
-    return results.map((hit) => ({
+    return response.points.map((hit) => ({
       id: String(hit.id),
       payload: (hit.payload as Record<string, any>) || {},
       score: hit.score,

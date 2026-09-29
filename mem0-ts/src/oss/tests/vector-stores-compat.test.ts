@@ -260,7 +260,7 @@ describe("Qdrant – backward compat with mocked client", () => {
           }
           return results;
         }),
-      search: jest
+      query: jest
         .fn()
         .mockImplementation(async (collName: string, opts: any) => {
           const results: any[] = [];
@@ -269,7 +269,7 @@ describe("Qdrant – backward compat with mocked client", () => {
               results.push({ id: pt.id, payload: pt.payload, score: 0.9 });
             }
           });
-          return results.slice(0, opts.limit);
+          return { points: results.slice(0, opts.limit) };
         }),
       scroll: jest
         .fn()
