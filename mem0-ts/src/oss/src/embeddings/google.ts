@@ -41,11 +41,21 @@ export class GoogleEmbedder implements Embedder {
     await this.ensureClient();
     const response = await this.google.models.embedContent({
       model: this.model,
-      contents: texts,
+      // Pass each text as its own content part. The GenAI SDK normalizes a
+      // plain string array into a single multipart content item, so models
+      // like gemini-embedding-002 return one combined vector instead of one
+      // vector per text (see issue #7488).
+      contents: texts.map((text) => ({ parts: [{ text }] })),
       ...(this.embeddingDims !== undefined && {
         config: { outputDimensionality: this.embeddingDims },
       }),
     });
-    return response.embeddings!.map((item) => item.values!);
+    const embeddings = response.embeddings ?? [];
+    if (embeddings.length !== texts.length) {
+      throw new Error(
+        `Google embedBatch() returned ${embeddings.length} embeddings for ${texts.length} texts using model '${this.model}'`,
+      );
+    }
+    return embeddings.map((item) => item.values!);
   }
 }
