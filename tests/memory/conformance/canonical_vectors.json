@@ -1,0 +1,122 @@
+{
+  "profile": "canonical-json-strict-v1",
+  "rfc": "https://github.com/mem0ai/mem0/issues/7376",
+  "description": "Byte-exact canonicalization vectors. `input` is JSON text; `expected` is the canonical serialization under the strict profile v1 defined in mem0/memory/canonical_json.py. Every vector must produce byte-identical output from every compliant implementation, regardless of language (verified cross-engine in verify_cross_engine.mjs).",
+  "vectors": [
+    {
+      "name": "sort-basic",
+      "input": "{\"b\":1,\"a\":2}",
+      "expected": "{\"a\":2,\"b\":1}"
+    },
+    {
+      "name": "sort-nested-arrays-keep-order",
+      "input": "{\"z\":[3,1,2],\"a\":{\"y\":true,\"x\":null}}",
+      "expected": "{\"a\":{\"x\":null,\"y\":true},\"z\":[3,1,2]}"
+    },
+    {
+      "name": "key-codepoint-order",
+      "input": "{\"z\":1,\"é\":2,\"中\":3,\"￿\":5,\"😀\":4}",
+      "expected": "{\"z\":1,\"é\":2,\"中\":3,\"￿\":5,\"😀\":4}"
+    },
+    {
+      "name": "string-passthrough-raw-utf8",
+      "input": "{\"k\":\"café 中文 日本語\"}",
+      "expected": "{\"k\":\"café 中文 日本語\"}"
+    },
+    {
+      "name": "escape-controls",
+      "input": "{\"s\":\"a\\u0001b\\tc\\n\"}",
+      "expected": "{\"s\":\"a\\u0001b\\tc\\n\"}"
+    },
+    {
+      "name": "escape-quote-backslash",
+      "input": "{\"s\":\"he said \\\"hi\\\" \\\\ ok\"}",
+      "expected": "{\"s\":\"he said \\\"hi\\\" \\\\ ok\"}"
+    },
+    {
+      "name": "int-zero-and-negative",
+      "input": "[0,-7]",
+      "expected": "[0,-7]"
+    },
+    {
+      "name": "big-int-exact-beyond-2e53",
+      "input": "9007199254740993",
+      "expected": "9007199254740993"
+    },
+    {
+      "name": "number-exp-form-normalizes-to-int",
+      "input": "1E2",
+      "expected": "100"
+    },
+    {
+      "name": "float-0.1",
+      "input": "0.1",
+      "expected": "1e-1"
+    },
+    {
+      "name": "float-integral-collapses",
+      "input": "1.0",
+      "expected": "1"
+    },
+    {
+      "name": "float-1e16-scientific",
+      "input": "1e16",
+      "expected": "1e16"
+    },
+    {
+      "name": "float-123.456",
+      "input": "123.456",
+      "expected": "1.23456e2"
+    },
+    {
+      "name": "float-negative",
+      "input": "-123.456",
+      "expected": "-1.23456e2"
+    },
+    {
+      "name": "float-1e-7-exponent-no-zero-pad",
+      "input": "1e-7",
+      "expected": "1e-7"
+    },
+    {
+      "name": "float-negative-zero-collapses",
+      "input": "-0.0",
+      "expected": "0"
+    },
+    {
+      "name": "float-two53-integral-collapses",
+      "input": "9007199254740992.0",
+      "expected": "9007199254740992"
+    },
+    {
+      "name": "float-1.5e-6",
+      "input": "1.5e-6",
+      "expected": "1.5e-6"
+    },
+    {
+      "name": "float-1e-6-boundary",
+      "input": "1e-6",
+      "expected": "1e-6"
+    },
+    {
+      "name": "float-2.5e-16",
+      "input": "2.5e-16",
+      "expected": "2.5e-16"
+    },
+    {
+      "name": "float-extremes",
+      "input": "[1.7976931348623157e308,5e-324,1e21]",
+      "expected": "[1.7976931348623157e308,5e-324,1e21]"
+    },
+    {
+      "name": "empty-containers",
+      "input": "[{},[],{}]",
+      "expected": "[{},[],{}]"
+    },
+    {
+      "name": "mixed-bundle-shaped-doc",
+      "input": "{\"id\":\"b1\",\"score\":0.987654321,\"count\":9007199254740993,\"active\":true,\"meta\":null,\"tags\":[\"a\",\"b\"]}",
+      "expected": "{\"active\":true,\"count\":9007199254740993,\"id\":\"b1\",\"meta\":null,\"score\":9.87654321e-1,\"tags\":[\"a\",\"b\"]}"
+    }
+  ]
+}
