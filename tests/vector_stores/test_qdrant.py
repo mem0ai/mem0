@@ -336,6 +336,28 @@ class TestQdrant(unittest.TestCase):
         self.assertEqual(len(string_conditions), 1)
         self.assertEqual(string_conditions[0].key, "user_id")
 
+    def test_create_filter_two_operators_on_one_field(self):
+        """Both operators on one field must apply; the second was dropped before the fix."""
+        filters = {"status": {"ne": "archived", "nin": ["deleted"]}}
+        result = self.qdrant._create_filter(filters)
+
+        self.assertIsInstance(result, Filter)
+        status_conditions = [cond for cond in result.must if cond.key == "status"]
+        self.assertEqual(len(status_conditions), 2)
+        excepts = sorted(tuple(cond.match.except_) for cond in status_conditions)
+        self.assertEqual(excepts, [("archived",), ("deleted",)])
+
+    def test_create_filter_range_plus_non_range_on_one_field(self):
+        """A range and a non-range operator on one field are two conditions, not an error."""
+        filters = {"count": {"gte": 1, "ne": 5}}
+        result = self.qdrant._create_filter(filters)
+
+        self.assertIsInstance(result, Filter)
+        count_conditions = [cond for cond in result.must if cond.key == "count"]
+        self.assertEqual(len(count_conditions), 2)
+        self.assertEqual(sum(c.range is not None for c in count_conditions), 1)
+        self.assertEqual(sum(c.match is not None for c in count_conditions), 1)
+
     def test_delete(self):
         vector_id = str(uuid.uuid4())
         self.qdrant.delete(vector_id=vector_id)

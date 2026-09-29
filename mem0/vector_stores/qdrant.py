@@ -262,6 +262,28 @@ class Qdrant(VectorStoreBase):
             for v in range_kwargs.values()
         )
 
+    @staticmethod
+    def _split_field_operators(value):
+        """Split a field's value into one payload per Qdrant condition.
+
+        ``_process_metadata_filters`` merges the AND conditions on one field into a
+        single operator dict, e.g. ``{"ne": "archived", "nin": ["deleted"]}``. A
+        ``FieldCondition`` holds only one match/range constraint, so each operator
+        must become its own condition (the caller ANDs them). Range bounds
+        (``gt``/``gte``/``lt``/``lte``) stay grouped, since they form one Qdrant
+        ``Range``. A scalar, a list shorthand, or a single-operator dict is returned
+        unchanged, so ``_build_field_condition`` sees exactly what it did before.
+        """
+        if not isinstance(value, dict) or len(value) <= 1:
+            return [value]
+        range_ops = {"gt", "gte", "lt", "lte"}
+        present_range = {op: value[op] for op in range_ops if op in value}
+        parts = [{op: v} for op, v in value.items() if op not in range_ops]
+        if present_range:
+            # One Range condition for all bounds, kept first for stable ordering.
+            parts.insert(0, present_range)
+        return parts
+
     def _build_field_condition(self, key: str, value) -> Optional[FieldCondition]:
         """
         Build a single FieldCondition from a key-value filter pair.
@@ -399,9 +421,10 @@ class Qdrant(VectorStoreBase):
                     if built:
                         must_not.append(built)
             else:
-                condition = self._build_field_condition(key, value)
-                if condition is not None:
-                    must.append(condition)
+                for operator_value in self._split_field_operators(value):
+                    condition = self._build_field_condition(key, operator_value)
+                    if condition is not None:
+                        must.append(condition)
 
         if not any([must, should, must_not]):
             return None
