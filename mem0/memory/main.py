@@ -98,6 +98,7 @@ _RUNTIME_FIELDS = frozenset({
     "auth",
     "connection_class",
     "ssl_context",
+    "use_azure_credential",
 })
 
 # Fields that are known to contain sensitive secrets and must be redacted.
