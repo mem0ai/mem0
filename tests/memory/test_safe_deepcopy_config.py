@@ -529,3 +529,47 @@ class TestConnectionCloneKeepsCredentials:
 
         assert result.password is None
         assert result.api_key is None
+
+
+class TestConnectionCallSitesDisableRedaction:
+    """The call sites that build a working store must pass ``redact=False``.
+
+    The helper tests above cover the new parameter, but they pass it directly.
+    If a call site stops asking for it, the helper tests still pass while the
+    store is handed a redacted config again — Elasticsearch then raises
+    ``AttributeError: 'Config' object has no attribute 'model_dump'`` and
+    OpenSearch reconnects anonymously. These assertions read the production
+    source so a reverted call site fails here.
+    """
+
+    def _call_sites(self):
+        import inspect
+
+        from mem0.memory.main import AsyncMemory, Memory
+
+        return {
+            "Memory.entity_store": inspect.getsource(Memory.entity_store.fget),
+            "AsyncMemory.entity_store": inspect.getsource(AsyncMemory.entity_store.fget),
+            "AsyncMemory.__init__": inspect.getsource(AsyncMemory.__init__),
+        }
+
+    def test_entity_store_call_sites_pass_redact_false(self):
+        call_sites = self._call_sites()
+        for name in ("Memory.entity_store", "AsyncMemory.entity_store"):
+            assert "_safe_deepcopy_config(self.config.vector_store.config, redact=False)" in call_sites[name], (
+                f"{name} must clone without redaction: the clone is passed to "
+                "VectorStoreFactory.create, which authenticates with it"
+            )
+
+    def test_async_telemetry_call_site_passes_redact_false(self):
+        assert "_safe_deepcopy_config(self.config.vector_store.config, redact=False)" in self._call_sites()[
+            "AsyncMemory.__init__"
+        ]
+
+    def test_no_call_site_asks_for_a_redacted_connection_clone(self):
+        """No call site may re-introduce redaction on a clone a store consumes."""
+        for name, source in self._call_sites().items():
+            for line in source.splitlines():
+                if "_safe_deepcopy_config" not in line:
+                    continue
+                assert "redact=False" in line, f"{name} clones a store config on: {line.strip()}"
