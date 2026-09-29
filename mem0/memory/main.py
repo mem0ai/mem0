@@ -267,8 +267,14 @@ def _is_sensitive_field(field_name: str) -> bool:
     return any(name.endswith(suffix) for suffix in _SENSITIVE_SUFFIXES)
 
 
-def _safe_deepcopy_config(config):
-    """Safely deepcopy config, falling back to dict-based cloning for non-serializable objects."""
+def _safe_deepcopy_config(config, redact=True):
+    """Safely deepcopy config, falling back to dict-based cloning for non-serializable objects.
+
+    ``redact`` controls whether sensitive fields are blanked in the fallback clone.
+    Leave it on for clones that may be serialized into telemetry payloads. Pass
+    ``redact=False`` for clones a store is about to authenticate with — blanking a
+    credential there produces a config the store cannot connect with.
+    """
     try:
         return deepcopy(config)
     except Exception as e:
@@ -288,7 +294,7 @@ def _safe_deepcopy_config(config):
         for field_name in list(clone_dict.keys()):
             if field_name in _RUNTIME_FIELDS and hasattr(config, field_name):
                 clone_dict[field_name] = getattr(config, field_name)
-            elif _is_sensitive_field(field_name):
+            elif redact and _is_sensitive_field(field_name):
                 clone_dict[field_name] = None
 
         try:
@@ -559,7 +565,7 @@ class Memory(MemoryBase):
     def entity_store(self):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
-            entity_config = _safe_deepcopy_config(self.config.vector_store.config)
+            entity_config = _safe_deepcopy_config(self.config.vector_store.config, redact=False)
             entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
             # Set collection name on the cloned config
             if hasattr(entity_config, 'collection_name'):
@@ -2218,7 +2224,9 @@ class AsyncMemory(MemoryBase):
             )
 
         if MEM0_TELEMETRY:
-            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
+            # The clone is passed straight to VectorStoreFactory, so it has to
+            # keep the credentials the store connects with.
+            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config, redact=False)
             telemetry_config.collection_name = "mem0migrations"
             if self.config.vector_store.provider in ["faiss", "qdrant"]:
                 provider_path = f"migrations_{self.config.vector_store.provider}"
@@ -2245,7 +2253,7 @@ class AsyncMemory(MemoryBase):
     def entity_store(self):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
-            entity_config = _safe_deepcopy_config(self.config.vector_store.config)
+            entity_config = _safe_deepcopy_config(self.config.vector_store.config, redact=False)
             entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
             if hasattr(entity_config, 'collection_name'):
                 entity_config.collection_name = entity_collection

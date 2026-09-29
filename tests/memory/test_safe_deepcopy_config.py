@@ -369,3 +369,163 @@ class TestSafeDeepcopyWithDataclass:
         assert result.api_key is None
         assert result.db_password is None
         assert result.http_auth is not None
+
+
+
+# ---------------------------------------------------------------------------
+# Regression: a clone used to open a connection must keep its credentials
+# ---------------------------------------------------------------------------
+
+
+class MockNonCopyableSecret:
+    """A non-copyable value a provider config legitimately carries.
+
+    Stands in for the AWSV4SignerAuth-style objects that made #3580 necessary:
+    a real config can hold runtime handles that refuse ``deepcopy``.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+
+    def __deepcopy__(self, memo):
+        raise TypeError("cannot pickle '_thread.lock' object")
+
+
+def _non_copyable(config):
+    """Make ``deepcopy`` of this config fail the way a live handle would."""
+    def _boom(self, memo):
+        raise TypeError("cannot pickle '_thread.lock' object")
+
+    object.__setattr__(config, "__deepcopy__", _boom.__get__(config, type(config)))
+    return config
+
+
+class TestConnectionCloneKeepsCredentials:
+    """``redact=False`` clones are handed to a store to open a connection.
+
+    Redaction exists to keep secrets out of telemetry payloads. A clone that
+    a store is about to authenticate with is not such a payload, so the
+    credentials have to survive it.
+    """
+
+    def test_elasticsearch_cloud_id_keeps_api_key(self):
+        """ElasticsearchConfig requires api_key; store passes it to the client."""
+        from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
+
+        config = _non_copyable(
+            ElasticsearchConfig(
+                collection_name="probe_idx",
+                cloud_id="probe-cloud-id",
+                api_key="real-es-api-key",
+            )
+        )
+
+        result = _safe_deepcopy_config(config, redact=False)
+
+        # mem0/vector_stores/elasticsearch.py passes api_key=config.api_key
+        # to Elasticsearch() unconditionally.
+        assert result.api_key == "real-es-api-key"
+
+    def test_elasticsearch_basic_auth_keeps_password(self):
+        """ElasticsearchConfig also accepts user/password; both must survive."""
+        from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
+
+        config = _non_copyable(
+            ElasticsearchConfig(
+                collection_name="probe_idx",
+                host="localhost",
+                user="admin",
+                password="s3cret",
+            )
+        )
+
+        result = _safe_deepcopy_config(config, redact=False)
+
+        assert result.password == "s3cret"
+        assert (result.user and result.password) is not None
+
+    def test_opensearch_basic_auth_keeps_password(self):
+        """OpenSearchConfig accepts user/password; store opens a connection with them."""
+        from mem0.configs.vector_stores.opensearch import OpenSearchConfig
+
+        config = _non_copyable(
+            OpenSearchConfig(
+                collection_name="probe_idx",
+                host="localhost",
+                user="admin",
+                password="s3cret",
+            )
+        )
+
+        result = _safe_deepcopy_config(config, redact=False)
+
+        assert result.password == "s3cret"
+
+    @pytest.mark.parametrize("provider", ["elasticsearch", "opensearch"])
+    def test_connection_clone_stays_acceptable_to_store_factory(self, provider):
+        """The clone must survive the factory's ``config.model_dump()`` call.
+
+        VectorStoreFactory.create() calls ``config.model_dump()`` for any
+        non-dict config, so a fallback stand-in object fails there before the
+        store is even reached.
+        """
+        from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
+        from mem0.configs.vector_stores.opensearch import OpenSearchConfig
+
+        if provider == "elasticsearch":
+            config_class = ElasticsearchConfig
+            kwargs = {
+                "collection_name": "probe_idx",
+                "cloud_id": "probe-cloud-id",
+                "api_key": "real-es-api-key",
+            }
+        else:
+            config_class = OpenSearchConfig
+            kwargs = {
+                "collection_name": "probe_idx",
+                "host": "localhost",
+                "user": "admin",
+                "password": "s3cret",
+            }
+
+        result = _safe_deepcopy_config(_non_copyable(config_class(**kwargs)), redact=False)
+
+        # Same class as the original, so the factory can dump it.
+        assert type(result) is config_class
+        assert isinstance(result.model_dump(), dict)
+
+    def test_connection_clone_preserves_runtime_handles(self):
+        """Allowlisted runtime handles must survive either way."""
+        from mem0.configs.vector_stores.opensearch import OpenSearchConfig
+
+        config = _non_copyable(
+            OpenSearchConfig(
+                collection_name="probe_idx",
+                host="localhost",
+                user="admin",
+                password="s3cret",
+                http_auth=MockNonCopyableSecret(),
+            )
+        )
+
+        assert _safe_deepcopy_config(config, redact=False).http_auth is not None
+        assert _safe_deepcopy_config(config).http_auth is not None
+
+    def test_default_still_redacts(self):
+        """Existing telemetry callers keep the redacting behaviour."""
+        from mem0.configs.vector_stores.opensearch import OpenSearchConfig
+
+        config = _non_copyable(
+            OpenSearchConfig(
+                collection_name="probe_idx",
+                host="localhost",
+                user="admin",
+                password="s3cret",
+                api_key="real-api-key",
+            )
+        )
+
+        result = _safe_deepcopy_config(config)
+
+        assert result.password is None
+        assert result.api_key is None
