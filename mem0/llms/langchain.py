@@ -4,7 +4,7 @@ from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 
 try:
-    from langchain.chat_models.base import BaseChatModel
+    from langchain_core.language_models.chat_models import BaseChatModel
     from langchain_core.messages import AIMessage
 except ImportError:
     raise ImportError("langchain is not installed. Please install it using `pip install langchain`")
@@ -44,8 +44,8 @@ class LangchainLLM(LLMBase):
         for tool_call in response.tool_calls:
             processed_response["tool_calls"].append(
                 {
-                    "name": tool_call["name"],
-                    "arguments": tool_call["args"],
+                    "name": tool_call.name,
+                    "arguments": tool_call.args,
                 }
             )
 
