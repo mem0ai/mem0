@@ -140,8 +140,8 @@ importers:
         specifier: ^14.0.0
         version: 14.15.1
       fastembed:
-        specifier: ^2.1.0
-        version: 2.1.0
+        specifier: ^3.0.0
+        version: 3.0.0
       groq-sdk:
         specifier: 0.3.0
         version: 0.3.0
@@ -268,6 +268,7 @@ packages:
   '@anush008/tokenizers@0.0.0':
     resolution: {integrity: sha512-IQD9wkVReKAhsEAbDjh/0KrBGTEXelqZLpOBRDaIRvlzZ9sjmUP+gKbpvzyJnei2JHQiE8JAgj7YcNloINbGBw==}
     engines: {node: '>= 10'}
+    deprecated: This package has been archived. Please use the official and updated "huggingface/tokenizers" package.
 
   '@aws-crypto/crc32@5.2.0':
     resolution: {integrity: sha512-nLbCWqQNgUiwwtFsen1AdzAtvuLRsQS8rYgMuxCrdKf9kOssamGLuPwyTY9wyYblNr9+1XM8v6zoDTPPSIeANg==}
@@ -2714,8 +2715,8 @@ packages:
     resolution: {integrity: sha512-IEMIf7298kXuZSRFoGfMYrl7is8LpavODgbNz1cwIudv7KwVFnuU+UsMporfq6PD6aXSlawZlARiA3UywCTfMw==}
     hasBin: true
 
-  fastembed@2.1.0:
-    resolution: {integrity: sha512-oQkpcRHBppJ3+a3w9dU0uytSY0N1cnEa/iVMc8AXEd+tvT529GekOEFhNviJy89R3lvQXF6cdIMTXHj1Gi00xQ==}
+  fastembed@3.0.0:
+    resolution: {integrity: sha512-Rq5OO2sjLDSoKSpbYiLmTDCEE5XDiVqAMc7loGbAnStmDvu+G4Y+vcU/Sm0cU0dqB0D1sbHiw4UJPA9M19nVJQ==}
 
   fastq@1.20.1:
     resolution: {integrity: sha512-GGToxJ/w1x32s/D2EKND7kTil4n8OVk/9mycTc4VDza13lOvpUZTGX3mFSCtV9ksdGBVzvsyAVLM6mHFThxXxw==}
@@ -8055,13 +8056,12 @@ snapshots:
       strnum: 2.4.1
       xml-naming: 0.3.0
 
-  fastembed@2.1.0:
+  fastembed@3.0.0:
     dependencies:
       '@anush008/tokenizers': 0.0.0
       '@huggingface/hub': 2.13.2
       onnxruntime-node: 1.21.0
       progress: 2.0.3
-      tar: 7.5.22(patch_hash=3cb7e72fa7dec840966f4db2013f68cae2d93f679c6e70ef63f6b84c0d52cfd8)
 
   fastq@1.20.1:
     dependencies:
