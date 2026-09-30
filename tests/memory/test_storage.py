@@ -209,6 +209,46 @@ class TestSQLiteManager:
         result_timestamps = [r["created_at"] for r in result]
         assert result_timestamps == sorted(timestamps)
 
+    def test_get_history_orders_mixed_utc_offsets_by_instant(self, sqlite_manager, sample_data):
+        """Test history ordering when ISO-8601 timestamps use different UTC offsets."""
+        memory_id = sample_data["memory_id"]
+        sqlite_manager.batch_add_history(
+            [
+                {
+                    "memory_id": memory_id,
+                    "old_memory": None,
+                    "new_memory": "created",
+                    "event": "ADD",
+                    "created_at": "2026-01-01T10:00:00+08:00",  # 02:00 UTC
+                    "updated_at": "2026-01-01T10:00:00+08:00",
+                },
+                {
+                    "memory_id": memory_id,
+                    "old_memory": "updated same instant",
+                    "new_memory": "updated latest",
+                    "event": "UPDATE",
+                    "created_at": "2026-01-01T09:00:00+00:00",  # 09:00 UTC
+                    "updated_at": "2026-01-01T09:00:00+00:00",
+                },
+                {
+                    "memory_id": memory_id,
+                    "old_memory": "created",
+                    "new_memory": "updated same instant",
+                    "event": "UPDATE",
+                    "created_at": "2026-01-01T10:00:00+08:00",  # 02:00 UTC
+                    "updated_at": "2026-01-01T10:05:00+08:00",
+                },
+            ]
+        )
+
+        result = sqlite_manager.get_history(memory_id)
+
+        assert [record["new_memory"] for record in result] == [
+            "created",
+            "updated same instant",
+            "updated latest",
+        ]
+
     def test_migration_preserves_data(self, temp_db_path, sample_data):
         """Test that migration preserves existing data."""
         manager1 = SQLiteManager(temp_db_path)

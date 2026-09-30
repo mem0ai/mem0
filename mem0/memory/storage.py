@@ -232,26 +232,45 @@ class SQLiteManager:
                        created_at, updated_at, is_deleted, actor_id, role
                 FROM history
                 WHERE memory_id = ?
-                ORDER BY created_at ASC, DATETIME(updated_at) ASC
-            """,
+                """,
                 (memory_id,),
             )
             rows = cur.fetchall()
 
+        def timestamp_key(value: Optional[str]) -> tuple[int, float]:
+            if not value:
+                return (1, 0.0)
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                return (0, parsed.timestamp())
+            except (OSError, TypeError, ValueError, OverflowError):
+                return (1, 0.0)
+
+        rows = sorted(
+            enumerate(rows),
+            key=lambda item: (
+                *timestamp_key(item[1][5]),
+                *timestamp_key(item[1][6]),
+                item[0],
+            ),
+        )
+
         return [
             {
-                "id": r[0],
-                "memory_id": r[1],
-                "old_memory": r[2],
-                "new_memory": r[3],
-                "event": r[4],
-                "created_at": r[5],
-                "updated_at": r[6],
-                "is_deleted": bool(r[7]),
-                "actor_id": r[8],
-                "role": r[9],
+                "id": row[0],
+                "memory_id": row[1],
+                "old_memory": row[2],
+                "new_memory": row[3],
+                "event": row[4],
+                "created_at": row[5],
+                "updated_at": row[6],
+                "is_deleted": bool(row[7]),
+                "actor_id": row[8],
+                "role": row[9],
             }
-            for r in rows
+            for _, row in rows
         ]
 
     def save_messages(self, messages: List[Dict[str, Any]], session_scope: str) -> None:
