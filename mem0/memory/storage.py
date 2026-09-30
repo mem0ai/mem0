@@ -232,7 +232,7 @@ class SQLiteManager:
                        created_at, updated_at, is_deleted, actor_id, role
                 FROM history
                 WHERE memory_id = ?
-                ORDER BY created_at ASC, DATETIME(updated_at) ASC
+                ORDER BY DATETIME(created_at) ASC, DATETIME(updated_at) ASC
             """,
                 (memory_id,),
             )
