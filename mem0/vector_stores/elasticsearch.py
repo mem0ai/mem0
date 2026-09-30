@@ -3,7 +3,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 try:
-    from elasticsearch import Elasticsearch
+    from elasticsearch import Elasticsearch, NotFoundError
     from elasticsearch.helpers import bulk
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
@@ -244,9 +244,20 @@ class ElasticsearchDB(VectorStoreBase):
         self.client.update(index=self.collection_name, id=vector_id, body={"doc": doc})
 
     def get(self, vector_id: str) -> Optional[OutputData]:
-        """Retrieve a vector by ID."""
+        """Retrieve a vector by ID.
+
+        Returns None when no document with that id exists. Any other failure -
+        authentication, a timeout, an unreachable cluster - is raised, because a
+        caller cannot tell it apart from an absent vector otherwise.
+        """
         try:
             response = self.client.get(index=self.collection_name, id=vector_id)
+        except NotFoundError:
+            return None
+
+        # Only the parsing of a response we did get, which is what the two handlers
+        # below were written for.
+        try:
             return OutputData(
                 id=response["_id"],
                 score=1.0,  # Default score for direct get
@@ -257,9 +268,6 @@ class ElasticsearchDB(VectorStoreBase):
             return None
         except TypeError as e:
             logger.warning(f"Invalid response type from Elasticsearch: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error while parsing Elasticsearch response: {e}")
             return None
 
     def list_cols(self) -> List[str]:

@@ -5,12 +5,20 @@ from unittest.mock import MagicMock, Mock, patch
 import dotenv
 
 try:
-    from elasticsearch import Elasticsearch
+    from elasticsearch import Elasticsearch, NotFoundError
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
 from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
 from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData, _validate_filter
+
+
+def _not_found_error() -> NotFoundError:
+    """The 404 the Elasticsearch client raises when a document id does not exist."""
+    from elastic_transport import ApiResponseMeta
+
+    meta = ApiResponseMeta(status=404, http_version="1.1", headers={}, duration=0.0, node=None)
+    return NotFoundError(message="not found", meta=meta, body={})
 
 
 class TestElasticsearchDB(unittest.TestCase):
@@ -295,12 +303,28 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(result.payload, {"key": "value"})
 
     def test_get_not_found(self):
-        # Mock get raising exception
-        self.client_mock.get.side_effect = Exception("Not found")
+        # Mock get raising the error Elasticsearch raises for a missing document.
+        # This was a bare Exception, which passed only because get() caught everything;
+        # the name and the comment below have always said "not found" specifically.
+        self.client_mock.get.side_effect = _not_found_error()
 
         # Verify get returns None when document not found
         result = self.es_db.get(vector_id="nonexistent")
         self.assertIsNone(result)
+
+    def test_get_raises_when_the_cluster_cannot_be_reached(self):
+        # None means "no such vector". A transport failure must not say that.
+        self.client_mock.get.side_effect = ConnectionError("connection refused")
+
+        with self.assertRaises(ConnectionError):
+            self.es_db.get(vector_id="id1")
+
+    def test_get_still_returns_none_on_a_malformed_response(self):
+        # The parsing handlers stay: a response that arrived but cannot be read is
+        # not a cluster failure.
+        self.client_mock.get.return_value = {"_id": "id1"}  # no _source
+
+        self.assertIsNone(self.es_db.get(vector_id="id1"))
 
     def test_list(self):
         # Mock search response with scores
