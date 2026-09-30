@@ -303,7 +303,7 @@
       "glob@>=10.2.0 <10.5.0": "^10.5.0",
       "@modelcontextprotocol/sdk": "^1.25.4",
       "esbuild": ">=0.28.1",
-      "undici@<7.29.0": ">=7.29.0 <8.0.0",
+      "undici@<7.29.1": ">=7.29.1 <8.0.0",
       "@aws-sdk/client-bedrock-runtime": "3.967.0",
       "@aws-sdk/client-neptune-graph": "3.966.0",
       "axios@<1.18.0": ">=1.18.0 <2.0.0",
