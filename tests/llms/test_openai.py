@@ -1,8 +1,10 @@
+import json
 import os
 from unittest.mock import Mock, patch
 
 import httpx
 import pytest
+from openai import OpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.openai import OpenAIConfig
@@ -464,3 +466,314 @@ def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):
     llm = OpenAILLM(config)
     assert llm.config.http_client_proxies == "http://proxy.local:8080"
     assert isinstance(llm.config.http_client, httpx.Client)
+
+
+def _openrouter_client_factory(captured_requests):
+    """Build a real `OpenAI` client wired to a mock transport.
+
+    A real client (not a Mock) is what makes this meaningful: the SDK's own
+    required-argument validation runs, so a parameter the SDK does not know
+    fails here exactly as it would against the live API. No network and no
+    API key are involved.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-test",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "openai/gpt-4o-mini",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "pong"}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            },
+        )
+
+    def factory(*args, **kwargs):
+        kwargs.pop("api_key", None)
+        kwargs.pop("base_url", None)
+        return OpenAI(
+            api_key="sk-or-test",
+            base_url="https://openrouter.ai/api/v1",
+            http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+    return factory
+
+
+def test_openrouter_models_fallback_reaches_request_body(monkeypatch):
+    """`models`/`route` are OpenRouter-only fields with no OpenAI SDK parameter.
+
+    They have to travel in `extra_body`, and `model` has to stay set, otherwise
+    `create()` raises before any request is built. Per OpenRouter's own docs
+    (`/docs/guides/routing/model-fallbacks`, "Using with the OpenAI SDK"), the
+    first entry of `models` is tried first and the array is the fallback chain.
+    """
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    config = OpenAIConfig(
+        models=["openai/gpt-4o-mini", "anthropic/claude-3.5-haiku"],
+        route="fallback",
+    )
+    llm = OpenAILLM(config)
+    assert llm.generate_response([{"role": "user", "content": "ping"}]) == "pong"
+
+    assert len(captured) == 1
+    body = json.loads(captured[0].content)
+    assert body["model"] == "openai/gpt-4o-mini"
+    assert body["models"] == ["openai/gpt-4o-mini", "anthropic/claude-3.5-haiku"]
+    assert body["route"] == "fallback"
+
+
+def test_openrouter_without_models_sends_no_fallback_fields(monkeypatch):
+    """Without `models` the request must stay a plain OpenAI-shaped call."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    config = OpenAIConfig(model="openai/gpt-4o-mini")
+    llm = OpenAILLM(config)
+    assert llm.generate_response([{"role": "user", "content": "ping"}]) == "pong"
+
+    body = json.loads(captured[0].content)
+    assert body["model"] == "openai/gpt-4o-mini"
+    assert "models" not in body
+    assert "route" not in body
+
+
+def test_openrouter_site_url_stays_in_http_headers(monkeypatch):
+    """`extra_headers` is an SDK kwarg that sets HTTP headers.
+
+    It must not be folded into `extra_body`, where it would become a JSON field.
+    """
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    config = OpenAIConfig(
+        models=["openai/gpt-4o-mini"],
+        site_url="https://example.test",
+        app_name="mem0-test",
+    )
+    llm = OpenAILLM(config)
+    assert llm.generate_response([{"role": "user", "content": "ping"}]) == "pong"
+
+    request = captured[0]
+    assert request.headers["HTTP-Referer"] == "https://example.test"
+    assert request.headers["X-Title"] == "mem0-test"
+    body = json.loads(request.content)
+    assert "extra_headers" not in body
+    assert body["models"] == ["openai/gpt-4o-mini"]
+
+
+def test_openrouter_resolves_model_before_filtering_params(monkeypatch):
+    """The model the request carries must be the model params are derived from.
+
+    `_get_supported_params` classifies `config.model` to decide whether to send
+    `temperature`/`top_p`/`max_tokens`. If the effective model is only applied at
+    request time, the params are chosen for a different model than the one sent —
+    here an `o3-mini` request would carry the non-reasoning parameters derived
+    from the `gpt-5-mini` default.
+    """
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    config = OpenAIConfig(models=["openai/o3-mini", "openai/gpt-4o-mini"])
+    llm = OpenAILLM(config)
+    assert llm.generate_response([{"role": "user", "content": "ping"}]) == "pong"
+
+    body = json.loads(captured[0].content)
+    assert body["model"] == "openai/o3-mini"
+    # o3-mini is classified as a reasoning model, so the sampling parameters
+    # and the token-limit fields are all dropped.
+    assert "temperature" not in body
+    assert "top_p" not in body
+    assert "max_tokens" not in body
+    assert "max_completion_tokens" not in body
+
+
+def test_openrouter_explicit_model_wins_over_models_list(monkeypatch):
+    """`model` is the primary and `models` the fallbacks, per OpenRouter.
+
+    An explicitly configured `model` must not be overwritten by `models[0]`.
+    """
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    config = OpenAIConfig(model="openai/gpt-4o-mini", models=["openai/gpt-4o", "anthropic/claude-3.5-haiku"])
+    llm = OpenAILLM(config)
+    assert llm.generate_response([{"role": "user", "content": "ping"}]) == "pong"
+
+    body = json.loads(captured[0].content)
+    assert body["model"] == "openai/gpt-4o-mini"
+    assert body["models"] == ["openai/gpt-4o", "anthropic/claude-3.5-haiku"]
+
+
+def test_openrouter_merges_caller_extra_body(monkeypatch):
+    """A caller-supplied `extra_body` must survive the OpenRouter fields.
+
+    Callers pass routing preferences that way; replacing the dict would drop
+    them without any error.
+    """
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    config = OpenAIConfig(models=["openai/gpt-4o-mini"])
+    llm = OpenAILLM(config)
+    assert (
+        llm.generate_response(
+            [{"role": "user", "content": "ping"}],
+            extra_body={"provider": {"sort": "price"}},
+        )
+        == "pong"
+    )
+
+    body = json.loads(captured[0].content)
+    assert body["provider"] == {"sort": "price"}
+    assert body["models"] == ["openai/gpt-4o-mini"]
+    assert body["route"] == "fallback"
+
+
+def test_openrouter_merges_caller_extra_body_on_reasoning_path(monkeypatch):
+    """The merge must work for reasoning models too.
+
+    `_get_supported_params` rebuilds `params` from scratch for reasoning models
+    and never copies `**kwargs` into it, so reading the caller's value out of
+    `params` would silently find nothing on that path.
+    """
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    config = OpenAIConfig(models=["openai/o3-mini", "openai/gpt-4o-mini"])
+    llm = OpenAILLM(config)
+    assert (
+        llm.generate_response(
+            [{"role": "user", "content": "ping"}],
+            extra_body={"provider": {"sort": "price"}},
+        )
+        == "pong"
+    )
+
+    body = json.loads(captured[0].content)
+    assert body["model"] == "openai/o3-mini"
+    assert body["provider"] == {"sort": "price"}
+    assert body["models"] == ["openai/o3-mini", "openai/gpt-4o-mini"]
+
+
+def test_openrouter_merges_caller_extra_headers(monkeypatch):
+    """Caller headers survive alongside the attribution headers from config."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    config = OpenAIConfig(
+        models=["openai/gpt-4o-mini"],
+        site_url="https://example.test",
+        app_name="mem0-test",
+    )
+    llm = OpenAILLM(config)
+    assert (
+        llm.generate_response(
+            [{"role": "user", "content": "ping"}],
+            extra_headers={"X-Caller": "keep-me"},
+        )
+        == "pong"
+    )
+
+    request = captured[0]
+    assert request.headers["HTTP-Referer"] == "https://example.test"
+    assert request.headers["X-Title"] == "mem0-test"
+    assert request.headers["X-Caller"] == "keep-me"
+
+
+def test_openrouter_decision_is_fixed_at_construction(monkeypatch):
+    """The client and the request shape must not disagree.
+
+    The OpenRouter branch is decided when the client is built; re-reading the
+    environment on every call would let a later `unset` drop a configured
+    fallback chain, or attach OpenRouter-only fields to a plain OpenAI client.
+    """
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    llm = OpenAILLM(OpenAIConfig(models=["openai/gpt-4o-mini"]))
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    assert llm.generate_response([{"role": "user", "content": "ping"}]) == "pong"
+
+    body = json.loads(captured[0].content)
+    assert body["models"] == ["openai/gpt-4o-mini"]
+    assert body["route"] == "fallback"
+
+
+def test_openrouter_keeps_caller_extra_body_without_models(monkeypatch):
+    """Caller `extra_body` survives even with nothing OpenRouter-specific set.
+
+    `_get_supported_params` drops `**kwargs` for reasoning models, so restoring
+    the caller's value cannot be conditional on `models` being configured.
+    """
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    llm = OpenAILLM(OpenAIConfig(model="openai/o3-mini"))
+    assert (
+        llm.generate_response(
+            [{"role": "user", "content": "ping"}],
+            extra_body={"provider": {"sort": "price"}},
+        )
+        == "pong"
+    )
+
+    body = json.loads(captured[0].content)
+    assert body["model"] == "openai/o3-mini"
+    assert body["provider"] == {"sort": "price"}
+    assert "models" not in body
+
+
+def test_openrouter_keeps_caller_extra_headers_with_partial_attribution(monkeypatch):
+    """Caller headers survive when only one attribution field is configured."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    llm = OpenAILLM(OpenAIConfig(model="openai/o3-mini", site_url="https://example.test"))
+    assert (
+        llm.generate_response(
+            [{"role": "user", "content": "ping"}],
+            extra_headers={"X-Trace": "1"},
+        )
+        == "pong"
+    )
+
+    request = captured[0]
+    assert request.headers["X-Trace"] == "1"
+    # `app_name` is unset, so no attribution headers are configured at all.
+    assert "x-title" not in request.headers
+
+
+def test_openrouter_does_not_mutate_caller_config(monkeypatch):
+    """Resolving the primary must not write back into the caller's config.
+
+    `LLMBase` keeps the config object it was handed, so a config reused for a
+    second client built without `OPENROUTER_API_KEY` would otherwise carry the
+    OpenRouter primary and send it to the OpenAI endpoint.
+    """
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    captured = []
+    monkeypatch.setattr("mem0.llms.openai.OpenAI", _openrouter_client_factory(captured))
+
+    config = OpenAIConfig(models=["openai/o3-mini", "openai/gpt-4o-mini"])
+    llm = OpenAILLM(config)
+
+    assert llm.config.model == "openai/o3-mini"
+    assert config.model is None
+    assert llm.config is not config

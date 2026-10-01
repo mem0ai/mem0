@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import os
@@ -12,6 +13,11 @@ from mem0.memory.utils import extract_json
 
 
 class OpenAILLM(LLMBase):
+    # Subclasses may bypass this class's `__init__` and call `LLMBase.__init__`
+    # directly (see integrations/hermes-plugin-mem0), so the flag `generate_response`
+    # reads has to exist before it is assigned.
+    _uses_openrouter = False
+
     def __init__(self, config: Optional[Union[BaseLlmConfig, OpenAIConfig, Dict]] = None):
         # Convert to OpenAIConfig if needed
         if config is None:
@@ -36,10 +42,30 @@ class OpenAILLM(LLMBase):
 
         super().__init__(config)
 
+        uses_openrouter = bool(os.environ.get("OPENROUTER_API_KEY"))
+        # Remember the choice: the client below and the OpenRouter-only request
+        # fields in `generate_response` must agree, and the environment can
+        # change between construction and the first call.
+        self._uses_openrouter = uses_openrouter
+
+        # When OpenRouter fallback routing is configured, `models` is the ordered
+        # candidate list and its first entry is what the request asks for. Resolve
+        # it here rather than at request time so that reasoning-model
+        # classification and parameter filtering (both keyed on `config.model`)
+        # see the same model the request will actually carry. An explicitly
+        # configured `model` still wins, which matches OpenRouter's own
+        # semantics: `model` is the primary and `models` the fallbacks.
+        # Copy before assigning — `LLMBase` keeps the caller's config object, and
+        # a config reused for a second client under a different provider must not
+        # inherit the OpenRouter primary.
+        if uses_openrouter and self.config.models and not self.config.model:
+            self.config = copy.copy(self.config)
+            self.config.model = self.config.models[0]
+
         if not self.config.model:
             self.config.model = "gpt-5-mini"
 
-        if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
+        if uses_openrouter:  # Use OpenRouter
             self.client = OpenAI(
                 api_key=os.environ.get("OPENROUTER_API_KEY"),
                 base_url=self.config.openrouter_base_url
@@ -110,22 +136,41 @@ class OpenAILLM(LLMBase):
             "messages": messages,
         })
 
-        if os.getenv("OPENROUTER_API_KEY"):
-            openrouter_params = {}
+        if self._uses_openrouter:
+            openrouter_extra_body = {}
             if self.config.models:
-                openrouter_params["models"] = self.config.models
-                openrouter_params["route"] = self.config.route
-                params.pop("model")
+                # `models` and `route` are OpenRouter-only fields: the OpenAI SDK
+                # has no such parameters, so they have to travel in `extra_body`
+                # or the call fails before a request is built. OpenRouter tries
+                # `model` first and then the array in order, so with only `models`
+                # configured `model` is its first entry, and with an explicit
+                # `model` the array is the fallback chain behind it.
+                # https://openrouter.ai/docs/guides/routing/model-fallbacks
+                openrouter_extra_body["models"] = self.config.models
+                if self.config.route:
+                    openrouter_extra_body["route"] = self.config.route
 
+            openrouter_extra_headers = {}
             if self.config.site_url and self.config.app_name:
-                extra_headers = {
+                openrouter_extra_headers = {
                     "HTTP-Referer": self.config.site_url,
                     "X-Title": self.config.app_name,
                 }
-                openrouter_params["extra_headers"] = extra_headers
 
-            params.update(**openrouter_params)
-        
+            # Read the caller's own `extra_body` / `extra_headers` from `kwargs`
+            # rather than from `params`: for reasoning models `_get_supported_params`
+            # rebuilds `params` from scratch without copying `**kwargs`, so a value
+            # read back out of `params` is missing on that path. Note this only
+            # covers the OpenRouter branch; on the plain OpenAI path the same
+            # drop still happens inside `LLMBase._get_supported_params`.
+            caller_extra_body = kwargs.get("extra_body") or {}
+            if caller_extra_body or openrouter_extra_body:
+                params["extra_body"] = {**caller_extra_body, **openrouter_extra_body}
+
+            caller_extra_headers = kwargs.get("extra_headers") or {}
+            if caller_extra_headers or openrouter_extra_headers:
+                params["extra_headers"] = {**caller_extra_headers, **openrouter_extra_headers}
+
         else:
             # Only send OpenAI-specific parameters when the user has explicitly
             # configured them. OpenAI-compatible backends (Gemini, Groq, vLLM, etc.)
