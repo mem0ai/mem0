@@ -28,7 +28,7 @@ overrides:
   "@modelcontextprotocol/sdk": "^1.25.4"
   "esbuild": ">=0.28.1"
   "undici@<7.29.1": ">=7.29.1 <8.0.0"
-  "axios@<1.18.0": ">=1.18.0 <2.0.0"
+  "axios@<1.20.0": ">=1.20.0 <2.0.0"
   "brace-expansion@<1.1.16": ">=1.1.16 <2.0.0"
   "brace-expansion@>=2.0.0 <2.1.4": ">=2.1.4 <3.0.0"
   "brace-expansion@>=3.0.0 <5.0.8": ">=5.0.8 <6.0.0"
