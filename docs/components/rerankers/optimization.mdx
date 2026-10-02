@@ -8,16 +8,23 @@ Optimizing reranker performance is crucial for maintaining fast search response 
 ## General Optimization Principles
 
 ### Candidate Set Size
-The number of candidates sent to the reranker significantly impacts performance:
+The number of candidates sent to the reranker significantly impacts performance. There is no reranker config key for this: the candidate pool is the `top_k` passed to `memory.search(...)` — the vector store returns that many results, and the reranker's own `top_k` then cuts the pool down:
 
 ```python
-# Optimal candidate sizes for different rerankers
-config_map = {
-    "cohere": {"initial_candidates": 100, "top_k": 10},
-    "sentence_transformer": {"initial_candidates": 50, "top_k": 10},
-    "huggingface": {"initial_candidates": 30, "top_k": 5},
-    "llm_reranker": {"initial_candidates": 20, "top_k": 5}
+# Candidates to retrieve (search top_k) vs results to keep (reranker config top_k)
+retrieve_vs_keep = {
+    "cohere": {"retrieve": 100, "keep": 10},
+    "sentence_transformer": {"retrieve": 50, "keep": 10},
+    "huggingface": {"retrieve": 30, "keep": 5},
+    "llm_reranker": {"retrieve": 20, "keep": 5},
 }
+
+results = memory.search(
+    query,
+    filters={"user_id": user_id},
+    top_k=retrieve_vs_keep["cohere"]["retrieve"],
+    rerank=True,
+)
 ```
 
 ### Batching Strategy
