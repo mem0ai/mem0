@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, Mock, patch
 import dotenv
 
 try:
-    from elasticsearch import Elasticsearch
+    from elasticsearch import ConnectionError, Elasticsearch, NotFoundError
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
@@ -295,12 +295,30 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(result.payload, {"key": "value"})
 
     def test_get_not_found(self):
-        # Mock get raising exception
-        self.client_mock.get.side_effect = Exception("Not found")
+        # elasticsearch signals a missing document with NotFoundError
+        self.client_mock.get.side_effect = NotFoundError(
+            "document_missing_exception", meta=Mock(), body={"found": False}
+        )
 
         # Verify get returns None when document not found
         result = self.es_db.get(vector_id="nonexistent")
         self.assertIsNone(result)
+
+    def test_get_transport_error_propagates(self):
+        # Transport/auth/server failures must not read as "no such vector":
+        # callers treat None as missing and would insert duplicates (issue #7516).
+        self.client_mock.get.side_effect = ConnectionError("connection refused")
+
+        with self.assertRaises(ConnectionError):
+            self.es_db.get(vector_id="id1")
+
+    def test_get_malformed_response_returns_none(self):
+        # Parse-shape failures stay non-fatal
+        self.client_mock.get.return_value = {"_id": "id1"}  # missing "_source"
+        self.assertIsNone(self.es_db.get(vector_id="id1"))
+
+        self.client_mock.get.return_value = None  # wrong response type
+        self.assertIsNone(self.es_db.get(vector_id="id1"))
 
     def test_list(self):
         # Mock search response with scores
@@ -357,11 +375,11 @@ class TestElasticsearchDB(unittest.TestCase):
     def test_es_config(self):
         config = {"host": "localhost", "port": 9200, "user": "elastic", "password": "password"}
         es_config = ElasticsearchConfig(**config)
-        
+
         # Assert that the config object was created successfully
         self.assertIsNotNone(es_config)
         self.assertIsInstance(es_config, ElasticsearchConfig)
-        
+
         # Assert that the configuration values are correctly set
         self.assertEqual(es_config.host, "localhost")
         self.assertEqual(es_config.port, 9200)
@@ -388,13 +406,13 @@ class TestElasticsearchDB(unittest.TestCase):
             "user": "elastic",
             "password": "password",
         }
-        
+
         invalid_headers = [
             "not-a-dict",  # Non-dict headers
             {"x-extra-info": 123},  # Non-string values
             {123: "456"},  # Non-string keys
         ]
-        
+
         for headers in invalid_headers:
             with self.assertRaises(ValueError):
                 config = {**base_config, "headers": headers}

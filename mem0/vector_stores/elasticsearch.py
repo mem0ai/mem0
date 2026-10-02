@@ -3,7 +3,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 try:
-    from elasticsearch import Elasticsearch
+    from elasticsearch import Elasticsearch, NotFoundError
     from elasticsearch.helpers import bulk
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
@@ -29,10 +29,7 @@ def _validate_filter(key: str, value: Any) -> None:
     if not isinstance(key, str) or not _SAFE_FILTER_KEY.match(key):
         raise ValueError(f"Invalid filter key: {key!r}")
     if not isinstance(value, (str, int, float, bool)):
-        raise ValueError(
-            f"Filter value for {key!r} must be str, int, float, or bool, "
-            f"got {type(value).__name__}"
-        )
+        raise ValueError(f"Filter value for {key!r} must be str, int, float, or bool, got {type(value).__name__}")
 
 
 class ElasticsearchDB(VectorStoreBase):
@@ -46,7 +43,7 @@ class ElasticsearchDB(VectorStoreBase):
                 api_key=config.api_key,
                 verify_certs=config.verify_certs,
                 ca_certs=config.ca_certs,
-                headers= config.headers or {},
+                headers=config.headers or {},
             )
         else:
             self.client = Elasticsearch(
@@ -54,7 +51,7 @@ class ElasticsearchDB(VectorStoreBase):
                 basic_auth=(config.user, config.password) if (config.user and config.password) else None,
                 verify_certs=config.verify_certs,
                 ca_certs=config.ca_certs,
-                headers= config.headers or {},
+                headers=config.headers or {},
             )
 
         self.collection_name = config.collection_name
@@ -244,22 +241,28 @@ class ElasticsearchDB(VectorStoreBase):
         self.client.update(index=self.collection_name, id=vector_id, body={"doc": doc})
 
     def get(self, vector_id: str) -> Optional[OutputData]:
-        """Retrieve a vector by ID."""
+        """Retrieve a vector by ID.
+
+        Returns None only when the vector does not exist or the response is
+        malformed; transport, auth and server failures raise, so callers can
+        tell a backend outage apart from a missing vector.
+        """
         try:
             response = self.client.get(index=self.collection_name, id=vector_id)
+        except NotFoundError:
+            return None
+        except Exception as e:
+            logger.error(f"Failed to fetch vector {vector_id} from Elasticsearch: {e}")
+            raise
+
+        try:
             return OutputData(
                 id=response["_id"],
                 score=1.0,  # Default score for direct get
                 payload=response["_source"].get("metadata", {}),
             )
-        except KeyError as e:
-            logger.warning(f"Missing key in Elasticsearch response: {e}")
-            return None
-        except TypeError as e:
-            logger.warning(f"Invalid response type from Elasticsearch: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error while parsing Elasticsearch response: {e}")
+        except (KeyError, TypeError) as e:
+            logger.warning(f"Malformed Elasticsearch response for vector {vector_id}: {e}")
             return None
 
     def list_cols(self) -> List[str]:
