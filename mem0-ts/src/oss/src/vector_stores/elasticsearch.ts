@@ -215,6 +215,46 @@ export class ElasticsearchDB implements VectorStore {
     }));
   }
 
+  async keywordSearch(
+    query: string,
+    topK: number = 5,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[]> {
+    await this.initialize();
+
+    const filterConditions =
+      filters && Object.keys(filters).length > 0
+        ? Object.entries(filters).map(([key, value]) => {
+            validateFilter(key, value);
+            return { term: { [`metadata.${key}`]: value } };
+          })
+        : [];
+
+    const boolQuery: Record<string, any> = {
+      should: [
+        { match: { "metadata.data": query } },
+        { match: { "metadata.text_lemmatized": query } },
+      ],
+      minimum_should_match: 1,
+    };
+
+    if (filterConditions.length > 0) {
+      boolQuery.filter = filterConditions;
+    }
+
+    const response = await this.client.search({
+      index: this.collectionName,
+      size: topK,
+      query: { bool: boolQuery },
+    });
+
+    return response.hits.hits.map((hit: any) => ({
+      id: hit._id,
+      score: hit._score,
+      payload: hit._source?.metadata || {},
+    }));
+  }
+
   async get(vectorId: string): Promise<VectorStoreResult | null> {
     await this.initialize();
     try {
