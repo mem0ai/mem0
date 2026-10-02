@@ -536,4 +536,4 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm-reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
 - [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero-entropy) [OSS]: Use for the Zero Entropy reranker.
 
-- [Screenpipe Memory Source](https://docs.mem0.ai/cookbooks/integrations/screenpipe-memory-source) [Both] Use when importing selected Screenpipe observations into Mem0.
+- [Screenpipe Memory Source](https://docs.mem0.ai/cookbooks/integrations/screenpipe-memory-source) [Platform] Use when importing reviewed Screenpipe screen and audio observations as extracted Mem0 memories.
