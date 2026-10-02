@@ -12,6 +12,7 @@ from __future__ import annotations
 import atexit
 import json
 import logging
+import os
 import threading
 import time
 from contextlib import suppress
@@ -22,6 +23,11 @@ from agent.memory_provider import MemoryProvider, spawn_context_thread
 from agent.secret_scope import get_secret
 from tools.registry import tool_error
 from utils import atomic_json_write, read_json_or_empty
+
+# mem0's PostHog telemetry is on unless MEM0_TELEMETRY says otherwise and is read once, when mem0 is first
+# imported. Every mem0 import in this plugin happens after this package loads, so default it off here;
+# an explicit MEM0_TELEMETRY=true still opts in.
+os.environ.setdefault("MEM0_TELEMETRY", "false")
 
 logger = logging.getLogger(__name__)
 

@@ -81,6 +81,8 @@ Settings live in `$HERMES_HOME/mem0.json`; the default Hermes home is `~/.hermes
 
 `MEM0_MODE`, `MEM0_HOST`, `MEM0_USER_ID`, and `MEM0_AGENT_ID` provide environment defaults; non-empty file settings override them. `MEM0_API_KEY` supplies the Cloud or server key when `api_key` is not set in the file.
 
+The plugin sets `MEM0_TELEMETRY=false` unless you have set it yourself, so the Mem0 SDK's usage telemetry is off by default. Set `MEM0_TELEMETRY=true` in the Hermes environment to opt in.
+
 An explicit `user_id` other than `hermes-user` takes precedence over a gateway's native user ID. Searches use that user identity across sessions; writes attach `agent_id` and `metadata.channel`.
 
 ## Automatic recall and capture

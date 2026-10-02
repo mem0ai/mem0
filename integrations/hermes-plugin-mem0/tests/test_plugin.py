@@ -4,6 +4,7 @@ import contextvars
 import importlib
 import importlib.util
 import json
+import os
 import sys
 import threading
 import types
@@ -147,6 +148,39 @@ def test_selfhosted_http_auth_and_tool_routes(plugin):
         ]
     finally:
         client.close()
+
+
+def test_selfhosted_memory_id_stays_one_path_segment(plugin):
+    import httpx
+
+    backend = importlib.import_module(f"{plugin.__name__}._backend")
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(200, json={"id": "existing", "user_id": "existing-user"})
+
+    client = backend.SelfHostedBackend("test-key", "http://localhost:8888", transport=httpx.MockTransport(respond))
+    try:
+        client.get("a/../b?c=d")
+        client.update("a/../b?c=d", "text")
+        client.delete("a/../b?c=d")
+        assert [(r.method, r.url.raw_path) for r in requests] == [
+            (method, b"/memories/a%2F..%2Fb%3Fc%3Dd") for method in ("GET", "PUT", "DELETE")
+        ]
+    finally:
+        client.close()
+
+
+@pytest.mark.parametrize(("configured", "expected"), [(None, "false"), ("true", "true")])
+def test_mem0_telemetry_is_opt_in(plugin, monkeypatch, configured, expected):
+    monkeypatch.setenv("MEM0_TELEMETRY", "unset")
+    if configured is None:
+        monkeypatch.delenv("MEM0_TELEMETRY")
+    else:
+        monkeypatch.setenv("MEM0_TELEMETRY", configured)
+    plugin.__spec__.loader.exec_module(plugin)
+    assert os.environ["MEM0_TELEMETRY"] == expected
 
 
 @pytest.mark.parametrize("mode", ["platform", "selfhosted"])

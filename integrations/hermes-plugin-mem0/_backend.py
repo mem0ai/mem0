@@ -10,6 +10,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from threading import RLock
 from typing import Any
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -100,13 +101,13 @@ class SelfHostedBackend(Mem0Backend):
                           timeout=self._capture_timeout if infer else self._client.timeout)
 
     def get(self, memory_id: str) -> dict | None:
-        return self._json("GET", f"/memories/{memory_id}")
+        return self._json("GET", f"/memories/{quote(memory_id, safe='')}")
 
     def _update(self, memory_id: str, text: str) -> None:
-        self._json("PUT", f"/memories/{memory_id}", json={"text": text})
+        self._json("PUT", f"/memories/{quote(memory_id, safe='')}", json={"text": text})
 
     def _delete(self, memory_id: str) -> None:
-        self._json("DELETE", f"/memories/{memory_id}")
+        self._json("DELETE", f"/memories/{quote(memory_id, safe='')}")
 
     def close(self) -> None:
         with suppress(Exception):

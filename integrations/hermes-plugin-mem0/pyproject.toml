@@ -8,7 +8,8 @@ license = { text = "Apache-2.0 AND MIT" }
 # every `hermes update` (hermes-agent#113851). Keep upper bounds: Hermes pins its own deps exactly
 # and refuses a plugin whose requirements cannot resolve against them.
 dependencies = [
-    "mem0ai>=2.0.10,<3",
+    # qdrant-client -> grpcio (via mem0ai) has no win_arm64 wheel; same marker as Hermes core.
+    "mem0ai>=2.0.10,<3; platform_machine != 'ARM64' or sys_platform != 'win32'",
     "httpx>=0.27,<1",
 ]
 
