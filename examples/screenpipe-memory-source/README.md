@@ -8,6 +8,8 @@ Import reviewed screen/audio observations from Screenpipe into **Mem0 Platform**
 
 Based on Chirag Arora's proposal in [#5596](https://github.com/mem0ai/mem0/pull/5596), updated to use Screenpipe's supported HTTP API instead of its private SQLite schema. Mem0 inference is enabled: the destination contains extracted memories, not a copy of each raw transcript.
 
+[Integration guide](https://docs.mem0.ai/integrations/screenpipe) · [Mem0 integrations directory](https://docs.mem0.ai/integrations)
+
 ## Run
 
 Use Python 3.10+ and `pip install 'mem0ai>=2.2.1,<3'`. Start Screenpipe normally. Set `SCREENPIPE_API_KEY` if your local API requires a bearer token. Set `MEM0_API_KEY` privately for import/search; exporting and previewing require no Mem0 key and make no Mem0 requests.

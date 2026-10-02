@@ -312,6 +312,11 @@
                     ]
                   },
                   {
+                    "group": "Memory Sources",
+                    "icon": "desktop",
+                    "pages": ["integrations/screenpipe"]
+                  },
+                  {
                     "group": "Agent Frameworks",
                     "icon": "robot",
                     "pages": [
@@ -445,8 +450,7 @@
                       "cookbooks/integrations/healthcare-google-adk",
                       "cookbooks/integrations/aws-bedrock",
                       "cookbooks/integrations/tavily-search",
-                      "cookbooks/integrations/supabase",
-                      "cookbooks/integrations/screenpipe-memory-source"
+                      "cookbooks/integrations/supabase"
                     ]
                   },
                   {
@@ -643,6 +647,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/cookbooks/integrations/screenpipe-memory-source",
+      "destination": "/integrations/screenpipe"
+    },
     {
       "source": "/open-source/features/reranking",
       "destination": "/open-source/features/reranker-search"

@@ -246,6 +246,9 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 
 - [Integrations Overview](https://docs.mem0.ai/integrations) [Both]: Use when surveying every available integration.
 
+### Memory Sources
+- [Screenpipe](https://docs.mem0.ai/integrations/screenpipe) [Platform]: Use when importing reviewed screen and meeting context from Screenpipe into persistent Mem0 memories.
+
 ### Agent Frameworks
 - [LangChain](https://docs.mem0.ai/integrations/langchain) [Platform]: Use when the user is on LangChain.
 - [LangGraph](https://docs.mem0.ai/integrations/langgraph) [Platform]: Use when building stateful multi-actor LangGraph apps.
@@ -535,5 +538,3 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.
 - [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm-reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
 - [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero-entropy) [OSS]: Use for the Zero Entropy reranker.
-
-- [Screenpipe Memory Source](https://docs.mem0.ai/cookbooks/integrations/screenpipe-memory-source) [Platform] Use when importing reviewed Screenpipe screen and audio observations as extracted Mem0 memories.
