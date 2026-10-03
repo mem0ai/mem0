@@ -994,13 +994,6 @@ class Memory(MemoryBase):
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
         try:
             mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
-            if len(mem_embeddings_list) != len(mem_texts):
-                logger.warning(
-                    "embed_batch returned %d vectors for %d memory texts — "
-                    "unmatched texts are skipped rather than silently dropped",
-                    len(mem_embeddings_list),
-                    len(mem_texts),
-                )
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             # Fallback: embed individually
@@ -1010,6 +1003,22 @@ class Memory(MemoryBase):
                     embed_map[text] = self.embedding_model.embed(text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text: {e}")
+
+        # Catches a memory text left out of embed_map either way: a short
+        # embed_batch() return (zip() above truncates to the shorter side) or an
+        # individual failure inside the per-item fallback above. Checked once the
+        # embedding path is settled rather than inside the try, which only ever
+        # saw the first case. Compared as a set because embed_map is keyed by
+        # text, so repeated texts collapse to one entry without anything being
+        # lost.
+        unique_texts = set(mem_texts)
+        missing = unique_texts - embed_map.keys()
+        if missing:
+            logger.warning(
+                "%d of %d memory texts have no embedding and are not stored",
+                len(missing),
+                len(unique_texts),
+            )
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         # Build set of existing hashes for dedup
@@ -2682,13 +2691,6 @@ class AsyncMemory(MemoryBase):
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
         try:
             mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
-            if len(mem_embeddings_list) != len(mem_texts):
-                logger.warning(
-                    "embed_batch returned %d vectors for %d memory texts — "
-                    "unmatched texts are skipped rather than silently dropped",
-                    len(mem_embeddings_list),
-                    len(mem_texts),
-                )
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             embed_map = {}
@@ -2697,6 +2699,22 @@ class AsyncMemory(MemoryBase):
                     embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text (async): {e}")
+
+        # Catches a memory text left out of embed_map either way: a short
+        # embed_batch() return (zip() above truncates to the shorter side) or an
+        # individual failure inside the per-item fallback above. Checked once the
+        # embedding path is settled rather than inside the try, which only ever
+        # saw the first case. Compared as a set because embed_map is keyed by
+        # text, so repeated texts collapse to one entry without anything being
+        # lost.
+        unique_texts = set(mem_texts)
+        missing = unique_texts - embed_map.keys()
+        if missing:
+            logger.warning(
+                "%d of %d memory texts have no embedding and are not stored",
+                len(missing),
+                len(unique_texts),
+            )
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         existing_hashes = set()
