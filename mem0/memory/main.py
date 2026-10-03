@@ -1546,6 +1546,10 @@ class Memory(MemoryBase):
             Dict of processed filters compatible with vector store
         """
         processed_filters = {}
+        # Keys contributed by the top level, which an AND condition must not overwrite.
+        # Repeated keys *inside* AND keep last-wins (test_and_simple_equality_no_merge),
+        # so the two cases need different handling and a flag is what separates them.
+        top_level_keys: set = set()
 
         def process_condition(key: str, condition: Any) -> Dict[str, Any]:
             if not isinstance(condition, dict):
@@ -1578,6 +1582,45 @@ class Memory(MemoryBase):
                 else:
                     target[key] = value
 
+        def merge_sibling(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+            """Merge an ``AND`` condition against a key that also sits at the top level.
+
+            Dropping either condition widens the query, and which one survived used to
+            depend on dict insertion order — the same logical filter returned different
+            rows depending on how the caller wrote it. Neither scalar can be merged, so
+            both are moved into ``$and``, which the vector store expands into one ``must``
+            clause each.
+
+            This handles the boundary collision only. A key repeated *inside* ``AND`` keeps
+            its last-wins behaviour, which test_and_simple_equality_no_merge pins, so the
+            ``$and`` list is written before this runs and a key already listed there is
+            treated as already handled.
+            """
+            for key, value in source.items():
+                if isinstance(target.get(key), dict) and isinstance(value, dict):
+                    merge_filters(target, {key: value})
+                    continue
+                if key in top_level_keys and key in target:
+                    top_level = target.pop(key)
+                    conditions = target.get("$and") or []
+                    conditions.append({key: top_level})
+                    conditions.append({key: value})
+                    target["$and"] = conditions
+                    continue
+                if any(key in condition for condition in (target.get("$and") or [])):
+                    # Already carried by this same AND: keep last-wins, which
+                    # test_and_simple_equality_no_merge pins.
+                    target["$and"] = [
+                        condition for condition in target["$and"] if key not in condition
+                    ]
+                    target["$and"].append({key: value})
+                    continue
+                merge_filters(target, {key: value})
+
+        for key in metadata_filters:
+            if key not in ("AND", "OR", "NOT"):
+                top_level_keys.add(key)
+
         for key, value in metadata_filters.items():
             if key == "AND":
                 # Logical AND: combine multiple conditions
@@ -1585,7 +1628,7 @@ class Memory(MemoryBase):
                     raise ValueError("AND operator requires a list of conditions")
                 for condition in value:
                     for sub_key, sub_value in condition.items():
-                        merge_filters(processed_filters, process_condition(sub_key, sub_value))
+                        merge_sibling(processed_filters, process_condition(sub_key, sub_value))
             elif key == "OR":
                 # Logical OR: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
@@ -1608,7 +1651,10 @@ class Memory(MemoryBase):
                         merge_filters(not_condition, process_condition(sub_key, sub_value))
                     processed_filters["$not"].append(not_condition)
             else:
-                merge_filters(processed_filters, process_condition(key, value))
+                # A key arriving after the AND has already been processed has the same
+                # collision, just from the other side: the AND copy is already in $and.
+                merge_sibling(processed_filters, process_condition(key, value))
+                top_level_keys.add(key)
 
         return processed_filters
 
@@ -3234,6 +3280,10 @@ class AsyncMemory(MemoryBase):
             Dict of processed filters compatible with vector store
         """
         processed_filters = {}
+        # Keys contributed by the top level, which an AND condition must not overwrite.
+        # Repeated keys *inside* AND keep last-wins (test_and_simple_equality_no_merge),
+        # so the two cases need different handling and a flag is what separates them.
+        top_level_keys: set = set()
 
         def process_condition(key: str, condition: Any) -> Dict[str, Any]:
             if not isinstance(condition, dict):
@@ -3266,6 +3316,45 @@ class AsyncMemory(MemoryBase):
                 else:
                     target[key] = value
 
+        def merge_sibling(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+            """Merge an ``AND`` condition against a key that also sits at the top level.
+
+            Dropping either condition widens the query, and which one survived used to
+            depend on dict insertion order — the same logical filter returned different
+            rows depending on how the caller wrote it. Neither scalar can be merged, so
+            both are moved into ``$and``, which the vector store expands into one ``must``
+            clause each.
+
+            This handles the boundary collision only. A key repeated *inside* ``AND`` keeps
+            its last-wins behaviour, which test_and_simple_equality_no_merge pins, so the
+            ``$and`` list is written before this runs and a key already listed there is
+            treated as already handled.
+            """
+            for key, value in source.items():
+                if isinstance(target.get(key), dict) and isinstance(value, dict):
+                    merge_filters(target, {key: value})
+                    continue
+                if key in top_level_keys and key in target:
+                    top_level = target.pop(key)
+                    conditions = target.get("$and") or []
+                    conditions.append({key: top_level})
+                    conditions.append({key: value})
+                    target["$and"] = conditions
+                    continue
+                if any(key in condition for condition in (target.get("$and") or [])):
+                    # Already carried by this same AND: keep last-wins, which
+                    # test_and_simple_equality_no_merge pins.
+                    target["$and"] = [
+                        condition for condition in target["$and"] if key not in condition
+                    ]
+                    target["$and"].append({key: value})
+                    continue
+                merge_filters(target, {key: value})
+
+        for key in metadata_filters:
+            if key not in ("AND", "OR", "NOT"):
+                top_level_keys.add(key)
+
         for key, value in metadata_filters.items():
             if key == "AND":
                 # Logical AND: combine multiple conditions
@@ -3273,7 +3362,7 @@ class AsyncMemory(MemoryBase):
                     raise ValueError("AND operator requires a list of conditions")
                 for condition in value:
                     for sub_key, sub_value in condition.items():
-                        merge_filters(processed_filters, process_condition(sub_key, sub_value))
+                        merge_sibling(processed_filters, process_condition(sub_key, sub_value))
             elif key == "OR":
                 # Logical OR: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
@@ -3296,7 +3385,10 @@ class AsyncMemory(MemoryBase):
                         merge_filters(not_condition, process_condition(sub_key, sub_value))
                     processed_filters["$not"].append(not_condition)
             else:
-                merge_filters(processed_filters, process_condition(key, value))
+                # A key arriving after the AND has already been processed has the same
+                # collision, just from the other side: the AND copy is already in $and.
+                merge_sibling(processed_filters, process_condition(key, value))
+                top_level_keys.add(key)
 
         return processed_filters
 
