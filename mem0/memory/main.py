@@ -68,6 +68,7 @@ from mem0.utils.factory import (
 from mem0.utils.lemmatization import lemmatize_for_bm25
 from mem0.utils.scoring import (
     ENTITY_BOOST_WEIGHT,
+    RECENCY_WEIGHT,
     get_bm25_params,
     normalize_bm25,
     score_and_rank,
@@ -1698,6 +1699,7 @@ class Memory(MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            recency_weight=RECENCY_WEIGHT,
         )
 
         # Step 9: Format results
@@ -3385,6 +3387,7 @@ class AsyncMemory(MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            recency_weight=RECENCY_WEIGHT,
         )
 
         # Step 9: Format results
