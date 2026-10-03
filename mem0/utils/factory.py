@@ -4,6 +4,7 @@ from typing import Dict, Optional, Union
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.configs.llms.anthropic import AnthropicConfig
+from mem0.configs.llms.atlascloud import AtlasCloudConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
@@ -52,6 +53,7 @@ class LlmFactory:
         "azure_openai_structured": ("mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM", AzureOpenAIConfig),
         "gemini": ("mem0.llms.gemini.GeminiLLM", GeminiConfig),
         "deepseek": ("mem0.llms.deepseek.DeepSeekLLM", DeepSeekConfig),
+        "atlascloud": ("mem0.llms.atlascloud.AtlasCloudLLM", AtlasCloudConfig),
         "minimax": ("mem0.llms.minimax.MiniMaxLLM", MinimaxConfig),
         "xai": ("mem0.llms.xai.XAILLM", XAIConfig),
         "sarvam": ("mem0.llms.sarvam.SarvamLLM", BaseLlmConfig),

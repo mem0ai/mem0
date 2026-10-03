@@ -470,6 +470,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [DeepSeek](https://docs.mem0.ai/components/llms/models/deepseek) [OSS]: Use when the LLM is DeepSeek.
 - [Mistral AI](https://docs.mem0.ai/components/llms/models/mistral-ai) [OSS]: Use when the LLM is Mistral.
 - [MiniMax](https://docs.mem0.ai/components/llms/models/minimax) [OSS]: Use when the LLM is MiniMax.
+- [Atlas Cloud](https://docs.mem0.ai/components/llms/models/atlascloud) [OSS]: Use when the LLM is served through the Atlas Cloud gateway.
 - [xAI](https://docs.mem0.ai/components/llms/models/xAI) [OSS]: Use when the LLM is xAI Grok.
 - [Sarvam](https://docs.mem0.ai/components/llms/models/sarvam) [OSS]: Use for Indian-language Sarvam models.
 - [Together](https://docs.mem0.ai/components/llms/models/together) [OSS]: Use when the LLM runs on Together.

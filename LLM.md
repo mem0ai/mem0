@@ -284,6 +284,7 @@ config = MemoryConfig(
 - **azure_openai** - Azure OpenAI
 - **litellm** - LiteLLM proxy
 - **deepseek** - DeepSeek models
+- **atlascloud** - Atlas Cloud models
 - **minimax** - MiniMax models
 - **xai** - xAI models
 - **sarvam** - Sarvam AI

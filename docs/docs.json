@@ -184,6 +184,7 @@
                               "components/llms/models/aws-bedrock",
                               "components/llms/models/deepseek",
                               "components/llms/models/minimax",
+                              "components/llms/models/atlascloud",
                               "components/llms/models/xAI",
                               "components/llms/models/sarvam",
                               "components/llms/models/lmstudio",
