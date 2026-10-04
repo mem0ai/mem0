@@ -372,9 +372,10 @@ class AWSBedrockLLM(LLMBase):
             processed_response = {"content": None, "tool_calls": []}
 
             if response.get("output", {}).get("message", {}).get("content"):
+                text_parts = []
                 for item in response["output"]["message"]["content"]:
                     if "text" in item:
-                        processed_response["content"] = item["text"]
+                        text_parts.append(item["text"])
                     elif "toolUse" in item:
                         processed_response["tool_calls"].append(
                             {
@@ -382,6 +383,8 @@ class AWSBedrockLLM(LLMBase):
                                 "arguments": json.loads(extract_json(json.dumps(item["toolUse"]["input"]))),
                             }
                         )
+                if text_parts:
+                    processed_response["content"] = "\n".join(text_parts)
 
             return processed_response
 

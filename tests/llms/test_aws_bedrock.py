@@ -400,6 +400,29 @@ class TestParseResponseTools:
         assert result["content"] is None
         assert result["tool_calls"] == [{"name": "add_memory", "arguments": {"data": "likes tea"}}]
 
+    def test_multiple_text_blocks_are_joined_not_dropped(self, mock_boto3):
+        """Converse may emit more than one text block; keep them all instead of
+        letting the last one overwrite the earlier ones.
+        """
+        response = {
+            "output": {
+                "message": {
+                    "content": [
+                        {"text": "First thought."},
+                        {"text": "Second thought."},
+                        {"toolUse": {"name": "add_memory", "input": {"data": "likes tea"}}},
+                    ]
+                }
+            }
+        }
+        mock_boto3.converse.return_value = response
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        result = llm.generate_response(MESSAGES, tools=TOOLS)
+
+        assert result["content"] == "First thought.\nSecond thought."
+        assert result["tool_calls"] == [{"name": "add_memory", "arguments": {"data": "likes tea"}}]
+
 
 # ---------------------------------------------------------------------------
 # MiniMax provider
