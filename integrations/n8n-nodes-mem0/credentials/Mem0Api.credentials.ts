@@ -11,7 +11,7 @@ export class Mem0Api implements ICredentialType {
 
 	displayName = 'Mem0 API';
 
-	icon: Icon = 'file:mem0.svg';
+	icon: Icon = { light: 'file:mem0.svg', dark: 'file:mem0.svg' };
 
 	documentationUrl = 'https://docs.mem0.ai/platform/quickstart';
 

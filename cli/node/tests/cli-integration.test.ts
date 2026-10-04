@@ -44,11 +44,17 @@ describe("CLI Integration — help and version", () => {
     expect(result.stdout).toContain("search");
   });
 
-  it("prints the version with --version, and has no version subcommand", () => {
+  it("prints the version with --version", () => {
     const flag = run(["--version"]);
     expect(flag.exitCode).toBe(0);
     expect(flag.stdout).toContain("Mem0");
-    expect(run(["version"]).exitCode).not.toBe(0);
+  });
+
+  it("version subcommand output matches --version output byte-for-byte", () => {
+    const flag = run(["--version"]);
+    const cmd = run(["version"]);
+    expect(cmd.exitCode).toBe(0);
+    expect(cmd.stdout).toBe(flag.stdout);
   });
 
   it.each([["help", "--json"], ["--json", "help"], ["--agent", "help"]])(
@@ -127,6 +133,13 @@ describe("CLI Integration — help and version", () => {
     const result = run(["search", "--help"]);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("--rerank");
+  });
+
+  it("search help documents the --filter JSON shape with an example", () => {
+    const result = run(["search", "--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("AND");
+    expect(result.stdout).toContain("categories");
   });
 
   it("list help has --category flag", () => {

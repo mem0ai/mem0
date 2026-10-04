@@ -1,5 +1,4 @@
 import type { ZObject, Bundle, Memory } from '../types';
-import { captureEvent } from '../telemetry';
 
 const perform = async (z: ZObject, bundle: Bundle): Promise<Memory[]> => {
 	const body: Record<string, unknown> = {
@@ -8,8 +7,6 @@ const perform = async (z: ZObject, bundle: Bundle): Promise<Memory[]> => {
 		top_k: Math.max(1, Math.floor(Number(bundle.inputData.limit) || 50)),
 	};
 	if (bundle.inputData.user_id) body.filters = { user_id: bundle.inputData.user_id };
-
-	captureEvent('zapier.search_memories', bundle.authData?.apiKey);
 
 	const response = await z.request({
 		url: '/v3/memories/search/',
@@ -25,8 +22,8 @@ export default {
 	key: 'search_memories',
 	noun: 'Memory',
 	display: {
-		label: 'Search Memories',
-		description: 'Semantic search over stored memories.',
+		label: 'Find Memories',
+		description: 'Finds memories matching a semantic query.',
 	},
 	operation: {
 		perform,

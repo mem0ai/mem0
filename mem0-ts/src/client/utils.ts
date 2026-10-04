@@ -34,6 +34,9 @@ const OPAQUE_VALUE_KEYS = new Set([
   // (see issue #5738; same class as `metadata`/`structuredDataSchema`).
   "customCategories",
   "custom_categories",
+  // A profile's keys come from the customer's own JSON Schema. The schema itself
+  // is handled in `updateProfileSettings`, so that `schema` is not opaque globally.
+  "profile",
 ]);
 
 /**

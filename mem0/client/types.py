@@ -28,6 +28,9 @@ class AddMemoryOptions(BaseModel):
         default=None, description="Custom categories for memory classification"
     )
     custom_instructions: Optional[str] = Field(default=None, description="Custom instructions for fact extraction")
+    agent_custom_instructions: Optional[str] = Field(
+        default=None, description="Custom instructions for fact extraction from agent-scoped memories"
+    )
     timestamp: Optional[int] = Field(default=None, description="Unix timestamp for the memory")
     expiration_date: Optional[str] = Field(default=None, description="Expiration date in YYYY-MM-DD format")
     structured_data_schema: Optional[Dict[str, Any]] = Field(
@@ -107,6 +110,9 @@ class ProjectUpdateOptions(BaseModel):
     """Options for project update operations."""
 
     custom_instructions: Optional[str] = Field(default=None, description="Custom instructions for fact extraction")
+    agent_custom_instructions: Optional[str] = Field(
+        default=None, description="Custom instructions for fact extraction from agent-scoped memories"
+    )
     custom_categories: Optional[List[Dict[str, Any]]] = Field(
         default=None, description="Custom categories for classification"
     )
