@@ -27,7 +27,7 @@ pip install mem0ai
 </Step>
 <Step title="Export your API key">
 ```bash
-export MEM0_API_KEY="sk-platform-..."
+export MEM0_API_KEY="m0-..."
 ```
 </Step>
 <Step title="Create an async client">
@@ -49,7 +49,7 @@ npm install mem0ai
 </Step>
 <Step title="Load your API key">
 ```bash
-export MEM0_API_KEY="sk-platform-..."
+export MEM0_API_KEY="m0-..."
 ```
 </Step>
 <Step title="Instantiate the client">
@@ -157,6 +157,8 @@ await memory.update(matches.results[0].id, {
 </Tabs>
 
 ## Clean up
+
+Scope each delete call to a single entity id where possible; combining more than one entity filter in the same `delete_all` call is not guaranteed to AND them together today.
 
 <Tabs>
   <Tab title="Python">

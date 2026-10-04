@@ -1,7 +1,6 @@
-import {
+import type {
   SearchClient,
   SearchIndexClient,
-  AzureKeyCredential,
   SearchIndex,
   SearchField,
   SearchFieldDataType,
@@ -13,9 +12,9 @@ import {
   BinaryQuantizationCompression,
   VectorizedQuery,
 } from "@azure/search-documents";
-import { DefaultAzureCredential } from "@azure/identity";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 /**
  * Configuration interface for Azure AI Search vector store
@@ -71,8 +70,8 @@ interface AzureAISearchConfig extends VectorStoreConfig {
  * Supports vector search with hybrid search, compression, and filtering
  */
 export class AzureAISearch implements VectorStore {
-  private searchClient: SearchClient<any>;
-  private indexClient: SearchIndexClient;
+  private searchClient!: SearchClient<any>;
+  private indexClient!: SearchIndexClient;
   private readonly serviceName: string;
   private readonly indexName: string;
   private readonly embeddingModelDims: number;
@@ -93,25 +92,42 @@ export class AzureAISearch implements VectorStore {
     this.vectorFilterMode = config.vectorFilterMode || "preFilter";
     this.apiKey = config.apiKey;
 
+    // Initialize the index
+    this.initialize().catch(console.error);
+  }
+
+  private async ensureClient(): Promise<void> {
+    if (this.searchClient) return;
+    const searchSdk = await loadPeer(
+      "@azure/search-documents",
+      "Azure AI Search vector store",
+      () => import("@azure/search-documents"),
+    );
+
     const serviceEndpoint = `https://${this.serviceName}.search.windows.net`;
 
     // Determine authentication: API key or DefaultAzureCredential
-    const credential =
-      this.apiKey && this.apiKey !== "" && this.apiKey !== "your-api-key"
-        ? new AzureKeyCredential(this.apiKey)
-        : new DefaultAzureCredential();
+    let credential: any;
+    if (this.apiKey && this.apiKey !== "" && this.apiKey !== "your-api-key") {
+      credential = new searchSdk.AzureKeyCredential(this.apiKey);
+    } else {
+      const identitySdk = await loadPeer(
+        "@azure/identity",
+        "Azure AI Search without an apiKey",
+        () => import("@azure/identity"),
+      );
+      credential = new identitySdk.DefaultAzureCredential();
+    }
 
-    // Initialize clients
-    this.searchClient = new SearchClient(
+    this.searchClient = new searchSdk.SearchClient(
       serviceEndpoint,
       this.indexName,
       credential,
     );
-
-    this.indexClient = new SearchIndexClient(serviceEndpoint, credential);
-
-    // Initialize the index
-    this.initialize().catch(console.error);
+    this.indexClient = new searchSdk.SearchIndexClient(
+      serviceEndpoint,
+      credential,
+    );
   }
 
   /**
@@ -125,6 +141,7 @@ export class AzureAISearch implements VectorStore {
   }
 
   private async _doInitialize(): Promise<void> {
+    await this.ensureClient();
     try {
       const collections = await this.listCols();
       if (!collections.includes(this.indexName)) {
@@ -262,6 +279,7 @@ export class AzureAISearch implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    await this.initialize();
     console.log(
       `Inserting ${vectors.length} vectors into index ${this.indexName}`,
     );
@@ -334,6 +352,7 @@ export class AzureAISearch implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
+    await this.initialize();
     try {
       const filterExpression = filters
         ? this.buildFilterExpression(filters)
@@ -373,6 +392,7 @@ export class AzureAISearch implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
+    await this.initialize();
     const filterExpression = filters
       ? this.buildFilterExpression(filters)
       : undefined;
@@ -429,6 +449,7 @@ export class AzureAISearch implements VectorStore {
    * Delete a vector by ID
    */
   async delete(vectorId: string): Promise<void> {
+    await this.initialize();
     const response = await this.searchClient.deleteDocuments([
       { id: vectorId },
     ]);
@@ -454,6 +475,7 @@ export class AzureAISearch implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    await this.initialize();
     const document: Record<string, any> = { id: vectorId };
 
     if (vector) {
@@ -486,6 +508,7 @@ export class AzureAISearch implements VectorStore {
    * Retrieve a vector by ID
    */
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    await this.initialize();
     try {
       const result = await this.searchClient.getDocument(vectorId);
       const payloadStr = result.payload as string;
@@ -521,6 +544,7 @@ export class AzureAISearch implements VectorStore {
    * Delete the index
    */
   async deleteCol(): Promise<void> {
+    await this.initialize();
     await this.indexClient.deleteIndex(this.indexName);
   }
 
@@ -542,6 +566,7 @@ export class AzureAISearch implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    await this.initialize();
     const filterExpression = filters
       ? this.buildFilterExpression(filters)
       : undefined;
@@ -586,6 +611,7 @@ export class AzureAISearch implements VectorStore {
    * Required by VectorStore interface
    */
   async getUserId(): Promise<string> {
+    await this.initialize();
     try {
       // Check if memory_migrations index exists
       const collections = await this.listCols();
@@ -648,6 +674,7 @@ export class AzureAISearch implements VectorStore {
    * Required by VectorStore interface
    */
   async setUserId(userId: string): Promise<void> {
+    await this.initialize();
     try {
       // Get existing point ID or generate new one
       const searchResults = await this.searchClient.search("*", {
@@ -677,6 +704,7 @@ export class AzureAISearch implements VectorStore {
    * Reset the index by deleting and recreating it
    */
   async reset(): Promise<void> {
+    await this.initialize();
     console.log(`Resetting index ${this.indexName}...`);
 
     try {

@@ -1,6 +1,7 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 import { HistoryManager } from "./base";
+import { loadPeer } from "../utils/load_peer";
 
 interface HistoryEntry {
   id: string;
@@ -20,16 +21,32 @@ interface SupabaseHistoryConfig {
 }
 
 export class SupabaseHistoryManager implements HistoryManager {
-  private supabase: SupabaseClient;
+  // ponytail: benign double-construct race — two concurrent first-calls may each
+  // build a client; createClient opens no connection, so last-write-wins is fine.
+  private supabase!: SupabaseClient;
+  private readonly supabaseUrl: string;
+  private readonly supabaseKey: string;
   private readonly tableName: string;
 
   constructor(config: SupabaseHistoryConfig) {
     this.tableName = config.tableName || "memory_history";
-    this.supabase = createClient(config.supabaseUrl, config.supabaseKey);
+    this.supabaseUrl = config.supabaseUrl;
+    this.supabaseKey = config.supabaseKey;
     this.initializeSupabase().catch(console.error);
   }
 
+  private async ensureClient(): Promise<void> {
+    if (this.supabase) return;
+    const sdk = await loadPeer(
+      "@supabase/supabase-js",
+      "Supabase history manager",
+      () => import("@supabase/supabase-js"),
+    );
+    this.supabase = sdk.createClient(this.supabaseUrl, this.supabaseKey);
+  }
+
   private async initializeSupabase(): Promise<void> {
+    await this.ensureClient();
     // Check if table exists
     const { error } = await this.supabase
       .from(this.tableName)
@@ -65,6 +82,7 @@ create table ${this.tableName} (
     updatedAt?: string,
     isDeleted: number = 0,
   ): Promise<void> {
+    await this.ensureClient();
     const historyEntry: HistoryEntry = {
       id: uuidv4(),
       memory_id: memoryId,
@@ -87,6 +105,7 @@ create table ${this.tableName} (
   }
 
   async getHistory(memoryId: string): Promise<any[]> {
+    await this.ensureClient();
     const { data, error } = await this.supabase
       .from(this.tableName)
       .select("*")
@@ -103,6 +122,7 @@ create table ${this.tableName} (
   }
 
   async reset(): Promise<void> {
+    await this.ensureClient();
     const { error } = await this.supabase
       .from(this.tableName)
       .delete()

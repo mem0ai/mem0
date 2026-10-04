@@ -37,8 +37,7 @@ class VllmLLM(LLMBase):
             self.config.model = "Qwen/Qwen2.5-32B-Instruct"
 
         self.config.api_key = self.config.api_key or os.getenv("VLLM_API_KEY") or "vllm-api-key"
-        base_url = self.config.vllm_base_url or os.getenv("VLLM_BASE_URL")
-        self.client = OpenAI(api_key=self.config.api_key, base_url=base_url)
+        self.client = OpenAI(api_key=self.config.api_key, base_url=self.config.vllm_base_url)
 
     def _parse_response(self, response, tools):
         """

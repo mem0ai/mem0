@@ -54,6 +54,30 @@ class TestQdrant(unittest.TestCase):
                 )
             self.assertTrue(os.path.isfile(sentinel))
 
+    def test_reset_clears_points_on_local_qdrant(self):
+        """#6411: reset() must drop points even when the collection dir survives delete_col()."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Qdrant(collection_name="reset_me", embedding_model_dims=4, path=os.path.join(tmp, "qdrant"))
+            try:
+                self.assertTrue(store.is_local)
+                store.insert(
+                    vectors=[[0.1, 0.2, 0.3, 0.4]],
+                    payloads=[{"data": "remember me"}],
+                    ids=[str(uuid.uuid4())],
+                )
+                self.assertEqual(len(store.list(top_k=10)[0]), 1)
+
+                # Simulate Windows/NFS, where rmtree(ignore_errors=True) silently fails
+                # on the open sqlite handle and the collection dir survives delete_col().
+                with patch("qdrant_client.local.qdrant_local.shutil.rmtree"):
+                    store.reset()
+
+                self.assertEqual(len(store.list(top_k=10)[0]), 0)
+                sparse = store.client.get_collection("reset_me").config.params.sparse_vectors
+                self.assertIn("bm25", sparse or {})
+            finally:
+                store.client.close()
+
     def test_create_col(self):
         self.client_mock.get_collections.return_value = MagicMock(collections=[])
 

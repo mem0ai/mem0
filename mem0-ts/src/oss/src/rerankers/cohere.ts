@@ -1,5 +1,6 @@
 import { RerankerConfig } from "../types";
 import { Reranker, RerankResult } from "./base";
+import { loadPeer } from "../utils/load_peer";
 
 const DEFAULT_MODEL = "rerank-v3.5";
 
@@ -41,14 +42,11 @@ export class CohereReranker implements Reranker {
   }
 
   private async createClient(): Promise<any> {
-    let sdk: any;
-    try {
-      sdk = await import("cohere-ai");
-    } catch {
-      throw new Error(
-        "The 'cohere-ai' package is required to use the Cohere reranker. Install it with: npm install cohere-ai",
-      );
-    }
+    const sdk = await loadPeer(
+      "cohere-ai",
+      "Cohere reranker",
+      () => import("cohere-ai"),
+    );
     return new sdk.CohereClient({ token: this.apiKey });
   }
 

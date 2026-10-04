@@ -440,4 +440,52 @@ describe("generateWhereClause", () => {
       ChromaDB.generateWhereClause({ $not: [{ age: { gt: 18 } }] }),
     ).toEqual({ age: { $lte: 18 } });
   });
+
+  // Regression tests for the three where-clause translation bugs fixed in
+  // Python by #6452 and tracked for the TS SDK in #6513. ChromaDB allows
+  // exactly one operator or field per dict level.
+  it("keeps both bounds of a same-field range as $and-combined clauses", () => {
+    expect(ChromaDB.generateWhereClause({ age: { gte: 18, lte: 65 } })).toEqual(
+      { $and: [{ age: { $gte: 18 } }, { age: { $lte: 65 } }] },
+    );
+  });
+
+  it("keeps same-field ranges inside $or branches", () => {
+    expect(
+      ChromaDB.generateWhereClause({
+        $or: [{ age: { gte: 18, lte: 65 } }, { vip: true }],
+      }),
+    ).toEqual({
+      $or: [
+        { $and: [{ age: { $gte: 18 } }, { age: { $lte: 65 } }] },
+        { vip: { $eq: true } },
+      ],
+    });
+  });
+
+  it("wraps multi-field conditions inside $or in $and", () => {
+    expect(
+      ChromaDB.generateWhereClause({
+        $or: [{ age: { gte: 18 }, vip: true }, { city: "sh" }],
+      }),
+    ).toEqual({
+      $or: [
+        { $and: [{ age: { $gte: 18 } }, { vip: { $eq: true } }] },
+        { city: { $eq: "sh" } },
+      ],
+    });
+  });
+
+  it("negates $not contains/icontains instead of dropping the clause", () => {
+    expect(
+      ChromaDB.generateWhereClause({
+        $not: [{ title: { contains: "draft" } }],
+      }),
+    ).toEqual({ title: { $ne: "draft" } });
+    expect(
+      ChromaDB.generateWhereClause({
+        $not: [{ title: { icontains: "draft" } }],
+      }),
+    ).toEqual({ title: { $ne: "draft" } });
+  });
 });

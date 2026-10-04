@@ -56,6 +56,7 @@ def notice_harness(monkeypatch):
     config = {}
     telemetry = MagicMock()
     telemetry.user_id = "oss-user"
+    evaluate_mock = MagicMock()
 
     def write_config(updated):
         saved = deepcopy(updated)
@@ -66,13 +67,15 @@ def notice_harness(monkeypatch):
     monkeypatch.setattr(notices, "_write_config", write_config)
     monkeypatch.setattr(notices.telemetry_module, "MEM0_TELEMETRY", True)
     monkeypatch.setattr(notices.telemetry_module, "_get_oss_telemetry", lambda: telemetry)
+    monkeypatch.setattr(notices, "_evaluate_notice_flags", evaluate_mock)
+    telemetry._evaluate_mock = evaluate_mock
 
     return config, telemetry
 
 
 def configure_flag(telemetry, variant, payload):
     flags = FakeFlags(variant, payload)
-    telemetry.posthog.evaluate_flags.return_value = flags
+    telemetry._evaluate_mock.return_value = flags
     return flags
 
 
@@ -176,7 +179,7 @@ def test_displayed_notice_logs_once_and_captures_event(notice_harness, capsys):
     config, telemetry, flags = display_notice(notice_harness)
 
     assert capsys.readouterr().err == "Mem0 OSS notice\n"
-    telemetry.posthog.evaluate_flags.assert_called_once_with("oss-user", flag_keys=[notices.FLAG_KEY])
+    telemetry._evaluate_mock.assert_called_once_with("oss-user")
     telemetry.capture_event.assert_called_once()
     event_name, props = telemetry.capture_event.call_args.args
     assert event_name == notices.NOTICE_EVENT
@@ -254,7 +257,7 @@ def test_telemetry_disabled_does_not_touch_posthog_or_state(monkeypatch, capsys)
 
 def test_posthog_failure_is_silent_and_consumes_first_run(notice_harness, capsys):
     config, telemetry = notice_harness
-    telemetry.posthog.evaluate_flags.side_effect = RuntimeError("network unavailable")
+    telemetry._evaluate_mock.side_effect = RuntimeError("network unavailable")
 
     notices.display_first_run_notice(MagicMock(), "sync", "add")
 
@@ -265,7 +268,7 @@ def test_posthog_failure_is_silent_and_consumes_first_run(notice_harness, capsys
 
 def test_public_add_succeeds_when_first_run_flag_eval_fails(notice_harness):
     _, telemetry = notice_harness
-    telemetry.posthog.evaluate_flags.side_effect = RuntimeError("network unavailable")
+    telemetry._evaluate_mock.side_effect = RuntimeError("network unavailable")
     memory = Memory.__new__(Memory)
     memory.config = SimpleNamespace(llm=SimpleNamespace(config={}))
     memory._add_to_vector_store = MagicMock(return_value=[{"event": "ADD", "memory": "likes tea"}])
@@ -277,7 +280,7 @@ def test_public_add_succeeds_when_first_run_flag_eval_fails(notice_harness):
 
 def test_public_search_succeeds_when_first_run_flag_eval_fails(notice_harness, monkeypatch):
     _, telemetry = notice_harness
-    telemetry.posthog.evaluate_flags.side_effect = RuntimeError("network unavailable")
+    telemetry._evaluate_mock.side_effect = RuntimeError("network unavailable")
     monkeypatch.setattr(memory_main, "capture_event", MagicMock())
     memory = Memory.__new__(Memory)
     memory.api_version = "v1.1"
@@ -325,7 +328,7 @@ def test_temporal_feature_displayed_returns_payload_copy_and_captures_event(noti
 
     assert message == "Temporal CTA"
     assert capsys.readouterr().err == ""
-    telemetry.posthog.evaluate_flags.assert_called_once_with("oss-user", flag_keys=[notices.FLAG_KEY])
+    telemetry._evaluate_mock.assert_called_once_with("oss-user")
     telemetry.capture_event.assert_called_once()
     event_name, props = telemetry.capture_event.call_args.args
     assert event_name == notices.NOTICE_EVENT
@@ -413,7 +416,7 @@ def test_temporal_feature_telemetry_disabled_does_not_touch_posthog(monkeypatch,
 
 def test_temporal_feature_posthog_failure_returns_plain_error(notice_harness, capsys):
     _, telemetry = notice_harness
-    telemetry.posthog.evaluate_flags.side_effect = RuntimeError("network unavailable")
+    telemetry._evaluate_mock.side_effect = RuntimeError("network unavailable")
 
     message = notices.get_temporal_feature_error_message("sync", "add", "timestamp")
 
@@ -429,14 +432,14 @@ def test_temporal_feature_cap_blocks_repeated_posthog_evaluation(notice_harness)
     for _ in range(notices.FEATURE_ERROR_CAP):
         assert notices.get_temporal_feature_error_message("sync", "add", "timestamp") == "Temporal CTA"
 
-    assert telemetry.posthog.evaluate_flags.call_count == notices.FEATURE_ERROR_CAP
+    assert telemetry._evaluate_mock.call_count == notices.FEATURE_ERROR_CAP
     assert telemetry.capture_event.call_count == notices.FEATURE_ERROR_CAP
     assert len(config["notice_state"]["temporal_stub"]["events"]) == notices.FEATURE_ERROR_CAP
 
     message = notices.get_temporal_feature_error_message("sync", "add", "timestamp")
 
     assert message == notices.TEMPORAL_FEATURE_ERROR_MESSAGES["timestamp"]
-    assert telemetry.posthog.evaluate_flags.call_count == notices.FEATURE_ERROR_CAP
+    assert telemetry._evaluate_mock.call_count == notices.FEATURE_ERROR_CAP
     assert telemetry.capture_event.call_count == notices.FEATURE_ERROR_CAP
 
 
@@ -465,7 +468,7 @@ def test_decay_feature_displayed_returns_payload_copy_and_captures_event(notice_
 
     assert message == "Decay CTA"
     assert capsys.readouterr().err == ""
-    telemetry.posthog.evaluate_flags.assert_called_once_with("oss-user", flag_keys=[notices.FLAG_KEY])
+    telemetry._evaluate_mock.assert_called_once_with("oss-user")
     telemetry.capture_event.assert_called_once()
     event_name, props = telemetry.capture_event.call_args.args
     assert event_name == notices.NOTICE_EVENT
@@ -552,7 +555,7 @@ def test_decay_feature_telemetry_disabled_does_not_touch_posthog(monkeypatch, ca
 
 def test_decay_feature_posthog_failure_returns_plain_error(notice_harness, capsys):
     _, telemetry = notice_harness
-    telemetry.posthog.evaluate_flags.side_effect = RuntimeError("network unavailable")
+    telemetry._evaluate_mock.side_effect = RuntimeError("network unavailable")
 
     message = notices.get_decay_feature_error_message("sync", "project.update", "decay")
 
@@ -582,14 +585,14 @@ def test_decay_feature_cap_blocks_repeated_posthog_evaluation(notice_harness):
     for _ in range(notices.FEATURE_ERROR_CAP):
         assert notices.get_decay_feature_error_message("sync", "project.update", "decay") == "Decay CTA"
 
-    assert telemetry.posthog.evaluate_flags.call_count == notices.FEATURE_ERROR_CAP
+    assert telemetry._evaluate_mock.call_count == notices.FEATURE_ERROR_CAP
     assert telemetry.capture_event.call_count == notices.FEATURE_ERROR_CAP
     assert len(config["notice_state"]["decay_stub"]["events"]) == notices.FEATURE_ERROR_CAP
 
     message = notices.get_decay_feature_error_message("sync", "project.update", "decay")
 
     assert message == notices.DECAY_FEATURE_ERROR_MESSAGE
-    assert telemetry.posthog.evaluate_flags.call_count == notices.FEATURE_ERROR_CAP
+    assert telemetry._evaluate_mock.call_count == notices.FEATURE_ERROR_CAP
     assert telemetry.capture_event.call_count == notices.FEATURE_ERROR_CAP
 
 
@@ -670,7 +673,7 @@ def test_temporal_usage_displayed_logs_and_captures_event(notice_harness, capsys
     notices.display_temporal_usage_notice(MagicMock(), "sync", "search", "query", "relative_phrase")
 
     assert capsys.readouterr().err == "Temporal usage CTA\n"
-    telemetry.posthog.evaluate_flags.assert_called_once_with("oss-user", flag_keys=[notices.FLAG_KEY])
+    telemetry._evaluate_mock.assert_called_once_with("oss-user")
     telemetry.capture_event.assert_called_once()
     event_name, props = telemetry.capture_event.call_args.args
     assert event_name == notices.NOTICE_EVENT
@@ -771,7 +774,7 @@ def test_temporal_usage_cap_blocks_before_posthog_eval(notice_harness, capsys):
     notices.display_temporal_usage_notice(MagicMock(), "sync", "search", "query", "relative_phrase")
 
     assert capsys.readouterr().err == "Temporal usage CTA\n" * notices.TEMPORAL_USAGE_CAP
-    assert telemetry.posthog.evaluate_flags.call_count == notices.TEMPORAL_USAGE_CAP
+    assert telemetry._evaluate_mock.call_count == notices.TEMPORAL_USAGE_CAP
     assert telemetry.capture_event.call_count == notices.TEMPORAL_USAGE_CAP
     assert len(config["notice_state"]["temporal_usage"]["events"]) == notices.TEMPORAL_USAGE_CAP
 
@@ -869,7 +872,7 @@ def test_decay_usage_displayed_logs_and_captures_event(notice_harness, capsys):
     )
 
     assert capsys.readouterr().err == "Decay usage CTA\n"
-    telemetry.posthog.evaluate_flags.assert_called_once_with("oss-user", flag_keys=[notices.FLAG_KEY])
+    telemetry._evaluate_mock.assert_called_once_with("oss-user")
     telemetry.capture_event.assert_called_once()
     event_name, props = telemetry.capture_event.call_args.args
     assert event_name == notices.NOTICE_EVENT
@@ -994,7 +997,7 @@ def test_decay_usage_telemetry_disabled_does_not_touch_posthog_or_state(monkeypa
 
 def test_decay_usage_posthog_failure_does_not_consume_cap(notice_harness, capsys):
     config, telemetry = notice_harness
-    telemetry.posthog.evaluate_flags.side_effect = RuntimeError("posthog down")
+    telemetry._evaluate_mock.side_effect = RuntimeError("posthog down")
 
     notices.display_decay_usage_notice(
         MagicMock(),
@@ -1034,7 +1037,7 @@ def test_decay_usage_cap_blocks_before_posthog_eval(notice_harness, capsys):
     )
 
     assert capsys.readouterr().err == "Decay usage CTA\n" * notices.DECAY_USAGE_CAP
-    assert telemetry.posthog.evaluate_flags.call_count == notices.DECAY_USAGE_CAP
+    assert telemetry._evaluate_mock.call_count == notices.DECAY_USAGE_CAP
     assert telemetry.capture_event.call_count == notices.DECAY_USAGE_CAP
     assert len(config["notice_state"]["decay_usage"]["events"]) == notices.DECAY_USAGE_CAP
 
@@ -1111,7 +1114,7 @@ def test_scale_threshold_displayed_logs_and_captures_event(notice_harness, capsy
     )
 
     assert capsys.readouterr().err == "Scale top 50\n"
-    telemetry.posthog.evaluate_flags.assert_called_once_with("oss-user", flag_keys=[notices.FLAG_KEY])
+    telemetry._evaluate_mock.assert_called_once_with("oss-user")
     telemetry.capture_event.assert_called_once()
     event_name, props = telemetry.capture_event.call_args.args
     assert event_name == notices.NOTICE_EVENT
@@ -1238,7 +1241,7 @@ def test_scale_threshold_telemetry_disabled_does_not_touch_posthog_or_state(monk
 
 def test_scale_threshold_posthog_failure_does_not_consume_cap(notice_harness, capsys):
     config, telemetry = notice_harness
-    telemetry.posthog.evaluate_flags.side_effect = RuntimeError("network unavailable")
+    telemetry._evaluate_mock.side_effect = RuntimeError("network unavailable")
 
     notices.display_scale_threshold_notice(
         MagicMock(),
@@ -1281,7 +1284,7 @@ def test_scale_threshold_cap_blocks_before_posthog_eval(notice_harness, capsys):
     )
 
     assert capsys.readouterr().err == "Scale top 50\n" * notices.SCALE_THRESHOLD_CAP
-    assert telemetry.posthog.evaluate_flags.call_count == notices.SCALE_THRESHOLD_CAP
+    assert telemetry._evaluate_mock.call_count == notices.SCALE_THRESHOLD_CAP
     assert telemetry.capture_event.call_count == notices.SCALE_THRESHOLD_CAP
     assert len(config["notice_state"]["scale_threshold"]["events"]) == notices.SCALE_THRESHOLD_CAP
 
@@ -1549,3 +1552,92 @@ def test_notice_priority_scale_beats_first_run(monkeypatch):
     )
 
     assert calls == ["scale"]
+
+
+class TestStaticFlagEvaluation:
+    def test_static_flag_result_exposes_posthog_event_properties(self):
+        flags = notices.StaticFlagResult(notices.DISPLAYED_VARIANT, {"notices": {}})
+
+        assert flags._get_event_properties() == {
+            f"$feature/{notices.FLAG_KEY}": notices.DISPLAYED_VARIANT,
+            "$active_feature_flags": [notices.FLAG_KEY],
+        }
+
+    def test_evaluate_notice_flags_returns_displayed_or_holdout(self):
+        result = notices._evaluate_notice_flags("user-abc")
+        variant = result.get_flag(notices.FLAG_KEY)
+        assert variant in (notices.DISPLAYED_VARIANT, notices.HOLDOUT_VARIANT)
+
+    def test_evaluate_notice_flags_deterministic(self):
+        a = notices._evaluate_notice_flags("user-123").get_flag(notices.FLAG_KEY)
+        b = notices._evaluate_notice_flags("user-123").get_flag(notices.FLAG_KEY)
+        assert a == b
+
+    @pytest.mark.parametrize(
+        ("user_id", "expected_variant"),
+        [("user-0", notices.HOLDOUT_VARIANT), ("user-1", notices.DISPLAYED_VARIANT)],
+    )
+    def test_evaluate_notice_flags_preserves_posthog_cohorts(self, monkeypatch, user_id, expected_variant):
+        monkeypatch.setattr(notices, "_cached_config", {"variant_split": 0.5, "notices": {}})
+        monkeypatch.setattr(notices, "_cached_config_ts", float("inf"))
+
+        assert notices._evaluate_notice_flags(user_id).get_flag(notices.FLAG_KEY) == expected_variant
+
+    def test_evaluate_notice_flags_returns_payload_with_notices(self):
+        result = notices._evaluate_notice_flags("user-abc")
+        payload = result.get_flag_payload(notices.FLAG_KEY)
+        assert "notices" in payload
+
+    def test_get_notice_config_uses_bundled_fallback(self, monkeypatch):
+        monkeypatch.setattr(notices, "_cached_config", None)
+        monkeypatch.setattr(notices, "_cached_config_ts", 0.0)
+        monkeypatch.setattr(notices, "_fetch_remote_config", lambda: None)
+        config = notices._get_notice_config()
+        assert "notices" in config
+        assert config.get("version") == 1
+
+    def test_remote_config_fetch_uses_telemetry_timeout(self, monkeypatch):
+        timeouts = []
+
+        def fail_fetch(_request, timeout):
+            timeouts.append(timeout)
+            raise TimeoutError
+
+        monkeypatch.setattr(notices.urllib.request, "urlopen", fail_fetch)
+
+        assert notices._fetch_remote_config() is None
+        assert timeouts == [telemetry_module.FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS]
+
+    def test_get_notice_config_prefers_remote(self, monkeypatch):
+        remote = {"version": 2, "variant_split": 0.5, "notices": {"first_run": {"copy": "remote", "enabled": True}}}
+        monkeypatch.setattr(notices, "_cached_config", None)
+        monkeypatch.setattr(notices, "_cached_config_ts", 0.0)
+        monkeypatch.setattr(notices, "_fetch_remote_config", lambda: remote)
+        config = notices._get_notice_config()
+        assert config["version"] == 2
+
+    def test_get_notice_config_caches_result(self, monkeypatch):
+        call_count = 0
+        remote = {"version": 3, "variant_split": 0.5, "notices": {}}
+
+        def counting_fetch():
+            nonlocal call_count
+            call_count += 1
+            return remote
+
+        monkeypatch.setattr(notices, "_cached_config", None)
+        monkeypatch.setattr(notices, "_cached_config_ts", 0.0)
+        monkeypatch.setattr(notices, "_fetch_remote_config", counting_fetch)
+        notices._get_notice_config()
+        notices._get_notice_config()
+        assert call_count == 1
+
+    def test_variant_split_respects_config(self, monkeypatch):
+        monkeypatch.setattr(notices, "_cached_config", {"variant_split": 1.0, "notices": {}})
+        monkeypatch.setattr(notices, "_cached_config_ts", float("inf"))
+        result = notices._evaluate_notice_flags("any-user")
+        assert result.get_flag(notices.FLAG_KEY) == notices.DISPLAYED_VARIANT
+
+        monkeypatch.setattr(notices, "_cached_config", {"variant_split": 0.0, "notices": {}})
+        result = notices._evaluate_notice_flags("any-user")
+        assert result.get_flag(notices.FLAG_KEY) == notices.HOLDOUT_VARIANT

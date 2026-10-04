@@ -1,6 +1,7 @@
 import type { FlagEmbedding } from "fastembed";
 import { Embedder } from "./base";
 import { EmbeddingConfig } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 // FastEmbed only ships a fixed set of ONNX models (fastembed's `EmbeddingModel`
 // enum, minus CUSTOM). Mirrored here as literals so an invalid model name can
@@ -54,14 +55,11 @@ export class FastEmbedEmbedder implements Embedder {
    * consumers that never touch FastEmbed don't need it installed.
    */
   private async initEmbeddingModel(): Promise<FlagEmbedding> {
-    let sdk: any;
-    try {
-      sdk = await import("fastembed");
-    } catch {
-      throw new Error(
-        "The 'fastembed' package is required to use the FastEmbed embedder. Install it with: npm install fastembed",
-      );
-    }
+    const sdk = await loadPeer(
+      "fastembed",
+      "FastEmbed embedder",
+      () => import("fastembed"),
+    );
 
     return sdk.FlagEmbedding.init({ model: this.modelName });
   }

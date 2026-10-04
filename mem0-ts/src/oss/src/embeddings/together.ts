@@ -17,7 +17,14 @@ export class TogetherEmbedder extends OpenAIEmbedder {
     super({
       ...openAICompatibleConfig,
       apiKey,
-      baseURL: config.baseURL || config.url || DEFAULT_BASE_URL,
+      // Honor TOGETHER_API_BASE like the Together LLM does, so a user behind a
+      // gateway who sets it gets it for embeddings too instead of silently
+      // hitting api.together.ai.
+      baseURL:
+        config.baseURL ||
+        config.url ||
+        process.env.TOGETHER_API_BASE ||
+        DEFAULT_BASE_URL,
       model: config.model || DEFAULT_MODEL,
     });
   }
