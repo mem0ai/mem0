@@ -1,4 +1,5 @@
 import { Type } from "@sinclair/typebox";
+import { USER_SEARCH_QUERY_DESCRIPTION, USER_SEARCH_TOOL_DESCRIPTION } from "../../agent-plugin-core/typescript/src/prompts.ts";
 import type { MemoryItem, SearchOptions } from "../types.ts";
 import type { ToolDeps } from "./index.ts";
 
@@ -8,9 +9,9 @@ export function createMemorySearchTool(deps: ToolDeps) {
   return {
     name: "memory_search",
     label: "Memory Search",
-    description: "Search through long-term memories stored in Mem0.",
+    description: USER_SEARCH_TOOL_DESCRIPTION,
     parameters: Type.Object({
-      query: Type.String({ description: "Search query" }),
+      query: Type.String({ description: USER_SEARCH_QUERY_DESCRIPTION }),
       limit: Type.Optional(Type.Number({ description: `Max results (default: ${cfg.topK})` })),
       userId: Type.Optional(Type.String({ description: "User ID to scope search" })),
       agentId: Type.Optional(Type.String({ description: "Agent ID to search a specific agent's memories" })),

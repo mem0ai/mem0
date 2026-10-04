@@ -1,6 +1,11 @@
+import re
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+# Rejecting any identifier that doesn't match this pattern is what keeps the
+# f-string table/column interpolations in mem0/vector_stores/azure_mysql.py safe.
+_VALID_SQL_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class AzureMySQLConfig(BaseModel):
@@ -25,6 +30,15 @@ class AzureMySQLConfig(BaseModel):
         None,
         description="Pre-configured connection pool object (overrides other connection parameters)"
     )
+
+    @field_validator("collection_name")
+    def validate_collection_name(cls, v):
+        if not _VALID_SQL_IDENTIFIER.match(v):
+            raise ValueError(
+                f"Invalid collection_name: {v!r}. Must start with a letter or underscore and "
+                "contain only letters, digits, and underscores."
+            )
+        return v
 
     @model_validator(mode="before")
     @classmethod

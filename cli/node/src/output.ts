@@ -282,11 +282,24 @@ export function sanitizeAgentData(command: string, data: unknown): unknown {
 		}
 		case "search":
 			return (data as Record<string, unknown>[]).map((r) =>
-				pick(r, ["id", "memory", "score", "created_at", "categories"]),
+				pick(r, [
+					"id",
+					"memory",
+					"score",
+					"created_at",
+					"categories",
+					"expiration_date",
+				]),
 			);
 		case "list":
 			return (data as Record<string, unknown>[]).map((r) =>
-				pick(r, ["id", "memory", "created_at", "categories"]),
+				pick(r, [
+					"id",
+					"memory",
+					"created_at",
+					"categories",
+					"expiration_date",
+				]),
 			);
 		case "get": {
 			const r = data as Record<string, unknown>;
@@ -297,11 +310,12 @@ export function sanitizeAgentData(command: string, data: unknown): unknown {
 				"updated_at",
 				"categories",
 				"metadata",
+				"expiration_date",
 			]);
 		}
 		case "update": {
 			const r = data as Record<string, unknown>;
-			return pick(r, ["id", "memory"]);
+			return pick(r, ["id", "memory", "expiration_date"]);
 		}
 		case "delete":
 		case "delete-all":

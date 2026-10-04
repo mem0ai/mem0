@@ -237,3 +237,43 @@ describe("getBaseUrl", () => {
     expect(getBaseUrl()).toBe(DEFAULT_BASE_URL);
   });
 });
+
+// ---------------------------------------------------------------------------
+// keyFingerprint round trip
+// ---------------------------------------------------------------------------
+
+describe("keyFingerprint survives a write and read", () => {
+  it("readPluginAuth returns a persisted keyFingerprint", () => {
+    // It did not. readPluginAuth builds its result field by field, and this one
+    // was missing, so every fingerprint comparison ran against undefined, the
+    // resolved email was never used again, and telemetry silently fell back to
+    // the API key hash. The telemetry tests could not see it because they mock
+    // this module and their mock returned the field the real reader dropped.
+    setConfigFile({
+      plugins: {
+        entries: {
+          "openclaw-mem0": {
+            config: {
+              apiKey: "m0-test",
+              userEmail: "person@example.com",
+              keyFingerprint: "0123456789abcdef",
+            },
+          },
+        },
+      },
+    });
+
+    expect(readPluginAuth().keyFingerprint).toBe("0123456789abcdef");
+  });
+
+  it("writePluginAuth persists it where readPluginAuth looks", () => {
+    setConfigFile({ plugins: { entries: { "openclaw-mem0": { config: {} } } } });
+
+    writePluginAuth({ userEmail: "person@example.com", keyFingerprint: "abc123" });
+
+    const written = JSON.parse(mockWriteText.mock.calls.at(-1)![1] as string);
+    const cfg = written.plugins.entries["openclaw-mem0"].config;
+    expect(cfg.keyFingerprint).toBe("abc123");
+    expect(cfg.userEmail).toBe("person@example.com");
+  });
+});

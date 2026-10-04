@@ -107,6 +107,14 @@ class TestMilvusDB:
         assert 'metadata["category"] == "work"' in filter_str
         assert ' and ' in filter_str
 
+    def test_create_filter_wildcard_conditions(self, milvus_db):
+        """Test filter creation with wildcard conditions."""
+        filters = {"user_id": "alice", "run_id": "*"}
+        filter_str = milvus_db._create_filter(filters)
+
+        assert 'metadata["user_id"] == "alice"' in filter_str
+        assert 'metadata["run_id"] == "*"' not in filter_str
+
     def test_search_with_filters(self, milvus_db, mock_milvus_client):
         """Test search with metadata filters (reproduces user's bug scenario)."""
         # Setup mock return value
@@ -178,7 +186,7 @@ class TestMilvusDB:
         
         mock_milvus_client.delete.assert_called_once_with(
             collection_name="test_collection",
-            ids=vector_id
+            ids=[vector_id]
         )
 
     def test_get(self, milvus_db, mock_milvus_client):
@@ -310,10 +318,71 @@ class TestMilvusDB:
         with pytest.raises(ValueError, match="no vector data"):
             milvus_db.update(vector_id="test_id", vector=None, payload={"data": "test"})
 
+    def test_create_filter_rejects_expression_injection(self, milvus_db):
+        """Crafted string value must not break out of the quoted expression."""
+        with pytest.raises(ValueError, match="must be str, int, float, or bool"):
+            milvus_db._create_filter({"user_id": {"$ne": ""}})
+
+    def test_create_filter_rejects_malicious_key(self, milvus_db):
+        """Keys with special characters must be rejected."""
+        with pytest.raises(ValueError, match="Invalid filter key"):
+            milvus_db._create_filter({'"] == "") or true or ("': "x"})
+
+    def test_create_filter_escapes_quotes_in_value(self, milvus_db):
+        """Double-quotes inside string values must be escaped."""
+        result = milvus_db._create_filter({"user_id": 'alice"}'})
+        assert '\\"' in result
+        assert 'alice\\"' in result
+
+    def test_create_filter_escapes_backslash_and_quote(self, milvus_db):
+        """Backslashes and double-quotes in the same value must both be escaped."""
+        result = milvus_db._create_filter({"user_id": r'alice\path"beta'})
+        assert result == r'(metadata["user_id"] == "alice\\path\"beta")'
+
+    def test_create_filter_renders_boolean(self, milvus_db):
+        """Boolean values must be rendered unquoted in the backend's expected format."""
+        result = milvus_db._create_filter({"active": True, "deleted": False})
+        assert '(metadata["active"] == True)' in result
+        assert '(metadata["deleted"] == False)' in result
+
+    def test_update_omits_text_field_on_pre_v3_collection(self, mock_milvus_client):
+        """update() must not include 'text' for collections without BM25 schema."""
+        mock_milvus_client.has_collection.return_value = True
+        mock_milvus_client.describe_collection.return_value = {
+            "fields": [
+                {"name": "id"},
+                {"name": "vectors"},
+                {"name": "metadata"},
+            ]
+        }
+        db = MilvusDB(
+            url="http://localhost:19530",
+            token="test_token",
+            collection_name="legacy_collection",
+            embedding_model_dims=1536,
+            metric_type=MetricType.COSINE,
+            db_name="test_db",
+        )
+        assert db._has_bm25_schema is False
+
+        db.update(vector_id="id1", vector=[0.1] * 1536, payload={"data": "hello"})
+
+        upserted = mock_milvus_client.upsert.call_args[1]["data"]
+        assert "text" not in upserted
+
+    def test_update_includes_text_field_on_v3_collection(self, milvus_db, mock_milvus_client):
+        """update() must include 'text' for collections with BM25 schema."""
+        assert milvus_db._has_bm25_schema is True
+
+        milvus_db.update(vector_id="id1", vector=[0.1] * 1536, payload={"data": "hello"})
+
+        upserted = mock_milvus_client.upsert.call_args[1]["data"]
+        assert upserted["text"] == "hello"
+
     def test_collection_already_exists(self, mock_milvus_client):
         """Test that existing collection is not recreated."""
         mock_milvus_client.has_collection.return_value = True
-        
+
         MilvusDB(
             url="http://localhost:19530",
             token="test_token",
@@ -322,7 +391,7 @@ class TestMilvusDB:
             metric_type=MetricType.L2,
             db_name="test_db"
         )
-        
+
         # create_collection should not be called
         mock_milvus_client.create_collection.assert_not_called()
 

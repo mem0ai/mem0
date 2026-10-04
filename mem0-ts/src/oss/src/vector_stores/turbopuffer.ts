@@ -1,0 +1,323 @@
+import { VectorStore } from "./base";
+import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
+
+interface TurbopufferConfig extends VectorStoreConfig {
+  apiKey?: string;
+  region?: string;
+  collectionName: string;
+  distanceMetric?: string;
+  batchSize?: number;
+}
+
+export class TurbopufferDB implements VectorStore {
+  private clientInstance?: any;
+  private clientPromise?: Promise<any>;
+  private readonly apiKey: string;
+  private readonly region: string;
+  private readonly collectionName: string;
+  private readonly distanceMetric: string;
+  private readonly batchSize: number;
+
+  constructor(config: TurbopufferConfig) {
+    const apiKey = config.apiKey ?? process.env.TURBOPUFFER_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "Turbopuffer API key is required. Provide it via config.apiKey or the TURBOPUFFER_API_KEY environment variable.",
+      );
+    }
+
+    this.apiKey = apiKey;
+    this.region = config.region ?? "gcp-us-central1";
+    this.collectionName = config.collectionName;
+    this.distanceMetric = config.distanceMetric ?? "cosine_distance";
+    this.batchSize = config.batchSize ?? 100;
+  }
+
+  /**
+   * Lazily construct (or reuse) the Turbopuffer client, importing the optional
+   * `@turbopuffer/turbopuffer` peer only when the store is first used so
+   * consumers that never touch Turbopuffer don't need it installed.
+   */
+  private async getClient(): Promise<any> {
+    if (this.clientInstance) return this.clientInstance;
+    if (!this.clientPromise) {
+      this.clientPromise = this.createClient();
+    }
+    this.clientInstance = await this.clientPromise;
+    return this.clientInstance;
+  }
+
+  private async createClient(): Promise<any> {
+    const sdk = await loadPeer(
+      "@turbopuffer/turbopuffer",
+      "Turbopuffer vector store",
+      () => import("@turbopuffer/turbopuffer"),
+    );
+
+    // @turbopuffer/turbopuffer ships `Turbopuffer` as both the default export
+    // and a named export pointing at the same class. Use `.default` since
+    // that's what a plain `import Turbopuffer from "..."` resolves to (and
+    // what test doubles for this module mock).
+    return new sdk.default({
+      apiKey: this.apiKey,
+      region: this.region,
+    });
+  }
+
+  private async getNs(): Promise<any> {
+    const client = await this.getClient();
+    return client.namespace(this.collectionName);
+  }
+
+  private async getMigrationsNs(): Promise<any> {
+    const client = await this.getClient();
+    return client.namespace(this.collectionName + "_migrations");
+  }
+
+  async initialize(): Promise<void> {
+    // no-op: Turbopuffer creates namespaces on first write
+  }
+
+  async insert(
+    vectors: number[][],
+    ids: string[],
+    payloads: Record<string, any>[],
+  ): Promise<void> {
+    const ns = await this.getNs();
+    for (let i = 0; i < vectors.length; i += this.batchSize) {
+      const batchVectors = vectors.slice(i, i + this.batchSize);
+      const batchIds = ids.slice(i, i + this.batchSize);
+      const batchPayloads = payloads.slice(i, i + this.batchSize);
+
+      const upsert_rows = batchVectors.map((vector, j) => ({
+        ...batchPayloads[j],
+        id: batchIds[j],
+        vector,
+      }));
+
+      await ns.write({
+        upsert_rows,
+        distance_metric: this.distanceMetric as any,
+      });
+    }
+  }
+
+  async search(
+    query: number[],
+    topK?: number,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[]> {
+    const queryParams: any = {
+      rank_by: ["vector", "ANN", query],
+      top_k: topK ?? 5,
+      include_attributes: true,
+    };
+
+    const tpufFilters = this.convertFilters(filters);
+    if (tpufFilters !== null) queryParams.filters = tpufFilters;
+
+    const ns = await this.getNs();
+    try {
+      const result = await ns.query(queryParams);
+      return this.parseRows(result.rows ?? []);
+    } catch (err) {
+      console.error("Turbopuffer search error:", err);
+      return [];
+    }
+  }
+
+  async keywordSearch(): Promise<null> {
+    return null;
+  }
+
+  async get(vectorId: string): Promise<VectorStoreResult | null> {
+    const ns = await this.getNs();
+    try {
+      const result = await ns.query({
+        rank_by: ["id", "asc"] as any,
+        top_k: 1,
+        include_attributes: true,
+        filters: ["id", "Eq", vectorId] as any,
+      });
+      const rows = result.rows ?? [];
+      return rows.length ? this.parseRows(rows)[0] : null;
+    } catch (err) {
+      console.error("Turbopuffer get error:", err);
+      return null;
+    }
+  }
+
+  async update(
+    vectorId: string,
+    vector: number[],
+    payload: Record<string, any>,
+  ): Promise<void> {
+    const ns = await this.getNs();
+    if (vector && vector.length > 0) {
+      await ns.write({
+        upsert_rows: [{ ...payload, id: vectorId, vector }],
+        distance_metric: this.distanceMetric as any,
+      });
+    } else {
+      await ns.write({
+        patch_rows: [{ ...payload, id: vectorId }],
+      });
+    }
+  }
+
+  async delete(vectorId: string): Promise<void> {
+    const ns = await this.getNs();
+    await ns.write({ deletes: [vectorId] });
+  }
+
+  async deleteCol(): Promise<void> {
+    const ns = await this.getNs();
+    await ns.deleteAll();
+  }
+
+  async list(
+    filters?: SearchFilters,
+    topK?: number,
+  ): Promise<[VectorStoreResult[], number]> {
+    const queryParams: any = {
+      rank_by: ["id", "asc"],
+      top_k: topK ?? 100,
+      include_attributes: true,
+    };
+
+    const tpufFilters = this.convertFilters(filters);
+    if (tpufFilters !== null) queryParams.filters = tpufFilters;
+
+    const ns = await this.getNs();
+    try {
+      const result = await ns.query(queryParams);
+      const rows = this.parseRows(result.rows ?? []);
+      return [rows, rows.length];
+    } catch (err) {
+      console.error("Turbopuffer list error:", err);
+      return [[], 0];
+    }
+  }
+
+  async getUserId(): Promise<string> {
+    try {
+      const migrationsNs = await this.getMigrationsNs();
+      let rows: any[] = [];
+      try {
+        const result = await migrationsNs.query({
+          rank_by: ["id", "asc"] as any,
+          top_k: 1,
+          include_attributes: true,
+        });
+        rows = result.rows ?? [];
+      } catch (err: any) {
+        // The migrations namespace is created lazily on first write, so the
+        // very first read 404s. Treat that as "no id yet" and fall through to
+        // create one; surface any other error (auth, rate limit, network).
+        if (err?.status !== 404) throw err;
+      }
+      if (rows.length > 0 && rows[0].user_id) {
+        return String(rows[0].user_id);
+      }
+      const randomId =
+        Math.random().toString(36).slice(2, 15) +
+        Math.random().toString(36).slice(2, 15);
+      await migrationsNs.write({
+        upsert_rows: [{ id: "1", vector: [0.0], user_id: randomId }],
+        distance_metric: "cosine_distance" as any,
+      });
+      return randomId;
+    } catch (err) {
+      console.error("Error getting user ID:", err);
+      throw err;
+    }
+  }
+
+  async setUserId(userId: string): Promise<void> {
+    try {
+      const migrationsNs = await this.getMigrationsNs();
+      await migrationsNs.write({
+        upsert_rows: [{ id: "1", vector: [0.0], user_id: userId }],
+        distance_metric: "cosine_distance" as any,
+      });
+    } catch (err) {
+      console.error("Error setting user ID:", err);
+      throw err;
+    }
+  }
+
+  // Maps mem0's universal filter operators to Turbopuffer's filter tokens.
+  private static readonly OPERATOR_MAP: Record<string, string> = {
+    eq: "Eq",
+    ne: "NotEq",
+    gt: "Gt",
+    gte: "Gte",
+    lt: "Lt",
+    lte: "Lte",
+    in: "In",
+    nin: "NotIn",
+  };
+
+  private convertFilters(filters?: SearchFilters): any {
+    if (!filters || Object.keys(filters).length === 0) return null;
+
+    const conditions: any[] = [];
+    for (const [key, value] of Object.entries(filters)) {
+      // "*" is a match-any wildcard: it must not constrain the query. The old
+      // code turned it into `[key, "Eq", "*"]`, matching nothing.
+      if (value === "*") {
+        continue;
+      }
+
+      // Array shorthand: { key: [a, b] } means "in".
+      if (Array.isArray(value)) {
+        conditions.push([key, "In", value]);
+        continue;
+      }
+
+      if (typeof value === "object" && value !== null) {
+        // Operator dict: every operator present must hold. Previously only
+        // `gte` and `lte` were read, so `gt`/`lt`/`ne`/`eq`/`in`/`nin` were
+        // silently dropped and the filter returned unfiltered results.
+        for (const [op, operand] of Object.entries(value)) {
+          const token = TurbopufferDB.OPERATOR_MAP[op];
+          if (!token) {
+            throw new Error(
+              `Unsupported Turbopuffer filter operator '${op}' for field '${key}'. ` +
+                `Supported operators: ${Object.keys(TurbopufferDB.OPERATOR_MAP).join(", ")}.`,
+            );
+          }
+          conditions.push([key, token, operand]);
+        }
+        continue;
+      }
+
+      // Scalar shorthand: equality.
+      conditions.push([key, "Eq", value]);
+    }
+
+    if (conditions.length === 0) return null;
+    if (conditions.length === 1) return conditions[0];
+    return ["And", conditions];
+  }
+
+  private parseRows(rows: any[]): VectorStoreResult[] {
+    return rows.map((row) => {
+      const { id, $dist, vector, ...rest } = row;
+      let score: number | undefined;
+      if ($dist == null) {
+        score = undefined;
+      } else if (this.distanceMetric === "euclidean_squared") {
+        // euclidean_squared $dist is an unbounded squared distance, so 1 - $dist
+        // goes negative for any $dist > 1 and inverts ranking. Convert it to a
+        // bounded higher-is-better score, mirroring the milvus/baidu stores.
+        score = 1 / (1 + $dist);
+      } else {
+        // Cosine distance is in [0, 2]; 1 - $dist stays a meaningful similarity.
+        score = 1 - $dist;
+      }
+      return { id: String(id), payload: rest, score };
+    });
+  }
+}

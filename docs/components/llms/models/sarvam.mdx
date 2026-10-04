@@ -9,7 +9,8 @@ To use Sarvam AI's models, please set the `SARVAM_API_KEY` which you can get fro
 
 ## Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -34,7 +35,34 @@ messages = [
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="alex")
+
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  llm: {
+    provider: 'sarvam',
+    config: {
+      apiKey: process.env.SARVAM_API_KEY || '',
+      model: 'sarvam-m',
+      temperature: 0.7,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+];
+await memory.add(messages, { userId: 'alex' });
+```
+
+</CodeGroup>
 
 ## Advanced Usage with Sarvam-Specific Features
 

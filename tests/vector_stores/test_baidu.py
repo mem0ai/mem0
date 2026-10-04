@@ -137,6 +137,27 @@ def test_search(mochow_instance, mock_mochow_client):
     assert results[1].payload == {"name": "vector2"}
 
 
+def test_search_converts_l2_distance_to_similarity(mochow_instance):
+    # On the L2 metric, Mochow returns raw distances (lower = closer). search()
+    # must convert them to similarity scores (higher = better) to satisfy the
+    # VectorStoreBase contract, mirroring the milvus provider.
+    mochow_instance.metric_type = "L2"
+
+    mock_search_results = Mock()
+    mock_search_results.rows = [
+        {"row": {"id": "id1", "metadata": {"name": "vector1"}}, "score": 0.5},
+        {"row": {"id": "id2", "metadata": {"name": "vector2"}}, "score": 2.0},
+    ]
+    mochow_instance._table.vector_search.return_value = mock_search_results
+
+    results = mochow_instance.search(query="test", vectors=[0.1, 0.2, 0.3], top_k=2)
+
+    # 1.0 / (1.0 + distance): the closer memory must score higher than the far one.
+    assert results[0].score == pytest.approx(1.0 / 1.5)
+    assert results[1].score == pytest.approx(1.0 / 3.0)
+    assert results[0].score > results[1].score
+
+
 def test_search_with_filters(mochow_instance, mock_mochow_client):
     mochow_instance._table.vector_search.return_value = Mock(rows=[])
 
@@ -235,3 +256,35 @@ def test_col_info(mochow_instance, mock_mochow_client):
     result = mochow_instance.col_info()
 
     assert result == mock_table_info
+
+
+def test_create_filter_rejects_dict_value(mochow_instance):
+    """Dict filter values could contain expression injection payloads."""
+    with pytest.raises(ValueError, match="must be str, int, float, or bool"):
+        mochow_instance._create_filter({"user_id": {"$ne": ""}})
+
+
+def test_create_filter_rejects_malicious_key(mochow_instance):
+    """Keys with special characters must be rejected."""
+    with pytest.raises(ValueError, match="Invalid filter key"):
+        mochow_instance._create_filter({'"] = "") or true or ("': "x"})
+
+
+def test_create_filter_escapes_quotes_in_value(mochow_instance):
+    """Double-quotes inside string values must be escaped."""
+    result = mochow_instance._create_filter({"user_id": 'alice"}'})
+    assert '\\"' in result
+    assert 'alice\\"' in result
+
+
+def test_create_filter_escapes_backslash_and_quote(mochow_instance):
+    """Backslashes and double-quotes in the same value must both be escaped."""
+    result = mochow_instance._create_filter({"user_id": r'alice\path"beta'})
+    assert result == r'metadata["user_id"] = "alice\\path\"beta"'
+
+
+def test_create_filter_renders_boolean(mochow_instance):
+    """Boolean values must be rendered unquoted in the backend's expected format."""
+    result = mochow_instance._create_filter({"active": True, "deleted": False})
+    assert 'metadata["active"] = True' in result
+    assert 'metadata["deleted"] = False' in result

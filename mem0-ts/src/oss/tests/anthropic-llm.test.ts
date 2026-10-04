@@ -4,17 +4,55 @@
  */
 
 const mockCreate = jest.fn();
+const mockConstructor = jest.fn();
 
 jest.mock("@anthropic-ai/sdk", () => {
-  return jest.fn().mockImplementation(() => ({
-    messages: { create: mockCreate },
-  }));
+  return jest.fn().mockImplementation((args) => {
+    mockConstructor(args);
+    return { messages: { create: mockCreate } };
+  });
 });
 
 import { AnthropicLLM } from "../src/llms/anthropic";
 
 describe("AnthropicLLM (unit)", () => {
-  beforeEach(() => mockCreate.mockClear());
+  beforeEach(() => {
+    mockCreate.mockClear();
+    mockConstructor.mockClear();
+  });
+
+  // Regression #5665: a configured baseURL must reach the Anthropic client so
+  // proxy/gateway users are not silently bypassed (TS parity with #5626).
+  // The client is constructed lazily on first use, so drive generateResponse.
+  it("forwards baseURL to the Anthropic client when set", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: "ok" }],
+    });
+    const llm = new AnthropicLLM({
+      apiKey: "test-key",
+      baseURL: "https://proxy.example/v1",
+    });
+    await llm.generateResponse([{ role: "user", content: "Hi" }]);
+
+    expect(mockConstructor).toHaveBeenCalledTimes(1);
+    const ctorArgs = mockConstructor.mock.calls[0][0];
+    expect(ctorArgs.apiKey).toBe("test-key");
+    expect(ctorArgs.baseURL).toBe("https://proxy.example/v1");
+  });
+
+  // When no baseURL is configured the client must not receive a baseURL key
+  // (so the SDK default endpoint is used).
+  it("does NOT set baseURL when none is configured", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: "ok" }],
+    });
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    await llm.generateResponse([{ role: "user", content: "Hi" }]);
+
+    expect(mockConstructor).toHaveBeenCalledTimes(1);
+    const ctorArgs = mockConstructor.mock.calls[0][0];
+    expect(ctorArgs.baseURL).toBeUndefined();
+  });
 
   it("returns text when no tools are provided and model returns a text block", async () => {
     mockCreate.mockResolvedValueOnce({
@@ -32,6 +70,37 @@ describe("AnthropicLLM (unit)", () => {
     // No tools → tool_choice must NOT be forwarded
     const callArgs = mockCreate.mock.calls[0][0];
     expect(callArgs.tool_choice).toBeUndefined();
+  });
+
+  // Regression: thinking-enabled models emit a thinking block before the text
+  // block. Indexing content[0] threw "Unexpected response type"; the text block
+  // must be found by type instead (TS parity with #6481).
+  it("returns the text block when a thinking block precedes it (no tools)", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [
+        { type: "thinking", thinking: "Let me reason about this." },
+        { type: "text", text: '{"facts": ["fact1"]}' },
+      ],
+    });
+
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    const result = await llm.generateResponse([
+      { role: "user", content: "Hello" },
+    ]);
+
+    expect(result).toBe('{"facts": ["fact1"]}');
+  });
+
+  // A response carrying no text block at all must resolve to "" rather than throw.
+  it("returns an empty string when no text block is present (no tools)", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "thinking", thinking: "Thinking only." }],
+    });
+
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    await expect(
+      llm.generateResponse([{ role: "user", content: "Hello" }]),
+    ).resolves.toBe("");
   });
 
   // Bug #1 regression: bare string "auto" must NOT be sent; object form required

@@ -6,11 +6,17 @@ description: "Use OpenSearch as a vector database in Mem0 with k-NN search suppo
 
 ### Installation
 
-OpenSearch support requires additional dependencies. Install them with:
+OpenSearch support requires an additional client library. Install the one for your SDK:
 
-```bash
+<CodeGroup>
+```bash Python
 pip install opensearch-py
 ```
+
+```bash TypeScript
+npm install @opensearch-project/opensearch
+```
+</CodeGroup>
 
 ### Prerequisites
 
@@ -26,7 +32,8 @@ You can create a collection through the AWS Console:
 
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 import boto3
@@ -55,6 +62,82 @@ config = {
     }
 }
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+// Basic self-hosted OpenSearch. For AWS OpenSearch Serverless, build an
+// @opensearch-project/opensearch Client with AwsSigv4Signer and pass it as
+// `client` instead of host/port/user/password.
+const config = {
+  vectorStore: {
+    provider: 'opensearch',
+    config: {
+      collectionName: 'mem0',
+      embeddingModelDims: 1024,
+      host: 'localhost',
+      port: 9200,
+      user: 'admin',
+      password: 'admin',
+      useSSL: false,
+      verifyCerts: false,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+  { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant", content: "How about thriller movies? They can be quite engaging." },
+  { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
+### Configuration Options
+
+<Tabs>
+<Tab title="Python">
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `collection_name` | string | required | Name of the OpenSearch index |
+| `host` | string | required | OpenSearch endpoint URL |
+| `port` | int | 9200 | Port number |
+| `http_auth` | object | None | Authentication credentials (e.g., AWSV4SignerAuth) |
+| `embedding_model_dims` | int | 1536 | Dimension of embedding vectors |
+| `use_ssl` | bool | False | Enable SSL/TLS connection |
+| `verify_certs` | bool | False | Verify SSL certificates |
+| `auto_refresh` | bool | False | Automatically refresh index after insert. OpenSearch refreshes every ~1 second by default, so this is rarely needed. |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `collectionName` | string | required | Name of the OpenSearch index |
+| `embeddingModelDims` | number | 1536 | Dimension of embedding vectors |
+| `host` | string | `localhost` | OpenSearch endpoint host |
+| `port` | number | 9200 | Port number |
+| `httpAuth` | object | None | Authentication credentials, an object or `[user, password]` tuple |
+| `user` | string | None | Username for basic auth (used together with `password`) |
+| `password` | string | None | Password for basic auth (used together with `user`) |
+| `useSSL` | boolean | false | Enable SSL/TLS connection |
+| `verifyCerts` | boolean | false | Verify SSL certificates |
+| `autoRefresh` | boolean | false | Refresh the index after each write so new memories are searchable immediately. Not supported on AWS Serverless. |
+| `client` | object | None | Preconfigured OpenSearch client, e.g. one built with AwsSigv4Signer for AWS auth |
+</Tab>
+</Tabs>
+
+<Note>
+  The defaults above match a local OpenSearch instance. The AWS OpenSearch Serverless
+  example earlier on this page intentionally overrides them with `port=443`, `use_ssl=True`,
+  and `verify_certs=True`, which are required when connecting to a Serverless collection.
+</Note>
+
+<Note>
+  For **AWS OpenSearch Serverless**, keep `auto_refresh=False` (the default).
+  The `indices.refresh()` API is not supported on Serverless collections.
+</Note>
 
 ### Add Memories
 

@@ -220,6 +220,50 @@ class TestWeaviateDB(unittest.TestCase):
         self.client_mock.collections.delete.assert_called_once_with("test_collection")
         self.client_mock.collections.create.assert_called_once()
 
+    def test_update_preserves_properties_and_does_not_write_model_fields(self):
+        # Regression: the vector branch of update() previously resent
+        # dict(OutputData) as properties, i.e. the model field names
+        # {"id", "score", "payload"}, corrupting the stored object instead of
+        # preserving its real properties.
+        valid_uuid = str(uuid.uuid4())
+        collection = self.client_mock.collections.get.return_value
+
+        # Mock get() so that, on the buggy code path, the vector branch can run
+        # to completion and actually write its (wrong) properties.
+        mock_response = MagicMock()
+        mock_response.properties = {"data": "existing", "hash": "abc123"}
+        mock_response.uuid = valid_uuid
+        collection.query.fetch_object_by_id.return_value = mock_response
+
+        new_payload = {
+            "data": "updated memory",
+            "hash": "def456",
+            "user_id": "user_123",
+        }
+
+        self.weaviate_db.update(
+            vector_id=valid_uuid,
+            vector=[0.1] * 1536,
+            payload=new_payload,
+        )
+
+        update_calls = collection.data.update.call_args_list
+        # The payload branch updates the real properties.
+        property_updates = [c for c in update_calls if "properties" in c.kwargs]
+        self.assertEqual(len(property_updates), 1)
+        self.assertEqual(property_updates[0].kwargs["properties"], new_payload)
+
+        # No update call may write the OutputData model field names as properties.
+        for call in update_calls:
+            props = call.kwargs.get("properties", {})
+            self.assertNotIn("score", props)
+            self.assertNotIn("payload", props)
+
+        # The vector branch updates the vector without touching properties.
+        vector_updates = [c for c in update_calls if "vector" in c.kwargs]
+        self.assertEqual(len(vector_updates), 1)
+        self.assertNotIn("properties", vector_updates[0].kwargs)
+
 
 if __name__ == "__main__":
     unittest.main()

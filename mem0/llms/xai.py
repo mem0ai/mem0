@@ -34,7 +34,7 @@ class XAILLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "grok-2-latest"
+            self.config.model = "grok-4.3"
 
         api_key = self.config.api_key or os.getenv("XAI_API_KEY")
         base_url = self.config.xai_base_url or os.getenv("XAI_API_BASE") or "https://api.x.ai/v1"

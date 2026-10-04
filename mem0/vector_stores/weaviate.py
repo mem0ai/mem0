@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Dict, List, Mapping, Optional
+from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 from pydantic import BaseModel
@@ -297,13 +297,7 @@ class Weaviate(VectorStoreBase):
             collection.data.update(uuid=vector_id, properties=payload)
 
         if vector:
-            existing_data = self.get(vector_id)
-            if existing_data:
-                existing_data = dict(existing_data)
-                if "id" in existing_data:
-                    del existing_data["id"]
-                existing_payload: Mapping[str, str] = existing_data
-                collection.data.update(uuid=vector_id, properties=existing_payload, vector=vector)
+            collection.data.update(uuid=vector_id, vector=vector)
 
     def get(self, vector_id) -> Optional[OutputData]:
         """

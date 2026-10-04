@@ -19,19 +19,19 @@ def mock_xai_client():
 
 def test_xai_llm_base_url():
     # case1: default
-    config = XAIConfig(model="grok-2-latest", api_key="api_key")
+    config = XAIConfig(model="grok-4.3", api_key="api_key")
     llm = XAILLM(config)
     assert str(llm.client.base_url) == "https://api.x.ai/v1/"
 
     # case2: XAI_API_BASE env var
     os.environ["XAI_API_BASE"] = "https://api.provider.com/v1"
-    config = XAIConfig(model="grok-2-latest", api_key="api_key")
+    config = XAIConfig(model="grok-4.3", api_key="api_key")
     llm = XAILLM(config)
     assert str(llm.client.base_url) == "https://api.provider.com/v1/"
 
     # case3: config.xai_base_url wins over env
     config = XAIConfig(
-        model="grok-2-latest",
+        model="grok-4.3",
         api_key="api_key",
         xai_base_url="https://api.config.com/v1",
     )
@@ -39,16 +39,22 @@ def test_xai_llm_base_url():
     assert str(llm.client.base_url) == "https://api.config.com/v1/"
 
 
+def test_xai_defaults_to_current_grok_model():
+    # No model supplied -> provider falls back to the current default (grok-4.3).
+    llm = XAILLM(XAIConfig(api_key="k"))
+    assert llm.config.model == "grok-4.3"
+
+
 def test_xai_accepts_base_llm_config():
     # Used to AttributeError on self.config.xai_base_url because the factory
     # wired XAI with plain BaseLlmConfig.
-    llm = XAILLM(BaseLlmConfig(model="grok-2-latest", api_key="k"))
+    llm = XAILLM(BaseLlmConfig(model="grok-4.3", api_key="k"))
     assert isinstance(llm.config, XAIConfig)
     assert llm.config.xai_base_url is None
 
 
 def test_generate_response_without_tools(mock_xai_client):
-    config = XAIConfig(model="grok-2-latest", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = XAIConfig(model="grok-4.3", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = XAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -62,7 +68,7 @@ def test_generate_response_without_tools(mock_xai_client):
     response = llm.generate_response(messages)
 
     mock_xai_client.chat.completions.create.assert_called_once_with(
-        model="grok-2-latest",
+        model="grok-4.3",
         messages=messages,
         temperature=0.7,
         max_tokens=100,
@@ -72,7 +78,7 @@ def test_generate_response_without_tools(mock_xai_client):
 
 
 def test_generate_response_with_tools(mock_xai_client):
-    config = XAIConfig(model="grok-2-latest", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = XAIConfig(model="grok-4.3", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = XAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -106,7 +112,7 @@ def test_generate_response_with_tools(mock_xai_client):
     response = llm.generate_response(messages, tools=tools)
 
     mock_xai_client.chat.completions.create.assert_called_once_with(
-        model="grok-2-latest",
+        model="grok-4.3",
         messages=messages,
         temperature=0.7,
         max_tokens=100,
@@ -121,7 +127,7 @@ def test_generate_response_with_tools(mock_xai_client):
 
 def test_empty_tools_list_not_forwarded(mock_xai_client):
     # tools=[] would otherwise get rejected by some OpenAI-compatible backends
-    config = XAIConfig(model="grok-2-latest", api_key="api_key")
+    config = XAIConfig(model="grok-4.3", api_key="api_key")
     llm = XAILLM(config)
 
     mock_response = Mock()
@@ -138,7 +144,7 @@ def test_empty_tools_list_not_forwarded(mock_xai_client):
 
 def test_tools_requested_but_model_returns_no_calls(mock_xai_client):
     # Model can decline to call any tool even when offered
-    config = XAIConfig(model="grok-2-latest", api_key="api_key")
+    config = XAIConfig(model="grok-4.3", api_key="api_key")
     llm = XAILLM(config)
     tools = [{"type": "function", "function": {"name": "f", "parameters": {"type": "object", "properties": {}}}}]
 
@@ -151,7 +157,7 @@ def test_tools_requested_but_model_returns_no_calls(mock_xai_client):
 
 
 def test_generate_response_with_response_format(mock_xai_client):
-    config = XAIConfig(model="grok-2-latest", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = XAIConfig(model="grok-4.3", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = XAILLM(config)
     messages = [
         {"role": "system", "content": "You are a memory extraction assistant."},
@@ -165,7 +171,7 @@ def test_generate_response_with_response_format(mock_xai_client):
     response = llm.generate_response(messages, response_format={"type": "json_object"})
 
     mock_xai_client.chat.completions.create.assert_called_once_with(
-        model="grok-2-latest",
+        model="grok-4.3",
         messages=messages,
         temperature=0.7,
         max_tokens=100,
@@ -176,7 +182,7 @@ def test_generate_response_with_response_format(mock_xai_client):
 
 
 def test_generate_response_without_response_format(mock_xai_client):
-    config = XAIConfig(model="grok-2-latest", api_key="api_key")
+    config = XAIConfig(model="grok-4.3", api_key="api_key")
     llm = XAILLM(config)
 
     mock_response = Mock()
@@ -194,7 +200,7 @@ def test_factory_creates_xai_from_dict():
         mock_openai.return_value = Mock()
         llm = LlmFactory.create(
             "xai",
-            {"model": "grok-2-latest", "api_key": "k", "xai_base_url": "https://example.com/v1"},
+            {"model": "grok-4.3", "api_key": "k", "xai_base_url": "https://example.com/v1"},
         )
     assert isinstance(llm, XAILLM)
     assert isinstance(llm.config, XAIConfig)
@@ -205,5 +211,5 @@ def test_factory_creates_xai_from_base_config():
     # Legacy callers still hand the factory a plain BaseLlmConfig
     with patch("mem0.llms.xai.OpenAI") as mock_openai:
         mock_openai.return_value = Mock()
-        llm = LlmFactory.create("xai", BaseLlmConfig(model="grok-2-latest", api_key="k"))
+        llm = LlmFactory.create("xai", BaseLlmConfig(model="grok-4.3", api_key="k"))
     assert isinstance(llm.config, XAIConfig)

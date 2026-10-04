@@ -17,7 +17,7 @@ class TogetherLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+            self.config.model = "MiniMaxAI/MiniMax-M3"
 
         api_key = self.config.api_key or os.getenv("TOGETHER_API_KEY")
         self.client = Together(api_key=api_key)

@@ -1,8 +1,10 @@
 import hashlib
 import logging
 import os
+import uuid
 import warnings
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 import httpx
 import requests
@@ -19,7 +21,13 @@ from mem0.client.types import (
 from mem0.client.utils import api_error_handler
 
 # Exception classes are referenced in docstrings only
-from mem0.memory.setup import get_user_id, is_aliased, mark_aliased, read_anon_ids, setup_config
+from mem0.memory.setup import (
+    get_user_id,
+    is_aliased,
+    mark_aliased,
+    read_anon_ids,
+    setup_config,
+)
 from mem0.memory.telemetry import capture_client_event, client_telemetry
 
 logger = logging.getLogger(__name__)
@@ -32,6 +40,43 @@ setup_config()
 # Entity parameters that must be passed via filters, not top-level
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
 
+# One collection for every generation; the operation is a body field.
+PROFILE_JOBS_PATH = "/v2/profiles/jobs/"
+PROFILE_SETTINGS_PATH = "/v2/profiles/settings/"
+
+# Distinguishes an omitted argument from an explicit ``None`` that clears a field.
+_UNSET: Any = object()
+
+
+def _profile_settings_payload(
+    enabled: Optional[bool],
+    schema: Any = _UNSET,
+    custom_instructions: Any = _UNSET,
+) -> Dict[str, Any]:
+    """Build the settings body the API accepts.
+
+    ``schema`` and ``custom_instructions`` are per user and nest under
+    ``entities``; only ``enabled`` is project-wide. This mirrors what
+    ``get_profile_settings`` returns, so the two round-trip.
+
+    Sending them flat is rejected with ``Unsupported settings``, so this shape is
+    not cosmetic. ``_UNSET`` leaves a field unchanged; an explicit ``None`` clears it.
+    """
+
+    payload: Dict[str, Any] = {}
+    if enabled is not None:
+        payload["enabled"] = enabled
+
+    entity_settings: Dict[str, Any] = {}
+    if schema is not _UNSET:
+        entity_settings["schema"] = schema
+    if custom_instructions is not _UNSET:
+        entity_settings["custom_instructions"] = custom_instructions
+
+    if entity_settings:
+        payload["entities"] = {"user": entity_settings}
+    return payload
+
 
 def _validate_and_trim_search_query(query: str) -> str:
     if not isinstance(query, str):
@@ -40,6 +85,10 @@ def _validate_and_trim_search_query(query: str) -> str:
     if not trimmed:
         raise ValueError("Invalid query: cannot be empty or whitespace-only.")
     return trimmed
+
+
+def _encode_path_segment(value: Any) -> str:
+    return quote(str(value), safe="")
 
 
 def _maybe_alias_anon_to_email(user_email):
@@ -66,6 +115,95 @@ def _maybe_alias_anon_to_email(user_email):
                 mark_aliased(anon_id, user_email)
     except Exception as e:
         logger.debug("Failed to alias anon telemetry to %r: %s", user_email, e)
+
+
+def _sdk_version() -> str:
+    """Resolved here rather than imported from the package root, which would cycle."""
+    try:
+        import importlib.metadata
+
+        return importlib.metadata.version("mem0ai")
+    except Exception:
+        return "unknown"
+
+
+def _apply_client_headers(client: Any, api_key: str, user_id: str) -> None:
+    """Merge our headers into a caller-supplied client without erasing theirs.
+
+    A wrapper may hand us a client already carrying its own X-Mem0-Source or a
+    partial X-Mem0-Client stack. Blanket update() replaced both, which is the
+    opposite of the set-once / append-only contract: the outermost layer is the
+    one whose identity should survive.
+    """
+    existing = client.headers
+    mine = _client_headers(api_key, user_id)
+
+    outer_stack = existing.get("X-Mem0-Client")
+    if outer_stack:
+        entries = [part.strip() for part in str(outer_stack).split(",") if part.strip()]
+        mine["X-Mem0-Client"] = _bounded_stack(entries, f"mem0-python/{_sdk_version()}")
+
+    for name, value in mine.items():
+        if name in ("X-Mem0-Source", "X-Application") and existing.get(name):
+            continue
+        existing[name] = value
+
+
+MAX_STACK_ENTRIES = 4
+MAX_STACK_CHARS = 200
+
+
+def _bounded_stack(caller_entries, own: str) -> str:
+    """Append our own entry and bound the result, dropping WHOLE entries.
+
+    Two rules, and the second is the one that was wrong. Neither cap cuts
+    characters: a blunt slice severs an identifier and leaves a fragment that
+    parses as a real client name. And the reserved slot is OURS. Appending first
+    and then trimming to four dropped exactly the entry this function exists to
+    add, every time a caller already sent four, so the SDK vanished from its own
+    stack while the caller's claims all survived.
+    """
+    kept = []
+    budget = MAX_STACK_CHARS - len(own)
+    for entry in list(caller_entries)[: MAX_STACK_ENTRIES - 1]:
+        cost = len(entry) + len(", ")
+        if cost > budget:
+            break
+        budget -= cost
+        kept.append(entry)
+    return ", ".join(kept + [own])
+
+
+def _client_headers(api_key: str, user_id: str) -> Dict[str, str]:
+    """Auth plus surface-identity headers.
+
+    X-Mem0-Source and X-Application are SET-ONCE by contract: whichever layer is
+    outermost sets them, and nothing below overwrites. A plugin or harness that
+    wraps this SDK therefore keeps its own identity — it declares via MEM0_SOURCE
+    / MEM0_APPLICATION and the SDK defers.
+
+    X-Mem0-Client is APPEND-ONLY: every layer adds itself, so the platform sees
+    the whole stack rather than only whoever spoke last.
+    """
+    headers = {
+        "Authorization": f"Token {api_key}",
+        "Mem0-User-ID": user_id,
+        "X-Mem0-Client": _client_stack(),
+    }
+    source = os.getenv("MEM0_SOURCE", "").strip()
+    if source:
+        headers["X-Mem0-Source"] = source
+    application = os.getenv("MEM0_APPLICATION", "").strip()
+    if application:
+        headers["X-Application"] = application
+    return headers
+
+
+def _client_stack() -> str:
+    """This SDK appended to any stack an outer layer already declared."""
+    existing = os.getenv("MEM0_CLIENT_STACK", "").strip()
+    entries = [part.strip() for part in existing.split(",") if part.strip()] if existing else []
+    return _bounded_stack(entries, f"mem0-python/{_sdk_version()}")
 
 
 class MemoryClient:
@@ -118,19 +256,11 @@ class MemoryClient:
             self.client = client
             # Ensure the client has the correct base_url and headers
             self.client.base_url = httpx.URL(self.host)
-            self.client.headers.update(
-                {
-                    "Authorization": f"Token {self.api_key}",
-                    "Mem0-User-ID": self.user_id,
-                }
-            )
+            _apply_client_headers(self.client, self.api_key, self.user_id)
         else:
             self.client = httpx.Client(
                 base_url=self.host,
-                headers={
-                    "Authorization": f"Token {self.api_key}",
-                    "Mem0-User-ID": self.user_id,
-                },
+                headers=_client_headers(self.api_key, self.user_id),
                 timeout=300,
             )
         self.user_email = self._validate_api_key()
@@ -229,7 +359,7 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
-        response = self.client.get(f"/v1/memories/{memory_id}/", params=params)
+        response = self.client.get(f"/v1/memories/{_encode_path_segment(memory_id)}/", params=params)
         response.raise_for_status()
         capture_client_event("client.get", self, {"memory_id": memory_id, "sync_type": "sync"})
         return response.json()
@@ -264,11 +394,8 @@ class MemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        query_params = {key: params.pop(key) for key in ("page", "page_size") if key in params}
+        if query_params:
             response = self.client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = self.client.post("/v3/memories/", json=params)
@@ -344,28 +471,32 @@ class MemoryClient:
         Args:
             memory_id: The ID of the memory to update.
             options: Typed options (UpdateMemoryOptions) with text, metadata,
-                     and/or timestamp fields.
-            **kwargs: Alternatively pass text, metadata, timestamp as keyword args.
+                     timestamp, and/or expiration_date fields.
+            **kwargs: Alternatively pass text, metadata, timestamp, or
+                      expiration_date as keyword args.
 
         Returns:
             Dict[str, Any]: The response from the server.
 
         Raises:
-            ValueError: If none of text, metadata, or timestamp are provided.
+            ValueError: If none of text, metadata, timestamp, or expiration_date are provided.
 
         Example:
             >>> client.update("mem_123", UpdateMemoryOptions(text="Updated text"))
             >>> client.update("mem_123", text="Updated text")
+            >>> client.update("mem_123", expiration_date=None)
         """
         payload = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
-        payload = {k: v for k, v in payload.items() if v is not None}
+        payload = {k: v for k, v in payload.items() if v is not None or k == "expiration_date"}
 
         if not payload:
-            raise ValueError("At least one of text, metadata, or timestamp must be provided for update.")
+            raise ValueError(
+                "At least one of text, metadata, timestamp, or expiration_date must be provided for update."
+            )
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "sync"})
         params = self._prepare_params()
-        response = self.client.put(f"/v1/memories/{memory_id}/", json=payload, params=params)
+        response = self.client.put(f"/v1/memories/{_encode_path_segment(memory_id)}/", json=payload, params=params)
         response.raise_for_status()
         return response.json()
 
@@ -393,7 +524,7 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params({"delete_linked": delete_linked or None})
-        response = self.client.delete(f"/v1/memories/{memory_id}/", params=params)
+        response = self.client.delete(f"/v1/memories/{_encode_path_segment(memory_id)}/", params=params)
         response.raise_for_status()
         capture_client_event(
             "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "sync"}
@@ -450,7 +581,7 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
-        response = self.client.get(f"/v1/memories/{memory_id}/history/", params=params)
+        response = self.client.get(f"/v1/memories/{_encode_path_segment(memory_id)}/history/", params=params)
         response.raise_for_status()
         capture_client_event("client.history", self, {"memory_id": memory_id, "sync_type": "sync"})
         return response.json()
@@ -511,7 +642,10 @@ class MemoryClient:
 
         # Delete entities and check response immediately
         for entity in to_delete:
-            response = self.client.delete(f"/v2/entities/{entity['type']}/{entity['name']}/", params=params)
+            response = self.client.delete(
+                f"/v2/entities/{_encode_path_segment(entity['type'])}/{_encode_path_segment(entity['name'])}/",
+                params=params,
+            )
             response.raise_for_status()
 
         capture_client_event(
@@ -670,6 +804,174 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
+    def get_profile(self, entity_id: str) -> Dict[str, Any]:
+        """Get the memory profile for a single user.
+
+        Branch on ``status``, not on an empty ``profile``: generation is
+        asynchronous, so a known user without a profile yet is a normal response.
+
+        Args:
+            entity_id: The user's id, as you supplied it on ``add`` (e.g. "alice").
+
+        Returns:
+            Dict with ``profile``, ``status``, ``entity_type``, ``entity_id``,
+            ``updated_at`` and ``generation_count``. ``status`` is one of
+            "succeeded", "pending", "failed", "not_enabled" or "insufficient_data".
+
+        Raises:
+            AuthenticationError: If authentication fails.
+            NotFoundError: If no such user exists in the project.
+        """
+
+        response = self.client.get(f"/v2/entities/user/{_encode_path_segment(entity_id)}/profile/")
+        response.raise_for_status()
+        capture_client_event("client.get_profile", self, {"sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
+    def generate_profile(self, entity_id: str, idempotency_key: Optional[str] = None) -> Dict[str, Any]:
+        """Generate or refresh the profile for a single user, now.
+
+        Profiles are otherwise built once a user crosses an internal message
+        threshold, so a new user has none for its first few memories. Returns as
+        soon as the work is queued: poll :meth:`get_profile` and branch on ``status``.
+
+        Args:
+            entity_id: The user's id, as you supplied it on ``add``.
+            idempotency_key: Optional key that makes the create idempotent. Reuse
+                the same value to safely retry a lost request without starting
+                (and being billed for) a second job. A fresh key is generated when
+                omitted.
+
+        Returns:
+            Dict containing ``job_id``, ``status``, ``status_url``, ``operation``,
+            ``entity_type``, ``entity_count_reserved``, ``event_id`` and
+            ``replayed``. Poll :meth:`get_profile` and branch on ``status``.
+
+        Raises:
+            ValidationError: If profiles are not enabled and configured for the
+                project.
+            NotFoundError: If no such user exists in the project.
+        """
+
+        response = self.client.post(
+            PROFILE_JOBS_PATH,
+            json={"operation": "trigger", "entity_type": "user", "entity_id": entity_id},
+            headers={"Idempotency-Key": idempotency_key or uuid.uuid4().hex},
+        )
+        response.raise_for_status()
+        capture_client_event("client.generate_profile", self, {"sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
+    def get_profile_settings(self) -> Dict[str, Any]:
+        """Get the profile settings for the current project.
+
+        Returns:
+            Dict with ``enabled`` and ``capabilities`` at the top level, and
+            ``entities`` holding each entity type's ``schema`` and
+            ``custom_instructions``.
+        """
+
+        response = self.client.get(PROFILE_SETTINGS_PATH)
+        response.raise_for_status()
+        capture_client_event("client.get_profile_settings", self, {"sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
+    def update_profile_settings(
+        self,
+        enabled: Optional[bool] = None,
+        schema: Any = _UNSET,
+        custom_instructions: Any = _UNSET,
+    ) -> Dict[str, Any]:
+        """Update the profile settings for the current project.
+
+        Only the arguments you pass are written.
+
+        Args:
+            enabled: Turn profile generation on or off. Project-wide.
+            schema: JSON Schema for the profile. Every property needs a
+                ``description``. Pass ``None`` to clear it; omit to leave it
+                unchanged. Applies to user profiles.
+            custom_instructions: Extra guidance for the extraction step. Pass
+                ``None`` to clear it; omit to leave it unchanged. Applies to user
+                profiles.
+
+        Returns:
+            Dict with the settings as stored after the update, in the same
+            shape :meth:`get_profile_settings` returns.
+
+        Raises:
+            ValidationError: If the schema is not a valid profile schema.
+        """
+
+        payload = _profile_settings_payload(enabled, schema, custom_instructions)
+        response = self.client.post(PROFILE_SETTINGS_PATH, json=payload)
+        response.raise_for_status()
+        capture_client_event(
+            "client.update_profile_settings",
+            self,
+            {"keys": list(payload.keys()), "sync_type": "sync"},
+        )
+        return response.json()
+
+    @api_error_handler
+    def sample_profiles(self, limit: Optional[int] = None, idempotency_key: Optional[str] = None) -> Dict[str, Any]:
+        """Generate profiles for a few real users, to check a schema.
+
+        Real generations against real memories, and the results are kept. The
+        profiles are written to those users and count toward usage.
+
+        Args:
+            limit: How many users to sample, 1-10. Defaults to the server value.
+            idempotency_key: Optional key that makes the create idempotent. Reuse
+                the same value to safely retry without starting a second sample
+                run. A fresh key is generated when omitted.
+
+        Returns:
+            Dict containing ``job_id``, ``status``, ``status_url``, ``sampled``
+            and the ``entity_ids`` that were picked. Poll
+            :meth:`get_profile_job` with ``status_url`` until the status is terminal.
+
+        Raises:
+            ValidationError: If profiles are not enabled and configured.
+            RateLimitError: If a sample run was already started very recently.
+        """
+
+        payload = self._prepare_params({"limit": limit})
+        payload["operation"] = "sample"
+        payload["entity_type"] = "user"
+        response = self.client.post(
+            PROFILE_JOBS_PATH,
+            json=payload,
+            headers={"Idempotency-Key": idempotency_key or uuid.uuid4().hex},
+        )
+        response.raise_for_status()
+        capture_client_event("client.sample_profiles", self, {"sync_type": "sync"})
+        return response.json()
+
+    @api_error_handler
+    def get_profile_job(self, job_id_or_status_url: str) -> Dict[str, Any]:
+        """Read one generation job.
+
+        Accepts the ``status_url`` from a create call, or a bare job id. Prefer
+        passing ``status_url`` so a route change needs no client update.
+
+        Returns:
+            Dict whose ``job`` key holds the job: ``status``, ``total``,
+            ``completed``, ``succeeded``, ``failed`` and ``skipped``. ``total`` is
+            null until ``enumeration_complete``.
+        """
+
+        path = job_id_or_status_url
+        if not path.startswith("/"):
+            path = f"{PROFILE_JOBS_PATH}{path}/"
+        response = self.client.get(path)
+        response.raise_for_status()
+        return response.json()
+
+    @api_error_handler
     def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
         """Get instructions or categories for the current project.
 
@@ -689,7 +991,9 @@ class MemoryClient:
             ValueError: If org_id or project_id are not set.
         """
         logger.warning(
-            "get_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.get() method instead."
+            "get_project() method is going to be deprecated in version v1.0 "
+            "of the package. Please use the client.project.get() method "
+            "instead."
         )
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
@@ -713,10 +1017,10 @@ class MemoryClient:
         options: Optional[ProjectUpdateOptions] = None,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -724,10 +1028,10 @@ class MemoryClient:
             options: Typed options for the update operation (ProjectUpdateOptions).
             custom_instructions: New instructions for the project.
             custom_categories: New categories for the project.
-            retrieval_criteria: New retrieval criteria for the project.
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories.
 
         Returns:
             Dictionary containing the API response.
@@ -749,10 +1053,10 @@ class MemoryClient:
                 for k, v in {
                     "custom_instructions": custom_instructions,
                     "custom_categories": custom_categories,
-                    "retrieval_criteria": retrieval_criteria,
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
+                    "agent_custom_instructions": agent_custom_instructions,
                 }.items()
                 if v is not None
             },
@@ -761,7 +1065,7 @@ class MemoryClient:
         if not kwargs:
             raise ValueError(
                 "Currently we only support updating custom_instructions or "
-                "custom_categories or retrieval_criteria, so you must "
+                "custom_categories, so you must "
                 "provide at least one of them"
             )
 
@@ -1003,19 +1307,11 @@ class AsyncMemoryClient:
             self.async_client = client
             # Ensure the client has the correct base_url and headers
             self.async_client.base_url = httpx.URL(self.host)
-            self.async_client.headers.update(
-                {
-                    "Authorization": f"Token {self.api_key}",
-                    "Mem0-User-ID": self.user_id,
-                }
-            )
+            _apply_client_headers(self.async_client, self.api_key, self.user_id)
         else:
             self.async_client = httpx.AsyncClient(
                 base_url=self.host,
-                headers={
-                    "Authorization": f"Token {self.api_key}",
-                    "Mem0-User-ID": self.user_id,
-                },
+                headers=_client_headers(self.api_key, self.user_id),
                 timeout=300,
             )
 
@@ -1038,10 +1334,7 @@ class AsyncMemoryClient:
             params = self._prepare_params()
             response = requests.get(
                 f"{self.host}/v1/ping/",
-                headers={
-                    "Authorization": f"Token {self.api_key}",
-                    "Mem0-User-ID": self.user_id,
-                },
+                headers=_client_headers(self.api_key, self.user_id),
                 params=params,
             )
             response.raise_for_status()
@@ -1145,7 +1438,7 @@ class AsyncMemoryClient:
     @api_error_handler
     async def get(self, memory_id: str) -> Dict[str, Any]:
         params = self._prepare_params()
-        response = await self.async_client.get(f"/v1/memories/{memory_id}/", params=params)
+        response = await self.async_client.get(f"/v1/memories/{_encode_path_segment(memory_id)}/", params=params)
         response.raise_for_status()
         capture_client_event("client.get", self, {"memory_id": memory_id, "sync_type": "async"})
         return response.json()
@@ -1180,11 +1473,8 @@ class AsyncMemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        query_params = {key: params.pop(key) for key in ("page", "page_size") if key in params}
+        if query_params:
             response = await self.async_client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = await self.async_client.post("/v3/memories/", json=params)
@@ -1260,28 +1550,34 @@ class AsyncMemoryClient:
         Args:
             memory_id: The ID of the memory to update.
             options: Typed options (UpdateMemoryOptions) with text, metadata,
-                     and/or timestamp fields.
-            **kwargs: Alternatively pass text, metadata, timestamp as keyword args.
+                     timestamp, and/or expiration_date fields.
+            **kwargs: Alternatively pass text, metadata, timestamp, or
+                      expiration_date as keyword args.
 
         Returns:
             Dict[str, Any]: The response from the server.
 
         Raises:
-            ValueError: If none of text, metadata, or timestamp are provided.
+            ValueError: If none of text, metadata, timestamp, or expiration_date are provided.
 
         Example:
             >>> await client.update("mem_123", UpdateMemoryOptions(text="Updated text"))
             >>> await client.update("mem_123", text="Updated text")
+            >>> await client.update("mem_123", expiration_date=None)
         """
         payload = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
-        payload = {k: v for k, v in payload.items() if v is not None}
+        payload = {k: v for k, v in payload.items() if v is not None or k == "expiration_date"}
 
         if not payload:
-            raise ValueError("At least one of text, metadata, or timestamp must be provided for update.")
+            raise ValueError(
+                "At least one of text, metadata, timestamp, or expiration_date must be provided for update."
+            )
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "async"})
         params = self._prepare_params()
-        response = await self.async_client.put(f"/v1/memories/{memory_id}/", json=payload, params=params)
+        response = await self.async_client.put(
+            f"/v1/memories/{_encode_path_segment(memory_id)}/", json=payload, params=params
+        )
         response.raise_for_status()
         return response.json()
 
@@ -1309,7 +1605,7 @@ class AsyncMemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params({"delete_linked": delete_linked or None})
-        response = await self.async_client.delete(f"/v1/memories/{memory_id}/", params=params)
+        response = await self.async_client.delete(f"/v1/memories/{_encode_path_segment(memory_id)}/", params=params)
         response.raise_for_status()
         capture_client_event(
             "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "async"}
@@ -1361,7 +1657,10 @@ class AsyncMemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
-        response = await self.async_client.get(f"/v1/memories/{memory_id}/history/", params=params)
+        response = await self.async_client.get(
+            f"/v1/memories/{_encode_path_segment(memory_id)}/history/",
+            params=params,
+        )
         response.raise_for_status()
         capture_client_event("client.history", self, {"memory_id": memory_id, "sync_type": "async"})
         return response.json()
@@ -1422,7 +1721,10 @@ class AsyncMemoryClient:
 
         # Delete entities and check response immediately
         for entity in to_delete:
-            response = await self.async_client.delete(f"/v2/entities/{entity['type']}/{entity['name']}/", params=params)
+            response = await self.async_client.delete(
+                f"/v2/entities/{_encode_path_segment(entity['type'])}/{_encode_path_segment(entity['name'])}/",
+                params=params,
+            )
             response.raise_for_status()
 
         capture_client_event(
@@ -1567,6 +1869,176 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
+    async def get_profile(self, entity_id: str) -> Dict[str, Any]:
+        """Get the memory profile for a single user.
+
+        Branch on ``status``, not on an empty ``profile``: generation is
+        asynchronous, so a known user without a profile yet is a normal response.
+
+        Args:
+            entity_id: The user's id, as you supplied it on ``add`` (e.g. "alice").
+
+        Returns:
+            Dict with ``profile``, ``status``, ``entity_type``, ``entity_id``,
+            ``updated_at`` and ``generation_count``. ``status`` is one of
+            "succeeded", "pending", "failed", "not_enabled" or "insufficient_data".
+
+        Raises:
+            AuthenticationError: If authentication fails.
+            NotFoundError: If no such user exists in the project.
+        """
+
+        response = await self.async_client.get(f"/v2/entities/user/{_encode_path_segment(entity_id)}/profile/")
+        response.raise_for_status()
+        capture_client_event("client.get_profile", self, {"sync_type": "async"})
+        return response.json()
+
+    @api_error_handler
+    async def generate_profile(self, entity_id: str, idempotency_key: Optional[str] = None) -> Dict[str, Any]:
+        """Generate or refresh the profile for a single user, now.
+
+        Profiles are otherwise built once a user crosses an internal message
+        threshold, so a new user has none for its first few memories. Returns as
+        soon as the work is queued: poll :meth:`get_profile` and branch on ``status``.
+
+        Args:
+            entity_id: The user's id, as you supplied it on ``add``.
+            idempotency_key: Optional key that makes the create idempotent. Reuse
+                the same value to safely retry a lost request without starting
+                (and being billed for) a second job. A fresh key is generated when
+                omitted.
+
+        Returns:
+            Dict containing ``job_id``, ``status``, ``status_url``, ``operation``,
+            ``entity_type``, ``entity_count_reserved``, ``event_id`` and
+            ``replayed``. Poll :meth:`get_profile` and branch on ``status``.
+
+        Raises:
+            ValidationError: If profiles are not enabled and configured for the
+                project.
+            NotFoundError: If no such user exists in the project.
+        """
+
+        response = await self.async_client.post(
+            PROFILE_JOBS_PATH,
+            json={"operation": "trigger", "entity_type": "user", "entity_id": entity_id},
+            headers={"Idempotency-Key": idempotency_key or uuid.uuid4().hex},
+        )
+        response.raise_for_status()
+        capture_client_event("client.generate_profile", self, {"sync_type": "async"})
+        return response.json()
+
+    @api_error_handler
+    async def get_profile_settings(self) -> Dict[str, Any]:
+        """Get the profile settings for the current project.
+
+        Returns:
+            Dict with ``enabled`` and ``capabilities`` at the top level, and
+            ``entities`` holding each entity type's ``schema`` and
+            ``custom_instructions``.
+        """
+
+        response = await self.async_client.get(PROFILE_SETTINGS_PATH)
+        response.raise_for_status()
+        capture_client_event("client.get_profile_settings", self, {"sync_type": "async"})
+        return response.json()
+
+    @api_error_handler
+    async def update_profile_settings(
+        self,
+        enabled: Optional[bool] = None,
+        schema: Any = _UNSET,
+        custom_instructions: Any = _UNSET,
+    ) -> Dict[str, Any]:
+        """Update the profile settings for the current project.
+
+        Only the arguments you pass are written.
+
+        Args:
+            enabled: Turn profile generation on or off. Project-wide.
+            schema: JSON Schema for the profile. Every property needs a
+                ``description``. Pass ``None`` to clear it; omit to leave it
+                unchanged. Applies to user profiles.
+            custom_instructions: Extra guidance for the extraction step. Pass
+                ``None`` to clear it; omit to leave it unchanged. Applies to user
+                profiles.
+
+        Returns:
+            Dict with the settings as stored after the update, in the same
+            shape :meth:`get_profile_settings` returns.
+
+        Raises:
+            ValidationError: If the schema is not a valid profile schema.
+        """
+
+        payload = _profile_settings_payload(enabled, schema, custom_instructions)
+        response = await self.async_client.post(PROFILE_SETTINGS_PATH, json=payload)
+        response.raise_for_status()
+        capture_client_event(
+            "client.update_profile_settings",
+            self,
+            {"keys": list(payload.keys()), "sync_type": "async"},
+        )
+        return response.json()
+
+    @api_error_handler
+    async def sample_profiles(
+        self, limit: Optional[int] = None, idempotency_key: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Generate profiles for a few real users, to check a schema.
+
+        Real generations against real memories, and the results are kept. The
+        profiles are written to those users and count toward usage.
+
+        Args:
+            limit: How many users to sample, 1-10. Defaults to the server value.
+            idempotency_key: Optional key that makes the create idempotent. Reuse
+                the same value to safely retry without starting a second sample
+                run. A fresh key is generated when omitted.
+
+        Returns:
+            Dict containing ``job_id``, ``status``, ``status_url``, ``sampled``
+            and the ``entity_ids`` that were picked. Poll
+            :meth:`get_profile_job` with ``status_url`` until the status is terminal.
+
+        Raises:
+            ValidationError: If profiles are not enabled and configured.
+            RateLimitError: If a sample run was already started very recently.
+        """
+
+        payload = self._prepare_params({"limit": limit})
+        payload["operation"] = "sample"
+        payload["entity_type"] = "user"
+        response = await self.async_client.post(
+            PROFILE_JOBS_PATH,
+            json=payload,
+            headers={"Idempotency-Key": idempotency_key or uuid.uuid4().hex},
+        )
+        response.raise_for_status()
+        capture_client_event("client.sample_profiles", self, {"sync_type": "async"})
+        return response.json()
+
+    @api_error_handler
+    async def get_profile_job(self, job_id_or_status_url: str) -> Dict[str, Any]:
+        """Read one generation job.
+
+        Accepts the ``status_url`` from a create call, or a bare job id. Prefer
+        passing ``status_url`` so a route change needs no client update.
+
+        Returns:
+            Dict whose ``job`` key holds the job: ``status``, ``total``,
+            ``completed``, ``succeeded``, ``failed`` and ``skipped``. ``total`` is
+            null until ``enumeration_complete``.
+        """
+
+        path = job_id_or_status_url
+        if not path.startswith("/"):
+            path = f"{PROFILE_JOBS_PATH}{path}/"
+        response = await self.async_client.get(path)
+        response.raise_for_status()
+        return response.json()
+
+    @api_error_handler
     async def get_project(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
         """Get instructions or categories for the current project.
 
@@ -1586,7 +2058,9 @@ class AsyncMemoryClient:
             ValueError: If org_id or project_id are not set.
         """
         logger.warning(
-            "get_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.get() method instead."
+            "get_project() method is going to be deprecated in version v1.0 "
+            "of the package. Please use the client.project.get() method "
+            "instead."
         )
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
@@ -1606,10 +2080,10 @@ class AsyncMemoryClient:
         options: Optional[ProjectUpdateOptions] = None,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -1617,10 +2091,10 @@ class AsyncMemoryClient:
             options: Typed options for the update operation (ProjectUpdateOptions).
             custom_instructions: New instructions for the project.
             custom_categories: New categories for the project.
-            retrieval_criteria: New retrieval criteria for the project.
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories.
 
         Returns:
             Dictionary containing the API response.
@@ -1642,10 +2116,10 @@ class AsyncMemoryClient:
                 for k, v in {
                     "custom_instructions": custom_instructions,
                     "custom_categories": custom_categories,
-                    "retrieval_criteria": retrieval_criteria,
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
+                    "agent_custom_instructions": agent_custom_instructions,
                 }.items()
                 if v is not None
             },
@@ -1654,7 +2128,7 @@ class AsyncMemoryClient:
         if not kwargs:
             raise ValueError(
                 "Currently we only support updating custom_instructions or "
-                "custom_categories or retrieval_criteria, so you must "
+                "custom_categories, so you must "
                 "provide at least one of them"
             )
 

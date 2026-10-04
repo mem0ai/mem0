@@ -49,7 +49,7 @@ Notes:
 | get_all | `memory.get_all(user_id="u")` or `…, filters={"user_id":"u"}` | `memory.get_all(filters={"user_id": "u"}, page=1, page_size=N)` — entity IDs in `filters`; paginated with `page`/`page_size` (**not** `top_k`) |
 | delete_all | `memory.delete_all(user_id="u")` | `memory.delete_all(user_id="u")` — unchanged |
 | get | `memory.get(memory_id)` | `memory.get(memory_id)` |
-| update | `memory.update(memory_id, data=...)` | `memory.update(memory_id, text=...)` — confirm param name against installed sig |
+| update | `memory.update(memory_id, text=...)` *(`data=` is a deprecated alias)* | `memory.update(memory_id, text=...)` — unchanged |
 | delete | `memory.delete(memory_id)` | `memory.delete(memory_id)` |
 | reset | `memory.reset()` (wipes the local store) | **No global reset.** Use `memory.delete_all(filters=...)` scoped to the relevant entity. Flag this. |
 

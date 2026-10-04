@@ -1,8 +1,6 @@
 ---
 title: "Graph Memory"
 description: "Mem0 Platform builds a native graph linking people, places, and concepts across your memories, with no external graph database to provision."
-icon: "circle-nodes"
-iconType: "solid"
 ---
 
 Mem0 Platform automatically organizes your memories into a **graph**: the **graph entities** mentioned across your memories (the people, places, organizations, and concepts they refer to) become nodes, and memories that share an entity are connected. This is how Mem0 reasons across separate facts, for example linking everything it knows about a person, a company, or a project, without you defining any schema.
@@ -58,7 +56,14 @@ Graph Memory captures **which entities your memories are about and how they conn
 
 ## Availability
 
-Graph Memory is **automatic and included on all plans**. It activates on the new memory algorithm with no flag, no configuration, and no external dependencies. You don't need to do anything to benefit from it.
+Graph Memory has two parts, and they are gated differently:
+
+| What | Availability |
+| --- | --- |
+| **Graph memory**: entity extraction, linking, and the retrieval boost | **All plans**, automatic |
+| **Graph view**: interactive visualization in the dashboard | **Pro and Enterprise** |
+
+Every plan gets the graph working behind the scenes to sharpen retrieval. **Pro and Enterprise** unlock the interactive **Graph view**, where you can explore your entities, trace how memories connect, and search and filter the whole graph right in your dashboard.
 
 ```python
 from mem0 import MemoryClient
@@ -85,7 +90,7 @@ results = client.search(
 Earlier versions of Mem0 offered graph memory by connecting an **external graph database** (Neo4j, Memgraph, Kuzu, Apache AGE, or Neptune) through an `enable_graph` flag and a `graph_store` configuration block. That integration has been replaced by **native, built-in Graph Memory**:
 
 - **No external graph store.** The graph is built inside Mem0 from your memories. There is nothing to provision or connect.
-- **Always on, all plans.** The `enable_graph` flag is no longer needed; Graph Memory is automatic. (If you still send the parameter, it is ignored.)
+- **Always on, all plans.** The `enable_graph` flag is no longer needed: Graph Memory is automatic, and `relations` is always an empty list regardless of whether you send it. On non-paginated `get_all` (v1.1 format), sending `enable_graph=True` still adds an empty `"relations": []` key to the response for backward compatibility; it does not restore the old graph behavior.
 - **Connections power retrieval directly.** Entity connections are folded into the combined `score` on each result. The standalone `relations` field that the external graph store returned is no longer populated. If your application read that field, see the migration guide below.
 
 <Card title="Platform Migration Guide" icon="arrow-right" href="/migration/platform-v2-to-v3">

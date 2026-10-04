@@ -8,7 +8,7 @@ export function createMemoryListTool(deps: ToolDeps) {
   return {
     name: "memory_list",
     label: "Memory List",
-    description: "List all stored memories for a user or agent.",
+    description: "List or browse all stored memories for a user or agent without a query -- useful for auditing what is remembered. To find memories relevant to a question, use memory_search instead (it ranks by semantic relevance).",
     parameters: Type.Object({
       userId: Type.Optional(Type.String({ description: "User ID (default: configured)" })),
       agentId: Type.Optional(Type.String({ description: "Agent ID namespace" })),

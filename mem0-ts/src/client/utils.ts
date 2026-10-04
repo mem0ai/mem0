@@ -29,6 +29,14 @@ const OPAQUE_VALUE_KEYS = new Set([
   "metadata",
   "structuredDataSchema",
   "structured_data_schema",
+  // Custom-category names are user-controlled keys (`[{ "<name>": "<desc>" }]`).
+  // Listed in both casings so they round-trip verbatim in both directions
+  // (see issue #5738; same class as `metadata`/`structuredDataSchema`).
+  "customCategories",
+  "custom_categories",
+  // A profile's keys come from the customer's own JSON Schema. The schema itself
+  // is handled in `updateProfileSettings`, so that `schema` is not opaque globally.
+  "profile",
 ]);
 
 /**

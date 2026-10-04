@@ -164,3 +164,30 @@ def test_init_with_placeholder_api_key(monkeypatch, base_embedder_config):
             http_client=None,
             default_headers=None,
         )
+
+
+def test_embed_batch_returns_all_embeddings(mock_openai_client):
+    config = BaseEmbedderConfig(model="text-embedding-ada-002")
+    embedder = AzureOpenAIEmbedding(config)
+    mock_response = Mock()
+    mock_response.data = [
+        Mock(index=0, embedding=[0.1, 0.2]),
+        Mock(index=1, embedding=[0.3, 0.4]),
+    ]
+    mock_openai_client.embeddings.create.return_value = mock_response
+
+    result = embedder.embed_batch(["first text", "second text"])
+
+    assert result == [[0.1, 0.2], [0.3, 0.4]]
+
+
+def test_embed_batch_count_mismatch_raises(mock_openai_client):
+    config = BaseEmbedderConfig(model="text-embedding-ada-002")
+    embedder = AzureOpenAIEmbedding(config)
+    # Provider returns fewer embeddings than inputs (partial/dropped batch).
+    mock_response = Mock()
+    mock_response.data = [Mock(index=0, embedding=[0.1, 0.2])]
+    mock_openai_client.embeddings.create.return_value = mock_response
+
+    with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
+        embedder.embed_batch(["first text", "second text"])

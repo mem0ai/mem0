@@ -3,6 +3,8 @@
  * read by commands and branding functions.
  */
 
+import fs from "node:fs";
+
 let _agentMode = false;
 let _currentCommand = "";
 let _pendingNotice = "";
@@ -37,4 +39,15 @@ export function takeNotice(): string {
 	const msg = _pendingNotice;
 	_pendingNotice = "";
 	return msg;
+}
+
+/** True only when stdin is an actual pipe or file redirect (never in agent mode). */
+export function stdinIsPiped(): boolean {
+	if (isAgentMode()) return false;
+	try {
+		const stat = fs.fstatSync(0);
+		return stat.isFIFO() || stat.isFile();
+	} catch {
+		return false;
+	}
 }

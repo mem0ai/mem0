@@ -8,7 +8,6 @@ Additional platform capabilities beyond core CRUD operations.
 - [Entity Linking](#entity-linking)
 - [Custom Categories](#custom-categories)
 - [Custom Instructions](#custom-instructions)
-- [Criteria Retrieval](#criteria-retrieval)
 - [Feedback Mechanism](#feedback-mechanism)
 - [Memory Export](#memory-export)
 - [Group Chat](#group-chat)
@@ -102,9 +101,29 @@ await client.updateProject({ customCategories: newCategories });
 categories = client.project.get(fields=["custom_categories"])
 ```
 
-### Key Constraint
+**Override categories for a single add call:**
+```python
+client.add(messages, user_id="alice", custom_categories=per_call_categories)
+```
 
-Per-request overrides (`custom_categories=...` on `client.add`) are **not supported** on the managed API. Only project-level configuration works. Workaround: store ad-hoc labels in `metadata` field.
+```javascript
+await client.add(messages, { userId: "alice", customCategories: perCallCategories });
+```
+
+### Resolution Order
+
+1. `custom_categories` passed on the `add` call
+2. `custom_categories` set on the project
+3. Built-in default catalog
+
+### Key Constraints
+
+- A per-call list **fully replaces** the project list for that call. The lists are not merged.
+- Categories are applied at ingestion time. Changing the list later does not re-tag existing memories.
+
+### Main Use Case
+
+Per-call lists give different users or entities their own vocabulary inside a single project, without splitting them across projects.
 
 ---
 
@@ -142,44 +161,6 @@ await client.updateProject({ customInstructions: "Your guidelines here..." });
 - Start simply, test with sample messages, iterate based on results
 - Avoid overly lengthy instructions
 - Be specific about what to include AND exclude
-
----
-
-## Criteria Retrieval
-
-Custom attribute-based memory ranking using LLM-evaluated criteria with weights. Goes beyond semantic similarity to prioritize memories based on domain-specific signals.
-
-### Configuration
-
-```python
-# Define criteria at project level
-retrieval_criteria = [
-    {"name": "joy", "description": "Positive emotions like happiness and excitement", "weight": 3},
-    {"name": "curiosity", "description": "Inquisitiveness and desire to learn", "weight": 2},
-    {"name": "urgency", "description": "Time-sensitive or high-priority items", "weight": 4},
-]
-client.project.update(retrieval_criteria=retrieval_criteria)
-```
-
-```typescript
-await client.updateProject({
-    retrievalCriteria: [
-        { name: 'joy', description: 'Positive emotions', weight: 3 },
-        { name: 'urgency', description: 'Time-sensitive items', weight: 4 },
-    ],
-});
-```
-
-### Usage
-
-Once configured, `client.search()` automatically applies criteria ranking:
-
-```python
-# Criteria-weighted results returned automatically
-results = client.search("Why am I feeling happy?", filters={"user_id": "alice"})
-```
-
-**Best for:** Wellness assistants, tutoring platforms, productivity tools — any app needing intent-aware retrieval.
 
 ---
 

@@ -47,6 +47,11 @@ export class OpenAIEmbedder implements Embedder {
           .map((item) => item.embedding),
       );
     }
+    if (allEmbeddings.length !== texts.length) {
+      throw new Error(
+        `OpenAI embedBatch() returned ${allEmbeddings.length} embeddings for ${texts.length} texts using model '${this.model}'`,
+      );
+    }
     return allEmbeddings;
   }
 }

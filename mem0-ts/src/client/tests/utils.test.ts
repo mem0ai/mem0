@@ -99,4 +99,50 @@ describe("camelToSnakeKeys / snakeToCamelKeys", () => {
       });
     });
   });
+
+  describe("user-controlled customCategories names (issue #5738)", () => {
+    it("converts the outer key but leaves multi-word category names on write", () => {
+      expect(
+        camelToSnakeKeys({
+          customCategories: [
+            { work_life_balance: "desc" },
+            { AIResearch: "desc" },
+          ],
+        }),
+      ).toEqual({
+        // outer SDK key is snake_cased, user-defined category names are not
+        custom_categories: [
+          { work_life_balance: "desc" },
+          { AIResearch: "desc" },
+        ],
+      });
+    });
+
+    it("converts the outer key but leaves category names verbatim on read", () => {
+      expect(
+        snakeToCamelKeys({
+          custom_categories: [
+            { work_life_balance: "desc" },
+            { AIResearch: "desc" },
+          ],
+        }),
+      ).toEqual({
+        customCategories: [
+          { work_life_balance: "desc" },
+          { AIResearch: "desc" },
+        ],
+      });
+    });
+
+    it("round-trips category names losslessly (write then read)", () => {
+      const customCategories = [
+        { work_life_balance: "balance between work and life" },
+        { AIResearch: "artificial intelligence research" },
+      ];
+      const roundTripped = snakeToCamelKeys(
+        camelToSnakeKeys({ customCategories }),
+      );
+      expect(roundTripped.customCategories).toEqual(customCategories);
+    });
+  });
 });

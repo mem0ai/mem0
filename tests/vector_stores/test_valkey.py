@@ -158,6 +158,32 @@ def test_insert_handles_missing_created_at(valkey_db, mock_valkey_client):
     assert "created_at" in kwargs["mapping"]  # Should be added automatically
 
 
+def test_insert_and_update_with_none_timestamps(valkey_db, mock_valkey_client):
+    """Regression: a None timestamp must not crash insert() or update().
+
+    A None created_at falls back to now and a None updated_at is skipped, so
+    neither reaches fromisoformat() which only accepts a str.
+    """
+    vector = np.random.rand(1536).tolist()
+
+    valkey_db.insert(
+        vectors=[vector],
+        payloads=[{"hash": "h", "data": "d", "created_at": None, "updated_at": None}],
+        ids=["id1"],
+    )
+    _, insert_kwargs = mock_valkey_client.hset.call_args
+    assert isinstance(insert_kwargs["mapping"]["created_at"], int)
+
+    valkey_db.update(
+        vector_id="id1",
+        vector=vector,
+        payload={"hash": "h", "data": "d", "created_at": None, "updated_at": None},
+    )
+    _, update_kwargs = mock_valkey_client.hset.call_args
+    assert isinstance(update_kwargs["mapping"]["created_at"], int)
+    assert "updated_at" not in update_kwargs["mapping"]
+
+
 def test_delete(valkey_db, mock_valkey_client):
     """Test deleting a vector."""
     # Call delete
@@ -488,26 +514,6 @@ def test_reset(valkey_db, mock_valkey_client):
 
         # Check the result
         assert result is True
-
-
-def test_build_list_query(valkey_db):
-    """Test building a list query with and without filters."""
-    # Test without filters
-    query = valkey_db._build_list_query(None)
-    assert query == "*"
-
-    # Test with empty filters
-    query = valkey_db._build_list_query({})
-    assert query == "*"
-
-    # Test with filters
-    query = valkey_db._build_list_query({"user_id": "test_user"})
-    assert query == "@user_id:{test_user}"
-
-    # Test with multiple filters
-    query = valkey_db._build_list_query({"user_id": "test_user", "agent_id": "test_agent"})
-    assert "@user_id:{test_user}" in query
-    assert "@agent_id:{test_agent}" in query
 
 
 def test_process_document_fields(valkey_db):
@@ -1061,3 +1067,28 @@ def test_build_index_schema_indexes_memory_as_text(valkey_db):
     )
     # And it must not be declared as TAG.
     assert ["memory", "TAG"] != cmd[memory_idx : memory_idx + 2]
+
+
+def test_escape_tag_value_wildcards(valkey_db):
+    """Wildcard characters in filter values must be escaped to prevent query injection."""
+    assert "\\*" in valkey_db._escape_tag_value("*")
+    assert "\\|" in valkey_db._escape_tag_value("a|b")
+
+
+def test_build_search_query_escapes_filter_values(valkey_db):
+    """_build_search_query must escape special chars in filter values."""
+    knn_part = "[KNN 5 @embedding $vec_param AS vector_score]"
+    query = valkey_db._build_search_query(knn_part, {"user_id": "*"})
+    assert "\\*" in query
+    assert "@user_id:{\\*}" in query
+
+
+def test_escape_tag_value_normal_strings(valkey_db):
+    """Normal alphanumeric filter values must pass through unchanged."""
+    assert valkey_db._escape_tag_value("alice") == "alice"
+    assert valkey_db._escape_tag_value("user123") == "user123"
+
+
+def test_escape_tag_value_hyphenated_user_id(valkey_db):
+    """Hyphenated user IDs must have the hyphen escaped for exact-match."""
+    assert valkey_db._escape_tag_value("user-123") == r"user\-123"

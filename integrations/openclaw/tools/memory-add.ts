@@ -11,7 +11,7 @@ export function createMemoryAddTool(deps: ToolDeps) {
   return {
     name: "memory_add",
     label: "Memory Add",
-    description: "Save important information in long-term memory via Mem0. Use for preferences, facts, decisions, and anything worth remembering.",
+    description: "Save important information to long-term memory via Mem0. Do this proactively, without being asked, whenever the user shares a preference, fact, decision, rule, or anything worth recalling in future sessions. Group related facts under one category.",
     parameters: Type.Object({
       text: Type.Optional(Type.String({ description: "Single fact to remember" })),
       facts: Type.Optional(Type.Array(Type.String(), { description: "Array of facts to store. ALL must share the same category." })),

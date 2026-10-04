@@ -42,7 +42,7 @@ const config = {
     provider: 'qdrant',
     config: {
       collectionName: 'memories',
-      embeddingModelDims: 1536,
+      dimension: 1536,
       host: 'localhost',
       port: 6333,
     },
@@ -59,6 +59,12 @@ const messages = [
 await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
 ```
 </CodeGroup>
+
+### Hybrid keyword search
+
+Mem0 blends semantic similarity with BM25 keyword scoring. On the TypeScript SDK, Qdrant computes the BM25 vectors server-side, which requires Qdrant 1.15.2 or newer with inference enabled. Qdrant Cloud enables inference by default only for clusters created after 2025-07-07; older clusters must activate it from the Cluster Detail page. The Python SDK encodes BM25 locally instead and needs the `fastembed` package, so scores are not numerically comparable between the two SDKs.
+
+When BM25 is unavailable, or when the collection was created before hybrid search was added, Mem0 logs a warning and falls back to semantic-only search. Writes are unaffected. To enable keyword scoring on an older collection, use a fresh collection name.
 
 ### Config
 
@@ -83,7 +89,7 @@ Let's see the available parameters for the `qdrant` config:
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `collectionName` | The name of the collection to store the vectors | `mem0` |
-| `embeddingModelDims` | Dimensions of the embedding model | `1536` |
+| `dimension` | Dimensions of the embedding model | `1536` |
 | `host` | The host where the Qdrant server is running | `None` |
 | `port` | The port where the Qdrant server is running | `None` |
 | `path` | Path for the Qdrant database | `/tmp/qdrant` |

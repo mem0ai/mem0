@@ -1065,3 +1065,73 @@ def test_insert_timestamp_params_have_explicit_type(db_instance_delta, mock_work
     non_ts_params = [p for p in params if "created_at" not in p.name and "updated_at" not in p.name]
     for p in non_ts_params:
         assert p.type is None, f"Parameter {p.name} should not have explicit type, got {p.type}"
+
+
+class TestIdentifierValidation:
+    """Validate that catalog/schema/table_name/collection_name are sanitized."""
+
+    def test_rejects_semicolon_in_table_name(self, mock_workspace_client):
+        with pytest.raises(ValueError):
+            Databricks(
+                workspace_url="https://test",
+                access_token="tok",
+                endpoint_name="ep",
+                catalog="catalog",
+                schema="schema",
+                table_name="t; DROP TABLE x; --",
+                collection_name="mem0",
+                warehouse_name="test-warehouse",
+            )
+
+    def test_rejects_dot_in_catalog(self, mock_workspace_client):
+        with pytest.raises(ValueError):
+            Databricks(
+                workspace_url="https://test",
+                access_token="tok",
+                endpoint_name="ep",
+                catalog="cat.evil",
+                schema="schema",
+                table_name="table",
+                collection_name="mem0",
+                warehouse_name="test-warehouse",
+            )
+
+    def test_rejects_space_in_schema(self, mock_workspace_client):
+        with pytest.raises(ValueError):
+            Databricks(
+                workspace_url="https://test",
+                access_token="tok",
+                endpoint_name="ep",
+                catalog="catalog",
+                schema="schema name",
+                table_name="table",
+                collection_name="mem0",
+                warehouse_name="test-warehouse",
+            )
+
+    def test_rejects_dash_in_collection_name(self, mock_workspace_client):
+        with pytest.raises(ValueError):
+            Databricks(
+                workspace_url="https://test",
+                access_token="tok",
+                endpoint_name="ep",
+                catalog="catalog",
+                schema="schema",
+                table_name="table",
+                collection_name="mem-0",
+                warehouse_name="test-warehouse",
+            )
+
+    def test_accepts_valid_identifiers(self, mock_workspace_client):
+        db = Databricks(
+            workspace_url="https://test",
+            access_token="tok",
+            endpoint_name="ep",
+            catalog="my_catalog",
+            schema="my_schema",
+            table_name="my_table_01",
+            collection_name="mem0",
+            warehouse_name="test-warehouse",
+        )
+        assert db.fully_qualified_table_name == "my_catalog.my_schema.my_table_01"
+        assert db.fully_qualified_index_name == "my_catalog.my_schema.mem0"
