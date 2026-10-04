@@ -69,6 +69,16 @@ class S3Vectors(VectorStoreBase):
             else:
                 raise
 
+    def _distance_to_score(self, raw_distance: Optional[float]) -> Optional[float]:
+        if raw_distance is None:
+            return None
+        # Euclidean distance is unbounded, so 1 - distance would collapse most
+        # scores to 0. Use a bounded monotonic map instead. Cosine distance is
+        # in [0, 2], where 1 - distance is already a valid similarity.
+        if self.distance_metric == "euclidean":
+            return 1.0 / (1.0 + raw_distance)
+        return max(0.0, 1.0 - raw_distance)
+
     def _parse_output(self, vectors: List[Dict]) -> List[OutputData]:
         results = []
         for v in vectors:
@@ -81,7 +91,7 @@ class S3Vectors(VectorStoreBase):
                     logger.warning(f"Failed to parse metadata for key {v.get('key')}")
                     payload = {}
             raw_distance = v.get("distance")
-            score = max(0.0, 1.0 - raw_distance) if raw_distance is not None else None
+            score = self._distance_to_score(raw_distance)
             results.append(OutputData(id=v.get("key"), score=score, payload=payload))
         return results
 

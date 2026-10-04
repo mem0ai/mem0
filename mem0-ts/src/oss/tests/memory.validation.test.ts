@@ -362,7 +362,10 @@ describe("Memory Input Validation", () => {
 
       await memory.deleteAll({ userId: "  alice  " });
 
-      expect(listSpy).toHaveBeenCalledWith({ user_id: "alice" });
+      expect(listSpy).toHaveBeenCalledWith(
+        { user_id: "alice" },
+        expect.any(Number),
+      );
     });
   });
 });

@@ -1,12 +1,22 @@
 /**
  * Tests for config.ts — mem0ConfigSchema.parse() and exported constants.
  */
+import { readFileSync } from "node:fs";
+
 import { describe, it, expect } from "vitest";
 import {
   mem0ConfigSchema,
   DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_CUSTOM_CATEGORIES,
 } from "../config.ts";
+
+describe("plugin manifest", () => {
+  it("matches the package version", () => {
+    const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    const manifest = JSON.parse(readFileSync(new URL("../openclaw.plugin.json", import.meta.url), "utf8"));
+    expect(manifest.version).toBe(packageJson.version);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Exported constants
@@ -379,13 +389,6 @@ describe("mem0ConfigSchema.parse() — skills config", () => {
         tokenBudget: 2000,
         maxMemories: 10,
       },
-      dream: {
-        enabled: true,
-        auto: true,
-        minHours: 12,
-        minSessions: 3,
-        minMemories: 15,
-      },
       domain: "engineering",
       customRules: {
         include: ["tool configs"],
@@ -480,5 +483,20 @@ describe("mem0ConfigSchema.parse() — apiKey edge cases", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "explicit-key" });
     expect(cfg.apiKey).toBe("explicit-key");
     expect(cfg.needsSetup).toBe(false);
+  });
+});
+
+describe("telemetry fingerprint round trip", () => {
+  it("a config carrying keyFingerprint is accepted by the real schema", () => {
+    // What writePluginAuth persists after a successful lookup. It was not in
+    // ALLOWED_KEYS, and assertAllowedKeys throws, so the first successful
+    // resolve wrote a config that broke every subsequent load of the plugin.
+    const persisted = {
+      apiKey: "m0-test",
+      userEmail: "person@example.com",
+      keyFingerprint: "0123456789abcdef",
+    };
+
+    expect(() => mem0ConfigSchema.parse(persisted)).not.toThrow();
   });
 });

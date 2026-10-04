@@ -17,10 +17,6 @@
       "claude code", "opencode", "pi agent", "mem0-plugin",
       "cursor plugin", "codex plugin", "editor plugin"
     ],
-    "openmemory": [
-      "openmemory", "open memory", "localhost:8765", "localhost:3000",
-      "openmemory ui", "openmemory/api", "openmemory/ui"
-    ],
     "cli": ["mem0-cli", "@mem0/cli", "npx mem0", "command line"],
     "vector-store": [
       "pgvector", "pinecone", "chroma", "chromadb", "weaviate",

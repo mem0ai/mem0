@@ -273,14 +273,14 @@ export class ChromaDB implements VectorStore {
   private static convertCondition(
     key: string,
     value: any,
-  ): Record<string, any> | null {
+  ): Array<Record<string, any>> {
     // Wildcard - ChromaDB has no direct wildcard, so skip this filter.
     if (value === "*") {
-      return null;
+      return [];
     }
 
     if (Array.isArray(value)) {
-      return { [key]: { $in: value } };
+      return [{ [key]: { $in: value } }];
     }
 
     if (value !== null && typeof value === "object") {
@@ -294,19 +294,31 @@ export class ChromaDB implements VectorStore {
         in: "$in",
         nin: "$nin",
       };
-      const condition: Record<string, any> = {};
-      for (const [op, val] of Object.entries(value)) {
-        if (op in opMap) {
-          condition[key] = { [opMap[op]]: val };
-        } else {
-          // contains/icontains and unknown operators fall back to equality.
-          condition[key] = { $eq: val };
-        }
-      }
-      return condition;
+      // ChromaDB allows exactly one operator per field expression, so each
+      // operator becomes its own clause (combined with $and by the caller).
+      // Previously each operator overwrote the last, silently dropping range
+      // bounds. contains/icontains and unknown operators fall back to
+      // equality.
+      return Object.entries(value).map(([op, val]) => ({
+        [key]: { [opMap[op] ?? "$eq"]: val },
+      }));
     }
 
-    return { [key]: { $eq: value } };
+    return [{ [key]: { $eq: value } }];
+  }
+
+  /** Combine clauses under a logical operator, unwrapping singletons. */
+  private static combineClauses(
+    clauses: Array<Record<string, any>>,
+    operator: "$and" | "$or",
+  ): Record<string, any> | null {
+    if (clauses.length === 0) {
+      return null;
+    }
+    if (clauses.length === 1) {
+      return clauses[0];
+    }
+    return { [operator]: clauses };
   }
 
   /**
@@ -337,66 +349,55 @@ export class ChromaDB implements VectorStore {
       if (key === "$or" || key === "OR") {
         const orConditions: any[] = [];
         for (const condition of value as any[]) {
-          const built: Record<string, any> = {};
+          const subClauses: Array<Record<string, any>> = [];
           for (const [subKey, subValue] of Object.entries(condition)) {
-            const converted = ChromaDB.convertCondition(subKey, subValue);
-            if (converted) Object.assign(built, converted);
+            subClauses.push(...ChromaDB.convertCondition(subKey, subValue));
           }
-          if (Object.keys(built).length > 0) orConditions.push(built);
+          // Multi-field conditions must be wrapped in $and — ChromaDB rejects
+          // flat objects with more than one field per level.
+          const combined = ChromaDB.combineClauses(subClauses, "$and");
+          if (combined) orConditions.push(combined);
         }
-        if (orConditions.length > 1) {
-          processed.push({ $or: orConditions });
-        } else if (orConditions.length === 1) {
-          processed.push(orConditions[0]);
-        }
+        const combinedOr = ChromaDB.combineClauses(orConditions, "$or");
+        if (combinedOr) processed.push(combinedOr);
       } else if (key === "$not" || key === "NOT") {
         // De Morgan: NOT(a AND b) is (NOT a) OR (NOT b), so the negated fields
         // within one condition are combined with $or, and separate conditions
         // are combined with $and. This mirrors the Python SDK's ChromaDB port.
         const negatedPerGroup: any[] = [];
         for (const condition of value as any[]) {
-          const negatedFields: any[] = [];
+          const negatedFields: Array<Record<string, any>> = [];
           for (const [subKey, subValue] of Object.entries(condition)) {
             if (subValue !== null && typeof subValue === "object") {
               for (const [op, val] of Object.entries(subValue as any)) {
-                const neg = negateOp[op];
-                if (neg) {
-                  const converted = ChromaDB.convertCondition(subKey, {
-                    [neg]: val,
-                  });
-                  if (converted) negatedFields.push(converted);
-                }
+                // Unknown operators mirror the positive-path equality
+                // fallback as inequality (previously they were silently
+                // dropped, which could erase the entire NOT clause).
+                const neg = negateOp[op] ?? "ne";
+                negatedFields.push(
+                  ...ChromaDB.convertCondition(subKey, { [neg]: val }),
+                );
               }
             } else {
-              const converted = ChromaDB.convertCondition(subKey, {
-                ne: subValue,
-              });
-              if (converted) negatedFields.push(converted);
+              negatedFields.push(
+                ...ChromaDB.convertCondition(subKey, { ne: subValue }),
+              );
             }
           }
-          if (negatedFields.length > 1) {
-            negatedPerGroup.push({ $or: negatedFields });
-          } else if (negatedFields.length === 1) {
-            negatedPerGroup.push(negatedFields[0]);
-          }
+          const combined = ChromaDB.combineClauses(negatedFields, "$or");
+          if (combined) negatedPerGroup.push(combined);
         }
-        if (negatedPerGroup.length > 1) {
-          processed.push({ $and: negatedPerGroup });
-        } else if (negatedPerGroup.length === 1) {
-          processed.push(negatedPerGroup[0]);
-        }
+        const combinedNot = ChromaDB.combineClauses(negatedPerGroup, "$and");
+        if (combinedNot) processed.push(combinedNot);
       } else {
-        const converted = ChromaDB.convertCondition(key, value);
-        if (converted) processed.push(converted);
+        const combined = ChromaDB.combineClauses(
+          ChromaDB.convertCondition(key, value),
+          "$and",
+        );
+        if (combined) processed.push(combined);
       }
     }
 
-    if (processed.length === 0) {
-      return undefined;
-    }
-    if (processed.length === 1) {
-      return processed[0];
-    }
-    return { $and: processed };
+    return ChromaDB.combineClauses(processed, "$and") ?? undefined;
   }
 }

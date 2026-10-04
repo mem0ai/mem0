@@ -23,10 +23,6 @@ rest-api:
   - changed-files:
       - any-glob-to-any-file: 'server/**'
 
-openmemory:
-  - changed-files:
-      - any-glob-to-any-file: 'openmemory/**'
-
 integrations:
   - changed-files:
       - any-glob-to-any-file: 'integrations/**'

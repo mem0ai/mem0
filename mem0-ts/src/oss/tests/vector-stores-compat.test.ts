@@ -531,34 +531,43 @@ describe("Redis – backward compat with mocked client", () => {
 // ───────────────────────────────────────────────────────────────────────────
 describe("Supabase – backward compat with mocked client", () => {
   let SupabaseDB: any;
+  let mockClient: any;
+  let mockTableApi: any;
+  let mockSelectBuilder: any;
 
   beforeEach(() => {
     jest.resetModules();
 
-    jest.doMock("@supabase/supabase-js", () => {
-      const mockClient = {
-        from: jest.fn().mockReturnValue({
-          insert: jest.fn().mockReturnValue({
-            select: jest.fn().mockReturnValue({ error: null }),
-          }),
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({ data: [], error: null }),
-          }),
-          delete: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({ error: null }),
-          }),
-          update: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({ error: null }),
-          }),
-          upsert: jest.fn().mockReturnValue({ error: null }),
-        }),
-        rpc: jest.fn().mockResolvedValue({ data: [], error: null }),
-      };
-      return {
-        createClient: jest.fn().mockReturnValue(mockClient),
-        __mockClient: mockClient,
-      };
-    });
+    mockSelectBuilder = {
+      limit: jest.fn().mockResolvedValue({ data: [{}], error: null }),
+      range: jest.fn().mockResolvedValue({ data: [], error: null, count: 0 }),
+      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    mockSelectBuilder.eq = jest.fn().mockReturnValue(mockSelectBuilder);
+    mockSelectBuilder.order = jest.fn().mockReturnValue(mockSelectBuilder);
+
+    mockTableApi = {
+      select: jest.fn().mockReturnValue(mockSelectBuilder),
+      insert: jest.fn().mockReturnValue({ error: null }),
+      delete: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({ error: null }),
+        neq: jest.fn().mockReturnValue({ error: null }),
+      }),
+      update: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({ error: null }),
+      }),
+      upsert: jest.fn().mockReturnValue({ error: null }),
+    };
+
+    mockClient = {
+      from: jest.fn().mockReturnValue(mockTableApi),
+      rpc: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
+
+    jest.doMock("@supabase/supabase-js", () => ({
+      createClient: jest.fn().mockReturnValue(mockClient),
+      __mockClient: mockClient,
+    }));
 
     SupabaseDB = require("../src/vector_stores/supabase").SupabaseDB;
   });
@@ -598,7 +607,86 @@ describe("Supabase – backward compat with mocked client", () => {
     const p1 = store.initialize();
     const p2 = store.initialize();
     await Promise.all([p1, p2]);
-    // No crash = idempotent (Supabase init runs test insert only once)
+    // No crash = idempotent (Supabase init runs a read-only probe query only once)
+  });
+
+  it("_doInitialize probes with a non-destructive select, not an insert", async () => {
+    const store = new SupabaseDB({
+      supabaseUrl: "https://example.supabase.co",
+      supabaseKey: "fake-key",
+      tableName: "memories",
+      collectionName: "test",
+    });
+
+    await store.initialize();
+
+    expect(mockTableApi.insert).not.toHaveBeenCalled();
+    expect(mockTableApi.select).toHaveBeenCalledWith("embedding");
+    expect(mockSelectBuilder.limit).toHaveBeenCalledWith(1);
+  });
+
+  it("list() paginates via .range() across multiple pages when count exceeds page size", async () => {
+    const totalRows = 1500;
+    const rangeMock = jest
+      .fn()
+      .mockImplementation((from: number, to: number) => {
+        const remaining = totalRows - from;
+        const rowCount = Math.max(0, Math.min(to - from + 1, remaining));
+        const data = Array.from({ length: rowCount }, (_, i) => ({
+          id: `id-${from + i}`,
+          metadata: { index: from + i },
+        }));
+        return Promise.resolve({ data, error: null, count: totalRows });
+      });
+
+    const listBuilder: any = {
+      limit: jest.fn().mockResolvedValue({ data: [{}], error: null }),
+      range: rangeMock,
+    };
+    listBuilder.eq = jest.fn().mockReturnValue(listBuilder);
+    listBuilder.order = jest.fn().mockReturnValue(listBuilder);
+    mockTableApi.select.mockReturnValue(listBuilder);
+
+    const store = new SupabaseDB({
+      supabaseUrl: "https://example.supabase.co",
+      supabaseKey: "fake-key",
+      tableName: "memories",
+      collectionName: "test",
+    });
+
+    const [results, count] = await store.list(undefined, totalRows);
+
+    expect(count).toBe(totalRows);
+    expect(results).toHaveLength(totalRows);
+    expect(rangeMock.mock.calls.length).toBeGreaterThan(1);
+    expect(listBuilder.order).toHaveBeenCalledWith("id", { ascending: true });
+    expect(new Set(results.map((r) => r.id)).size).toBe(totalRows);
+  });
+
+  it("search() warns when results are truncated at the PostgREST row cap", async () => {
+    const cappedResults = Array.from({ length: 1000 }, (_, i) => ({
+      id: `id-${i}`,
+      similarity: 0.9,
+      metadata: {},
+    }));
+
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const store = new SupabaseDB({
+      supabaseUrl: "https://example.supabase.co",
+      supabaseKey: "fake-key",
+      tableName: "memories",
+      collectionName: "test",
+    });
+    mockClient.rpc.mockResolvedValue({ data: cappedResults, error: null });
+
+    const results = await store.search([0.1, 0.2, 0.3], 5000);
+
+    expect(results).toHaveLength(1000);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("5000"));
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("1000"));
+
+    warnSpy.mockRestore();
   });
 
   it("constructor does not emit an unhandled rejection when init fails", async () => {
@@ -606,13 +694,14 @@ describe("Supabase – backward compat with mocked client", () => {
     jest.doMock("@supabase/supabase-js", () => {
       const failing = {
         from: jest.fn().mockReturnValue({
-          insert: jest.fn().mockReturnValue({
-            select: jest.fn().mockResolvedValue({
-              error: { code: "42P01", message: "no table" },
+          select: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue({
+              data: null,
+              error: {
+                code: "42501",
+                message: "permission denied for table memories",
+              },
             }),
-          }),
-          delete: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({ error: null }),
           }),
         }),
       };
@@ -5088,20 +5177,22 @@ describe("Memory class – backward compat with all providers", () => {
         updated_at: new Date().toISOString(),
       },
     });
-    mockVStore.list.mockResolvedValue([
-      [
-        {
-          id: memoryId,
-          payload: {
-            memory: "test",
-            hash: "h",
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+    mockVStore.list
+      .mockResolvedValueOnce([
+        [
+          {
+            id: memoryId,
+            payload: {
+              memory: "test",
+              hash: "h",
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
           },
-        },
-      ],
-      1,
-    ]);
+        ],
+        1,
+      ])
+      .mockResolvedValue([[], 0]);
     mockVectorStoreFactory.create.mockReturnValue(mockVStore);
 
     const mem = new MemoryClass({

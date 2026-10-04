@@ -27,7 +27,7 @@ jobs:
           script: |
             const allowed = new Set([
               'sdk-python', 'sdk-typescript', 'vector-store', 'plugin',
-              'rest-api', 'openmemory', 'documentation', 'ci', 'cli', 'integrations',
+              'rest-api', 'documentation', 'ci', 'cli', 'integrations',
             ]);
             const umbrella = { plugin: 'integrations' };
             const { repository } = await github.graphql(
