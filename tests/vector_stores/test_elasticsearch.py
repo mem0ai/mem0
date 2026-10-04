@@ -295,11 +295,54 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(result.payload, {"key": "value"})
 
     def test_get_not_found(self):
-        # Mock get raising exception
-        self.client_mock.get.side_effect = Exception("Not found")
+        """A NotFoundError (vector absent) returns None — not an exception."""
+        from unittest.mock import MagicMock
 
-        # Verify get returns None when document not found
+        from elasticsearch import NotFoundError
+
+        self.client_mock.get.side_effect = NotFoundError(
+            message="not found",
+            meta=MagicMock(status=404, headers={}, duration=0, node=None),
+            body={"_id": "missing_id", "found": False},
+        )
+
         result = self.es_db.get(vector_id="nonexistent")
+        self.assertIsNone(result)
+
+    def test_get_raises_on_transport_failure(self):
+        """A backend transport failure must propagate — not be silenced as None."""
+        from elasticsearch import TransportError
+
+        self.client_mock.get.side_effect = TransportError("Connection refused")
+
+        with self.assertRaises(TransportError):
+            self.es_db.get("any_id")
+
+    def test_get_raises_on_auth_failure(self):
+        """An HTTP error (e.g. 401 auth failure) must propagate — not be silenced as None."""
+        from elastic_transport import ApiResponseMeta, HttpHeaders
+
+        from elasticsearch import AuthenticationException
+
+        meta = ApiResponseMeta(
+            status=401,
+            http_version="1.1",
+            headers=HttpHeaders({}),
+            duration=0.0,
+            node=None,
+        )
+        self.client_mock.get.side_effect = AuthenticationException(
+            "Unauthorized", meta=meta, body={"error": "security_exception"}
+        )
+
+        with self.assertRaises(AuthenticationException):
+            self.es_db.get("any_id")
+
+    def test_get_returns_none_for_key_error_in_response(self):
+        """A malformed response (missing _source) still returns None — parsing failure."""
+        self.client_mock.get.return_value = {"_id": "test_id"}  # missing _source
+
+        result = self.es_db.get("test_id")
         self.assertIsNone(result)
 
     def test_list(self):

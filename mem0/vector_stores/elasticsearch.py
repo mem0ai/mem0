@@ -3,7 +3,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 try:
-    from elasticsearch import Elasticsearch
+    from elasticsearch import Elasticsearch, NotFoundError
     from elasticsearch.helpers import bulk
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
@@ -244,7 +244,13 @@ class ElasticsearchDB(VectorStoreBase):
         self.client.update(index=self.collection_name, id=vector_id, body={"doc": doc})
 
     def get(self, vector_id: str) -> Optional[OutputData]:
-        """Retrieve a vector by ID."""
+        """Retrieve a vector by ID.
+
+        Returns None when the vector does not exist.
+        Raises for any other backend failure (transport error, auth failure,
+        cluster unavailability) so the caller is not misled into treating a
+        backend outage as a missing vector.
+        """
         try:
             response = self.client.get(index=self.collection_name, id=vector_id)
             return OutputData(
@@ -252,15 +258,16 @@ class ElasticsearchDB(VectorStoreBase):
                 score=1.0,  # Default score for direct get
                 payload=response["_source"].get("metadata", {}),
             )
+        except NotFoundError:
+            return None
         except KeyError as e:
             logger.warning(f"Missing key in Elasticsearch response: {e}")
             return None
         except TypeError as e:
             logger.warning(f"Invalid response type from Elasticsearch: {e}")
             return None
-        except Exception as e:
-            logger.error(f"Unexpected error while parsing Elasticsearch response: {e}")
-            return None
+        # All other exceptions (transport, auth, cluster) propagate — callers
+        # must not silently treat a backend failure as an absent vector.
 
     def list_cols(self) -> List[str]:
         """List all collections (indices)."""
