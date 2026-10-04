@@ -12,8 +12,9 @@ const upsert = jest.fn().mockResolvedValue(undefined);
 const query = jest.fn().mockResolvedValue({ matches: [] });
 const fetch = jest.fn().mockResolvedValue({ records: {} });
 const deleteOne = jest.fn().mockResolvedValue(undefined);
+const deleteAll = jest.fn().mockResolvedValue(undefined);
 
-const nsHandle = { upsert, query, fetch, deleteOne };
+const nsHandle = { upsert, query, fetch, deleteOne, deleteAll };
 const namespace = jest.fn().mockReturnValue(nsHandle);
 
 const describeIndexStats = jest
@@ -47,6 +48,7 @@ const __mocks__ = {
   query,
   fetch,
   deleteOne,
+  deleteAll,
   namespace,
   describeIndexStats,
   index,
@@ -94,6 +96,7 @@ beforeEach(() => {
   __mocks__.query.mockResolvedValue({ matches: [] });
   __mocks__.fetch.mockResolvedValue({ records: {} });
   __mocks__.deleteOne.mockResolvedValue(undefined);
+  __mocks__.deleteAll.mockResolvedValue(undefined);
   __mocks__.describeIndexStats.mockResolvedValue({
     totalRecordCount: 0,
     namespaces: {},
@@ -104,6 +107,7 @@ beforeEach(() => {
     query: __mocks__.query,
     fetch: __mocks__.fetch,
     deleteOne: __mocks__.deleteOne,
+    deleteAll: __mocks__.deleteAll,
   };
   __mocks__.namespace.mockReturnValue(nsHandle);
   __mocks__.index.mockReturnValue({
@@ -423,6 +427,14 @@ describe("deleteCol", () => {
     __mocks__.listIndexes.mockResolvedValue({ indexes: [] });
     await db.initialize();
     expect(__mocks__.createIndex).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears only the namespace and never drops the shared index", async () => {
+    const db = await initDb({ namespace: "tenant-a" });
+    await db.deleteCol();
+    expect(__mocks__.namespace).toHaveBeenCalledWith("tenant-a");
+    expect(__mocks__.deleteAll).toHaveBeenCalled();
+    expect(__mocks__.deleteIndex).not.toHaveBeenCalled();
   });
 });
 

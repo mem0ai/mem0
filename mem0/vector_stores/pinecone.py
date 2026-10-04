@@ -358,12 +358,16 @@ class PineconeDB(VectorStoreBase):
         return self.client.list_indexes()
 
     def delete_col(self):
-        """Delete an index/collection."""
+        """Delete the index, or clear only the configured namespace if one is set."""
         try:
-            self.client.delete_index(self.collection_name)
-            logger.info(f"Index {self.collection_name} deleted successfully")
+            if self.namespace is not None:
+                self.index.delete(delete_all=True, namespace=self.namespace)
+                logger.info(f"Namespace {self.namespace} in index {self.collection_name} cleared successfully")
+            else:
+                self.client.delete_index(self.collection_name)
+                logger.info(f"Index {self.collection_name} deleted successfully")
         except Exception as e:
-            logger.error(f"Error deleting index {self.collection_name}: {e}")
+            logger.error(f"Error deleting index {self.collection_name} (namespace={self.namespace}): {e}")
 
     def col_info(self) -> Dict:
         """
@@ -419,8 +423,7 @@ class PineconeDB(VectorStoreBase):
             int: Total number of vectors.
         """
         stats = self.index.describe_index_stats()
-        if self.namespace:
-            # Safely get the namespace stats and return vector_count, defaulting to 0 if not found
+        if self.namespace is not None:
             namespace_summary = (stats.namespaces or {}).get(self.namespace)
             if namespace_summary:
                 return namespace_summary.vector_count or 0

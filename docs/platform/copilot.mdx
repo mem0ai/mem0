@@ -1,0 +1,194 @@
+---
+title: "Mem0 Copilot"
+description: "Inspect project memories, review configuration changes, and test extraction from the Mem0 dashboard."
+icon: "message"
+---
+
+Copilot is an AI assistant in the [Mem0 dashboard](https://app.mem0.ai/dashboard/copilot). Ask it to inspect stored memories, suggest extraction rules and categories, change project settings, or explain the platform SDKs and APIs.
+
+You describe the task in chat. Copilot uses tools to read project data or propose changes. In **Review changes** mode, you approve each change before it runs.
+
+## Start with your project
+
+1. Sign in to the dashboard and select the organization and project you want to work on.
+2. Open **Copilot** in the sidebar.
+3. Select **Review changes** below the message box.
+4. Ask: “Show my current project settings and explain what each one does.”
+5. Expand an activity card, such as **Read project config**, to see its **Input** and **Result**. Check these results when reviewing an answer or confirming a change.
+
+You can ask about settings or SDK usage with an empty project. Suggestions based on stored data need enough project history to analyze.
+
+## Inspect stored memories
+
+Start with a project overview, then narrow the question:
+
+| Prompt | What to inspect |
+| --- | --- |
+| “Summarize what this project has stored and how it is categorized.” | The memories and category patterns Copilot reads. Check which records support its summary. |
+| “Analyze the memories for user alice.” | Facts stored for `alice`, their categories, and unwanted information. To investigate a missing fact, also provide the original input. |
+| “Search alice's memories for dietary preferences.” | Memories relevant to the query within that user's scope. |
+
+Copilot can list memories across the project. Searching by meaning needs a specific User, Agent, App, or Run ID. Select one in **Scope** or name it in your prompt.
+
+Memory lists are paginated, and suggestions use samples. Check the activity results to see which records were read. Ask for more pages when you need to inspect the rest.
+
+### Choose the memory scope
+
+Open **Scope** below the message box. Select an existing ID or type one and choose it.
+
+| Control | Identifies |
+| --- | --- |
+| **User** | The end user whose memories you want to inspect, such as `alice`. |
+| **Agent** | An AI agent associated with the memories. |
+| **App** | An application associated with the memories. |
+| **Run** | A particular execution or session associated with the memories. |
+
+A field set to **any** adds no filter for that entity type. **Clear scope** removes the selections. Scope gives Copilot default IDs to use; you can request a different entity in a message. Check the activity's **Input** to confirm which IDs it used. Adding a test memory requires a **User** ID, even when another entity is selected.
+
+<Note>
+  Scope selects memories, not separate settings. Categories, extraction instructions, memory depth, and multilingual settings apply to the selected project. Category and extraction suggestions also analyze project data, regardless of the selected entity.
+</Note>
+
+See [Entity-scoped memory](/platform/features/entity-scoped-memory) for how these IDs organize memories in your application.
+
+## Review and apply changes
+
+The mode control below the message box determines when changes run:
+
+- **Review changes**: Copilot pauses before changing project configuration or adding a test memory. Read the proposal and choose whether to apply it.
+- **Auto-apply**: Copilot can change settings and add test memories without asking for approval. Check the selected project and scope before using it.
+
+Ask Copilot to show the current settings before requesting an update. In the approval card, review every listed field. Approving the card applies the whole proposal, including fields you did not edit.
+
+| Action | Effect |
+| --- | --- |
+| **Apply change** | Approve the proposed write. Inspect the subsequent result to confirm it succeeded. |
+| **Edit** | When offered, edit extraction instructions or category names and descriptions. Choose **Apply with edits** to submit your revision. |
+| **Discard edits** | Return to the original proposal without applying it. |
+| **Decline** | Reject this proposal without applying it. |
+| **Ask for something else** | Enter feedback and choose **Send**. This declines the current proposal and sends your feedback as a new message. Review the next proposal before applying it. |
+
+Not every field has an inline editor. If a proposal includes both extraction instructions and categories, only the instructions get an editor. The editor cannot apply blank instructions or an empty category list. Use **Ask for something else** to change other fields or request separate proposals.
+
+<Warning>
+  A generated prompt profile contains separate prompts for extraction and summaries. If your project uses one, saving extraction instructions through Copilot deactivates it. Review the replacement rules and test the affected behavior before using them in production.
+</Warning>
+
+## What Copilot cannot do
+
+Copilot cannot perform these actions, even in **Auto-apply** mode:
+
+- Create or delete API keys.
+- Directly edit or delete existing memories.
+- Export project data.
+- Invite or remove organization or project members, or change their roles and permissions.
+- Create or delete organizations or projects.
+- Change billing details or subscription plans.
+
+Use the dashboard or the relevant platform API for these tasks. Copilot can explain the steps or point you to documentation, but it cannot carry out the actions.
+
+Copilot supports the managed Mem0 platform. It does not help configure or use the [self-hosted open-source library](/open-source/overview).
+
+## Example 1: Stop storing small talk, then test extraction
+
+This walkthrough uses a project where you have noticed greetings or small talk in stored memories. Use a development project when trying configuration changes, since a test user does not isolate project settings.
+
+<Steps>
+  <Step title="Inspect the problem">
+    Select the project, set **User** to `alice`, and ask:
+
+    > Analyze the memories for user alice.
+
+    Inspect the returned memories. Identify examples of small talk you want to exclude and useful facts you still want to keep.
+  </Step>
+  <Step title="Request a targeted change">
+    With **Review changes** selected, ask:
+
+    > Update my extraction instructions to ignore greetings and small talk. Keep the existing rules for durable user preferences.
+
+    Check for a **Read project config** activity before reviewing the update. If it is missing, ask Copilot to read the current instructions first. If analysis reports insufficient data, ask it to use the rule you provided. You can also set the rule directly through [Custom instructions](/platform/features/custom-instructions).
+  </Step>
+  <Step title="Review the proposal">
+    Review the full replacement text. Keep existing rules your application needs. For this test, the relevant rules could look like:
+
+    ```text
+    Remember the following:
+
+    * The user's dietary preferences and food restrictions.
+
+    Don't remember the following:
+
+    * Greetings and small talk.
+    ```
+
+    Use **Edit** to adjust the wording, or **Ask for something else** to request a revision.
+
+    Choose **Apply change** or **Apply with edits**, then inspect the result to confirm the instructions were saved.
+  </Step>
+  <Step title="Add a test conversation">
+    Choose a new **User** ID for this test, such as `copilot-extraction-test-01`, and clear any other entity selections. Ask:
+
+    > Add this as a user message for copilot-extraction-test-01: “Hi! How's your day? I prefer vegetarian meals and avoid peanuts.”
+
+    Review the test-memory proposal and choose **Apply change**.
+
+    <Warning>
+      Adding a test memory writes to the selected project. It is not a dry run. Use a dedicated test user so you can find and remove the test data afterward.
+    </Warning>
+  </Step>
+  <Step title="Wait for extraction, then check the result">
+    Expand **Add test memory** and inspect **Result**. A `PENDING` status means extraction is still running. Use the returned `event_id` with the [Get Event API](/api-reference/events/get-event) to check progress. Wait for `SUCCEEDED` before evaluating the output. If the event is `FAILED`, inspect its details before retrying.
+
+    Then ask:
+
+    > List all memories for user copilot-extraction-test-01. Then search that user's memories for dietary preferences.
+
+    Check that the memories retain the vegetarian preference and peanut restriction, and exclude the greeting. Inspect the full list as well as search results: a relevant search can hide unwanted small-talk records.
+
+    If the output is wrong, describe the mismatch and review another instruction change. Use a new test user for the next attempt so earlier memories do not affect the result. Remove test data afterward through the dashboard or [memory deletion API](/api-reference/memory/delete-memories).
+  </Step>
+</Steps>
+
+Test with new inputs after changing settings. Updating configuration is not a cleanup operation for existing memories. See [Custom instructions](/platform/features/custom-instructions) for guidance on writing extraction rules.
+
+## Example 2: Suggest categories and extraction instructions
+
+These workflows sample the selected project's data. Generating a suggestion does not update settings by itself. Copilot can then propose applying it, which follows the selected review mode. Use **Review changes** to inspect suggestions before they are saved.
+
+| Workflow | Data used | Example prompt |
+| --- | --- | --- |
+| Custom categories | Stored memories, excluding deleted memories. | “Suggest custom categories from this project's memories.” |
+| Extraction instructions | Successful requests to add conversation data, including requests that produced no memories. | “Compare recent add requests with the extracted memories and suggest better extraction instructions.” |
+
+Category suggestions identify recurring themes. Review the names, descriptions, and examples. Applying a category list replaces the project's previous list; it does not add to it or re-tag existing memories. See [Custom categories](/platform/features/custom-categories) for project and per-call behavior.
+
+Extraction suggestions compare conversation inputs with what was extracted. One add request can produce several memories or none, so the number of add requests is different from the number of stored memories. Keep your application's existing requirements when reviewing the proposal.
+
+Both workflows require enough project data. If a suggestion fails because there is too little data, check the activity's **Result** for the current and required counts. You can still inspect memories, ask SDK/API questions, or provide your own rules instead of requesting a data-based suggestion.
+
+## Example 3: Adjust detail and language
+
+Ask Copilot to read the current settings, then request the change you need:
+
+- **Memory depth** controls the level of detail: **Less**, **Medium**, or **More detailed**. Try “Show my current memory depth, then propose More detailed memories.” For deciding *which facts* to retain, use extraction instructions.
+- **Multilingual** behavior preserves the user's original language. Try “Enable multilingual behavior so memories preserve the language of the input.” Test it with a new conversation in the language your application uses.
+
+Both are project settings. Review the proposed values and test a fresh input after applying them. See [Organization and project settings](/api-reference/organizations-projects) for configuration through the API.
+
+## Example 4: Ask SDK and API questions
+
+Include your language and the task, for example:
+
+> Show me how to search memories for user alice with the managed Mem0 Python SDK. Link the documentation you used.
+
+Copilot can look up the official platform documentation. Check the **Browse mem0 docs** and **Read docs page** activities and open the cited pages. If an answer has no sources, ask for them before using the example. The [Platform quickstart](/platform/quickstart) covers adding and searching memories in code.
+
+## Resume a conversation and check message limits
+
+Use **History** to reopen your 50 most recently active chats for the selected project. Chats belong to the person who created them; other project members cannot open them. Use **New chat** to start a separate conversation, or **Delete chat** in history to remove one. Deleting a chat does not undo settings changes or remove test memories.
+
+Message allowances depend on the organization's plan and are shared across its projects and members. They reset at the start of each calendar month in UTC.
+
+For plans with a limit, a usage notice appears once 80% of the allowance is used. Below that point, no counter is shown. At the limit, new messages are disabled until the allowance resets or the plan is upgraded. Follow the notice's upgrade link to review plan options.
+
+Sending feedback through **Ask for something else** counts as a new message. Approving or declining a saved proposal without feedback does not use another message. Test additions and searches also use the platform APIs and remain subject to their normal quotas.

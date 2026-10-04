@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -6,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.exceptions import LLMError
+from mem0.exceptions import LLMError, VectorStoreError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -418,6 +419,147 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
     assert payload["updated_at"] is not None
 
 
+_ATTACKER_UPDATE_METADATA = {
+    "user_id": "attacker_tenant",
+    "agent_id": "attacker_agent",
+    "run_id": "attacker_run",
+    "actor_id": "attacker_actor",
+    "category": "sports",
+}
+
+# Omits agent_id on purpose, so one payload covers both overwriting and injecting an identity field.
+_EXISTING_UPDATE_PAYLOAD = {
+    "data": "old memory",
+    "user_id": "tenant_a",
+    "run_id": "run_a",
+    "actor_id": "actor_a",
+}
+
+
+def test_update_memory_metadata_cannot_change_identity_fields(mocker, caplog):
+    """Regression (issues #4490, #6277): update() metadata must not overwrite or inject identity fields."""
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(payload=dict(_EXISTING_UPDATE_PAYLOAD))
+
+    with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+        memory._update_memory("memory-id", "new memory", {}, metadata=dict(_ATTACKER_UPDATE_METADATA))
+
+    payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert payload["user_id"] == "tenant_a"
+    assert payload["run_id"] == "run_a"
+    assert "agent_id" not in payload
+    assert payload["actor_id"] == "actor_a"
+    assert payload["category"] == "sports"
+    assert payload["data"] == "new memory"
+    assert "ignoring metadata['user_id']" in caplog.text
+
+
+_ATTACKER_ADD_METADATA = {
+    "agent_id": "victim-agent",
+    "run_id": "victim-run",
+    "actor_id": "victim-actor",
+    "category": "sports",
+}
+
+
+def _captured_add_metadata(memory, mocker, **add_kwargs):
+    """Run add() with the pipeline stubbed and return the metadata template it produced."""
+    captured = {}
+
+    def _capture(messages, metadata, filters, infer, **kwargs):
+        captured.update(metadata)
+        return []
+
+    mocker.patch.object(memory, "_add_to_vector_store", side_effect=_capture)
+    memory.add("I like coffee", infer=False, **add_kwargs)
+    return captured
+
+
+def test_add_metadata_cannot_set_identity_fields(mocker, caplog):
+    """Regression (issue #6655): add() metadata must not inject identity scope.
+
+    The caller scopes by user_id only, so the agent_id/run_id re-pins in
+    _build_filters_and_metadata never fire and cannot defend the payload.
+    """
+    memory = _build_memory_instance(mocker, Memory)
+
+    with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+        metadata = _captured_add_metadata(
+            memory, mocker, user_id="attacker", metadata=dict(_ATTACKER_ADD_METADATA)
+        )
+
+    assert metadata["user_id"] == "attacker"
+    for key in ("agent_id", "run_id", "actor_id"):
+        assert key not in metadata, f"{key} was injected through add() metadata"
+    # Non-identity metadata is untouched.
+    assert metadata["category"] == "sports"
+    assert "ignoring metadata['agent_id']" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_async_add_metadata_cannot_set_identity_fields(mocker):
+    """Async counterpart of test_add_metadata_cannot_set_identity_fields."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    captured = {}
+
+    async def _capture(messages, metadata, filters, infer, **kwargs):
+        captured.update(metadata)
+        return []
+
+    mocker.patch.object(memory, "_add_to_vector_store", side_effect=_capture)
+    await memory.add(
+        "I like coffee",
+        user_id="attacker",
+        metadata=dict(_ATTACKER_ADD_METADATA),
+        infer=False,
+    )
+
+    assert captured["user_id"] == "attacker"
+    for key in ("agent_id", "run_id", "actor_id"):
+        assert key not in captured, f"{key} was injected through async add() metadata"
+    assert captured["category"] == "sports"
+
+
+def test_add_entity_params_still_set_scope(mocker):
+    """The documented top-level params remain the only way to set scope."""
+    memory = _build_memory_instance(mocker, Memory)
+
+    metadata = _captured_add_metadata(
+        memory, mocker, user_id="u1", agent_id="a1", run_id="r1", metadata={"category": "sports"}
+    )
+
+    assert metadata["user_id"] == "u1"
+    assert metadata["agent_id"] == "a1"
+    assert metadata["run_id"] == "r1"
+    assert metadata["category"] == "sports"
+
+
+def test_add_without_metadata_is_unaffected(mocker):
+    """No metadata argument means no stripping and no behaviour change."""
+    memory = _build_memory_instance(mocker, Memory)
+
+    metadata = _captured_add_metadata(memory, mocker, user_id="u1")
+
+    assert metadata == {"user_id": "u1"}
+
+
+@pytest.mark.asyncio
+async def test_async_update_memory_metadata_cannot_change_identity_fields(mocker):
+    """Async counterpart of test_update_memory_metadata_cannot_change_identity_fields."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = MagicMock(payload=dict(_EXISTING_UPDATE_PAYLOAD))
+
+    await memory._update_memory("memory-id", "new memory", {}, metadata=dict(_ATTACKER_UPDATE_METADATA))
+
+    payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert payload["user_id"] == "tenant_a"
+    assert payload["run_id"] == "run_a"
+    assert "agent_id" not in payload
+    assert payload["actor_id"] == "actor_a"
+    assert payload["category"] == "sports"
+    assert payload["data"] == "new memory"
+
+
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):
     """Reproduces issue #3720: created_at must be identical in search() and get_all()."""
     memory = _build_memory_instance(mocker, Memory)
@@ -712,52 +854,6 @@ class TestMetadataNotMutated:
         assert original_metadata == metadata_copy, (
             f"async _update_memory mutated the caller's metadata dict: {original_metadata} != {metadata_copy}"
         )
-
-
-def test_update_preserves_actor_id_when_different_actor_updates(mocker):
-    """actor_id must be preserved from the original memory even when the
-    updating caller passes a different actor_id in metadata (issue #4490)."""
-    memory = _build_memory_instance(mocker, Memory)
-    memory.vector_store.get.return_value = MagicMock(
-        payload={
-            "data": "I am player #1",
-            "user_id": "team",
-            "actor_id": "Alice",
-            "created_at": "2026-01-01T00:00:00+00:00",
-        }
-    )
-
-    memory._update_memory(
-        "mem-id", "Player #1 is a good person",
-        {"Player #1 is a good person": [0.1, 0.2, 0.3]},
-        metadata={"user_id": "team", "actor_id": "Bob"},
-    )
-
-    stored = memory.vector_store.update.call_args.kwargs["payload"]
-    assert stored["actor_id"] == "Alice"
-
-
-@pytest.mark.asyncio
-async def test_async_update_preserves_actor_id_when_different_actor_updates(mocker):
-    """Async variant: actor_id must be preserved from the original memory (issue #4490)."""
-    memory = _build_memory_instance(mocker, AsyncMemory)
-    memory.vector_store.get.return_value = MagicMock(
-        payload={
-            "data": "I am player #1",
-            "user_id": "team",
-            "actor_id": "Alice",
-            "created_at": "2026-01-01T00:00:00+00:00",
-        }
-    )
-
-    await memory._update_memory(
-        "mem-id", "Player #1 is a good person",
-        {"Player #1 is a good person": [0.1, 0.2, 0.3]},
-        metadata={"user_id": "team", "actor_id": "Bob"},
-    )
-
-    stored = memory.vector_store.update.call_args.kwargs["payload"]
-    assert stored["actor_id"] == "Alice"
 
 
 def _make_match(score, linked_memory_ids):
@@ -1083,3 +1179,157 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+class TestPartialInsertFailure:
+    """Records the vector store rejects must never be reported as successful ADDs (#6911)."""
+
+    LLM_RESPONSE = json.dumps(
+        {
+            "memory": [
+                {"text": "User's name is Aryan"},
+                {"text": "User is allergic to penicillin"},
+                {"text": "User works as an engineer"},
+            ]
+        }
+    )
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda texts, action: [[0.1, 0.2, 0.3] for _ in texts])
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        return memory
+
+    def test_rejected_records_are_not_reported_as_add(self, mock_memory):
+        """A record rejected by the vector store must be absent from results and history."""
+        poison = "User is allergic to penicillin"
+        real_insert = mock_memory.vector_store.insert
+
+        def flaky_insert(vectors, ids, payloads):
+            if len(ids) > 1:
+                raise RuntimeError("batch insert rejected")
+            if payloads[0]["data"] == poison:
+                raise RuntimeError("record rejected by vector store")
+            return real_insert(vectors=vectors, ids=ids, payloads=payloads)
+
+        mock_memory.vector_store.insert = Mock(side_effect=flaky_insert)
+        mock_memory.llm.generate_response.return_value = self.LLM_RESPONSE
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "My name is Aryan. I work as an engineer."}],
+            metadata={},
+            filters={},
+            infer=True,
+        )
+
+        assert [r["memory"] for r in result] == [
+            "User's name is Aryan",
+            "User works as an engineer",
+        ]
+        assert all(r["event"] == "ADD" for r in result)
+
+        history = mock_memory.db.batch_add_history.call_args.args[0]
+        assert {h["new_memory"] for h in history} == {
+            "User's name is Aryan",
+            "User works as an engineer",
+        }
+
+    def test_all_inserts_failed_raises_vector_store_error(self, mock_memory):
+        """If nothing persisted, add() must raise VectorStoreError instead of reporting success."""
+        mock_memory.vector_store.insert = Mock(side_effect=RuntimeError("vector store down"))
+        mock_memory.llm.generate_response.return_value = self.LLM_RESPONSE
+
+        with pytest.raises(VectorStoreError, match="Failed to insert any"):
+            mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+        # Raw messages are still saved so a later retry can re-extract them.
+        mock_memory.db.save_messages.assert_called_once()
+
+
+@pytest.mark.asyncio
+class TestAsyncPartialInsertFailure:
+    """Async mirror of TestPartialInsertFailure (#6911)."""
+
+    LLM_RESPONSE = TestPartialInsertFailure.LLM_RESPONSE
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda texts, action: [[0.1, 0.2, 0.3] for _ in texts])
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        return memory
+
+    async def test_rejected_records_are_not_reported_as_add(self, mock_async_memory):
+        poison = "User is allergic to penicillin"
+        real_insert = mock_async_memory.vector_store.insert
+
+        def flaky_insert(vectors, ids, payloads):
+            if len(ids) > 1:
+                raise RuntimeError("batch insert rejected")
+            if payloads[0]["data"] == poison:
+                raise RuntimeError("record rejected by vector store")
+            return real_insert(vectors=vectors, ids=ids, payloads=payloads)
+
+        mock_async_memory.vector_store.insert = Mock(side_effect=flaky_insert)
+        mock_async_memory.llm.generate_response.return_value = self.LLM_RESPONSE
+
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "My name is Aryan. I work as an engineer."}],
+            metadata={},
+            effective_filters={},
+            infer=True,
+        )
+
+        assert [r["memory"] for r in result] == [
+            "User's name is Aryan",
+            "User works as an engineer",
+        ]
+
+        history = mock_async_memory.db.batch_add_history.call_args.args[0]
+        assert {h["new_memory"] for h in history} == {
+            "User's name is Aryan",
+            "User works as an engineer",
+        }
+
+    async def test_all_inserts_failed_raises_vector_store_error(self, mock_async_memory):
+        mock_async_memory.vector_store.insert = Mock(side_effect=RuntimeError("vector store down"))
+        mock_async_memory.llm.generate_response.return_value = self.LLM_RESPONSE
+
+        with pytest.raises(VectorStoreError, match="Failed to insert any"):
+            await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}],
+                metadata={},
+                effective_filters={},
+                infer=True,
+            )
+
+        mock_async_memory.db.save_messages.assert_called_once()

@@ -2,6 +2,7 @@ import type { WeaviateClient } from "weaviate-client";
 import { v4 as uuidv4 } from "uuid";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 interface WeaviateConfig extends VectorStoreConfig {
   /** Pre-configured Weaviate client instance (typed as `any` to keep the
@@ -50,14 +51,11 @@ export class WeaviateDB implements VectorStore {
   private async ensureClient(): Promise<void> {
     if (this._client) return;
 
-    let sdk: any;
-    try {
-      sdk = await import("weaviate-client");
-    } catch {
-      throw new Error(
-        "The 'weaviate-client' package is required to use the Weaviate vector store. Install it with: npm install weaviate-client",
-      );
-    }
+    const sdk = await loadPeer(
+      "weaviate-client",
+      "Weaviate vector store",
+      () => import("weaviate-client"),
+    );
     this._sdk = sdk;
 
     const { client, clusterUrl, apiKey, additionalHeaders } = this._config;

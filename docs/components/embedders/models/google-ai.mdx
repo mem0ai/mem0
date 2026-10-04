@@ -1,0 +1,96 @@
+---
+title: "Google AI as Embedding Provider"
+sidebarTitle: "Google AI"
+description: "Configure Google AI as an embedding provider in Mem0 using Gemini models and the GOOGLE_API_KEY variable."
+---
+
+To use Google AI embedding models, set the `GOOGLE_API_KEY` environment variables. You can obtain the Gemini API key from [here](https://aistudio.google.com/app/apikey).
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["GOOGLE_API_KEY"] = "key"
+os.environ["OPENAI_API_KEY"] = "your_api_key" # For LLM
+
+config = {
+    "embedder": {
+        "provider": "gemini",
+        "config": {
+            "model": "models/gemini-embedding-001",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  embedder: {
+      provider: "google",
+      config: {
+        apiKey: process.env["GOOGLE_API_KEY"],
+        model: "gemini-embedding-001",
+        embeddingDims: 1536,
+      },
+    },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "john" });
+```
+</CodeGroup>
+
+### Embedding types
+
+Gemini embeds the same text differently depending on the task you declare via `task_type`. The Python SDK maps the add, update, and search memory actions to these types, so stored memories use a document-oriented type and searches use a query-oriented one. Supported types include:
+- SEMANTIC_SIMILARITY
+- CLASSIFICATION
+- CLUSTERING
+- RETRIEVAL_DOCUMENT, RETRIEVAL_QUERY, QUESTION_ANSWERING, FACT_VERIFICATION
+- CODE_RETRIEVAL_QUERY
+
+Check out the [Gemini embeddings documentation](https://ai.google.dev/gemini-api/docs/embeddings#task-types) for more information. Override the defaults with `memory_add_embedding_type`, `memory_update_embedding_type`, and `memory_search_embedding_type`.
+
+### Config
+
+Here are the parameters available for configuring Gemini embedder:
+<Tabs>
+<Tab title="Python">
+| Parameter        | Description                          | Default Value           |
+| ---------------- | ------------------------------------ | ----------------------- |
+| `model`          | The name of the embedding model to use| `models/gemini-embedding-001` |
+| `embedding_dims` | Dimensions of the embedding model     | `768`                   |
+| `api_key`        | The Google API key                   | `None`                  |
+| `output_dimensionality` | Output dimensionality for the embedding model (Gemini-specific; used when `embedding_dims` is not set) | `None` |
+| `memory_add_embedding_type`    | The `task_type` to use for the add memory action    | `RETRIEVAL_DOCUMENT` |
+| `memory_update_embedding_type` | The `task_type` to use for the update memory action | `RETRIEVAL_DOCUMENT` |
+| `memory_search_embedding_type` | The `task_type` to use for the search memory action | `RETRIEVAL_QUERY`    |
+</Tab>
+<Tab title="TypeScript">
+| Parameter         | Description                                   | Default Value              |
+| ----------------- | --------------------------------------------- | -------------------------- |
+| `model`           | The name of the embedding model to use        | `gemini-embedding-001`     |
+| `embeddingDims`   | Dimensions of the embedding model. When not set, uses the model's native output dimensionality (3072 for `gemini-embedding-001`; MRL truncation to 768, 1536, or 3072 is supported) | `None`                     |
+| `apiKey`          | Google API key                                | `None`                     |
+</Tab>
+</Tabs>

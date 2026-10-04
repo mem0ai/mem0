@@ -35,11 +35,6 @@ class LLMBase(ABC):
         if not hasattr(self.config, "model"):
             raise ValueError("Configuration must have a 'model' attribute")
 
-        if not hasattr(self.config, "api_key") and not hasattr(self.config, "api_key"):
-            # Check if API key is available via environment variable
-            # This will be handled by individual providers
-            pass
-
     def _is_reasoning_model(self, model: str) -> bool:
         """
         Check if the model is a reasoning model or GPT-5 series that doesn't support certain parameters.

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { v7 as uuidv7 } from "uuid";
 import {
   AllUsers,
   PaginatedMemories,
@@ -20,6 +21,12 @@ import {
   FeedbackPayload,
   CreateMemoryExportPayload,
   GetMemoryExportPayload,
+  ProfileEntityType,
+  ProfileResponse,
+  ProfileJobResponse,
+  ProfileJobStatus,
+  ProfileSettings,
+  ProfileSettingsResponse,
 } from "./mem0.types";
 import {
   captureClientEvent,
@@ -81,6 +88,81 @@ class APIError extends Error {
 interface ClientOptions {
   apiKey: string;
   host?: string;
+  /** Max cached identities per process. Defaults to 50. */
+  identityCacheMax?: number;
+}
+
+interface ClientIdentity {
+  telemetryId: string;
+  organizationId: string | number | null;
+  projectId: string | number | null;
+}
+
+// Shares one ping per (host, api key) across clients; FIFO-capped.
+// One collection for every generation; the operation is a body field.
+const PROFILE_JOBS_PATH = "/v2/profiles/jobs/";
+
+const IDENTITY_CACHE_MAX_DEFAULT = 50;
+const identityByCredentials = new Map<string, Promise<ClientIdentity>>();
+
+declare const __MEM0_SDK_VERSION__: string | undefined;
+
+// Injected by tsup (see mem0-ts/tsup.config.ts `define`), the same mechanism
+// telemetry.ts already uses. A hardcoded literal goes stale at the next release
+// bump and then misreports the client version forever.
+const SDK_VERSION =
+  typeof __MEM0_SDK_VERSION__ !== "undefined" ? __MEM0_SDK_VERSION__ : "dev";
+
+const MAX_STACK_ENTRIES = 4;
+const MAX_STACK_CHARS = 200;
+
+/**
+ * Append our own entry and bound the result, dropping WHOLE entries.
+ *
+ * Neither cap cuts characters: slicing the joined string severs an identifier
+ * and leaves a fragment the platform parses as a real client name. And the
+ * reserved slot is ours. Pushing first and then trimming to four dropped exactly
+ * the entry this exists to add whenever a caller already sent four, so we
+ * vanished from our own stack while every caller claim survived.
+ */
+function boundedStack(callerEntries: string[], own: string): string {
+  const kept: string[] = [];
+  let budget = MAX_STACK_CHARS - own.length;
+  for (const entry of callerEntries.slice(0, MAX_STACK_ENTRIES - 1)) {
+    const cost = entry.length + ", ".length;
+    if (cost > budget) break;
+    budget -= cost;
+    kept.push(entry);
+  }
+  return [...kept, own].join(", ");
+}
+
+/**
+ * Surface-identity headers.
+ *
+ * X-Mem0-Source and X-Application are SET-ONCE by contract: whichever layer is
+ * outermost sets them and nothing below overwrites, so a plugin wrapping this
+ * SDK keeps its own identity. X-Mem0-Client is APPEND-ONLY - every layer adds
+ * itself, so the platform sees the whole stack and not just the last speaker.
+ */
+function surfaceHeaders(): Record<string, string> {
+  const env: Record<string, string | undefined> =
+    typeof process !== "undefined" && process.env ? process.env : {};
+  const existing = (env.MEM0_CLIENT_STACK ?? "").trim();
+  const entries = existing
+    ? existing
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean)
+    : [];
+  const headers: Record<string, string> = {
+    "X-Mem0-Client": boundedStack(entries, `mem0-js/${SDK_VERSION}`),
+  };
+  const source = (env.MEM0_SOURCE ?? "").trim();
+  if (source) headers["X-Mem0-Source"] = source;
+  const application = (env.MEM0_APPLICATION ?? "").trim();
+  if (application) headers["X-Application"] = application;
+  return headers;
 }
 
 export default class MemoryClient {
@@ -91,6 +173,8 @@ export default class MemoryClient {
   headers: Record<string, string>;
   client: any;
   telemetryId: string;
+  private initialized: Promise<void>;
+  private identityCacheMax: number;
 
   _validateApiKey(): any {
     if (!this.apiKey) {
@@ -109,10 +193,13 @@ export default class MemoryClient {
     this.host = options.host || "https://api.mem0.ai";
     this.organizationId = null;
     this.projectId = null;
+    this.identityCacheMax =
+      options.identityCacheMax ?? IDENTITY_CACHE_MAX_DEFAULT;
 
     this.headers = {
       Authorization: `Token ${this.apiKey}`,
       "Content-Type": "application/json",
+      ...surfaceHeaders(),
     };
 
     this.client = axios.create({
@@ -122,11 +209,44 @@ export default class MemoryClient {
     });
 
     this._validateApiKey();
+
     this.telemetryId = "";
-    this._initializeClient();
+
+    // Memory requests never wait on this; telemetry and _awaitIdentity do.
+    this.initialized = this._resolveIdentity();
   }
 
-  private async _initializeClient() {
+  // One ping per credential pair per process, shared via identityByCredentials.
+  private _resolveIdentity(): Promise<void> {
+    const credentials = `${this.host}\u0000${this.apiKey}`;
+    let shared = identityByCredentials.get(credentials);
+    if (!shared) {
+      shared = this._initializeClient();
+      if (identityByCredentials.size >= this.identityCacheMax) {
+        identityByCredentials.delete(
+          identityByCredentials.keys().next().value!,
+        );
+      }
+      identityByCredentials.set(credentials, shared);
+      // A failed ping must not be cached, or the process never recovers.
+      shared.then((identity) => {
+        if (!identity.telemetryId) identityByCredentials.delete(credentials);
+      });
+    }
+    return shared.then((identity) => {
+      this.telemetryId = identity.telemetryId;
+      if (identity.organizationId != null)
+        this.organizationId = identity.organizationId;
+      if (identity.projectId != null) this.projectId = identity.projectId;
+    });
+  }
+
+  // Blocks until the ping has populated organizationId/projectId.
+  private async _awaitIdentity(): Promise<void> {
+    await this.initialized;
+  }
+
+  private async _initializeClient(): Promise<ClientIdentity> {
     try {
       await this.ping();
 
@@ -148,6 +268,12 @@ export default class MemoryClient {
         stack: error?.stack || "No stack trace",
       });
     }
+
+    return {
+      telemetryId: this.telemetryId,
+      organizationId: this.organizationId,
+      projectId: this.projectId,
+    };
   }
 
   private async _maybeAliasAnonToEmail(): Promise<void> {
@@ -175,16 +301,22 @@ export default class MemoryClient {
   }
 
   private _captureEvent(methodName: string, args: any[]) {
-    captureClientEvent(methodName, this, {
-      success: true,
-      args_count: args.length,
-      keys: args.length > 0 ? args[0] : [],
-    }).catch((error: any) => {
-      console.error("Failed to capture event:", error);
-    });
+    // Deferred until ping() has resolved telemetryId, off the request path.
+    this.initialized
+      .then(() =>
+        captureClientEvent(methodName, this, {
+          success: true,
+          args_count: args.length,
+          keys: args.length > 0 ? args[0] : [],
+        }),
+      )
+      .catch((error: any) => {
+        console.error("Failed to capture event:", error);
+      });
   }
 
-  async _fetchWithErrorHandling(url: string, options: any): Promise<any> {
+  /** Fetch with no key conversion, for payloads carrying user-controlled property names. */
+  async _fetchRawJson(url: string, options: any): Promise<any> {
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -197,8 +329,11 @@ export default class MemoryClient {
       const errorData = await response.text();
       throw createExceptionFromResponse(response.status, errorData);
     }
-    const jsonResponse = await response.json();
-    return snakeToCamelKeys(jsonResponse);
+    return response.json();
+  }
+
+  async _fetchWithErrorHandling(url: string, options: any): Promise<any> {
+    return snakeToCamelKeys(await this._fetchRawJson(url, options));
   }
 
   _preparePayload(
@@ -262,8 +397,6 @@ export default class MemoryClient {
       throw new Error("Cannot process an empty messages payload.");
     }
 
-    if (this.telemetryId === "") await this.ping();
-
     const payload = this._preparePayload(messages, options);
     const payloadKeys = Object.keys(payload);
     this._captureEvent("add", [payloadKeys]);
@@ -304,7 +437,6 @@ export default class MemoryClient {
       );
     }
 
-    if (this.telemetryId === "") await this.ping();
     const payload: Record<string, any> = {};
     if (text !== undefined) payload.text = text;
     if (metadata !== undefined) payload.metadata = metadata;
@@ -326,7 +458,6 @@ export default class MemoryClient {
   }
 
   async get(memoryId: string): Promise<Memory> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("get", []);
     return this._fetchWithErrorHandling(
       `${this.host}/v1/memories/${encodePathSegment(memoryId)}/`,
@@ -340,7 +471,6 @@ export default class MemoryClient {
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(options as Record<string, any>, "getAll");
 
-    if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
     const { page, pageSize, filters, ...rest } = options ?? {};
@@ -349,10 +479,10 @@ export default class MemoryClient {
       ...(filters && { filters }),
     };
 
-    let url = `${this.host}/v3/memories/`;
-    if (page && pageSize) {
-      url += `?page=${page}&page_size=${pageSize}`;
-    }
+    const queryParams: string[] = [];
+    if (page !== undefined) queryParams.push(`page=${page}`);
+    if (pageSize !== undefined) queryParams.push(`page_size=${pageSize}`);
+    const url = `${this.host}/v3/memories/${queryParams.length ? `?${queryParams.join("&")}` : ""}`;
 
     const response = await this._fetchWithErrorHandling(url, {
       method: "POST",
@@ -369,7 +499,6 @@ export default class MemoryClient {
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(options as Record<string, any>, "search");
 
-    if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
     const { filters, ...rest } = options ?? {};
@@ -395,7 +524,6 @@ export default class MemoryClient {
     memoryId: string,
     options: DeleteMemoryOptions = {},
   ): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("delete", [Object.keys(options || {})]);
     const snakeOptions = camelToSnakeKeys(this._prepareParams(options));
     // @ts-ignore
@@ -412,7 +540,6 @@ export default class MemoryClient {
   async deleteAll(
     options: DeleteAllMemoryOptions = {},
   ): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("delete_all", [payloadKeys]);
     const snakeOptions = camelToSnakeKeys(this._prepareParams(options));
@@ -429,7 +556,6 @@ export default class MemoryClient {
   }
 
   async history(memoryId: string): Promise<Array<MemoryHistory>> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("history", []);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/memories/${encodePathSegment(memoryId)}/history/`,
@@ -444,7 +570,6 @@ export default class MemoryClient {
     page?: number;
     pageSize?: number;
   }): Promise<AllUsers> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("users", []);
     let url = `${this.host}/v1/entities/`;
     const params: string[] = [];
@@ -464,7 +589,6 @@ export default class MemoryClient {
     entity_id: number;
     entity_type: string;
   }): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("delete_user", []);
     if (!data.entity_type) {
       data.entity_type = "user";
@@ -487,8 +611,6 @@ export default class MemoryClient {
       runId?: string;
     } = {},
   ): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
-
     let to_delete: Array<{ type: string; name: string }> = [];
     const { userId, agentId, appId, runId } = params;
 
@@ -514,8 +636,14 @@ export default class MemoryClient {
 
     for (const entity of to_delete) {
       try {
-        await this.client.delete(
-          `/v2/entities/${encodePathSegment(entity.type)}/${encodePathSegment(entity.name)}/`,
+        // fetch() reuses the pooled connection; axios here defaulted to
+        // keepAlive: false, one handshake per entity.
+        await this._fetchWithErrorHandling(
+          `${this.host}/v2/entities/${encodePathSegment(entity.type)}/${encodePathSegment(entity.name)}/`,
+          {
+            method: "DELETE",
+            headers: this.headers,
+          },
         );
       } catch (error: any) {
         throw new APIError(
@@ -537,7 +665,6 @@ export default class MemoryClient {
   }
 
   async batchUpdate(memories: Array<MemoryUpdateBody>): Promise<string> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("batch_update", []);
     const memoriesBody = memories.map((memory) => ({
       memory_id: memory.memoryId,
@@ -555,7 +682,6 @@ export default class MemoryClient {
   }
 
   async batchDelete(memories: Array<string>): Promise<string> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("batch_delete", []);
     const memoriesBody = memories.map((memory) => ({
       memory_id: memory,
@@ -572,10 +698,10 @@ export default class MemoryClient {
   }
 
   async getProject(options: ProjectOptions): Promise<ProjectResponse> {
-    if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_project", [payloadKeys]);
     const { fields } = options;
+    await this._awaitIdentity();
 
     if (!(this.organizationId && this.projectId)) {
       throw new Error(
@@ -598,8 +724,8 @@ export default class MemoryClient {
   async updateProject(
     prompts: PromptUpdatePayload,
   ): Promise<Record<string, any>> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("update_project", []);
+    await this._awaitIdentity();
     if (!(this.organizationId && this.projectId)) {
       throw new Error(
         "organizationId and projectId must be set to update instructions or categories",
@@ -619,9 +745,12 @@ export default class MemoryClient {
 
   // WebHooks
   async getWebhooks(data?: { projectId?: string }): Promise<Array<Webhook>> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("get_webhooks", []);
+    if (!data?.projectId) await this._awaitIdentity();
     const project_id = data?.projectId || this.projectId;
+    if (!project_id) {
+      throw new Error("projectId must be set to access webhooks");
+    }
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/projects/${project_id}/`,
       {
@@ -632,8 +761,11 @@ export default class MemoryClient {
   }
 
   async createWebhook(webhook: WebhookCreatePayload): Promise<Webhook> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("create_webhook", []);
+    await this._awaitIdentity();
+    if (!this.projectId) {
+      throw new Error("projectId must be set to create a webhook");
+    }
     const body = {
       name: webhook.name,
       url: webhook.url,
@@ -653,7 +785,6 @@ export default class MemoryClient {
   async updateWebhook(
     webhook: WebhookUpdatePayload,
   ): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("update_webhook", []);
     const body: Record<string, any> = {};
     if (webhook.name != null) body.name = webhook.name;
@@ -673,7 +804,6 @@ export default class MemoryClient {
   async deleteWebhook(data: {
     webhookId: string;
   }): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("delete_webhook", []);
     const webhook_id = data.webhookId || data;
     const response = await this._fetchWithErrorHandling(
@@ -687,7 +817,6 @@ export default class MemoryClient {
   }
 
   async feedback(data: FeedbackPayload): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(data || {});
     this._captureEvent("feedback", [payloadKeys]);
     const response = await this._fetchWithErrorHandling(
@@ -701,10 +830,195 @@ export default class MemoryClient {
     return response;
   }
 
+  /**
+   * Get the memory profile for a single user.
+   *
+   * Branch on `status`, not on an empty `profile`: generation is asynchronous,
+   * so a known user without a profile yet is a normal response.
+   */
+  async getProfile(data: { entityId: string }): Promise<ProfileResponse> {
+    this._captureEvent("get_profile", []);
+    await this._awaitIdentity();
+
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}/v2/entities/user/${encodeURIComponent(data.entityId)}/profile/`,
+      {
+        headers: this.headers,
+      },
+    );
+    return response;
+  }
+
+  /**
+   * Generate or refresh the profile for one user, now.
+   *
+   * Profiles are otherwise built once a user crosses an internal message
+   * threshold, so a new user has none for its first few memories. Returns as
+   * soon as the work is queued: poll {@link getProfile} and branch on `status`.
+   *
+   * Pass `idempotencyKey` and reuse it to retry a lost request without starting
+   * (and being billed for) a second job.
+   */
+  async generateProfile(data: {
+    entityId: string;
+    idempotencyKey?: string;
+  }): Promise<ProfileJobResponse> {
+    this._captureEvent("generate_profile", []);
+    await this._awaitIdentity();
+
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}${PROFILE_JOBS_PATH}`,
+      {
+        method: "POST",
+        headers: {
+          ...this.headers,
+          "Idempotency-Key": data.idempotencyKey ?? uuidv7(),
+        },
+        body: JSON.stringify({
+          operation: "trigger",
+          entity_type: "user",
+          entity_id: data.entityId,
+        }),
+      },
+    );
+    return response;
+  }
+
+  /** Get the profile settings for the current project. */
+  async getProfileSettings(): Promise<ProfileSettingsResponse> {
+    this._captureEvent("get_profile_settings", []);
+    await this._awaitIdentity();
+
+    const raw = await this._fetchRawJson(`${this.host}/v2/profiles/settings/`, {
+      headers: this.headers,
+    });
+    return this._settingsWithVerbatimSchema(raw);
+  }
+
+  /**
+   * The envelope keys are ours; the schema's property names are the customer's.
+   *
+   * Each entity type carries its own schema, so every one has to be restored
+   * from the raw body — otherwise camel-casing rewrites the customer's field
+   * names and a profile comes back under keys they never chose.
+   */
+  private _settingsWithVerbatimSchema(raw: any): ProfileSettingsResponse {
+    const settings = snakeToCamelKeys(raw) as ProfileSettingsResponse;
+    if (!raw || typeof raw !== "object") {
+      return settings;
+    }
+
+    const rawEntities = raw.entities;
+    if (rawEntities && typeof rawEntities === "object") {
+      for (const [entityType, entitySettings] of Object.entries(rawEntities)) {
+        if (
+          entitySettings &&
+          typeof entitySettings === "object" &&
+          "schema" in entitySettings &&
+          settings.entities?.[entityType as ProfileEntityType]
+        ) {
+          settings.entities[entityType as ProfileEntityType]!.schema = (
+            entitySettings as Record<string, any>
+          ).schema;
+        }
+      }
+    }
+
+    return settings;
+  }
+
+  /**
+   * Update profile settings. Only the fields you pass are written.
+   *
+   * `schema` and `customInstructions` are per user and are nested under
+   * `entities` for the API; only `enabled` is project-wide. Sending them flat
+   * is rejected with `Unsupported settings`.
+   */
+  async updateProfileSettings(
+    settings: ProfileSettings,
+  ): Promise<ProfileSettingsResponse> {
+    const payloadKeys = Object.keys(settings || {});
+    this._captureEvent("update_profile_settings", [payloadKeys]);
+    await this._awaitIdentity();
+
+    const { schema, customInstructions, enabled } = settings || {};
+
+    const body: Record<string, any> = {};
+    if (enabled !== undefined) {
+      body.enabled = enabled;
+    }
+
+    const entitySettings: Record<string, any> = {};
+    // The schema's property names are the customer's and must reach the API verbatim.
+    if (schema !== undefined) {
+      entitySettings.schema = schema;
+    }
+    if (customInstructions !== undefined) {
+      entitySettings.custom_instructions = customInstructions;
+    }
+    if (Object.keys(entitySettings).length > 0) {
+      body.entities = { user: entitySettings };
+    }
+
+    const raw = await this._fetchRawJson(`${this.host}/v2/profiles/settings/`, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+    return this._settingsWithVerbatimSchema(raw);
+  }
+
+  /**
+   * Generate profiles for a few real users, to check a schema.
+   *
+   * Real generations against real memories, and the results are kept: the
+   * profiles are written to those users and count toward usage.
+   */
+  async sampleProfiles(data?: {
+    limit?: number;
+    idempotencyKey?: string;
+  }): Promise<ProfileJobResponse> {
+    this._captureEvent("sample_profiles", []);
+    await this._awaitIdentity();
+
+    const response = await this._fetchWithErrorHandling(
+      `${this.host}${PROFILE_JOBS_PATH}`,
+      {
+        method: "POST",
+        headers: {
+          ...this.headers,
+          "Idempotency-Key": data?.idempotencyKey ?? uuidv7(),
+        },
+        body: JSON.stringify({
+          operation: "sample",
+          // Required: the API refuses a job that does not name an entity kind.
+          entity_type: "user",
+          ...this._prepareParams({ limit: data?.limit }),
+        }),
+      },
+    );
+    return response;
+  }
+
+  /**
+   * Read one generation job. Accepts the `statusUrl` from a create call, or a
+   * bare job id. Prefer `statusUrl` so a route change needs no client update.
+   */
+  async getProfileJob(jobIdOrStatusUrl: string): Promise<ProfileJobStatus> {
+    await this._awaitIdentity();
+
+    const path = jobIdOrStatusUrl.startsWith("/")
+      ? jobIdOrStatusUrl
+      : `${PROFILE_JOBS_PATH}${jobIdOrStatusUrl}/`;
+    return this._fetchWithErrorHandling(`${this.host}${path}`, {
+      method: "GET",
+      headers: this.headers,
+    });
+  }
+
   async createMemoryExport(
     data: CreateMemoryExportPayload,
   ): Promise<{ message: string; id: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("create_memory_export", []);
 
     if (!data.filters || !data.schema) {
@@ -734,7 +1048,6 @@ export default class MemoryClient {
   async getMemoryExport(
     data: GetMemoryExportPayload,
   ): Promise<{ message: string; id: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("get_memory_export", []);
 
     if (!data.memoryExportId && !data.filters) {

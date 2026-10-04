@@ -254,110 +254,111 @@ class ChromaDB(VectorStoreBase):
     def _generate_where_clause(where: dict[str, any]) -> dict[str, any]:
         """
         Generate a properly formatted where clause for ChromaDB.
-        
+
+        ChromaDB's where grammar allows exactly one field or one logical
+        operator per dict level, so multiple operators on the same field and
+        multi-field conditions must be combined with an explicit ``$and``.
+
         Args:
             where (dict[str, any]): The filter conditions.
-            
+
         Returns:
             dict[str, any]: Properly formatted where clause for ChromaDB.
         """
         if where is None:
             return None
-        
-        def convert_condition(key: str, value: any) -> dict:
-            """Convert universal filter format to ChromaDB format."""
+
+        op_map = {
+            "eq": "$eq",
+            "ne": "$ne",
+            "gt": "$gt",
+            "gte": "$gte",
+            "lt": "$lt",
+            "lte": "$lte",
+            "in": "$in",
+            "nin": "$nin",
+        }
+        # Negation of each operator. contains/icontains fall back to equality
+        # on the positive path (ChromaDB has no substring match), so their
+        # negation falls back to inequality for consistency.
+        negate_map = {
+            "eq": "$ne",
+            "ne": "$eq",
+            "gt": "$lte",
+            "gte": "$lt",
+            "lt": "$gte",
+            "lte": "$gt",
+            "in": "$nin",
+            "nin": "$in",
+        }
+
+        def convert_condition(key: str, value: any) -> list:
+            """Convert one field condition to a list of single-field ChromaDB clauses."""
             if value == "*":
                 # Wildcard - match any value (ChromaDB doesn't have direct wildcard, so we skip this filter)
+                return []
+            if isinstance(value, dict):
+                # One clause per operator: ChromaDB rejects field expressions
+                # with more than one operator, so a range like
+                # {"gte": 18, "lte": 65} must become two clauses combined
+                # with $and by the caller (previously each operator
+                # overwrote the last, silently dropping bounds).
+                # contains/icontains and unknown operators fall back to equality.
+                return [{key: {op_map.get(op, "$eq"): val}} for op, val in value.items()]
+            # Simple equality
+            return [{key: {"$eq": value}}]
+
+        def combine(clauses: list, operator: str):
+            """Combine clauses under a logical operator, unwrapping singletons."""
+            if not clauses:
                 return None
-            elif isinstance(value, dict):
-                # Handle comparison operators
-                chroma_condition = {}
-                for op, val in value.items():
-                    if op == "eq":
-                        chroma_condition[key] = {"$eq": val}
-                    elif op == "ne":
-                        chroma_condition[key] = {"$ne": val}
-                    elif op == "gt":
-                        chroma_condition[key] = {"$gt": val}
-                    elif op == "gte":
-                        chroma_condition[key] = {"$gte": val}
-                    elif op == "lt":
-                        chroma_condition[key] = {"$lt": val}
-                    elif op == "lte":
-                        chroma_condition[key] = {"$lte": val}
-                    elif op == "in":
-                        chroma_condition[key] = {"$in": val}
-                    elif op == "nin":
-                        chroma_condition[key] = {"$nin": val}
-                    elif op in ["contains", "icontains"]:
-                        # ChromaDB doesn't support contains, fallback to equality
-                        chroma_condition[key] = {"$eq": val}
-                    else:
-                        # Unknown operator, treat as equality
-                        chroma_condition[key] = {"$eq": val}
-                return chroma_condition
-            else:
-                # Simple equality
-                return {key: {"$eq": value}}
-        
+            if len(clauses) == 1:
+                return clauses[0]
+            return {operator: clauses}
+
         processed_filters = []
-        
+
         for key, value in where.items():
             if key == "$or":
-                # Handle OR conditions
                 or_conditions = []
                 for condition in value:
-                    or_condition = {}
+                    sub_clauses = []
                     for sub_key, sub_value in condition.items():
-                        converted = convert_condition(sub_key, sub_value)
-                        if converted:
-                            or_condition.update(converted)
-                    if or_condition:
-                        or_conditions.append(or_condition)
-                
-                if len(or_conditions) > 1:
-                    processed_filters.append({"$or": or_conditions})
-                elif len(or_conditions) == 1:
-                    processed_filters.append(or_conditions[0])
-            
+                        sub_clauses.extend(convert_condition(sub_key, sub_value))
+                    combined = combine(sub_clauses, "$and")
+                    if combined:
+                        or_conditions.append(combined)
+                combined_or = combine(or_conditions, "$or")
+                if combined_or:
+                    processed_filters.append(combined_or)
+
             elif key == "$not":
-                negate_op = {
-                    "eq": "$ne", "ne": "$eq",
-                    "gt": "$lte", "gte": "$lt",
-                    "lt": "$gte", "lte": "$gt",
-                    "in": "$nin", "nin": "$in",
-                }
                 negated_per_group = []
                 for condition in value:
                     negated_fields = []
                     for sub_key, sub_value in condition.items():
                         if isinstance(sub_value, dict):
                             for op, val in sub_value.items():
-                                neg = negate_op.get(op)
-                                if neg:
-                                    negated_fields.append({sub_key: {neg: val}})
+                                # Unknown operators mirror the positive-path
+                                # equality fallback as inequality (previously
+                                # they were silently dropped, which could
+                                # erase the entire NOT clause).
+                                negated_fields.append({sub_key: {negate_map.get(op, "$ne"): val}})
                         else:
                             negated_fields.append({sub_key: {"$ne": sub_value}})
-                    if len(negated_fields) > 1:
-                        negated_per_group.append({"$or": negated_fields})
-                    elif len(negated_fields) == 1:
-                        negated_per_group.append(negated_fields[0])
+                    # NOT(a AND b) == (NOT a) OR (NOT b)
+                    combined = combine(negated_fields, "$or")
+                    if combined:
+                        negated_per_group.append(combined)
+                combined_not = combine(negated_per_group, "$and")
+                if combined_not:
+                    processed_filters.append(combined_not)
 
-                if len(negated_per_group) > 1:
-                    processed_filters.append({"$and": negated_per_group})
-                elif len(negated_per_group) == 1:
-                    processed_filters.append(negated_per_group[0])
-                
             else:
                 # Regular condition
-                converted = convert_condition(key, value)
-                if converted:
-                    processed_filters.append(converted)
-        
+                combined = combine(convert_condition(key, value), "$and")
+                if combined:
+                    processed_filters.append(combined)
+
         # Return appropriate format based on number of conditions
-        if len(processed_filters) == 0:
-            return None
-        elif len(processed_filters) == 1:
-            return processed_filters[0]
-        else:
-            return {"$and": processed_filters}
+        return combine(processed_filters, "$and")

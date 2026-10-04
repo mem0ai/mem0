@@ -166,6 +166,56 @@ def test_enable_sampling_parameters_for_current_models(mock_anthropic_client, mo
     assert ("temperature" in call_kwargs) is expected
 
 
+def test_generate_response_returns_text_when_thinking_block_precedes_it(mock_anthropic_client):
+    """Extended thinking responses put a thinking block before the text block; parsing must skip it."""
+    config = AnthropicConfig(model="claude-opus-4-6", api_key="test-key")
+    llm = AnthropicLLM(config)
+
+    thinking_block = Mock(spec=["type", "thinking", "signature"])
+    thinking_block.type = "thinking"
+    text_block = Mock(spec=["type", "text"])
+    text_block.type = "text"
+    text_block.text = "The answer"
+
+    mock_response = Mock()
+    mock_response.content = [thinking_block, text_block]
+    mock_anthropic_client.messages.create.return_value = mock_response
+
+    result = llm.generate_response([{"role": "user", "content": "Hi"}])
+
+    assert result == "The answer"
+
+
+def test_generate_response_returns_empty_string_on_empty_content(mock_anthropic_client):
+    """A response with no content blocks must return "" instead of raising IndexError."""
+    config = AnthropicConfig(model="claude-opus-4-6", api_key="test-key")
+    llm = AnthropicLLM(config)
+
+    mock_response = Mock()
+    mock_response.content = []
+    mock_anthropic_client.messages.create.return_value = mock_response
+
+    result = llm.generate_response([{"role": "user", "content": "Hi"}])
+
+    assert result == ""
+
+
+def test_generate_response_returns_text_for_plain_text_response(mock_anthropic_client):
+    """Regular single-text-block responses keep returning the text unchanged."""
+    config = AnthropicConfig(model="claude-opus-4-6", api_key="test-key")
+    llm = AnthropicLLM(config)
+
+    text_block = Mock(spec=["type", "text"])
+    text_block.type = "text"
+    text_block.text = "Hello!"
+
+    mock_response = Mock()
+    mock_response.content = [text_block]
+    mock_anthropic_client.messages.create.return_value = mock_response
+
+    assert llm.generate_response([{"role": "user", "content": "Hi"}]) == "Hello!"
+
+
 def test_enable_sampling_parameters_respects_explicit_override(mock_anthropic_client):
     config = AnthropicConfig(
         model="claude-opus-4-6",

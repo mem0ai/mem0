@@ -1,5 +1,6 @@
 import { RerankerConfig } from "../types";
 import { Reranker, RerankResult } from "./base";
+import { loadPeer } from "../utils/load_peer";
 
 const DEFAULT_MODEL = "zerank-1";
 
@@ -37,14 +38,11 @@ export class ZeroEntropyReranker implements Reranker {
   }
 
   private async createClient(): Promise<any> {
-    let sdk: any;
-    try {
-      sdk = await import("zeroentropy");
-    } catch {
-      throw new Error(
-        "The 'zeroentropy' package is required to use the ZeroEntropy reranker. Install it with: npm install zeroentropy",
-      );
-    }
+    const sdk = await loadPeer(
+      "zeroentropy",
+      "ZeroEntropy reranker",
+      () => import("zeroentropy"),
+    );
     return new sdk.ZeroEntropy({ apiKey: this.apiKey });
   }
 
