@@ -128,6 +128,16 @@ describe("Memory - get()", () => {
     expect(item!.createdAt).toBeDefined();
     expect(new Date(item!.createdAt!).toString()).not.toBe("Invalid Date");
   });
+
+  test("does not duplicate the entity id inside metadata", async () => {
+    const addResult: SearchResult = await memory.add("Metadata leak test", {
+      userId,
+    });
+    const item: any = await memory.get(addResult.results[0].id);
+    expect(item.user_id).toBe(userId);
+    expect(item.metadata).not.toHaveProperty("user_id");
+    expect(item.metadata).not.toHaveProperty("userId");
+  });
 });
 
 // ─── update() ────────────────────────────────────────────

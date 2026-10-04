@@ -9,8 +9,8 @@ try:
 except ImportError:
     raise ImportError("The 'boto3' library is required. Please install it using 'pip install boto3'.")
 
-from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
+from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
 from mem0.memory.utils import extract_json
 
@@ -23,8 +23,14 @@ PROVIDERS = [
 ]
 
 
-def extract_provider(model: str) -> str:
-    """Extract provider from model identifier."""
+def extract_provider(model: str, explicit_provider: Optional[str] = None) -> str:
+    """Extract provider from model identifier, or return explicit_provider when set."""
+    if explicit_provider:
+        if explicit_provider not in PROVIDERS:
+            raise ValueError(
+                f"Unknown provider_override '{explicit_provider}'. Valid providers: {', '.join(PROVIDERS)}"
+            )
+        return explicit_provider
     for provider in PROVIDERS:
         if re.search(rf"\b{re.escape(provider)}\b", model):
             return provider
@@ -69,7 +75,7 @@ class AWSBedrockLLM(LLMBase):
 
         # Get model configuration
         self.model_config = self.config.get_model_config()
-        self.provider = extract_provider(self.config.model)
+        self.provider = extract_provider(self.config.model, self.config.provider_override)
 
         # Initialize provider-specific settings
         self._initialize_provider_settings()
@@ -578,11 +584,20 @@ class AWSBedrockLLM(LLMBase):
             # Use converse API for Anthropic models
             response = self.client.converse(**converse_params)
 
-            # Parse Converse API response
+            # Parse Converse API response. Claude reasoning models can emit a
+            # `reasoningContent` block before the `text` block, so iterate to
+            # find the first block that carries text instead of indexing
+            # content[0] (same approach as the MiniMax branch below).
             if hasattr(response, 'output') and hasattr(response.output, 'message'):
-                return response.output.message.content[0].text
+                for block in response.output.message.content:
+                    if hasattr(block, 'text'):
+                        return block.text
+                return ""
             elif 'output' in response and 'message' in response['output']:
-                return response['output']['message']['content'][0]['text']
+                for block in response['output']['message']['content']:
+                    if 'text' in block:
+                        return block['text']
+                return ""
             else:
                 return str(response)
 

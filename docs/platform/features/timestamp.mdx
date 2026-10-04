@@ -82,11 +82,11 @@ client.add(messages, { userId: "user1", timestamp: unixTimestamp })
 ```
 
 ```bash cURL
-curl -X POST "https://api.mem0.ai/v1/memories/" \
+curl -X POST "https://api.mem0.ai/v3/memories/add/" \
      -H "Authorization: Token your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
-         "messages": [{"role": "user", "content": "I'm travelling to SF"}],
+         "messages": [{"role": "user", "content": "Travelling to SF"}],
          "user_id": "user1",
          "timestamp": 1721577600
      }'
@@ -94,13 +94,8 @@ curl -X POST "https://api.mem0.ai/v1/memories/" \
 
 ```json Output
 {
-    "results": [
-        {
-            "id": "a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5",
-            "data": {"memory": "Travelling to SF"},
-            "event": "ADD"
-        }
-    ]
+    "event_id": "evt-uuid",
+    "status": "PENDING"
 }
 ```
 

@@ -125,4 +125,88 @@ describe("RedisDB – entity payload handling", () => {
     expect(entry.created_at).toBeGreaterThan(0);
     expect(Number.isNaN(entry.created_at)).toBe(false);
   });
+
+  test("search returns entity ids as snake_case", async () => {
+    mockClient.ft.search.mockResolvedValue({
+      total: 1,
+      documents: [
+        {
+          id: "mem0:test:mem-1",
+          value: {
+            memory_id: "mem-1",
+            hash: "h1",
+            memory: "likes coffee",
+            created_at: "1700000000000",
+            agent_id: "agent-1",
+            run_id: "run-1",
+            user_id: "user-1",
+            metadata: "{}",
+            __vector_score: 0.1,
+          },
+        },
+      ],
+    });
+
+    const results = await store.search([0.1, 0.2, 0.3, 0.4], 5);
+
+    expect(results[0].payload.user_id).toBe("user-1");
+    expect(results[0].payload.agent_id).toBe("agent-1");
+    expect(results[0].payload.run_id).toBe("run-1");
+    expect(results[0].payload).not.toHaveProperty("userId");
+    expect(results[0].payload).not.toHaveProperty("agentId");
+    expect(results[0].payload).not.toHaveProperty("runId");
+  });
+
+  test("get returns entity ids as snake_case", async () => {
+    mockClient.exists.mockResolvedValue(1);
+    mockClient.hGetAll.mockResolvedValue({
+      memory_id: "mem-1",
+      hash: "h1",
+      memory: "likes coffee",
+      created_at: "1700000000000",
+      agent_id: "agent-1",
+      run_id: "run-1",
+      user_id: "user-1",
+      metadata: "{}",
+    });
+
+    const result = await store.get("mem-1");
+
+    expect(result?.payload.user_id).toBe("user-1");
+    expect(result?.payload.agent_id).toBe("agent-1");
+    expect(result?.payload.run_id).toBe("run-1");
+    expect(result?.payload).not.toHaveProperty("userId");
+    expect(result?.payload).not.toHaveProperty("agentId");
+    expect(result?.payload).not.toHaveProperty("runId");
+  });
+
+  test("list returns entity ids as snake_case", async () => {
+    mockClient.ft.search.mockResolvedValue({
+      total: 1,
+      documents: [
+        {
+          id: "mem0:test:mem-1",
+          value: {
+            memory_id: "mem-1",
+            hash: "h1",
+            memory: "likes coffee",
+            created_at: "1700000000000",
+            agent_id: "agent-1",
+            run_id: "run-1",
+            user_id: "user-1",
+            metadata: "{}",
+          },
+        },
+      ],
+    });
+
+    const [items] = await store.list();
+
+    expect(items[0].payload.user_id).toBe("user-1");
+    expect(items[0].payload.agent_id).toBe("agent-1");
+    expect(items[0].payload.run_id).toBe("run-1");
+    expect(items[0].payload).not.toHaveProperty("userId");
+    expect(items[0].payload).not.toHaveProperty("agentId");
+    expect(items[0].payload).not.toHaveProperty("runId");
+  });
 });

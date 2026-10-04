@@ -373,3 +373,56 @@ describe("MemoryClient - getAll() entity param rejection", () => {
     expect(getFetchBody(call!).show_expired).toBe(true);
   });
 });
+
+describe("MemoryClient - getAll() page/pageSize query params", () => {
+  test("sends no query params when neither page nor pageSize is provided", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/", { status: 200, body: { results: [] } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getAll({ filters: { user_id: "u1" } });
+
+    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    expect(call![0]).not.toContain("?");
+  });
+
+  test("sends page alone as a query param", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/", { status: 200, body: { results: [] } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getAll({ filters: { user_id: "u1" }, page: 2 });
+
+    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    expect(call![0]).toContain("?page=2");
+    expect(call![0]).not.toContain("page_size");
+  });
+
+  test("sends pageSize alone as a query param", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/", { status: 200, body: { results: [] } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getAll({ filters: { user_id: "u1" }, pageSize: 50 });
+
+    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    expect(call![0]).toContain("?page_size=50");
+    expect(call![0]).not.toContain("?page=50");
+  });
+
+  test("sends both page and pageSize when provided, including falsy 0 values", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/", { status: 200, body: { results: [] } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getAll({ filters: { user_id: "u1" }, page: 0, pageSize: 0 });
+
+    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    expect(call![0]).toContain("page=0");
+    expect(call![0]).toContain("page_size=0");
+  });
+});

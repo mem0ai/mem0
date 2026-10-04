@@ -50,6 +50,7 @@ const ADD_MAPPING: Record<string, string[]> = {
 	metadata: ["--metadata"],
 	expiration_date: ["--expires"],
 	custom_instructions: ["--custom-instructions"],
+	agent_custom_instructions: ["--agent-custom-instructions"],
 	custom_categories: ["--custom-categories"],
 	infer: ["--no-infer"],
 	immutable: ["--immutable"],
