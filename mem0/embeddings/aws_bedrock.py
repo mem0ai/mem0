@@ -75,6 +75,11 @@ class AWSBedrockEmbedding(EmbeddingBase):
         input_body = {}
 
         if provider == "cohere":
+            if memory_action is not None and memory_action not in self._COHERE_INPUT_TYPES:
+                raise ValueError(
+                    f"Invalid memory_action '{memory_action}'. Expected one of "
+                    f"{sorted(self._COHERE_INPUT_TYPES)} or None."
+                )
             input_body["input_type"] = self._COHERE_INPUT_TYPES.get(memory_action, self._DEFAULT_COHERE_INPUT_TYPE)
             input_body["texts"] = [text]
         else:

@@ -101,6 +101,17 @@ def test_cohere_default_action_uses_search_document_input_type(mock_boto3):
     assert _sent_body(mock_boto3)["input_type"] == "search_document"
 
 
+def test_cohere_invalid_memory_action_raises(mock_boto3):
+    """An unrecognized memory_action raises instead of silently falling back,
+    matching the vertexai embedder's behavior."""
+    embedder = _make_embedder("cohere.embed-english-v3", mock_boto3)
+
+    with pytest.raises(ValueError, match="Invalid memory_action"):
+        embedder.embed("some text", memory_action="store")
+
+    mock_boto3.invoke_model.assert_not_called()
+
+
 def test_session_token_from_config_is_passed_to_client(mock_boto3_client):
     """A session token supplied via config must reach the bedrock-runtime client.
 
