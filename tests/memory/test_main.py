@@ -1427,7 +1427,13 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         assert any("memory texts" in r.message for r in caplog.records), (
             "expected memory-embedding count-mismatch warning was not emitted"
         )
-        # The aligned memory persists; the unmatched text is skipped, not misaligned.
+        # The count disagreement is reported as an alignment hazard too: zip()
+        # pairs by position, so a vector missing from the middle of the response
+        # would leave a surviving text holding its neighbour's vector. Not
+        # repaired here — repairing changes what add() stores.
+        assert any("may not correspond" in r.message for r in caplog.records), (
+            "positional-pairing warning was not emitted"
+        )
         assert len(result) == 1
 
     @pytest.mark.asyncio
@@ -1451,6 +1457,9 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
 
         assert any("memory texts" in r.message for r in caplog.records), (
             "expected memory-embedding count-mismatch warning was not emitted"
+        )
+        assert any("may not correspond" in r.message for r in caplog.records), (
+            "positional-pairing warning was not emitted"
         )
         assert len(result) == 1
 
@@ -1479,6 +1488,36 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         )
         assert len(result) == 1
 
+    def test_overlong_batch_return_is_reported(self, mock_memory, mocker, caplog):
+        """More vectors than texts: zip() drops the extras so nothing is missing
+        from embed_map, but the response ordering is not what the pairing
+        assumes, so it must not pass silently."""
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(
+            side_effect=lambda texts, memory_action="add": [[0.1] * 10 for _ in texts] + [[0.2] * 10]
+        )
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "two facts"}],
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        # Nothing is missing, so only the pairing warning applies.
+        assert not any("have no embedding" in r.message for r in caplog.records)
+        assert any("may not correspond" in r.message for r in caplog.records), (
+            "an over-long batch return passed silently"
+        )
+        assert len(result) == 2
+
     def test_repeated_text_embedded_correctly_does_not_warn(self, mock_memory, mocker, caplog):
         """A fact extracted twice yields one embed_map entry for two mem_texts.
         Nothing is lost — hash dedup collapses it downstream — so comparing
@@ -1502,6 +1541,9 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
 
         assert not any("have no embedding" in r.message for r in caplog.records), (
             "a correctly embedded duplicate text was reported as missing"
+        )
+        assert not any("may not correspond" in r.message for r in caplog.records), (
+            "a correct one-vector-per-text return was reported as misaligned"
         )
         assert len(result) == 1
 

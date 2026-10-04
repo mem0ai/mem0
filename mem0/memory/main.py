@@ -992,8 +992,10 @@ class Memory(MemoryBase):
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
+        batch_count = None
         try:
             mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
+            batch_count = len(mem_embeddings_list)
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             # Fallback: embed individually
@@ -1018,6 +1020,19 @@ class Memory(MemoryBase):
                 "%d of %d memory texts have no embedding and are not stored",
                 len(missing),
                 len(unique_texts),
+            )
+        # A count disagreement also means the surviving pairs cannot be trusted:
+        # zip() above pairs by position, so a vector missing from the middle of
+        # the response leaves every text after it holding its neighbour's vector,
+        # and a longer-than-expected response says the ordering is not what this
+        # code assumes. Reported, not repaired: re-embedding or refusing the
+        # batch would change what add() stores.
+        if batch_count is not None and batch_count != len(mem_texts):
+            logger.warning(
+                "embed_batch() returned %d vectors for %d memory texts — pairing "
+                "is positional, so stored vectors may not correspond to their text",
+                batch_count,
+                len(mem_texts),
             )
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
@@ -2689,8 +2704,10 @@ class AsyncMemory(MemoryBase):
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
+        batch_count = None
         try:
             mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
+            batch_count = len(mem_embeddings_list)
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             embed_map = {}
@@ -2714,6 +2731,19 @@ class AsyncMemory(MemoryBase):
                 "%d of %d memory texts have no embedding and are not stored",
                 len(missing),
                 len(unique_texts),
+            )
+        # A count disagreement also means the surviving pairs cannot be trusted:
+        # zip() above pairs by position, so a vector missing from the middle of
+        # the response leaves every text after it holding its neighbour's vector,
+        # and a longer-than-expected response says the ordering is not what this
+        # code assumes. Reported, not repaired: re-embedding or refusing the
+        # batch would change what add() stores.
+        if batch_count is not None and batch_count != len(mem_texts):
+            logger.warning(
+                "embed_batch() returned %d vectors for %d memory texts — pairing "
+                "is positional, so stored vectors may not correspond to their text",
+                batch_count,
+                len(mem_texts),
             )
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
