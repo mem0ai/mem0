@@ -29,7 +29,18 @@ const PROVIDERS = [
  * Extract the model-family provider from a Bedrock model id
  * (e.g. `anthropic.claude-3-sonnet-...` -> `anthropic`).
  */
-export function extractProvider(model: string): string {
+export function extractProvider(
+  model: string,
+  providerOverride?: string,
+): string {
+  if (providerOverride) {
+    if (!PROVIDERS.includes(providerOverride)) {
+      throw new Error(
+        `Unknown providerOverride '${providerOverride}'. Valid providers: ${PROVIDERS.join(", ")}`,
+      );
+    }
+    return providerOverride;
+  }
   for (const provider of PROVIDERS) {
     const re = new RegExp(
       `\\b${provider.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
@@ -79,7 +90,7 @@ export class AWSBedrockLLM implements LLM {
     this.model =
       (typeof config.model === "string" && config.model) ||
       "anthropic.claude-3-5-sonnet-20240620-v1:0";
-    this.provider = extractProvider(this.model);
+    this.provider = extractProvider(this.model, config.providerOverride);
     this.temperature = config.temperature ?? 0.1;
     this.maxTokens = config.maxTokens ?? 2000;
     this.topP = config.topP;

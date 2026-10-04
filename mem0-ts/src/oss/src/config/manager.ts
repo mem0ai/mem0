@@ -113,7 +113,18 @@ export class ConfigManager {
           const userConf = userConfig.llm?.config;
           const provider =
             userConfig.llm?.provider || DEFAULT_MEMORY_CONFIG.llm.provider;
-          let finalModel: string | any = defaultConf.model;
+          // DEFAULT_MEMORY_CONFIG.llm.config holds OpenAI's own defaults (baseURL and
+          // model). Handing those to any other provider shadows that provider's default
+          // *and* its env fallback (DEEPSEEK_API_BASE, XAI_API_BASE, ...), so a config
+          // copied from the docs for another provider ends up pointed at OpenAI with an
+          // OpenAI model name. vLLM already needed a carve-out here for exactly this
+          // reason; every non-OpenAI provider needs it.
+          const usesOpenAIDefaults =
+            provider.toLowerCase() === "openai" ||
+            provider.toLowerCase() === "openai_structured";
+          let finalModel: string | any = usesOpenAIDefaults
+            ? defaultConf.model
+            : undefined;
 
           if (userConf?.model && typeof userConf.model === "object") {
             finalModel = userConf.model;
@@ -131,9 +142,7 @@ export class ConfigManager {
               | string
               | undefined) ??
             userConf?.url ??
-            (provider.toLowerCase() === "vllm"
-              ? undefined
-              : defaultConf.baseURL);
+            (usesOpenAIDefaults ? defaultConf.baseURL : undefined);
           const temperature =
             userConf?.temperature ??
             (llmRaw?.temperature as number | undefined);

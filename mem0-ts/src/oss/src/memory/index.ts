@@ -105,6 +105,18 @@ const ENTITY_PARAMS = [
 // actor_id has no camelCase alias.
 const IDENTITY_KEYS = [...ENTITY_PARAMS, "actor_id"];
 
+const PAYLOAD_METADATA_EXCLUDED_KEYS = new Set([
+  "user_id",
+  "agent_id",
+  "run_id",
+  "hash",
+  "data",
+  "createdAt",
+  "updatedAt",
+  "textLemmatized",
+  "attributedTo",
+]);
+
 // Caller metadata must not overwrite or inject an identity scope (#6342 / #6367 / #6371).
 function stripIdentityKeys(
   metadata: Record<string, any> = {},
@@ -556,11 +568,18 @@ export class Memory {
     }
   }
 
+  private escapeScopeValue(val: unknown): string {
+    return String(val)
+      .replace(/%/g, "%25")
+      .replace(/&/g, "%26")
+      .replace(/=/g, "%3D");
+  }
+
   private buildSessionScope(filters: SearchFilters): string {
     const parts: string[] = [];
     for (const key of ["agent_id", "run_id", "user_id"].sort()) {
       const val = (filters as any)[key];
-      if (val) parts.push(`${key}=${val}`);
+      if (val) parts.push(`${key}=${this.escapeScopeValue(val)}`);
     }
     return parts.join("&");
   }
@@ -993,7 +1012,8 @@ export class Memory {
 
     for (const mem of extractedMemories) {
       const text = mem.text;
-      if (!text || !(text in embedMap)) continue;
+      if (!text || !Object.prototype.hasOwnProperty.call(embedMap, text))
+        continue;
 
       const memHash = createHash("md5").update(text).digest("hex");
       if (existingHashes.has(memHash) || seenHashes.has(memHash)) {
@@ -1290,20 +1310,8 @@ export class Memory {
       metadata: {},
     };
 
-    // Add additional metadata
-    const excludedKeys = new Set([
-      "userId",
-      "agentId",
-      "runId",
-      "hash",
-      "data",
-      "createdAt",
-      "updatedAt",
-      "textLemmatized",
-      "attributedTo",
-    ]);
     for (const [key, value] of Object.entries(memory.payload)) {
-      if (!excludedKeys.has(key)) {
+      if (!PAYLOAD_METADATA_EXCLUDED_KEYS.has(key)) {
         memoryItem.metadata![key] = value;
       }
     }
@@ -1559,18 +1567,6 @@ export class Memory {
     );
 
     // Step 9: Format results
-    const excludedKeys = new Set([
-      "user_id",
-      "agent_id",
-      "run_id",
-      "hash",
-      "data",
-      "createdAt",
-      "updatedAt",
-      "textLemmatized",
-      "attributedTo",
-    ]);
-
     const results = scoredResults
       .filter((scored) => scored.payload?.data)
       .map((scored) => {
@@ -1583,7 +1579,7 @@ export class Memory {
           updatedAt: payload.updatedAt,
           score: scored.score,
           metadata: Object.entries(payload)
-            .filter(([key]) => !excludedKeys.has(key))
+            .filter(([key]) => !PAYLOAD_METADATA_EXCLUDED_KEYS.has(key))
             .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
           ...(payload.user_id && { user_id: payload.user_id }),
           ...(payload.agent_id && { agent_id: payload.agent_id }),
@@ -1889,17 +1885,6 @@ export class Memory {
       ? memories
       : memories.filter((mem) => !payloadIsExpired(mem.payload));
 
-    const excludedKeys = new Set([
-      "user_id",
-      "agent_id",
-      "run_id",
-      "hash",
-      "data",
-      "createdAt",
-      "updatedAt",
-      "textLemmatized",
-      "attributedTo",
-    ]);
     const results = visibleMemories.slice(0, topK).map((mem) => ({
       id: mem.id,
       memory: mem.payload.data,
@@ -1907,7 +1892,7 @@ export class Memory {
       createdAt: mem.payload.createdAt,
       updatedAt: mem.payload.updatedAt,
       metadata: Object.entries(mem.payload)
-        .filter(([key]) => !excludedKeys.has(key))
+        .filter(([key]) => !PAYLOAD_METADATA_EXCLUDED_KEYS.has(key))
         .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
       ...(mem.payload.user_id && { user_id: mem.payload.user_id }),
       ...(mem.payload.agent_id && { agent_id: mem.payload.agent_id }),
@@ -1936,8 +1921,12 @@ export class Memory {
     metadata: Record<string, any>,
   ): Promise<string> {
     const memoryId = uuidv4();
-    const embedding =
-      existingEmbeddings[data] || (await this.embedder.embed(data, "add"));
+    const embedding = Object.prototype.hasOwnProperty.call(
+      existingEmbeddings,
+      data,
+    )
+      ? existingEmbeddings[data]
+      : await this.embedder.embed(data, "add");
 
     const memoryMetadata = {
       ...metadata,
@@ -1980,9 +1969,12 @@ export class Memory {
     }
     const textChanged = newData !== prevValue;
 
-    const embedding =
-      existingEmbeddings[newData] ||
-      (await this.embedder.embed(newData, "update"));
+    const embedding = Object.prototype.hasOwnProperty.call(
+      existingEmbeddings,
+      newData,
+    )
+      ? existingEmbeddings[newData]
+      : await this.embedder.embed(newData, "update");
 
     const sanitizedMetadata = stripIdentityKeys(metadata);
 

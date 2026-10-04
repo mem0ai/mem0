@@ -81,33 +81,25 @@ function temporalUsagePayload(overrides: Record<string, any> = {}) {
 
 function createFetchMock(options: {
   variant?: string;
-  payload?: unknown;
-  failFlags?: boolean;
-  flagEnabled?: boolean;
+  payload?: Record<string, any>;
+  failConfig?: boolean;
 }) {
   const calls: any[] = [];
+  const variantSplit = options.variant === "holdout" ? 0.0 : 1.0;
+  const payload = options.payload ?? temporalUsagePayload();
   const fetchMock = jest.fn(async (url: string | URL, init?: RequestInit) => {
     const target = String(url);
 
-    if (target.includes("/flags")) {
-      if (options.failFlags) {
-        throw new Error("flag evaluation failed");
+    if (target.includes("raw.githubusercontent.com")) {
+      if (options.failConfig) {
+        throw new Error("config fetch failed");
       }
-      const payload =
-        options.payload === undefined
-          ? JSON.stringify(temporalUsagePayload())
-          : options.payload;
       return {
         ok: true,
         json: jest.fn().mockResolvedValue({
-          flags: {
-            "mem0-oss-notices": {
-              key: "mem0-oss-notices",
-              enabled: options.flagEnabled ?? true,
-              variant: options.variant ?? "displayed",
-              metadata: { payload },
-            },
-          },
+          version: 1,
+          variant_split: variantSplit,
+          ...payload,
         }),
       };
     }
@@ -140,9 +132,10 @@ function temporalUsageEvents(calls: any[]) {
   );
 }
 
-function flagRequestCount(fetchMock: jest.Mock) {
-  return fetchMock.mock.calls.filter(([url]) => String(url).includes("/flags"))
-    .length;
+function configRequestCount(fetchMock: jest.Mock) {
+  return fetchMock.mock.calls.filter(([url]) =>
+    String(url).includes("raw.githubusercontent.com"),
+  ).length;
 }
 
 async function createMemory() {
@@ -320,7 +313,7 @@ describe("Node OSS temporal usage notice", () => {
       topK: 3,
     });
 
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
     expect(temporalUsageEvents(calls)).toHaveLength(0);
     expect(readConfig().notice_state?.temporal_usage).toBeUndefined();
   });
@@ -377,20 +370,11 @@ describe("Node OSS temporal usage notice", () => {
   it.each([
     [
       "disabled payload",
-      JSON.stringify(temporalUsagePayload({ enabled: false })),
+      temporalUsagePayload({ enabled: false }),
       "payload_disabled",
     ],
-    [
-      "missing config",
-      JSON.stringify({ notices: {} }),
-      "missing_notice_config",
-    ],
-    [
-      "missing copy",
-      JSON.stringify(temporalUsagePayload({ copy: "" })),
-      "missing_copy",
-    ],
-    ["malformed payload", "{not-json", "missing_notice_config"],
+    ["missing config", { notices: {} }, "missing_notice_config"],
+    ["missing copy", temporalUsagePayload({ copy: "" }), "missing_copy"],
   ])("is silent and safe for %s", async (_label, payload, bypassReason) => {
     consumeFirstRun();
     const { fetchMock, calls } = createFetchMock({
@@ -418,12 +402,9 @@ describe("Node OSS temporal usage notice", () => {
     );
   });
 
-  it("does not consume cap or emit when the blunt flag is disabled", async () => {
+  it("emits not-displayed when config fetch fails (bundled config fallback)", async () => {
     consumeFirstRun();
-    const { fetchMock, calls } = createFetchMock({
-      variant: "displayed",
-      flagEnabled: false,
-    });
+    const { fetchMock, calls } = createFetchMock({ failConfig: true });
     global.fetch = fetchMock as any;
     const memory = await createMemory();
 
@@ -433,24 +414,14 @@ describe("Node OSS temporal usage notice", () => {
       metadata: { event_date: "2025-04-09" },
     });
 
-    expect(temporalUsageEvents(calls)).toHaveLength(0);
-    expect(readConfig().notice_state?.temporal_usage).toBeUndefined();
-  });
-
-  it("does not consume cap or emit when PostHog fails", async () => {
-    consumeFirstRun();
-    const { fetchMock, calls } = createFetchMock({ failFlags: true });
-    global.fetch = fetchMock as any;
-    const memory = await createMemory();
-
-    await memory.add("Temporal metadata memory", {
-      userId: "temporal-user",
-      infer: false,
-      metadata: { event_date: "2025-04-09" },
-    });
-
-    expect(temporalUsageEvents(calls)).toHaveLength(0);
-    expect(readConfig().notice_state?.temporal_usage).toBeUndefined();
+    const notices = temporalUsageEvents(calls);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].properties).toEqual(
+      expect.objectContaining({
+        notice_id: "temporal_usage",
+        displayed: false,
+      }),
+    );
   });
 
   it("does nothing when telemetry is off", async () => {
@@ -487,7 +458,7 @@ describe("Node OSS temporal usage notice", () => {
     }
 
     expect(temporalUsageEvents(calls)).toHaveLength(10);
-    expect(flagRequestCount(fetchMock)).toBe(10);
+    expect(configRequestCount(fetchMock)).toBeLessThanOrEqual(1);
     expect(readConfig().notice_state.temporal_usage.events).toHaveLength(10);
     expect(stderrSpy).toHaveBeenCalledTimes(10);
   });

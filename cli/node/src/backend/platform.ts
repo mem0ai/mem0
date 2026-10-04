@@ -31,7 +31,8 @@ export class PlatformBackend implements Backend {
 		this.headers = {
 			Authorization: `Token ${config.apiKey}`,
 			"Content-Type": "application/json",
-			"X-Mem0-Source": "cli",
+			"X-Mem0-Source": "CLI",
+			"X-Mem0-Client": `mem0-cli-node/${CLI_VERSION}`,
 			"X-Mem0-Client-Language": "node",
 			"X-Mem0-Client-Version": CLI_VERSION,
 		};
@@ -153,6 +154,8 @@ export class PlatformBackend implements Backend {
 		if (opts.expires) payload.expiration_date = opts.expires;
 		if (opts.customInstructions)
 			payload.custom_instructions = opts.customInstructions;
+		if (opts.agentCustomInstructions)
+			payload.agent_custom_instructions = opts.agentCustomInstructions;
 		if (opts.customCategories)
 			payload.custom_categories = opts.customCategories;
 		if (opts.structuredDataSchema)

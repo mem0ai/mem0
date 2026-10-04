@@ -4,6 +4,55 @@ description: "Major product launches, headline features, and milestones for Mem0
 mode: "wide"
 ---
 
+<Update label="2026-08-24" description="DeepSeek Harness plugin">
+
+**DeepSeek Harness: Mem0 as a Native Cordis Plugin**
+
+The DeepSeek Harness agent forgets everything between sessions. [`@mem0/deepseek-plugin`](https://www.npmjs.com/package/@mem0/deepseek-plugin) gives it two Mem0-backed tools, so recall and writes persist across runs against the same memory bank you already use from Claude Code, Codex, and every other connected agent.
+
+- **Two agent-callable tools:** `search_memory` recalls facts relevant to a query, `add_memory` stores a fact for future sessions. Both accept per-call `userId` / `agentId` / `runId` scope overrides.
+- **Native Cordis lifecycle:** The plugin declares `inject = ['tools']` so it waits for the harness tool registry, then registers through `ctx.tools.register()`. Unmounting the plugin removes the tools automatically.
+- **Managed backend, not a memory file:** Server-side extraction, semantic dedup, and conflict resolution, rather than a Markdown file the agent has to maintain itself.
+- **Config:** `userId` is required, `apiKey` defaults to `$MEM0_API_KEY`, and `host` optionally targets a dedicated Mem0 Platform base URL.
+
+See [DeepSeek Harness](/integrations/deepseek-plugin) for setup and [SDK & Tools](/changelog/sdk) for PR links.
+
+<Note>
+  Developer preview. Auto-capture and auto-recall, where memory reaches the context with no explicit tool call, are planned but not yet built.
+</Note>
+
+</Update>
+
+<Update label="2026-08-24" description="Strands Agents integration">
+
+**Strands Agents: Mem0 as a Native MemoryStore**
+
+[`mem0-strands`](https://pypi.org/project/mem0-strands/) plugs Mem0 into AWS's [Strands Agents](https://strandsagents.com/) SDK as a native `MemoryStore`, so recall and writes happen inside the agent loop rather than as tool calls the model has to remember to make.
+
+- **Automatic recall:** The `MemoryManager` drives the store on every turn, searching Mem0 and injecting the results into the prompt with no tool call required.
+- **Server-side extraction:** Because the store implements `add_messages`, enabling extraction routes raw conversation turns straight to Mem0's extraction pipeline, skipping the extra client-side model call needed to distill facts first.
+- **Hosted or self-hosted:** An API key targets the hosted Mem0 Platform; a config dict targets self-hosted Mem0 OSS.
+- **Entity scoping:** Accepts `user_id`, `agent_id`, `run_id`, and `app_id`, with at least one required and invalid combinations rejected at construction rather than on the first write.
+
+See [Strands Agents](/integrations/strands) for setup and [SDK & Tools](/changelog/sdk) for PR links.
+
+</Update>
+
+<Update label="2026-08-13" description="Kimi Code plugin">
+
+**Kimi Code: Mem0 Joins the Editor Plugin Family**
+
+The shared Mem0 editor plugin now covers Kimi Code alongside Claude Code, Cursor, Codex, and Antigravity, running on the same scripts, skills, and memory bank, so context written in one editor is available in the others.
+
+- **Hosted MCP server:** Registers `https://mcp.mem0.ai/mcp/`, authenticated with `MEM0_API_KEY` as a bearer token.
+- **Automatic capture and recall:** SessionStart loads context through the `context-loader` skill, and hooks on prompt submit, file reads, Bash output, stop, and pre-compact capture and inject memory without an explicit tool call.
+- **Guardrails:** Direct `Write` / `Edit` / `MultiEdit` to memory files is blocked, and metadata defaults are enforced on every Mem0 MCP tool call.
+- **Kimi hook adapter:** A shim normalizes Kimi Code's hook contract to the shape the shared scripts already expect, resolving the real project directory and translating the differing prompt, tool-output, and MCP tool-name fields.
+
+See [SDK & Tools](/changelog/sdk) for version details and PR links.
+
+</Update>
+
 <Update label="2026-07-30" description="n8n and Zapier integrations">
 
 **Workflow Automation: Mem0 Memory in n8n and Zapier**

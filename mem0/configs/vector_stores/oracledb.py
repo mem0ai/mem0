@@ -1,3 +1,4 @@
+# Copyright (c) 2026, Oracle and/or its affiliates.
 """Pydantic configuration for the Oracle AI Vector Search integration."""
 
 import re
@@ -91,8 +92,9 @@ class OracleAIVectorSearchConfig(BaseModel):
                 exclude_none=True,
             )
 
-        if self.index_accuracy and not (0 < self.index_accuracy <= 100):
-            raise ValueError("`index_accuracy` must be between 1 and 100")
+        if self.index_accuracy is not None:
+            if not (0 < self.index_accuracy <= 100):
+                raise ValueError("`index_accuracy` must be between 1 and 100")
 
         if not (0 < self.embedding_model_dims):
             raise ValueError("`embedding_model_dims` must be bigger than 0")

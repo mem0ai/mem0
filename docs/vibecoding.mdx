@@ -51,7 +51,7 @@ See the [skills index](https://github.com/mem0ai/mem0/tree/main/skills) for the 
 
 Connect Claude, Claude Code, Cursor, Windsurf, VS Code, OpenCode, or any MCP-compatible client to Mem0.
 
-Get your API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=vibecoding" rel="nofollow">app.mem0.ai</a>, then add Mem0 MCP with a single command:
+Get your API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=vibecoding">app.mem0.ai</a>, then add Mem0 MCP with a single command:
 
 ```bash
 npx mcp-add \
@@ -96,8 +96,8 @@ time. Storage: vector embeddings.
 **Architecture Overview:**
 - Memory is scoped by user_id, agent_id, or run_id
 - Core operations: add, search, update, delete
-- Memory types: factual (preferences, facts), episodic (past interactions),
-  semantic (concept relationships), working (session state)
+- Store preferences, facts, and past interactions; use run_id to scope a
+  session. Platform does not expose a memory_type selector.
 - Integration pattern: retrieve relevant memories → generate response → store
   new memories
 
