@@ -1,4 +1,7 @@
+import builtins
+import importlib
 import inspect
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -138,3 +141,20 @@ def test_completions_create_messages_default_does_not_leak_between_calls(mock_me
         f"Completions.create(messages=...) must default to None to avoid the "
         f"B006 shared-default-list bug; got {messages_default!r}."
     )
+
+
+def test_missing_litellm_raises_actionable_import_error(monkeypatch):
+    monkeypatch.delitem(sys.modules, "mem0.proxy.main", raising=False)
+    monkeypatch.delitem(sys.modules, "litellm", raising=False)
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "litellm":
+            raise ImportError("No module named 'litellm'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    with pytest.raises(ImportError, match="pip install litellm"):
+        importlib.import_module("mem0.proxy.main")

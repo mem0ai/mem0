@@ -35,6 +35,8 @@ export interface PluginAuthConfig {
   autoCapture?: boolean;
   topK?: number;
   anonymousTelemetryId?: string;
+  /** SHA-256 prefix of the API key userEmail was resolved for. */
+  keyFingerprint?: string;
 }
 
 // ============================================================================
@@ -135,6 +137,9 @@ export function readPluginAuth(): PluginAuthConfig {
     autoCapture: cfg.autoCapture as boolean | undefined,
     topK: cfg.topK as number | undefined,
     anonymousTelemetryId: cfg.anonymousTelemetryId as string | undefined,
+    // Without this the reader silently drops it, every fingerprint comparison
+    // fails against undefined, and the resolved email is never used again.
+    keyFingerprint: cfg.keyFingerprint as string | undefined,
   };
 }
 
@@ -189,7 +194,7 @@ export function writePluginConfigField(
 
 /**
  * Default skills configuration — matches configure.py output.
- * Enables triage, recall (with reranking), and dream consolidation.
+ * Enables triage and recall with reranking.
  */
 const DEFAULT_SKILLS_CONFIG = {
   triage: { enabled: true },
@@ -200,7 +205,6 @@ const DEFAULT_SKILLS_CONFIG = {
     keywordSearch: true,
     identityAlwaysInclude: true,
   },
-  dream: { enabled: true },
   domain: "companion",
 };
 
@@ -235,6 +239,21 @@ export function enableSkillsConfig(userId: string): void {
 export function getBaseUrl(): string {
   const auth = readPluginAuth();
   return auth.baseUrl || DEFAULT_BASE_URL;
+}
+
+/** Forget the resolved account, so the next capture re-resolves for the current key. */
+export function clearResolvedAccount(): void {
+  const full = readFullConfig() as any;
+  const cfg = full?.plugins?.entries?.[PLUGIN_ID]?.config;
+  if (!cfg) return;
+  let changed = false;
+  for (const key of ["userEmail", "keyFingerprint"]) {
+    if (key in cfg) {
+      delete cfg[key];
+      changed = true;
+    }
+  }
+  if (changed) writeFullConfig(full);
 }
 
 /** Remove anonymousTelemetryId from config (after PostHog aliasing) */

@@ -54,7 +54,6 @@ def main():
                     "keywordSearch": True,
                     "identityAlwaysInclude": True,
                 },
-                "dream": {"enabled": True},
                 "domain": "companion",
             },
         },

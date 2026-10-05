@@ -41,7 +41,7 @@ jobs:
           set -euo pipefail
 
           base_version=$(git show "$BASE_SHA:mem0-ts/package.json" 2>/dev/null | jq -r .version || echo "")
-          head_version=$(jq -r .version mem0-ts/package.json)
+          head_version=$(git show "$HEAD_SHA:mem0-ts/package.json" | jq -r .version)
 
           echo "Base version: ${base_version:-<unknown>}"
           echo "Head version: $head_version"
