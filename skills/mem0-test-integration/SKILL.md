@@ -18,7 +18,7 @@ description: >
 license: Apache-2.0
 metadata:
   author: mem0ai
-  version: "0.1.0"
+  version: "0.1.1"
   category: ai-memory
   tags: "memory, integration, testing, tdd, platform, oss"
   coupling: loose
@@ -130,7 +130,8 @@ if dependencies don't resolve.
 - **Eager-init check**: grep the `write_site` and `read_site` files (paths
   from `product.json`) for `MemoryClient(` or `Memory(` at module scope —
   i.e., not inside a function, method, or class body. `MemoryClient()`
-  validates the API key in `__init__` (network call) and OSS `Memory()`
+  validates the API key in `__init__` (Python pings the API, TS throws on a
+  blank key and pings in the background) and OSS `Memory()`
   can eagerly initialize embedding/LLM providers — module-level
   instantiation hits the wire on import and breaks Pass A's test
   collection whenever the key is unset. Hit → fail with `file:line` and
@@ -140,7 +141,7 @@ if dependencies don't resolve.
 
 | Language | Test command (in priority order) |
 |---|---|
-| Python | `pytest` with the test files from step 5 of the companion skill, else `python -m unittest discover`. |
+| Python | `pytest` with the test files from step 7 of the companion skill, else `python -m unittest discover`. |
 | TypeScript / JavaScript | `npm test` if defined in package.json; else auto-detect `vitest` or `jest`. |
 
 **Pass A — `feature_flag` unset.** Run the *entire* pre-existing suite
@@ -171,26 +172,43 @@ shape for the detected stack.
 
 **Platform (Python):**
 
+    import os
+    import time
     from mem0 import MemoryClient
     c = MemoryClient()                               # uses MEM0_API_KEY
     uid = f"mem0-test-integration-{os.urandom(4).hex()}"
     c.add([{"role": "user", "content": "I prefer aisle seats"}], user_id=uid)
-    hits = c.search("seat preference", user_id=uid)
+    for _ in range(10):
+        hits = c.search("seat preference", filters={"user_id": uid})["results"]
+        if hits:
+            break
+        time.sleep(2)
     assert any("aisle" in h.get("memory", "") for h in hits), hits
     c.delete_all(user_id=uid)                        # clean up
 
-**Platform (TS):** same shape with `MemoryClient` from `"mem0ai"`.
+`add` is asynchronous on Platform (it returns `status: "PENDING"` with an
+`event_id`), so the search is retried for a bounded time. Entity IDs go in
+`filters` and results come back under `["results"]`.
+
+**Platform (TS):** same shape with `new MemoryClient({ apiKey:
+process.env.MEM0_API_KEY })` from `"mem0ai"` (the TS client does not read the
+env var itself), `client.search("seat preference", { filters: { user_id: uid
+} })` with hits under `.results`, and `client.deleteAll({ userId: uid })`.
 
 **OSS (Python / TS):** uses `Memory()` / `new Memory()` with default config
-(OpenAI LLM via `OPENAI_API_KEY`, local Qdrant). If the repo ships a
-`docker-compose.yml` with a Qdrant service, the skill starts it first and
-tears it down after. If no backing store is reachable → fail with a
+(OpenAI LLM via `OPENAI_API_KEY`; Python defaults to an embedded on-disk
+Qdrant, TS to an in-memory vector store, so no service is needed unless the
+repo's own config points at one). If the repo ships a `docker-compose.yml`
+with the configured vector store service, the skill starts it first and tears
+it down after. If the configured backing store is not reachable → fail with a
 clear message naming the fix.
 
 The smoke test always uses a **disposable random user_id** prefixed with
 `mem0-test-integration-` so a failed cleanup doesn't pollute the user's
-real data. A background tidy step deletes any prefix-matching entries
-older than 24 hours on the next run.
+real data. A background tidy step lists Platform entities with `client.users()`,
+picks the `type: "user"` entries whose `name` starts with that prefix and whose
+`created_at` is older than 24 hours, and calls `delete_all(user_id=...)` for
+each on the next run (there is no server-side prefix delete).
 
 Capture output to `.mem0-integration/smoke-stdout.log`.
 
@@ -201,7 +219,7 @@ real signal: **does memory actually appear in the app's user-visible
 output when the integration runs end-to-end?**
 
 Requires `plan.md` to contain an `E2E recipe:` section (authored by
-`/mem0-integrate` step 5). If absent → status `skipped` (not `fail`),
+`/mem0-integrate` step 6). If absent → status `skipped` (not `fail`),
 note in scorecard that the repo has no runnable entry point.
 
 Recipe fields the skill reads:
@@ -238,8 +256,8 @@ Execution order:
 8. Run `read_call`.
 9. Evaluate `read_assert` against `read_call`'s stdout. Miss → fail.
 10. Cleanup (always, even on failure): SIGTERM the app, SIGKILL after
-    5s, `docker compose down` if services were started, `delete_all`
-    memories matching `mem0-test-integration-*` on Platform scenarios.
+    5s, `docker compose down` if services were started, `delete_all` for
+    the disposable `MEM0_USER_ID` on Platform scenarios.
 
 On any failure, the scorecard includes:
 

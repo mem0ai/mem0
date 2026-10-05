@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Mem0 Documentation Search Agent (Mintlify-based)
+Mem0 Documentation Search Agent
 On-demand search tool for querying Mem0 documentation without storing content locally.
 
-This tool leverages Mintlify's documentation structure to perform just-in-time
-retrieval of technical information from docs.mem0.ai.
+This tool searches the docs.mem0.ai llms.txt index and fetches pages as markdown
+to perform just-in-time retrieval of technical information.
 
 Usage:
     python mem0_doc_search.py --query "how to add graph memory"
@@ -22,23 +22,24 @@ Purpose:
 
 import argparse
 import json
+import re
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 
 DOCS_BASE = "https://docs.mem0.ai"
-SEARCH_ENDPOINT = f"{DOCS_BASE}/api/search"
 LLMS_INDEX = f"{DOCS_BASE}/llms.txt"
+ENTRY_URL = re.compile(r"\((https?://[^)\s]+)\)")
+MAX_RESULTS = 20
 
 # Known documentation sections for targeted retrieval
 SECTION_MAP = {
     "platform": [
         "/platform/overview",
         "/platform/quickstart",
-        "/platform/features",
         "/platform/features/graph-memory",
-        "/platform/features/selective-memory",
+        "/platform/features/custom-instructions",
         "/platform/features/custom-categories",
         "/platform/features/v2-memory-filters",
         "/platform/features/async-client",
@@ -47,8 +48,8 @@ SECTION_MAP = {
     ],
     "api": [
         "/api-reference/memory/add-memories",
-        "/api-reference/memory/v2-search-memories",
-        "/api-reference/memory/v2-get-memories",
+        "/api-reference/memory/search-memories",
+        "/api-reference/memory/get-memories",
         "/api-reference/memory/get-memory",
         "/api-reference/memory/update-memory",
         "/api-reference/memory/delete-memory",
@@ -57,18 +58,20 @@ SECTION_MAP = {
         "/open-source/overview",
         "/open-source/python-quickstart",
         "/open-source/node-quickstart",
-        "/open-source/features",
-        "/open-source/features/graph-memory",
+        "/open-source/features/overview",
         "/open-source/features/rest-api",
-        "/open-source/configure-components",
-    ],
-    "sdks": [
-        "/sdks/python",
-        "/sdks/js",
+        "/open-source/configuration",
     ],
     "integrations": [
         "/integrations",
     ],
+}
+
+SECTION_PREFIXES = {
+    "platform": ("/platform/",),
+    "api": ("/api-reference/",),
+    "open-source": ("/open-source/", "/components/"),
+    "integrations": ("/integrations",),
 }
 
 
@@ -84,62 +87,55 @@ def fetch_url(url: str) -> str:
         return f"URL Error: {e.reason}"
 
 
+def index_entries() -> list:
+    """Return the page entries listed in the llms.txt index."""
+    content = fetch_url(LLMS_INDEX)
+    return [line.strip()[2:] for line in content.splitlines() if line.strip().startswith("- [")]
+
+
+def entry_path(entry: str) -> str:
+    """Extract the URL path from an llms.txt index entry."""
+    match = ENTRY_URL.search(entry)
+    return urllib.parse.urlparse(match.group(1)).path if match else ""
+
+
 def search_docs(query: str, section: str | None = None) -> dict:
-    """
-    Search Mem0 documentation using Mintlify's search API.
-    Falls back to the llms.txt index for keyword matching if the API is unavailable.
-    """
-    # Try Mintlify search API first
-    params = urllib.parse.urlencode({"query": query})
-    search_url = f"{SEARCH_ENDPOINT}?{params}"
+    """Search the llms.txt index for entries matching the query terms, best matches first."""
+    terms = re.findall(r"[a-z0-9_]+", query.lower())
+    entries = index_entries()
 
-    try:
-        result = fetch_url(search_url)
-        data = json.loads(result)
-        if isinstance(data, dict) and data.get("results"):
-            results = data["results"]
-            if section and section in SECTION_MAP:
-                section_paths = SECTION_MAP[section]
-                results = [r for r in results if any(r.get("url", "").startswith(p) for p in section_paths)]
-            return {"source": "mintlify_search", "results": results}
-    except (json.JSONDecodeError, Exception):
-        pass
+    if section in SECTION_PREFIXES:
+        entries = [e for e in entries if entry_path(e).startswith(SECTION_PREFIXES[section])]
 
-    # Fallback: search llms.txt index for matching URLs
-    index_content = fetch_url(LLMS_INDEX)
-    query_lower = query.lower()
-    matching_urls = []
-
-    for line in index_content.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if query_lower in line.lower():
-            matching_urls.append(line)
-
-    if section and section in SECTION_MAP:
-        section_paths = SECTION_MAP[section]
-        matching_urls = [u for u in matching_urls if any(p in u for p in section_paths)]
+    scored = []
+    for entry in entries:
+        haystack = entry.lower()
+        title = haystack.split("]")[0]
+        score = sum((term in haystack) + (term in title) for term in terms)
+        if score:
+            scored.append((score, entry))
+    scored.sort(key=lambda item: -item[0])
 
     return {
         "source": "llms_txt_index",
         "query": query,
-        "matching_urls": matching_urls[:20],
-        "suggestion": "Fetch specific URLs for detailed content",
+        "matching_urls": [entry for _, entry in scored[:MAX_RESULTS]],
+        "suggestion": "Fetch specific pages with --page <path> for detailed content",
     }
 
 
 def fetch_page(page_path: str) -> dict:
-    """Fetch a specific documentation page."""
+    """Fetch a specific documentation page as markdown."""
     url = f"{DOCS_BASE}{page_path}" if page_path.startswith("/") else page_path
+    if not url.endswith(".md"):
+        url = f"{url.rstrip('/')}.md"
     content = fetch_url(url)
     return {"url": url, "content": content[:10000], "truncated": len(content) > 10000}
 
 
 def get_index() -> dict:
     """Fetch the full documentation index from llms.txt."""
-    content = fetch_url(LLMS_INDEX)
-    urls = [line.strip() for line in content.splitlines() if line.strip() and not line.startswith("#")]
+    urls = index_entries()
     return {"total_pages": len(urls), "urls": urls, "sections": list(SECTION_MAP.keys())}
 
 

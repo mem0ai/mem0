@@ -31,7 +31,8 @@ so paraphrasing them drops constraints the review step then has to catch.
     6. Preserve everything listed under plan.md's "Preserved behavior"
        and "Coexistence."
     7. Lazy client construction. `MemoryClient()` validates the API
-       key in `__init__` (it makes a network call). Never instantiate
+       key in `__init__` (Python pings the API; TS throws on a missing
+       or blank key and pings in the background). Never instantiate
        it at module-import time, construct on first use inside the
        request / handler path. The same rule applies to OSS `Memory()`,
        which can eagerly initialize embedding and LLM providers. Use
