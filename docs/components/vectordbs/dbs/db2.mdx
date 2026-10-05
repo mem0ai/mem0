@@ -1,0 +1,265 @@
+---
+title: "IBM Db2"
+description: "Use IBM Db2 AI Vector Search as a vector store in Mem0."
+---
+
+[IBM Db2 AI Vector Search](https://www.ibm.com/docs/en/db2/12.1?topic=db2-vector-search) stores embeddings directly in a Db2 table using the native `VECTOR(n, FLOAT32)` data type introduced in Db2 12.1.2. This lets you combine semantic similarity search over unstructured data with relational queries over your existing Db2 data in a single database.
+
+### Requirements
+
+- IBM Db2 12.1.2 or later with vector search enabled
+- A Db2 user with `CREATE TABLE`, `INSERT`, `SELECT`, and `DELETE` privileges
+
+```bash
+pip install ibm_db
+```
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "db2",
+        "config": {
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536,
+            "connection_params": {
+                "database": "MYDB",
+                "host": "localhost",
+                "port": 50000,
+                "username": "db2user",
+                "password": "your-password",
+            },
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about sci-fi movies? They can be quite engaging."},
+    {"role": "user", "content": "I love sci-fi movies, especially ones with space exploration."},
+    {"role": "assistant", "content": "Got it! I'll remember you love sci-fi space exploration movies."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+
+# Search memories
+results = m.search(query="What movies does Alice like?", user_id="alice")
+print(results)
+```
+</CodeGroup>
+
+To reuse a connection you already manage, pass it as `client`:
+
+<CodeGroup>
+```python Python
+import ibm_db_dbi
+
+conn = ibm_db_dbi.connect(
+    "DATABASE=MYDB;HOSTNAME=localhost;PORT=50000;PROTOCOL=TCPIP;"
+    "UID=db2user;PWD=your-password;Authentication=SERVER;",
+    "",
+    "",
+)
+
+config = {
+    "vector_store": {
+        "provider": "db2",
+        "config": {
+            "client": conn,
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536,
+        }
+    }
+}
+```
+</CodeGroup>
+
+### Config
+
+| Parameter | Description | Default |
+| --- | --- | --- |
+| `connection_params` | Dict with keys `database`, `host`, `port`, `username`, `password`. Optionally `security` (bool, enables SSL/TLS) and `ssl_cert` (path to `.arm`/`.pem` file). Note: `host` is mapped to the ibm_db connection-string keyword `HOSTNAME` internally. | `None` |
+| `client` | An existing `ibm_db_dbi.Connection` to use instead of building one from `connection_params`. | `None` |
+| `collection_name` | Name of the Db2 table that stores vectors and payloads. Created automatically if it does not exist. | `mem0` |
+| `embedding_model_dims` | Dimension of your embedding vectors. Must be greater than 0. | `1536` |
+| `distance_strategy` | Distance function used for search: `EUCLIDEAN` (default), `EUCLIDEAN_DISTANCE`, `COSINE`, `DOT`, `HAMMING`, or `MANHATTAN`. See [Search scores](#search-scores) for conversion details. Only `EUCLIDEAN`, `EUCLIDEAN_DISTANCE`, and `COSINE` are compatible with `use_vector_index=True`. | `EUCLIDEAN` |
+| `use_vector_index` | When `True`, creates a native Db2 ANN vector index (`CREATE VECTOR INDEX`) for approximate nearest-neighbour search. Requires Db2 12.1.5+. Only compatible with `EUCLIDEAN`, `EUCLIDEAN_DISTANCE`, and `COSINE`. Defaults to `False` (exact scan, works on all versions ≥ 12.1.2). | `False` |
+| `db_schema` | Optional Db2 schema name. When set, `SET SCHEMA <name>` is issued immediately after connecting so all unqualified table references resolve to that schema. | `None` |
+| `text_field` | Column name for the raw text (`CLOB`). | `text` |
+| `text_lemmatized_field` | Column name for pre-processed (stemmed/lemmatized) text (`CLOB`). Populated from `payload["text_lemmatized"]` on insert/update. Used by `keyword_search()` with Db2 Text Search for higher recall. | `text_lemmatized` |
+| `id_field` | Column name for the primary key (`VARCHAR(36)`). | `id` |
+| `metadata_field` | Column name for JSON metadata (`BLOB`). | `metadata` |
+| `embedding_field` | Column name for the stored vector. | `embedding` |
+
+<Note>
+  When you pass a pre-built `client`, Mem0 uses it as-is and will not close it on your behalf.
+</Note>
+
+<Note>
+  `ibm_db_dbi` does not ship a built-in connection pool. For multi-threaded or web-server deployments, manage a pool externally (e.g. SQLAlchemy with the `ibm_db_sa` dialect) and pass the per-request connection via the `client` parameter.
+</Note>
+
+### Search scores
+
+Db2 returns a distance value from `VECTOR_DISTANCE`. Mem0 converts it to a similarity score where higher means more similar:
+
+| Distance strategy | Conversion | Score range |
+| --- | --- | --- |
+| `EUCLIDEAN` | `1 / (1 + distance)` | `(0, 1]` |
+| `EUCLIDEAN_DISTANCE` | `1 / (1 + distance)` | `(0, 1]` |
+| `COSINE` | `max(0, 1 - distance)` | `[0, 1]` |
+| `DOT` | returned as-is (higher inner product = more similar) | unbounded |
+| `HAMMING` | `1 / (1 + distance)` | `(0, 1]` |
+| `MANHATTAN` | `1 / (1 + distance)` | `(0, 1]` |
+
+### ANN vector index (optional, Db2 12.1.5+)
+
+By default, Mem0 uses an exact nearest-neighbour scan (works on all Db2 12.1.2+ instances). To enable the native approximate nearest-neighbour (ANN) index for faster search on large collections, set `use_vector_index=True`:
+
+<CodeGroup>
+```python Python
+config = {
+    "vector_store": {
+        "provider": "db2",
+        "config": {
+            "connection_params": { ... },
+            "embedding_model_dims": 1536,
+            "distance_strategy": "COSINE",
+            "use_vector_index": True,   # requires Db2 12.1.5+
+        }
+    }
+}
+```
+</CodeGroup>
+
+<Warning>
+  `use_vector_index=True` is only compatible with `EUCLIDEAN`, `EUCLIDEAN_DISTANCE`, and `COSINE`. Setting it together with `HAMMING`, `MANHATTAN`, or `DOT` raises a `ValueError` at configuration time.
+</Warning>
+
+<Warning>
+  **Db2 Community Edition (CE) containers — resource constraint.**
+
+  `CREATE VECTOR INDEX` is memory-intensive: after the DDL commits, Db2 builds the HNSW graph entirely in memory. On CE containers (Podman / Docker) this can exhaust the CE memory cap, causing the server to drop all TCP connections for ~15–30 s while it recovers. You will see:
+
+  ```
+  SQL30081N  A communication error has been detected.
+  Communication function detecting the error: "recv".
+  Protocol specific error code(s): "54", "*", "0".  SQLSTATE=08001
+  ```
+
+  This is a CE resource constraint, not a driver bug. To resolve it:
+
+  1. **Increase the container memory limit** (recommended ≥ 4 GB):
+     ```bash
+     podman run --memory=4g ...
+     # or
+     docker run --memory=4g ...
+     ```
+  2. **Restart the Db2 instance or container manually** after the error — the index is already on disk and does not need to be recreated. Then reconnect and resume normally.
+  3. **Use `use_vector_index=False`** (the default) if your machine cannot provide enough memory. Exact-scan search works correctly on all Db2 12.1.2+ versions with no connection-stability issues.
+
+  Production Db2 servers (Standard / Advanced Edition, Db2 on Cloud) are unaffected.
+</Warning>
+
+### Keyword search (optional, requires Db2 Text Search)
+
+If the Db2 Text Search addon is installed and a Text Search index is created on the `text_lemmatized` column, `keyword_search()` is enabled automatically. Without the addon, Mem0 falls back to semantic-only search.
+
+To create the Text Search index:
+
+```sql
+CALL SYSPROC.SYSTS_CREATE(
+    CURRENT SCHEMA, 'MEM0', 'text_lemmatized',
+    'MAXIMUM CHARACTERS 10000 LANGUAGE EN FORMAT NONE'
+);
+```
+
+### Schema isolation (optional)
+
+To store all Mem0 tables under a specific Db2 schema rather than the connection user's default schema, set `db_schema`:
+
+<CodeGroup>
+```python Python
+config = {
+    "vector_store": {
+        "provider": "db2",
+        "config": {
+            "connection_params": {
+                "database": "MYDB",
+                "host": "localhost",
+                "port": 50000,
+                "username": "db2user",
+                "password": "your-password",
+            },
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536,
+            "db_schema": "MEM0SCHEMA",   # SET SCHEMA MEM0SCHEMA issued on connect
+        }
+    }
+}
+```
+</CodeGroup>
+
+### Config Example
+
+Full configuration with all available parameters:
+
+<CodeGroup>
+```python Python
+config = {
+    "vector_store": {
+        "provider": "db2",
+        "config": {
+            "connection_params": {
+                "database": "MYDB",
+                "host": "localhost",
+                "port": 50000,
+                "username": "db2user",
+                "password": "your-password",
+                "security": "SSL",                  # optional: enable SSL/TLS
+                "ssl_cert": "/path/to/server.arm",  # optional: server certificate
+            },
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536,
+            "distance_strategy": "COSINE",
+            "use_vector_index": False,       # set True on Db2 12.1.5+ (production only)
+            "db_schema": None,               # optional: e.g. "MEM0SCHEMA"
+            "text_field": "text",
+            "text_lemmatized_field": "text_lemmatized",
+            "id_field": "id",
+            "metadata_field": "metadata",
+            "embedding_field": "embedding",
+        }
+    }
+}
+```
+</CodeGroup>
+
+### Metadata filters
+
+Filters run against the JSON metadata column. Top-level keys are combined with `AND`. Values can be a scalar (equality), a list (IN match), an operator dict, or `"*"` (match any row).
+
+Supported operators: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `icontains`.
+Supported logical keys: `$and`, `$or`, `$not`.
+
+<CodeGroup>
+```python Python
+# Simple equality
+m.search("movie recommendations", user_id="alice", filters={"category": "movies"})
+
+# Range filter
+m.search("sci-fi films", user_id="alice", filters={"year": {"gte": 2020}})
+
+# Compound filter
+m.search("space travel", user_id="alice", filters={
+    "$or": [{"category": "movies"}, {"category": "books"}]
+})
+```
+</CodeGroup>
