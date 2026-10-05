@@ -10,7 +10,7 @@ overrides:
   esbuild: '>=0.28.1'
   undici@<7.29.1: '>=7.29.1 <8.0.0'
   undici@>=8.0.0 <8.10.2: '>=8.10.2 <9.0.0'
-  axios@<1.18.0: '>=1.18.0 <2.0.0'
+  axios@<1.20.0: '>=1.20.0 <2.0.0'
   brace-expansion@>=3.0.0 <5.0.8: '>=5.0.8 <6.0.0'
   postcss@<8.5.18: '>=8.5.18 <9.0.0'
   mongoose@>=9.0.0 <9.7.2: '>=9.7.2 <10.0.0'
@@ -1066,8 +1066,8 @@ packages:
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
 
-  axios@1.18.1:
-    resolution: {integrity: sha512-3nTvFlvpn9Zu/RkHUqtc7/+al4UpRW5az71ap5zccp6e8RAYEzhMTecX8Dz1wWDYrPpUoB1HAQEGEAEvUr7S9g==}
+  axios@1.20.0:
+    resolution: {integrity: sha512-r8aOh8j9cGKpgQAqpzrUHnSIc6a59Y3Xf/cv8sy1DrHCkZHzQGEuoq1tARk6qSyDdtQGSDgpb9kFlruzPvrgwg==}
 
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
@@ -3598,7 +3598,7 @@ snapshots:
 
   asynckit@0.4.0: {}
 
-  axios@1.18.1:
+  axios@1.20.0:
     dependencies:
       follow-redirects: 1.16.0
       form-data: 4.0.6
@@ -4253,7 +4253,7 @@ snapshots:
       '@supabase/supabase-js': 2.108.1
       '@types/jest': 29.5.14
       '@types/pg': 8.11.0
-      axios: 1.18.1
+      axios: 1.20.0
       better-sqlite3: 12.10.0
       cloudflare: 4.5.0
       compromise: 14.15.1
