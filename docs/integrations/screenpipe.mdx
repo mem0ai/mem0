@@ -77,7 +77,7 @@ python examples/screenpipe-memory-source/sync_screenpipe.py search \
 
 ## What happens to your data
 
-Screenpipe remains the source of observations; Mem0 extracts facts with `infer=True`. Source timestamps, device identity, record IDs, and timeline links remain attached as metadata. Unknown speakers are not assumed to be the account owner. Input events and existing Screenpipe memories are excluded.
+Screenpipe remains the source of observations; Mem0 extracts facts with `infer=True`. Source timestamps, device identity, record IDs, audio segment offsets, and timeline links remain attached as metadata. Unknown speakers are not assumed to be the account owner. Input events and existing Screenpipe memories are excluded.
 
 Import newer observations after older ones. Mem0 decides whether they add, update, or duplicate a fact. Current-memory search excludes superseded history. Deleting a local export does not delete remote memories; use Mem0's normal deletion API or dashboard.
 

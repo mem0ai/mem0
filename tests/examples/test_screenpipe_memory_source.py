@@ -188,3 +188,37 @@ def test_ingestion_metadata_is_not_presented_as_memory_content():
     assert "work-laptop-private-id" not in entry["message"]
     assert "screenpipe://" not in entry["message"]
     assert "Cedar updates are sent on Fridays." in entry["message"]
+
+
+def test_audio_segment_identity_and_order_survive_shared_chunk_timestamp():
+    def segment(start):
+        return {
+            "type": "Audio",
+            "content": {
+                "chunk_id": 77,
+                "offset_index": 0,
+                "start_time": start,
+                "end_time": start + 2,
+                "transcription": "The approved artwork stays in the violet folder.",
+                "timestamp": "2026-10-05T17:24:47Z",
+            },
+        }
+
+    with httpx.Client(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, json={"data": [segment(12), segment(2)], "pagination": {"total": 2}})
+        )
+    ) as client:
+        export = sync.export_observations(
+            client,
+            "http://localhost:3030",
+            source_id="work-laptop",
+            start="2026-10-05T17:24:00Z",
+            end="2026-10-05T17:25:00Z",
+        )
+    first, second = export["observations"]
+    assert first["source_key"] != second["source_key"]
+    assert first["metadata"]["start_time"] == 2
+    assert second["metadata"]["start_time"] == 12
+    assert first["metadata"]["end_time"] == 4
+    assert first["metadata"]["offset_index"] == 0
