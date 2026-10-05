@@ -595,7 +595,7 @@ class Memory(MemoryBase):
         try:
             listed = self.entity_store.list(filters=filters, top_k=10000)
         except Exception as e:
-            logger.warning(f"Exact entity lookup failed; skipping entity upsert to avoid a duplicate row: {e}")
+            logger.warning(f"Exact entity lookup failed; skipping new entity inserts to avoid duplicate rows: {e}")
             return None
 
         rows_by_text = {}
@@ -615,13 +615,7 @@ class Memory(MemoryBase):
             entity_embedding = self.embedding_model.embed(entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
             existing_by_text = self._existing_entities_by_text(search_filters)
-            if existing_by_text is None:
-                # The exact-match index is unreadable, so "not found" cannot be
-                # distinguished from "not looked up". Inserting here would fork
-                # the entity into a second row; skip instead and let a later
-                # add() link this memory once the store recovers.
-                return
-            exact_match = existing_by_text.get(self._normalize_entity_text(entity_text))
+            exact_match = (existing_by_text or {}).get(self._normalize_entity_text(entity_text))
 
             existing = []
             if exact_match is None:
@@ -646,8 +640,9 @@ class Memory(MemoryBase):
                         vector=None,
                         payload=payload,
                     )
-            else:
-                # Create new entity
+            elif existing_by_text is not None:
+                # Only a readable exact index permits insertion; semantic hits
+                # above the existing threshold can still link during an outage.
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
@@ -1157,10 +1152,9 @@ class Memory(MemoryBase):
                 # Filter out entities with failed embeddings
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
                 exact_matches = self._existing_entities_by_text(search_filters) if valid else {}
-                # A failed exact-match lookup cannot be told apart from an empty
-                # index, and inserting on it duplicates entities that already
-                # exist. Skip the batch rather than fork every entity in it.
-                if valid and exact_matches is not None:
+                # Preserve semantic links during an exact-index outage, while
+                # preventing new inserts whose uniqueness cannot be established.
+                if valid:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
 
@@ -1178,7 +1172,7 @@ class Memory(MemoryBase):
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
-                        exact_match = exact_matches.get(key)
+                        exact_match = (exact_matches or {}).get(key)
 
                         semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
                         match = exact_match or semantic_match
@@ -1196,7 +1190,7 @@ class Memory(MemoryBase):
                                 )
                             except Exception as e:
                                 logger.debug(f"Entity update failed for '{entity_text}': {e}")
-                        else:
+                        elif exact_matches is not None:
                             # New entity — collect for batch insert
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
@@ -2297,7 +2291,7 @@ class AsyncMemory(MemoryBase):
         try:
             listed = self.entity_store.list(filters=filters, top_k=10000)
         except Exception as e:
-            logger.warning(f"Exact entity lookup failed; skipping entity upsert to avoid a duplicate row: {e}")
+            logger.warning(f"Exact entity lookup failed; skipping new entity inserts to avoid duplicate rows: {e}")
             return None
 
         rows_by_text = {}
@@ -2317,11 +2311,7 @@ class AsyncMemory(MemoryBase):
             entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
             existing_by_text = await asyncio.to_thread(self._existing_entities_by_text, search_filters)
-            if existing_by_text is None:
-                # See the sync variant: a failed lookup is not an absent entity,
-                # and inserting on it forks the entity into a second row.
-                return
-            exact_match = existing_by_text.get(self._normalize_entity_text(entity_text))
+            exact_match = (existing_by_text or {}).get(self._normalize_entity_text(entity_text))
 
             existing = []
             if exact_match is None:
@@ -2347,7 +2337,7 @@ class AsyncMemory(MemoryBase):
                         vector=None,
                         payload=payload,
                     )
-            else:
+            elif existing_by_text is not None:
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
@@ -2852,9 +2842,8 @@ class AsyncMemory(MemoryBase):
                 exact_matches = (
                     await asyncio.to_thread(self._existing_entities_by_text, search_filters) if valid else {}
                 )
-                # See the sync batch path: a failed lookup would fork every
-                # entity in this batch into a duplicate row.
-                if valid and exact_matches is not None:
+                # As in the sync path, only insertion requires a readable index.
+                if valid:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
 
@@ -2873,7 +2862,7 @@ class AsyncMemory(MemoryBase):
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
-                        exact_match = exact_matches.get(key)
+                        exact_match = (exact_matches or {}).get(key)
 
                         semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
                         match = exact_match or semantic_match
@@ -2891,7 +2880,7 @@ class AsyncMemory(MemoryBase):
                                 )
                             except Exception as e:
                                 logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
-                        else:
+                        elif exact_matches is not None:
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
                             to_insert_payloads.append({

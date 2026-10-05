@@ -1463,3 +1463,80 @@ class TestEntityLookupFailureDoesNotDuplicate:
         await mock_async_memory._upsert_entity_async("alice", "person", "mem-1", {"user_id": "u1"})
 
         store.insert.assert_called_once()
+
+
+class TestEntityLookupSemanticFallback:
+    @pytest.fixture(params=[Memory, AsyncMemory], ids=["sync", "async"])
+    def memory(self, mocker, request):
+        _setup_mocks(mocker)
+        memory = request.param()
+        memory.db.get_last_messages = Mock(return_value=[])
+        memory.db.save_messages = Mock()
+        memory.db.batch_add_history = Mock()
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda texts, action: [[0.1] for _ in texts])
+        mocker.patch("mem0.memory.main.capture_event")
+        return memory
+
+    @staticmethod
+    def _store(memory, score, lookup_fails):
+        store = TestEntityLookupFailureDoesNotDuplicate._entity_store_with_failing_list(score)
+        if not lookup_fails:
+            store.list.side_effect = None
+            store.list.return_value = []
+        store.search_batch = Mock(return_value=[store.search.return_value])
+        memory._entity_store = store
+        return store
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("score", [0.94, 0.95, 1.0])
+    async def test_upsert_keeps_semantic_links_during_lookup_outage(self, memory, score):
+        store = self._store(memory, score, lookup_fails=True)
+        args = ("alice", "person", "mem-2", {"user_id": "u1"})
+        if isinstance(memory, AsyncMemory):
+            await memory._upsert_entity_async(*args)
+        else:
+            memory._upsert_entity(*args)
+
+        store.insert.assert_not_called()
+        if score >= 0.95:
+            store.update.assert_called_once_with(
+                vector_id="entity-1",
+                vector=None,
+                payload={"data": "alice", "linked_memory_ids": ["mem-1", "mem-2"]},
+            )
+        else:
+            store.update.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("lookup_fails", [True, False], ids=["outage", "healthy"])
+    @pytest.mark.parametrize("score", [0.94, 0.95, 1.0])
+    async def test_batch_add_keeps_memories_and_safe_entity_links(self, memory, mocker, score, lookup_fails):
+        store = self._store(memory, score, lookup_fails)
+        memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "Alice likes tea"}, {"text": "Alice likes coffee"}]}'
+        )
+        mocker.patch(
+            "mem0.memory.main.extract_entities_batch",
+            return_value=[[("person", "Alice")], [("person", "Alice")]],
+        )
+        if isinstance(memory, AsyncMemory):
+            result = await memory.add("Alice likes tea and coffee", user_id="u1")
+        else:
+            result = memory.add("Alice likes tea and coffee", user_id="u1")
+
+        records = result["results"]
+        assert {record["memory"] for record in records} == {"Alice likes tea", "Alice likes coffee"}
+        memory_ids = {record["id"] for record in records}
+        assert len(memory_ids) == 2
+        if score >= 0.95:
+            store.insert.assert_not_called()
+            store.update.assert_called_once()
+            assert store.update.call_args.kwargs["vector_id"] == "entity-1"
+            assert set(store.update.call_args.kwargs["payload"]["linked_memory_ids"]) == memory_ids | {"mem-1"}
+        elif lookup_fails:
+            store.insert.assert_not_called()
+            store.update.assert_not_called()
+        else:
+            store.update.assert_not_called()
+            store.insert.assert_called_once()
+            assert set(store.insert.call_args.kwargs["payloads"][0]["linked_memory_ids"]) == memory_ids
