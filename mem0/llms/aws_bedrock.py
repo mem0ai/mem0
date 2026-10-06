@@ -560,9 +560,8 @@ class AWSBedrockLLM(LLMBase):
         return self._parse_response(response, tools)
 
     def _generate_standard(self, messages: List[Dict[str, str]], stream: bool = False) -> str:
-        """Generate standard text response using Converse API for Anthropic models."""
-        # For Anthropic models, always use Converse API
-        if self.provider == "anthropic":
+        """Generate standard text responses, using Converse for Anthropic and Nova models."""
+        if self.provider == "anthropic" or (self.provider == "amazon" and "nova" in self.config.model.lower()):
             formatted_messages, system_message = self._format_messages_anthropic(messages)
 
             # Prepare converse parameters
@@ -576,7 +575,7 @@ class AWSBedrockLLM(LLMBase):
             if system_message:
                 converse_params["system"] = [{"text": system_message}]
 
-            # Use converse API for Anthropic models
+            # Use the Converse API for Anthropic and Nova models.
             response = self.client.converse(**converse_params)
 
             # Parse Converse API response. Claude reasoning models can emit a
@@ -629,15 +628,6 @@ class AWSBedrockLLM(LLMBase):
                     return block["text"]
             return ""
 
-        elif self.provider == "amazon" and "nova" in self.config.model.lower():
-            # Nova models use the Converse API even without tools
-            formatted_messages = self._format_messages_amazon(messages)
-            response = self.client.converse(
-                modelId=self.config.model,
-                messages=formatted_messages,
-                inferenceConfig=self._build_inference_config(),
-            )
-            return self._parse_response(response)
         else:
             # For other providers and legacy Amazon models (like Titan)
             if self.provider == "amazon":

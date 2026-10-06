@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock, patch
 
+import boto3
 import pytest
+from botocore.stub import Stubber
 
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.llms.aws_bedrock import AWSBedrockLLM, extract_provider
@@ -554,3 +556,67 @@ class TestAnthropicConverseContentParsing:
         llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
 
         assert llm.generate_response(MESSAGES) == "object answer"
+
+
+class TestNovaConverse:
+    @pytest.mark.parametrize("model", ["amazon.nova-lite-v1:0", "us.amazon.nova-pro-v1:0"])
+    def test_standard_request_matches_converse_schema(self, mock_boto3, model):
+        llm = _make_llm(model, mock_boto3, temperature=0.5, top_p=0.85, max_tokens=128)
+        # A real SDK client validates the wire shapes without making any AWS calls.
+        llm.client = boto3.client(
+            "bedrock-runtime",
+            region_name="us-east-1",
+            aws_access_key_id="testing",
+            aws_secret_access_key="testing",
+        )
+        messages = MESSAGES + [
+            {"role": "assistant", "content": "Hi!"},
+            {"role": "user", "content": "Remember my name."},
+        ]
+        expected_params = {
+            "modelId": model,
+            "messages": [
+                {"role": "user", "content": [{"text": "Hello"}]},
+                {"role": "assistant", "content": [{"text": "Hi!"}]},
+                {"role": "user", "content": [{"text": "Remember my name."}]},
+            ],
+            "system": [{"text": "You are a helpful assistant."}],
+            "inferenceConfig": {"maxTokens": 128, "temperature": 0.5, "topP": 0.85},
+        }
+        response = {
+            "output": {"message": {"role": "assistant", "content": [{"text": "Nova answer"}]}},
+            "stopReason": "end_turn",
+            "usage": {"inputTokens": 10, "outputTokens": 2, "totalTokens": 12},
+            "metrics": {"latencyMs": 1},
+        }
+        with Stubber(llm.client) as stubber:
+            stubber.add_response("converse", response, expected_params)
+
+            assert llm.generate_response(messages) == "Nova answer"
+            stubber.assert_no_pending_responses()
+
+    def test_no_system_prompt_omits_system_parameter(self, mock_boto3):
+        mock_boto3.converse.return_value = _converse_response("Nova answer")
+        llm = _make_llm("amazon.nova-lite-v1:0", mock_boto3)
+
+        assert llm.generate_response([{"role": "user", "content": "Hello"}]) == "Nova answer"
+
+        params = mock_boto3.converse.call_args.kwargs
+        assert "system" not in params
+        assert params["messages"] == [{"role": "user", "content": [{"text": "Hello"}]}]
+        mock_boto3.invoke_model.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("content", "expected"),
+        [
+            ([{"text": "first"}, {"text": "second"}], "first"),
+            ([{"reasoningContent": {"redactedContent": b"reasoning"}}, {"text": "answer"}], "answer"),
+            ([{"reasoningContent": {"redactedContent": b"reasoning"}}], ""),
+            ([], ""),
+        ],
+    )
+    def test_reads_first_text_block(self, mock_boto3, content, expected):
+        mock_boto3.converse.return_value = {"output": {"message": {"content": content}}}
+        llm = _make_llm("amazon.nova-lite-v1:0", mock_boto3)
+
+        assert llm.generate_response(MESSAGES) == expected
