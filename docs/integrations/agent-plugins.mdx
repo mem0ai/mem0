@@ -1,0 +1,111 @@
+---
+title: "Agent Plugins Overview"
+sidebarTitle: "Overview"
+description: "Add persistent memory to the coding agent or agent harness you already use. Compare the Mem0 plugins and pick yours."
+---
+
+Coding agents forget everything when a session ends: your conventions, the bug you fixed yesterday, the command that finally worked. A Mem0 plugin fixes that inside the tool you already use. It captures what matters while you work and brings it back in the next session.
+
+<Info>
+  Plugins use a [Mem0 Platform](https://app.mem0.ai?utm_source=oss&utm_medium=agent-plugins-overview) account. OpenClaw and Hermes can also run fully self-hosted.
+</Info>
+
+## How a plugin works
+
+<Steps>
+  <Step title="Capture">
+    While you work, the plugin records your prompts, the agent's answers and useful tool results. Credentials are redacted before anything leaves your machine.
+  </Step>
+  <Step title="Extract">
+    Mem0 turns each session into short, durable memories: project conventions, decisions, fixes that worked, and your personal preferences.
+  </Step>
+  <Step title="Recall">
+    In the next session, relevant memories are added to the agent's context automatically or found with a search tool, depending on the plugin.
+  </Step>
+</Steps>
+
+## Coding agents
+
+<CardGroup cols={3}>
+  <Card title="Claude Code" icon="/images/provider-icons/claudecode-color.svg" href="/integrations/claude-code">
+    Automatic capture and recall, six commands, and the Sidekick agent.
+  </Card>
+  <Card title="Codex" icon="/images/provider-icons/codex-color.svg" href="/integrations/codex">
+    Automatic capture and recall in the Codex CLI and app.
+  </Card>
+  <Card title="Cursor" icon="/images/provider-icons/cursor.svg" href="/integrations/cursor">
+    Automatic capture, with recall through a search tool.
+  </Card>
+  <Card title="OpenCode" icon="/images/provider-icons/opencode.svg" href="/integrations/opencode">
+    Recall before every prompt and ten native memory tools.
+  </Card>
+  <Card title="Kimi Code" icon="/images/provider-icons/kimi-color.svg" href="/integrations/kimi">
+    Automatic capture and recall in the Kimi Code CLI.
+  </Card>
+  <Card title="Antigravity" icon="/images/provider-icons/antigravity-color.svg" href="/integrations/antigravity">
+    Automatic capture, with recall through a search tool.
+  </Card>
+</CardGroup>
+
+## Agent harnesses and chat apps
+
+<CardGroup cols={3}>
+  <Card title="OpenClaw" icon="/images/provider-icons/openclaw.svg" href="/integrations/openclaw">
+    Recall and capture on every turn. Platform or self-hosted.
+  </Card>
+  <Card title="Hermes Agent" icon="/images/provider-icons/hermes-tile.svg" href="/integrations/hermes">
+    Mem0 as Hermes' memory provider. Platform or self-hosted.
+  </Card>
+  <Card title="Pi Agent" icon="/images/provider-icons/pi.svg" href="/integrations/pi-agent">
+    Recall before every turn and automatic capture.
+  </Card>
+  <Card title="DeepSeek Harness" icon="/images/provider-icons/deepseek-color.svg" href="/integrations/deepseek-plugin">
+    Automatic recall and capture with two native tools.
+  </Card>
+  <Card title="Claude.ai" icon="/images/provider-icons/claude-color.svg" href="/integrations/claude-ai">
+    Add the verified Mem0 connector from Claude's directory and sign in. No API key needed.
+  </Card>
+  <Card title="Any MCP client" icon="plug" href="/platform/mem0-mcp">
+    Your tool is not listed? Connect it to the hosted Mem0 MCP server.
+  </Card>
+</CardGroup>
+
+## Compare plugins
+
+<Tabs>
+  <Tab title="Coding agents">
+    | Plugin | Auto capture | Auto recall | Skills | Team |
+    | --- | --- | --- | --- | --- |
+    | [Claude Code](/integrations/claude-code) | Yes | First prompt | 6, plus Sidekick | Shared |
+    | [Codex](/integrations/codex) | Yes | First prompt | 6 | Shared |
+    | [Cursor](/integrations/cursor) | Yes | Search tool | 6 | Shared |
+    | [Kimi Code](/integrations/kimi) | Yes | First prompt | 6 | Shared |
+    | [Antigravity](/integrations/antigravity) | Yes | Search tool | 6 | Shared |
+    | [OpenCode](/integrations/opencode) | Yes | Every prompt | 7 | Per user |
+
+    **First prompt:** relevant memories are added before the agent answers the first prompt of a session. **Search tool:** the agent calls `search_memories` when it needs context. **Shared:** teammates on the same repo share project memory.
+  </Tab>
+  <Tab title="Harnesses and chat apps">
+    | Plugin | Auto capture | Auto recall | Tools | Self-hosted |
+    | --- | --- | --- | --- | --- |
+    | [OpenClaw](/integrations/openclaw) | Yes | Every turn | Tools and skills | Yes |
+    | [Hermes Agent](/integrations/hermes) | Yes | Every turn | 4 | Yes |
+    | [Pi Agent](/integrations/pi-agent) | Yes | Every turn | 1 | No |
+    | [DeepSeek Harness](/integrations/deepseek-plugin) | Yes | Every prompt | 2 | No |
+    | [Claude.ai](/integrations/claude-ai) | When asked | When relevant | 9 | No |
+  </Tab>
+</Tabs>
+
+<Note>
+  Claude Code, Codex, Cursor, Kimi Code and Antigravity share the same memory core. Teammates working in the same repository, in any of these tools, read and write one shared project memory while their personal preferences stay private.
+</Note>
+
+## Which plugin should I use?
+
+- **You code in a terminal or IDE agent:** install the plugin for that tool from the cards above. Each page has its own install steps.
+- **Your team uses different agents on the same repo:** pick any of Claude Code, Codex, Cursor, Kimi Code or Antigravity. They share project memory across tools.
+- **You chat in Claude:** add the [Mem0 connector](https://claude.com/connectors/mem0) from Claude's directory.
+- **Your tool has no plugin:** connect it to the [hosted Mem0 MCP server](/platform/mem0-mcp).
+- **You need to keep data on your own infrastructure:** use OpenClaw or Hermes in self-hosted mode.
+
+<Snippet file="star-on-github.mdx" />
