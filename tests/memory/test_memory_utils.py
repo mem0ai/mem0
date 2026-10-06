@@ -1,3 +1,4 @@
+from copy import deepcopy
 from unittest.mock import Mock
 
 import pytest
@@ -38,6 +39,35 @@ class TestParseMessages:
 
 
 class TestParseVisionMessages:
+    @pytest.mark.parametrize(
+        "content",
+        [
+            "planner recommends tea",
+            [{"type": "text", "text": "planner recommends tea"}],
+            [{"type": "text", "text": "planner recommends"}, {"type": "text", "text": "tea"}],
+            [
+                {"type": "text", "text": "planner recommends tea"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/tea.png"}},
+            ],
+        ],
+        ids=["string", "text-part", "text-parts", "text-and-image"],
+    )
+    @pytest.mark.parametrize("named", [True, False], ids=["named", "unnamed"])
+    def test_text_normalization_preserves_message_fields_without_mutating_input(self, content, named):
+        message = {"role": "assistant", "content": content, "tool_call_id": "call-1"}
+        if named:
+            message["name"] = "planner"
+        messages = [message]
+        original = deepcopy(messages)
+
+        result = parse_vision_messages(messages, llm=None)
+
+        expected = {"role": "assistant", "content": "planner recommends tea", "tool_call_id": "call-1"}
+        if named:
+            expected["name"] = "planner"
+        assert result == [expected]
+        assert messages == original
+
     def test_skips_message_without_content_key(self):
         # Reproduces #5067 for the vision parser path.
         messages = [

@@ -209,7 +209,7 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
                 ]
                 if not text_parts:
                     continue
-                returned_messages.append({"role": role, "content": " ".join(text_parts)})
+                returned_messages.append({**msg, "content": " ".join(text_parts)})
             else:
                 description = get_image_description(msg, llm, vision_details)
                 returned_messages.append({"role": role, "content": description})
