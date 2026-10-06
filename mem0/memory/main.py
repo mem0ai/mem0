@@ -1547,6 +1547,12 @@ class Memory(MemoryBase):
         """
         processed_filters = {}
 
+        top_level_keys = {
+            key
+            for key in metadata_filters
+            if key not in {"AND", "OR", "NOT"}
+        }
+
         def process_condition(key: str, condition: Any) -> Dict[str, Any]:
             if not isinstance(condition, dict):
                 # Simple equality: {"key": "value"}
@@ -1578,39 +1584,73 @@ class Memory(MemoryBase):
                 else:
                     target[key] = value
 
+        def merge_and_condition(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+            """Merge an AND condition without dropping a top-level sibling."""
+            for key, value in source.items():
+                if key in target and isinstance(target[key], dict) and isinstance(value, dict):
+                    merge_filters(target, {key: value})
+                elif key in top_level_keys:
+                    if key in target:
+                        existing = target.pop(key)
+                        target.setdefault("$and", []).extend(
+                            [
+                                {key: existing},
+                                {key: value},
+                            ]
+                        )
+                    else:
+                        target.setdefault("$and", []).append({key: value})
+                else:
+                    merge_filters(target, {key: value})
+
+        # Process ordinary top-level filters first so AND collisions are
+        # independent of dictionary insertion order.
+        for key, value in metadata_filters.items():
+            if key not in {"AND", "OR", "NOT"}:
+                merge_filters(processed_filters, process_condition(key, value))
+
         for key, value in metadata_filters.items():
             if key == "AND":
                 # Logical AND: combine multiple conditions
                 if not isinstance(value, list):
                     raise ValueError("AND operator requires a list of conditions")
+
                 for condition in value:
                     for sub_key, sub_value in condition.items():
-                        merge_filters(processed_filters, process_condition(sub_key, sub_value))
+                        merge_and_condition(
+                            processed_filters,
+                            process_condition(sub_key, sub_value),
+                        )
+
             elif key == "OR":
                 # Logical OR: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
                     raise ValueError("OR operator requires a non-empty list of conditions")
+
                 # Store OR conditions in a way that vector stores can interpret
                 processed_filters["$or"] = []
+
                 for condition in value:
                     or_condition = {}
                     for sub_key, sub_value in condition.items():
                         merge_filters(or_condition, process_condition(sub_key, sub_value))
                     processed_filters["$or"].append(or_condition)
+
             elif key == "NOT":
                 # Logical NOT: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
                     raise ValueError("NOT operator requires a non-empty list of conditions")
+
                 processed_filters["$not"] = []
+
                 for condition in value:
                     not_condition = {}
                     for sub_key, sub_value in condition.items():
                         merge_filters(not_condition, process_condition(sub_key, sub_value))
                     processed_filters["$not"].append(not_condition)
-            else:
-                merge_filters(processed_filters, process_condition(key, value))
 
         return processed_filters
+
 
     def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
         """
@@ -3235,6 +3275,12 @@ class AsyncMemory(MemoryBase):
         """
         processed_filters = {}
 
+        top_level_keys = {
+            key
+            for key in metadata_filters
+            if key not in {"AND", "OR", "NOT"}
+        }
+
         def process_condition(key: str, condition: Any) -> Dict[str, Any]:
             if not isinstance(condition, dict):
                 # Simple equality: {"key": "value"}
@@ -3266,37 +3312,70 @@ class AsyncMemory(MemoryBase):
                 else:
                     target[key] = value
 
+        def merge_and_condition(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+            """Merge an AND condition without dropping a top-level sibling."""
+            for key, value in source.items():
+                if key in target and isinstance(target[key], dict) and isinstance(value, dict):
+                    merge_filters(target, {key: value})
+                elif key in top_level_keys:
+                    if key in target:
+                        existing = target.pop(key)
+                        target.setdefault("$and", []).extend(
+                            [
+                                {key: existing},
+                                {key: value},
+                            ]
+                        )
+                    else:
+                        target.setdefault("$and", []).append({key: value})
+                else:
+                    merge_filters(target, {key: value})
+
+        # Process ordinary top-level filters first so AND collisions are
+        # independent of dictionary insertion order.
+        for key, value in metadata_filters.items():
+            if key not in {"AND", "OR", "NOT"}:
+                merge_filters(processed_filters, process_condition(key, value))
+
         for key, value in metadata_filters.items():
             if key == "AND":
                 # Logical AND: combine multiple conditions
                 if not isinstance(value, list):
                     raise ValueError("AND operator requires a list of conditions")
+
                 for condition in value:
                     for sub_key, sub_value in condition.items():
-                        merge_filters(processed_filters, process_condition(sub_key, sub_value))
+                        merge_and_condition(
+                            processed_filters,
+                            process_condition(sub_key, sub_value),
+                        )
+
             elif key == "OR":
                 # Logical OR: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
                     raise ValueError("OR operator requires a non-empty list of conditions")
+
                 # Store OR conditions in a way that vector stores can interpret
                 processed_filters["$or"] = []
+
                 for condition in value:
                     or_condition = {}
                     for sub_key, sub_value in condition.items():
                         merge_filters(or_condition, process_condition(sub_key, sub_value))
                     processed_filters["$or"].append(or_condition)
+
             elif key == "NOT":
                 # Logical NOT: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
                     raise ValueError("NOT operator requires a non-empty list of conditions")
+
                 processed_filters["$not"] = []
+
                 for condition in value:
                     not_condition = {}
                     for sub_key, sub_value in condition.items():
                         merge_filters(not_condition, process_condition(sub_key, sub_value))
                     processed_filters["$not"].append(not_condition)
-            else:
-                merge_filters(processed_filters, process_condition(key, value))
 
         return processed_filters
 
