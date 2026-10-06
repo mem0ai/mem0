@@ -1,0 +1,212 @@
+---
+title: "Shared Project Memory for a Team Repo"
+description: "Give everyone on a repository one shared project memory across Claude Code, Codex, Cursor, Kimi Code and Antigravity, while personal preferences stay private."
+icon: "users"
+---
+
+<Info icon="cloud">
+**Works with:** Mem0 Platform · Claude Code, Codex, Cursor, Kimi Code and Antigravity plugins
+</Info>
+
+<Info icon="clock">
+**Time to complete:** ~15 minutes · **Tools:** two coding agents, one Git repository
+</Info>
+
+Maya and Dev both work on `payments-api`. Maya uses Claude Code, Dev uses Codex. On Monday Maya learns the hard way that the payments service must never call the ledger API directly, and that unit tests only run with `pnpm test:unit`. On Tuesday Dev's agent has no idea, and he hits the same wall.
+
+With the Mem0 plugins, what Maya's agent learns about the repository becomes shared project memory. Dev's agent recalls it in his next session, in a different tool, while Maya's personal preferences stay hers.
+
+## How shared memory works
+
+Every memory the plugin saves goes into one of two lanes:
+
+| Lane | What goes in it | Who can read it |
+| --- | --- | --- |
+| **Shared project memory** | Facts about the repository: conventions, decisions, constraints, commands and fixes that work | Everyone working on the same repository |
+| **Personal memory** | Facts about you: preferred tools, style, and anything you asked to be remembered about yourself | Only you |
+
+Mem0 picks the lane from what a fact is about. A fact about the repository goes to shared memory, a fact about you goes to personal memory.
+
+The repository is identified by its Git remote (`origin`), so every clone of the same repo lands in the same shared lane. Claude Code, Codex, Cursor, Kimi Code and Antigravity share the same memory core, so a teammate on any of these tools reads the same project memory.
+
+## Setup
+
+### 1. Put the team in one Mem0 project
+
+Memories live inside a Mem0 project. Everyone's API key must come from the **same project**, or their agents will not see each other's memories.
+
+<Steps>
+  <Step title="Invite teammates to the organization">
+    In the [Mem0 dashboard](https://app.mem0.ai/dashboard?utm_source=oss&utm_medium=cookbook-team-memory), the team lead opens **Settings**, goes to the organization members, and uses **Invite Member**. Teammates without a Mem0 account get an email to sign up.
+  </Step>
+  <Step title="Add them to the project">
+    Once they have joined the organization, open the project's settings and use **Invite Member** again to add each teammate to the project. A teammate has to be in the organization before they can be added to a project.
+  </Step>
+  <Step title="Each teammate creates a key in that project">
+    Each teammate selects the project in the dashboard and creates their own key under [API Keys](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cookbook-team-memory). The default Reader role can create keys and save memories.
+  </Step>
+</Steps>
+
+### 2. Install the plugin with a unique user ID
+
+Each person needs a stable user ID. Without one, the plugin uses your computer's account name, and two teammates who are both `dev` on their laptops would share a personal lane.
+
+<Tabs>
+  <Tab title="Maya: Claude Code">
+    ```bash
+    export MEM0_API_KEY='m0-maya-key'
+    claude plugin marketplace add mem0ai/mem0
+    claude plugin install mem0@mem0-plugins --scope user \
+      --config api_key="$MEM0_API_KEY" \
+      --config user_id="maya"
+    unset MEM0_API_KEY
+    ```
+
+    Restart Claude Code, or run `/reload-plugins`. Full details: [Claude Code plugin](/integrations/claude-code).
+  </Tab>
+  <Tab title="Dev: Codex">
+    Add the key and a user ID to your shell profile, so Codex sees them in every session:
+
+    ```bash
+    echo 'export MEM0_API_KEY="m0-dev-key"' >> ~/.zshrc
+    echo 'export MEM0_USER_ID="dev"' >> ~/.zshrc
+    source ~/.zshrc
+    ```
+
+    Then install the plugin:
+
+    ```bash
+    codex plugin marketplace add mem0ai/mem0
+    codex plugin add mem0@mem0-plugins
+    ```
+
+    Restart Codex from a terminal that has the variables set. Full details: [Codex plugin](/integrations/codex).
+  </Tab>
+  <Tab title="Cursor">
+    Install the full plugin as described on the [Cursor plugin](/integrations/cursor) page. When Cursor asks for the plugin configuration, enter your API key and your name in **Memory user ID**, then restart Cursor.
+  </Tab>
+</Tabs>
+
+For [Kimi Code](/integrations/kimi) and [Antigravity](/integrations/antigravity), export `MEM0_USER_ID` next to `MEM0_API_KEY` in your shell profile before starting the tool.
+
+## Maya's session: memory gets captured
+
+Maya opens `payments-api` in Claude Code and works normally:
+
+```text
+Set up the unit tests for the payments service. In this repo we use pnpm, never npm,
+and the payments service must never call the ledger API directly; it always goes
+through the events queue.
+```
+
+Claude runs `pnpm test:unit`, the tests pass, and Maya adds one personal note:
+
+```text
+Thanks. Personally I like very short answers with no summary at the end.
+```
+
+She does not have to save anything. The plugin flushes the session to Mem0 after every five exchanges, when the session ends or compacts, or after five idle minutes. Extraction then takes under a minute. Mem0 splits what it heard into the two lanes:
+
+```text
+Shared project memory:
+  Unit tests for the payments service have been set up and pass (148 tests) using pnpm,
+  and the service communicates with the ledger through the events queue rather than directly
+
+Personal memory (maya):
+  User prefers very short answers with no summary at the end
+  User prefers pnpm over npm as the package manager
+```
+
+An LLM writes each memory, so your wording will differ from these examples.
+
+Maya can check that capture is working with `/mem0:status`.
+
+## Dev's session: memory gets recalled
+
+The next morning Dev opens his own clone of `payments-api` in Codex and starts with:
+
+```text
+I need to add a refund flow to the payments service. How do we run the tests here,
+and how should payments talk to the ledger?
+```
+
+Before Codex answers, the plugin searches with this first prompt and adds the relevant memories to its context:
+
+```text
+Mem0 found these relevant memories from earlier work in this repository:
+1. Unit tests for the payments service have been set up and pass (148 tests) using pnpm,
+   and the service communicates with the ledger through the events queue rather than directly
+```
+
+Codex now uses `pnpm`, runs `pnpm test:unit`, and routes the refund through the events queue, without Dev explaining any of it. Maya's preference for short answers is not in his context: personal memory never crosses to another user.
+
+<Note>
+  Automatic recall runs on the first prompt of a session when it has at least 20 characters. Later in the session, the agent can still call `search_memories`, or you can ask it to search Mem0.
+</Note>
+
+## What else your team gets
+
+### A fix one person finds, everyone keeps
+
+Later that week Maya works on refunds on a feature branch. Her unit tests fail with `STRIPE_WEBHOOK_SECRET is not set`, she copies `.env.example` to `.env.test`, and the tests pass. She also mentions that refunds over $500 always need manual approval. Nobody writes any of this down.
+
+When Dev's tests fail the same way, his agent searches Mem0 and gets:
+
+```text
+1. All unit tests now pass (152 tests) after copying .env.example to .env.test and setting
+   STRIPE_WEBHOOK_SECRET [learnt on branch feature/refunds]
+2. Unit tests for the payments service have been set up and pass (148 tests) using pnpm, ...
+3. POST /refunds endpoint added to the payments service [learnt on branch feature/refunds]
+```
+
+### Branch-aware recall
+
+Memories learned on a branch other than `main` or `master` come back labeled with that branch, as in `[learnt on branch feature/refunds]` above. Dev's agent knows the knowledge may not have reached `main` yet.
+
+### Look up decisions only
+
+Every memory gets a category: `project_knowledge`, `decisions_and_constraints`, `workflows`, `problems_and_fixes`, or `results`. To see what the team has decided about refunds:
+
+```text
+/mem0:search refunds --category decisions_and_constraints
+```
+
+```text
+1. Refunds over $500 are routed to manual approval [learnt on branch feature/refunds]
+2. User prefers very short answers with no summary at the end
+3. User prefers pnpm over npm as the package manager
+```
+
+The team's decision comes first. Maya also sees her own preferences, because every search covers your personal memory too. Teammates never see them.
+
+In Codex, Cursor, Kimi Code and Antigravity, the `search_memories` tool takes the same `category` argument.
+
+## Production patterns
+
+**Narrow recall in a monorepo.** Searches default to the whole repository. Use the `dir` scope to get project memory for the directory you are in. See [Search scope](/integrations/claude-code#search-scope).
+
+**Forgetting stays personal by default.** `/mem0:forget` deletes your memories for the repository. Shared project memory is kept unless you pass `--include-project-memory`, so one teammate cannot wipe the team's knowledge by accident.
+
+**Same remote, same memory.** Clones are matched by their Git `origin` URL. A repository with no remote gets a memory lane tied to its local path, which teammates cannot share.
+
+<Warning>
+  OpenCode and Pi Agent keep memory per user and repository. They do not read or write the shared project lane, so use one of the five plugins above for team memory.
+</Warning>
+
+## What you built
+
+- **One project memory per repository**, written by whoever learns something and read by everyone on the team.
+- **Cross-tool recall**: knowledge captured in Claude Code reaches a teammate in Codex.
+- **Fixes, decisions and branch context** that travel with the repository.
+- **Private personal memory** that stays with each developer.
+
+<CardGroup cols={2}>
+  <Card title="Agent Plugins Overview" icon="puzzle-piece" href="/integrations/agent-plugins">
+    Compare every Mem0 plugin and what each one captures and recalls.
+  </Card>
+  <Card title="Company Brain with Supabase" icon="database" href="/cookbooks/integrations/supabase">
+    Turn company data into shared memory that any agent can query.
+  </Card>
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />
