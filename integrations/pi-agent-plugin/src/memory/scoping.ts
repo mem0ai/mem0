@@ -8,6 +8,10 @@ import {
 } from "../../../agent-plugin-core/typescript/src/scoping.ts";
 
 export function detectAppId(cwd: string): string {
+  const envAppId = process.env.MEM0_APP_ID;
+  if (envAppId !== undefined && envAppId.trim() !== "" && envAppId.trim() !== "*") {
+    return envAppId;
+  }
   try {
     const root = execFileSync("git", ["rev-parse", "--show-toplevel"], {
       cwd,
