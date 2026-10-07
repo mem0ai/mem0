@@ -378,6 +378,21 @@ def resolve_repo(cwd: str | None) -> RepoContext:
     return _resolve_repo_cached(os.path.abspath(cwd or os.getcwd()))
 
 
+def _cli_config_api_key() -> str:
+    try:
+        raw = (Path.home() / ".mem0" / "config.json").read_text(encoding="utf-8")
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            platform = data.get("platform")
+            if isinstance(platform, dict):
+                key = platform.get("api_key")
+                if isinstance(key, str):
+                    return key.strip()
+    except (OSError, json.JSONDecodeError):
+        pass
+    return ""
+
+
 def api_key() -> str:
     configured = (
         os.environ.get("MEM0_API_KEY")
@@ -389,9 +404,12 @@ def api_key() -> str:
     if configured:
         return configured
     try:
-        return (data_dir() / "api-key").read_text(encoding="utf-8").strip()
+        cached = (data_dir() / "api-key").read_text(encoding="utf-8").strip()
+        if cached:
+            return cached
     except OSError:
-        return ""
+        pass
+    return _cli_config_api_key()
 
 
 def cache_plugin_api_key() -> bool:
@@ -436,7 +454,7 @@ def clear_stale_api_key_cache() -> bool:
         or os.environ.get("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY")
         or ""
     ).strip()
-    if configured:
+    if configured or _cli_config_api_key():
         return False
     path = data_dir() / "api-key"
     if not path.exists():
