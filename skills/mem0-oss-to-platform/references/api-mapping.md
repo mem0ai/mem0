@@ -53,7 +53,7 @@ Notes:
 | get | `memory.get(memory_id)` | `memory.get(memory_id)` |
 | update | `memory.update(memory_id, text=...)` *(`data=` is a deprecated alias)* | `memory.update(memory_id, text=..., metadata=...)`: use keyword `text=`. A positional string (`update(id, "new text")`) breaks because the second positional is `options`, and there is no `data=` alias |
 | delete | `memory.delete(memory_id)` | `memory.delete(memory_id)` |
-| history | `memory.history(memory_id)` | `memory.history(memory_id)`: same call, extra fields on each entry (`input`, `user_id`, `agent_id`, `app_id`, `session_id`, `categories`, `metadata`); OSS-only `is_deleted`/`actor_id`/`role` are absent (see Return shapes) |
+| history | `memory.history(memory_id)` | `memory.history(memory_id)`: same call, extra fields on each entry (`input`, `user_id`, `categories`, `metadata`); OSS-only `is_deleted`/`actor_id`/`role` are absent (see Return shapes) |
 | reset | `memory.reset()` (wipes the local store) | `memory.reset()` exists but calls `delete_users()`, which deletes **all** users, agents, sessions and memories (first page of entities only, see gotchas). Prefer `delete_all` scoped to an entity. Flag this |
 
 Key rule: for **search** and **get_all**, the hosted client requires entity IDs (`user_id`,
@@ -130,8 +130,8 @@ Also drop legacy options that no longer apply: `async_mode`, `output_format`, `e
   |---|---|
   | Python OSS | `id`, `memory_id`, `old_memory`, `new_memory`, `event`, `created_at`, `updated_at`, `is_deleted`, `actor_id`, `role` (oldest first) |
   | TS OSS | `id`, `memory_id`, `previous_value`, `new_value`, `action`, `created_at`, `updated_at`, `is_deleted` (raw rows, snake_case, newest first) |
-  | Hosted Python | `id`, `memory_id`, `input`, `old_memory`, `new_memory`, `event`, `user_id`, `agent_id`, `app_id`, `session_id`, `categories`, `metadata`, `previous_embedding_qwen`, `embedding_qwen`, `created_at`, `updated_at` (the `agent_id`/`app_id`/`session_id`/embedding fields are nullable) |
-  | Hosted TS | `id`, `memoryId`, `input`, `oldMemory`, `newMemory`, `event`, `userId`, `agentId`, `appId`, `sessionId`, `categories`, `metadata`, `previousEmbeddingQwen`, `embeddingQwen`, `createdAt`, `updatedAt` (same nullable fields) |
+  | Hosted Python | `id`, `memory_id`, `input`, `old_memory`, `new_memory`, `event`, `user_id`, `categories`, `metadata`, `created_at`, `updated_at` |
+  | Hosted TS | `id`, `memoryId`, `input`, `oldMemory`, `newMemory`, `event`, `userId`, `categories`, `metadata`, `createdAt`, `updatedAt` |
 
   Code that reads `previous_value` / `new_value` / `action` from TS OSS history must switch to
   `oldMemory` / `newMemory` / `event` on the hosted TS client.
