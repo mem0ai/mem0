@@ -135,7 +135,7 @@ def chat(user_input: str, user_id: str) -> str:
 
 ## Common edge cases
 
-- **Search returns empty:** `add()` is asynchronous and returns `{"event_id": "...", "status": "PENDING"}`. Memories are searchable once the event is `SUCCEEDED` (poll `GET /v1/event/{event_id}/`, or wait a few seconds). `infer=False` is synchronous. Also verify `user_id` matches exactly (case-sensitive) and use `filters={"user_id": "..."}` syntax.
+- **Search returns empty:** `add()` is asynchronous and returns `{"event_id": "...", "status": "PENDING"}` (`eventId` on the TS client). Memories are searchable once the event is `SUCCEEDED` (poll `GET /v1/event/{event_id}/`, or wait a few seconds). `infer=False` is synchronous. Also verify `user_id` matches exactly (case-sensitive) and use `filters={"user_id": "..."}` syntax.
 - **AND filter with user_id + agent_id returns empty:** Entities are stored separately. Use `OR` instead, or query separately.
 - **Duplicate memories:** Don't mix `infer=True` (default) and `infer=False` for the same data. Stick to one mode.
 - **Wrong import:** For the hosted Platform use `from mem0 import MemoryClient` (or `AsyncMemoryClient` for async). `from mem0 import Memory` is the self-hosted OSS class and does not use `MEM0_API_KEY`.

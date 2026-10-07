@@ -31,42 +31,12 @@ import urllib.parse
 import urllib.request
 
 DOCS_BASE = "https://docs.mem0.ai"
+DOCS_HOST = urllib.parse.urlsplit(DOCS_BASE).netloc
 LLMS_INDEX = f"{DOCS_BASE}/llms.txt"
 ENTRY_URL = re.compile(r"\((https?://[^)\s]+)\)")
 MAX_RESULTS = 20
-
-SECTION_MAP = {
-    "platform": [
-        "/platform/overview",
-        "/platform/quickstart",
-        "/platform/features/graph-memory",
-        "/platform/features/custom-instructions",
-        "/platform/features/custom-categories",
-        "/platform/features/v2-memory-filters",
-        "/platform/features/async-client",
-        "/platform/features/webhooks",
-        "/platform/features/multimodal-support",
-    ],
-    "api": [
-        "/api-reference/memory/add-memories",
-        "/api-reference/memory/search-memories",
-        "/api-reference/memory/get-memories",
-        "/api-reference/memory/get-memory",
-        "/api-reference/memory/update-memory",
-        "/api-reference/memory/delete-memory",
-    ],
-    "open-source": [
-        "/open-source/overview",
-        "/open-source/python-quickstart",
-        "/open-source/node-quickstart",
-        "/open-source/features/overview",
-        "/open-source/features/rest-api",
-        "/open-source/configuration",
-    ],
-    "integrations": [
-        "/integrations",
-    ],
-}
+MAX_PAGE_CHARS = 10000
+MAX_INDEX_BYTES = 2_000_000
 
 SECTION_PREFIXES = {
     "platform": ("/platform/",),
@@ -76,21 +46,41 @@ SECTION_PREFIXES = {
 }
 
 
-def fetch_url(url: str) -> str:
-    """Fetch content from a URL."""
+def require_docs_url(url: str) -> None:
+    """Exit unless the URL is an https URL on the Mem0 docs host."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or parts.netloc != DOCS_HOST:
+        sys.exit(f"Refusing to fetch {url}: only {DOCS_BASE} is allowed")
+
+
+class DocsRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Follow redirects only when they stay on the Mem0 docs host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        require_docs_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def fetch_url(url: str, max_bytes: int) -> tuple[str, bool]:
+    """Fetch at most max_bytes from a docs URL, returning the text and whether it was cut short."""
+    require_docs_url(url)
+    opener = urllib.request.build_opener(DocsRedirectHandler)
     req = urllib.request.Request(url, headers={"User-Agent": "Mem0DocSearchAgent/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return resp.read().decode("utf-8")
+        with opener.open(req, timeout=15) as resp:
+            data = resp.read(max_bytes + 1)
     except urllib.error.HTTPError as e:
         sys.exit(f"Error fetching {url}: HTTP {e.code} {e.reason}")
     except OSError as e:
         sys.exit(f"Error fetching {url}: {e}")
+    return data[:max_bytes].decode("utf-8", errors="replace"), len(data) > max_bytes
 
 
 def index_entries() -> list:
     """Return the page entries listed in the llms.txt index."""
-    content = fetch_url(LLMS_INDEX)
+    content, truncated = fetch_url(LLMS_INDEX, MAX_INDEX_BYTES)
+    if truncated:
+        sys.exit(f"Error: {LLMS_INDEX} exceeds {MAX_INDEX_BYTES} bytes")
     return [line.strip()[2:] for line in content.splitlines() if line.strip().startswith("- [")]
 
 
@@ -132,24 +122,22 @@ def fetch_page(page_path: str) -> dict:
     if not path.endswith(".md"):
         path = f"{path}.md"
     url = urllib.parse.urlunsplit((parts.scheme, parts.netloc, path, "", ""))
-    content = fetch_url(url)
-    return {"url": url, "content": content[:10000], "truncated": len(content) > 10000}
+    content, cut_short = fetch_url(url, MAX_PAGE_CHARS * 4)
+    return {"url": url, "content": content[:MAX_PAGE_CHARS], "truncated": cut_short or len(content) > MAX_PAGE_CHARS}
 
 
 def get_index() -> dict:
     """Fetch the full documentation index from llms.txt."""
     urls = index_entries()
-    return {"total_pages": len(urls), "urls": urls, "sections": list(SECTION_MAP.keys())}
+    return {"total_pages": len(urls), "urls": urls, "sections": list(SECTION_PREFIXES)}
 
 
 def list_section(section: str) -> dict:
-    """List all known pages in a documentation section."""
-    if section not in SECTION_MAP:
-        return {"error": f"Unknown section: {section}", "available": list(SECTION_MAP.keys())}
-    return {
-        "section": section,
-        "pages": [f"{DOCS_BASE}{p}" for p in SECTION_MAP[section]],
-    }
+    """List the llms.txt index entries in a documentation section."""
+    if section not in SECTION_PREFIXES:
+        return {"error": f"Unknown section: {section}", "available": list(SECTION_PREFIXES)}
+    pages = [e for e in index_entries() if entry_path(e).startswith(SECTION_PREFIXES[section])]
+    return {"section": section, "pages": pages}
 
 
 def main():
@@ -205,7 +193,7 @@ def main():
             elif "content" in result:
                 print(f"URL: {result['url']}")
                 if result.get("truncated"):
-                    print("[Content truncated to 10000 chars]")
+                    print(f"[Content truncated to {MAX_PAGE_CHARS} chars]")
                 print(result["content"])
             elif "error" in result:
                 print(f"Error: {result['error']}")

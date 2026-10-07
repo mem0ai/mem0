@@ -15,6 +15,7 @@ metadata:
   version: "2.0.0"
   category: ai-memory
   tags: "vercel, ai-sdk, memory, nextjs, typescript, provider"
+  mem0_tested_versions: "@mem0/vercel-ai-provider (npm) >=3.0.0,<4.0.0; ai (npm) >=6.0.0,<7.0.0; mem0ai (npm) >=3.0.0,<4.0.0"
 compatibility: Node.js 18+, npm install @mem0/vercel-ai-provider, Vercel AI SDK v6 (ai package ^6), MEM0_API_KEY + LLM provider API key
 ---
 

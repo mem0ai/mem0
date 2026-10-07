@@ -111,6 +111,8 @@ def plan_trip(destination: str, user_id: str):
 result = plan_trip("San Francisco", "crew_user_1")
 ```
 
+`add()` is asynchronous on the Platform, so the seed memories above are not searchable the instant it returns and a `plan_trip` call straight after it can see no preferences. Run the seeding in an earlier session, or wait until the `add` event is `SUCCEEDED` (poll `GET /v1/event/{event_id}/`) before the first `plan_trip`. The `add` at the end of `plan_trip` only writes, so it needs no wait.
+
 ---
 
 ## Vercel AI SDK

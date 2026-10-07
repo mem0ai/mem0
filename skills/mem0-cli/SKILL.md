@@ -15,6 +15,7 @@ metadata:
   version: "1.2.0"
   category: ai-memory
   tags: "cli, terminal, memory, ai, command-line"
+  mem0_tested_versions: "mem0-cli (PyPI) >=0.2.13,<0.3.0; @mem0/cli (npm) >=0.2.14,<0.3.0; mem0ai (PyPI) >=2.0.0,<3.0.0; mem0ai (npm) >=3.0.0,<4.0.0"
 compatibility: Node.js 18+ (npm install -g @mem0/cli) or Python 3.10+ (pip install mem0-cli), MEM0_API_KEY env var
 ---
 
@@ -136,7 +137,7 @@ The `--agent` flag is an alias for `--json` (except on `mem0 init`, where `--age
 
 Both the Node.js (`@mem0/cli`) and Python (`mem0-cli`) CLIs share the command set, flags, entity ID resolution, filter building, and the JSON envelope. Choose whichever runtime you already have installed. Known differences:
 
-- **`--json` / `--agent` placement:** Python accepts the flag anywhere on the command line. Node reads it only as a global option, so put it before the subcommand (`mem0 --json list`). `mem0 init --json` and `mem0 help --json` work after the subcommand in both.
+- **`--json` / `--agent` placement:** Python accepts the flag anywhere on the command line. Node reads it only as a global option, so put it before the subcommand (`mem0 --json list`). `mem0 init --json` and `mem0 help --json` work after the subcommand in both. For the Agent Mode bootstrap, Node starts it only from `init --agent` or `init --json` (a root-level `mem0 --json init` or `mem0 --agent init` does not start it, and without an agent runtime env var it fails with the non-TTY error), while Python also accepts those root-level forms. `mem0 init --agent --json` works in both.
 - **`--limit`:** `mem0 search --limit` is a Python-only alias for `--top-k`.
 - **Agent-mode `delete --all` data:** Python returns `{"deleted": true}` (plus scope for `--project`); Node returns the raw API result.
 - **`import` JSON output:** Python prints the envelope with `scope`. Node omits `scope` and writes the `Importing memories... n/n` progress line to stdout before the JSON, so only Python's output pipes cleanly to `jq`.
@@ -146,6 +147,7 @@ Both the Node.js (`@mem0/cli`) and Python (`mem0-cli`) CLIs share the command se
 
 - **Async processing delay:** After `mem0 add`, memories process asynchronously. Wait 2-3 seconds before searching for newly added content. Use `mem0 event list` to check processing status.
 - **`--all` vs `--entity` delete modes:** `mem0 delete --all -u alice` deletes all memories for user alice. `mem0 delete --entity -u alice` deletes the entity itself AND all its memories (cascade). These are mutually exclusive modes.
+- **`--dry-run` does not protect `--all --project`:** `mem0 delete --all --project --dry-run` ignores the flag and deletes every memory in the project. Never use `--dry-run` to preview a project-wide delete.
 - **Entity ID resolution:** If you pass any explicit scope flag (e.g. `--user-id`), the CLI uses ONLY the explicit IDs and ignores config defaults. If no scope flags are given, all configured defaults apply.
 - **Stdin detection:** When no text argument is provided and stdin is a pipe or a redirected file (a plain non-TTY is not enough), the CLI reads from stdin. Works with `add`, `search`, and `update`. In `--json`/`--agent` mode `add` never reads stdin (Python also skips it for `search` and `update`), so pass the text as an argument there.
 

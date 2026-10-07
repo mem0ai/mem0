@@ -126,7 +126,7 @@ Without `--code` in a non-TTY, `init` sends the code and exits with an error tel
 mem0 init --agent --agent-caller <name> --json
 ```
 
-With `--agent`, `--json`, or an agent environment variable (such as `CLAUDECODE`, `CURSOR_AGENT`, `CODEX_CLI`, `CLINE`, `AIDER_SESSION`, `GOOSE_AGENT`, `WINDSURF_AGENT`) and no `--api-key` or `--email`, `init` first reuses a valid `MEM0_API_KEY` or a valid key already in the config. Only when there is no valid key does it mint a new Agent Mode key via `POST /api/v1/auth/agent_mode/`, which is limited to 5 signups per day per network. See [command-reference.md](command-reference.md) for the `init` flags and `identify`.
+With `init --agent`, `init --json`, or an agent environment variable (such as `CLAUDECODE`, `CURSOR_AGENT`, `CODEX_CLI`, `CLINE`, `AIDER_SESSION`, `GOOSE_AGENT`, `WINDSURF_AGENT`) and no `--api-key` or `--email`, `init` first reuses a valid `MEM0_API_KEY` or a valid key already in the config. Only when there is no valid key does it mint a new Agent Mode key via `POST /api/v1/auth/agent_mode/`, which is limited to 5 signups per day per network. See [command-reference.md](command-reference.md) for the `init` flags and `identify`.
 
 ### Force Overwrite
 

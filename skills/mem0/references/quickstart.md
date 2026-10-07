@@ -97,7 +97,7 @@ curl -X POST https://api.mem0.ai/v3/memories/search/ \
 
 ## Sample Response
 
-`add()` is asynchronous and returns `{"event_id": "...", "status": "PENDING"}`; poll `GET /v1/event/{event_id}/` until it is `SUCCEEDED`. A search returns:
+`add()` is asynchronous and returns `{"event_id": "...", "status": "PENDING"}` (`eventId` on the TS client); poll `GET /v1/event/{event_id}/` until it is `SUCCEEDED`. A search returns:
 
 ```json
 {

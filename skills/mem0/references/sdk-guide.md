@@ -304,7 +304,7 @@ client.generate_profile("alice")
 3. **Metadata filtering is limited** -- only top-level keys with `eq`, `contains`, `ne`.
 4. **Wildcard `*` excludes null** -- only matches non-null values.
 5. **Default threshold is 0.1** -- increase for stricter matching.
-6. **Async processing** -- `add()` returns `{"event_id": ..., "status": "PENDING"}`. Memories are searchable after the event is `SUCCEEDED` (poll `GET /v1/event/{event_id}/`, or wait a few seconds). `infer=False` is synchronous.
+6. **Async processing** -- `add()` returns `{"event_id": ..., "status": "PENDING"}` (`eventId` on the TS client). Memories are searchable after the event is `SUCCEEDED` (poll `GET /v1/event/{event_id}/`, or wait a few seconds). `infer=False` is synchronous.
 
 ## Naming Conventions
 

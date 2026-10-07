@@ -10,7 +10,7 @@ Only these two options are global:
 
 | Flag | Type | Description |
 |------|------|-------------|
-| `--json` / `--agent` | boolean | Agent mode: wrap output in a structured JSON envelope on stdout. Spinners and progress go to stderr. Put it before the subcommand (`mem0 --json list`); Python also accepts it anywhere. On `mem0 init`, `--agent` is the Agent Mode bootstrap flag instead (use `--json` there). |
+| `--json` / `--agent` | boolean | Agent mode: wrap output in a structured JSON envelope on stdout. Spinners and progress go to stderr (except Node `import`, see its section). Put it before the subcommand (`mem0 --json list`); Python also accepts it anywhere. On `mem0 init`, `--agent` is the Agent Mode bootstrap flag instead (use `--json` there, after the subcommand). |
 | `--version` | boolean | Print version and exit. |
 
 These options are declared per command (not global) on `add`, `search`, `get`, `list`, `update`, `delete`, `import`, `status`, `entity list`, `entity delete`, `event list` and `event status`. `config show` takes only `-o`, and `init` takes only `--api-key`.
@@ -50,7 +50,7 @@ Interactive setup wizard. Configures API key and default user ID.
 - **Email login flow** (`--email`): sends a 6-digit code to the email via `POST /api/v1/auth/email_code/`. If `--code` is also given, skips sending and verifies immediately via `/api/v1/auth/email_code/verify/`. In non-TTY without `--code`, the code is sent and the command then errors; re-run with `--code`. On success, saves the API key, `user_email`, and `created_via: "email"`, and sets the default user ID to `--user-id`, else `$USER`/`$USERNAME`, else `mem0-cli`. Cannot be combined with `--api-key`. `--code` without `--email` is an error.
 - **Claim flow** (`--email` while the existing config is an unclaimed Agent Mode key): runs the same code flow but claims the existing key to that email. The API key value does not change and memories are kept.
 - **API key flow**: if both `--api-key` and `--user-id` are given, runs fully non-interactively (and validates the key against the API). In non-TTY, `--api-key` alone is enough (the user ID defaults to `$USER`/`$USERNAME`/`mem0-cli`). In a TTY with no flags, prompts for the auth method (email or API key), then for the missing values.
-- **Agent Mode flow** (`--agent`, or global `--json`, or an agent runtime env var such as `CLAUDECODE` or `CURSOR_AGENT`, with no `--api-key`/`--email`): first reuses a valid `MEM0_API_KEY` or a valid key already in config (no new key is minted). Otherwise POSTs to `/api/v1/auth/agent_mode/` and mints a shadow API key in <5s with no email required; the generated `user_<slug>` becomes `defaults.user_id`. Limited to 5 signups per day per network. Pass `--agent-caller <your-name>` to attribute the signup to your AI agent identity. If omitted, run `mem0 identify <your-name>` afterward.
+- **Agent Mode flow** (`init --agent`, `init --json`, or an agent runtime env var such as `CLAUDECODE` or `CURSOR_AGENT`, with no `--api-key`/`--email`; Python also enters it on a global `mem0 --json init` or `mem0 --agent init`, Node does not): first reuses a valid `MEM0_API_KEY` or a valid key already in config (no new key is minted). Otherwise POSTs to `/api/v1/auth/agent_mode/` and mints a shadow API key in <5s with no email required; the generated `user_<slug>` becomes `defaults.user_id`. Limited to 5 signups per day per network. Pass `--agent-caller <your-name>` to attribute the signup to your AI agent identity. If omitted, run `mem0 identify <your-name>` afterward.
 - In non-TTY without `--api-key`, `--email`, or an agent signal, prints "Non-interactive terminal detected and --api-key is required." and exits with error.
 
 **Examples:**
@@ -212,7 +212,7 @@ Search memories by semantic query.
 | `-k, --top-k <n>` | integer | 10 | Maximum number of results to return (must be >= 1). Python also accepts `--limit` as an alias. |
 | `--threshold <score>` | float | 0.3 | Minimum similarity score (0.0 to 1.0). |
 | `--rerank` | boolean | false | Enable reranking for improved relevance (Platform only). |
-| `--keyword` | boolean | false | Use keyword search. |
+| `--keyword` | boolean | false | Sent to the API as `keyword_search` but not applied by v3 search, which always blends keyword matching into hybrid scoring. |
 | `--filter <json>` | string | - | Advanced filter expression as JSON. If it contains `AND` or `OR` it is sent as-is and entity IDs (including config defaults) are not merged in. |
 | `--fields <list>` | string | - | Comma-separated list of fields to return. Sent to the API but not applied by v3 search. |
 | `--show-expired` | boolean | false | Include expired memories. |
@@ -228,7 +228,7 @@ mem0 search "dietary restrictions" -u alice --threshold 0.5
 mem0 search "project setup" -u alice --rerank
 mem0 search "preferences" -u alice --filter '{"categories":{"contains":"food"}}'
 mem0 search "invoices" -u alice --filter '{"AND":[{"user_id":"alice"},{"categories":{"in":["work"]}}]}'
-mem0 search "plans" -u alice --keyword --latest-only
+mem0 search "plans" -u alice --latest-only
 echo "preferences" | mem0 search -u alice
 ```
 
@@ -344,7 +344,7 @@ Delete a memory, all memories matching a scope, or an entity. This command has t
 | `--all` | boolean | false | Delete all memories matching scope filters. |
 | `--entity` | boolean | false | Delete the entity itself and all its memories (cascade). |
 | `--project` | boolean | false | With `--all`: delete ALL memories project-wide (sends wildcard IDs). |
-| `--dry-run` | boolean | false | Show what would be deleted without actually deleting. |
+| `--dry-run` | boolean | false | Show what would be deleted without actually deleting. Ignored by `--all --project`, which deletes (see Dry-run behavior). |
 | `--force` | boolean | false | Skip confirmation prompt (`--all` and `--entity` only). Required for those modes in `--json`/`--agent` mode. |
 | `--delete-linked` | boolean | false | Single-memory mode: also delete memories linked to this memory. |
 | `-u, --user-id <id>` | string | - | Scope to user. |
@@ -367,7 +367,7 @@ You cannot combine `<memory_id>` with `--all` or `--entity`, and you cannot comb
 - Single: fetches the memory, displays it, and prints "No changes made." (Python: "No changes made (dry run)."). Node also prints "Would delete memory <id8>: <text>".
 - `--all`: lists matching memories, prints "Would delete N memories." and the "No changes made" line.
 - `--entity`: prints "Would delete entity <scope> and all its memories." and the "No changes made" line.
-- `--all --project` ignores `--dry-run` (the API has no count endpoint), so it deletes after the confirmation.
+- **Warning:** `--all --project` does not honor `--dry-run`. It skips the preview and deletes every memory in the project (after the confirmation, or immediately with `--force`). Never pass `--dry-run` to `--all --project` expecting a preview. This is a known CLI bug in both CLIs, not intended behavior, so do not rely on it. To preview, run `mem0 delete --all --dry-run` per scope (for example `-u alice`) instead.
 
 **Confirmation:** Without `--force`, `--all` and `--entity` prompt `[y/N]`. Single-memory delete never prompts and ignores `--force`. With `--all --project`, the prompt explicitly warns about project-wide deletion and the scope flags are ignored.
 

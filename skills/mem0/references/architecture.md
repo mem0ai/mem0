@@ -65,7 +65,7 @@ Messages In
 
 v3 processes memories asynchronously by default:
 - API returns immediately: `{"status": "PENDING", "event_id": "evt-..."}`
-- Poll status via `GET /v1/event/{event_id}/`
+- Poll status via `GET /v1/event/{event_id}/` (the TS client camelCases response keys, so it sees `eventId`)
 - Use webhooks for completion notifications
 - `infer=False` is the exception: it runs synchronously and returns `message` and `results`
 

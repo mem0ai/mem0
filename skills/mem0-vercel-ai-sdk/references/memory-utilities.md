@@ -42,7 +42,7 @@ async function addMemories(
 3. Calls `POST {host}/v3/memories/add/` with body `{ messages, user_id?, app_id?, agent_id?, run_id?, metadata?, infer? }` (entity IDs are top-level on add)
 4. Throws `HTTP error! status: <code>` on a non-2xx response
 
-**Returns:** The parsed JSON response from Mem0. The v3 add endpoint queues extraction and responds with `{ status: "PENDING", event_id }`. With `infer: false` messages are stored verbatim synchronously and the response also includes `results`.
+**Returns:** The parsed JSON response from Mem0. The v3 add endpoint queues extraction and responds with `{ status: "PENDING", event_id }` (the provider returns the raw REST JSON, so keys stay snake_case, unlike the `mem0ai` client). With `infer: false` messages are stored verbatim synchronously and the response also includes `results`.
 
 ---
 

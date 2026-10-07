@@ -68,7 +68,7 @@ constructor, they're resolved from the API key. Per-call legacy options like `as
 
 ## 9. Return-shape and default drift
 - `add()` is **asynchronous** on the platform: it returns `{"status": "PENDING", "event_id": "..."}`
-  instead of the created memories, so new memories may not be searchable yet when it returns
+  (`eventId` on the TS client, which camelCases response keys) instead of the created memories, so new memories may not be searchable yet when it returns
   (`infer=False` is synchronous and returns `results`). Code that read `id`/`memory` from `add()`
   results, or searched immediately after adding (tests, read-your-writes flows), needs a decision.
   Neither SDK exposes an event-poll method; `GET /v1/event/{event_id}/` is REST only.
@@ -85,6 +85,11 @@ which deletes all users, agents, sessions and memories on the platform. The TS c
 (`deleteUsers()` with no arguments does the same). Flag any `reset()` call (often test teardown) and
 suggest `delete_all` scoped to the test entity instead. `delete_all(filters=...)` is not a valid
 platform form: pass `user_id`/`agent_id`/`app_id`/`run_id` directly.
+
+The hosted wipe is also incomplete: Python `reset()` and TS `deleteUsers()` with no arguments call
+`users()` once and delete only the entities on that first page, so a project with more entities than
+one page keeps the rest. Re-run until it raises `No entities to delete`, or delete per entity
+(`delete_users(user_id=...)` / `deleteUsers({ userId })`, paging TS with `users({ page, pageSize })`).
 
 ## 11. Filters and update/add signatures
 - Platform `filters` only accept an allowlist of top-level keys; custom metadata must be nested under

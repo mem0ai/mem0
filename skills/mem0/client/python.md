@@ -217,7 +217,7 @@ client.delete_users(user_id="alice")
 
 #### reset()
 
-Delete ALL users, agents, sessions, and memories. Complete data reset.
+Delete ALL users, agents, sessions, and memories. Complete data reset. It only deletes the entities on the first page returned by `users()`, so with many entities re-run it until it raises `No entities to delete`, or delete per entity with `delete_users(user_id=...)`.
 
 ```python
 client.reset()

@@ -89,7 +89,7 @@ for (const mem of results.results) {
 | `options.metadata` | object | Not applied in v3. Use `filters: { AND: [{ metadata: {...} }] }` |
 | `options.showExpired` | boolean | Include memories past their expiration date |
 | `options.referenceDate` | string \| number | Treat this as "now" for relative time queries |
-| `options.keywordSearch` | boolean | Search by keywords |
+| `options.keywordSearch` | boolean | Not applied in v3 (removed from the v3 search schema; keyword matching is part of v3 hybrid scoring) |
 
 Entity IDs go inside `filters`. A top-level `userId`, `agentId`, `appId` or `runId` throws.
 
@@ -202,7 +202,7 @@ await client.deleteUsers({ userId: 'alice' });
 await client.deleteUsers({ agentId: 'bot-1' });
 ```
 
-Takes one of `userId`, `agentId`, `appId`, `runId`. Calling it with no arguments deletes ALL users, agents, apps and runs. `deleteUser({ entity_id, entity_type })` still exists but is deprecated.
+Takes one of `userId`, `agentId`, `appId`, `runId`. Calling it with no arguments deletes ALL users, agents, apps and runs, but only those on the first page returned by `users()`: with many entities, re-run it until it throws `No entities to delete`, or page with `users({ page, pageSize })` and delete per entity. `deleteUser({ entity_id, entity_type })` still exists but is deprecated.
 
 ---
 
@@ -404,7 +404,7 @@ await m.add([
 
 `config` is a required argument. `config.timestamp` is not supported in OSS (it throws).
 
-**Returns:** `Promise<{results: [...]}>`
+**Returns:** `Promise<{results: [...]}>`, each item `{ id, memory, metadata: { event: 'ADD' } }` (the event is under `metadata`, not top-level).
 
 #### search(query, config)
 
@@ -429,6 +429,7 @@ Same interface patterns, with these differences:
 - `getAll({ filters, topK?, showExpired? })` needs an entity ID in `filters` and has no `page`/`pageSize` (`topK` defaults to 20).
 - `deleteAll({ userId?, agentId?, runId? })` takes top-level IDs and requires at least one. Use `reset()` to wipe everything.
 - `update` takes a string or `{ text?, metadata?, expirationDate? }` and returns `{ message }`.
+- `history` returns raw rows `{ id, memory_id, previous_value, new_value, action, created_at, updated_at, is_deleted }` (snake_case, newest first), not the hosted client's `oldMemory` / `newMemory` / `event`.
 
 ```typescript
 await m.update('mem-id', 'new content');

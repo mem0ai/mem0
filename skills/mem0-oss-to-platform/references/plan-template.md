@@ -52,7 +52,7 @@ unambiguous. Example:
 The non-1:1 items from the gotchas that apply here, each phrased as a decision for the developer.
 Cover, where relevant: data not migrating, self-hosting/data-residency, local models moving server-
 side, graph memory, custom prompts (now project-level `custom_instructions`), network/latency/cost on
-hot paths, return-shape changes (`add` is async and returns an `event_id`, `get_all` pagination,
+hot paths, return-shape changes (`add` is async and returns an `event_id` (`eventId` on TS), `get_all` pagination,
 default `top_k` 20 vs 10), metadata filters that need rewriting, and any `reset()` usage. Be specific
 about which file/line each concern affects.
 
