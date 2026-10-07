@@ -6,7 +6,7 @@ Manage memories from the terminal using the [Mem0 CLI](https://docs.mem0.ai/plat
 
 When installed, Claude can:
 
-- **Run mem0 commands** correctly in your terminal (add, search, list, get, update, delete, import, config, init, status, entity, event)
+- **Run mem0 commands** correctly in your terminal (add, search, list, get, update, delete, import, config, init, identify, whoami, status, entity, event, agent-rush, version, help)
 - **Construct complex invocations** with the right flags, scoping, filters, and output formats
 - **Pipe and script** mem0 commands in shell workflows, CI/CD pipelines, and agent loops
 - **Debug issues** like missing API keys, entity scoping conflicts, and async processing delays

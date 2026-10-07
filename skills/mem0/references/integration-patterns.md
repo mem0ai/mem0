@@ -38,7 +38,7 @@ prompt = ChatPromptTemplate.from_messages([
 
 def retrieve_context(query: str, user_id: str):
     """Retrieve relevant memories from Mem0"""
-    memories = mem0.search(query, user_id=user_id)
+    memories = mem0.search(query, filters={"user_id": user_id})
     memory_list = memories['results']
     serialized = ' '.join([m["memory"] for m in memory_list])
     return [
@@ -66,7 +66,9 @@ def chat_turn(user_input: str, user_id: str) -> str:
 
 Source: [docs.mem0.ai/integrations/crewai](https://docs.mem0.ai/integrations/crewai)
 
-CrewAI has native Mem0 integration via `memory_config`:
+Install: `pip install crewai crewai-tools mem0ai`
+
+Newer CrewAI versions removed the `memory_config={"provider": "mem0"}` shortcut on `Crew(...)`. Wire Mem0 in explicitly through `MemoryClient` (retrieve, inject into the task, store). CrewAI's own `ExternalMemory` API is the native alternative; see the [CrewAI memory docs](https://docs.crewai.com/en/concepts/memory) for the shape your version expects.
 
 ```python
 from crewai import Agent, Task, Crew, Process
@@ -74,7 +76,6 @@ from mem0 import MemoryClient
 
 client = MemoryClient()
 
-# Store user preferences first
 messages = [
     {"role": "user", "content": "I am more of a beach person than a mountain person."},
     {"role": "assistant", "content": "Noted! I'll recommend beach destinations."},
@@ -82,41 +83,41 @@ messages = [
 ]
 client.add(messages, user_id="crew_user_1")
 
-# Create agent
-travel_agent = Agent(
-    role="Personalized Travel Planner",
-    goal="Plan personalized travel itineraries",
-    backstory="You are a seasoned travel planner.",
-    memory=True,
-)
+def get_user_context(user_id: str, query: str) -> str:
+    results = client.search(query, filters={"user_id": user_id}).get("results", [])
+    return "\n".join(f"- {m['memory']}" for m in results)
 
-# Create task
-task = Task(
-    description="Find places to live, eat, and visit in San Francisco.",
-    expected_output="A detailed list of places to live, eat, and visit.",
-    agent=travel_agent,
-)
+def plan_trip(destination: str, user_id: str):
+    travel_agent = Agent(
+        role="Personalized Travel Planner",
+        goal="Plan personalized travel itineraries",
+        backstory="You are a seasoned travel planner.",
+    )
+    user_context = get_user_context(user_id, f"travel preferences for {destination}")
+    task = Task(
+        description=f"""Find places to live, eat, and visit in {destination}.
 
-# Setup crew with Mem0 memory
-crew = Crew(
-    agents=[travel_agent],
-    tasks=[task],
-    process=Process.sequential,
-    memory=True,
-    memory_config={
-        "provider": "mem0",
-        "config": {"user_id": "crew_user_1"},
-    }
-)
+        Known preferences for this user:
+        {user_context or "No stored preferences yet."}
+        """,
+        expected_output=f"A detailed list of places to live, eat, and visit in {destination}.",
+        agent=travel_agent,
+    )
+    crew = Crew(agents=[travel_agent], tasks=[task], process=Process.sequential)
+    result = crew.kickoff()
+    client.add([{"role": "user", "content": f"Planned a trip to {destination}."}], user_id=user_id)
+    return result
 
-result = crew.kickoff()
+result = plan_trip("San Francisco", "crew_user_1")
 ```
+
+`add()` is asynchronous on the Platform, so the seed memories above are not searchable the instant it returns and a `plan_trip` call straight after it can see no preferences. Run the seeding in an earlier session, or wait until the `add` event is `SUCCEEDED` (poll `GET /v1/event/{event_id}/`) before the first `plan_trip`. The `add` at the end of `plan_trip` only writes, so it needs no wait.
 
 ---
 
 ## Vercel AI SDK
 
-> **Dedicated skill available.** For comprehensive Vercel AI SDK documentation, see the [mem0-vercel-ai-sdk skill](../mem0-vercel-ai-sdk/SKILL.md) ([GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-vercel-ai-sdk)).
+> **Dedicated skill available.** For comprehensive Vercel AI SDK documentation, see the [mem0-vercel-ai-sdk skill](../../mem0-vercel-ai-sdk/SKILL.md) ([GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-vercel-ai-sdk)).
 
 Install: `npm install @mem0/vercel-ai-provider`
 
@@ -150,7 +151,7 @@ mem0 = MemoryClient()
 @function_tool
 def search_memory(query: str, user_id: str) -> str:
     """Search through past conversations and memories"""
-    memories = mem0.search(query, user_id=user_id, top_k=3)
+    memories = mem0.search(query, filters={"user_id": user_id}, top_k=3)
     if memories and memories.get('results'):
         return "\n".join([f"- {mem['memory']}" for mem in memories['results']])
     return "No relevant memories found."
@@ -209,7 +210,11 @@ result = Runner.run_sync(triage_agent, "Plan a healthy meal for my Italy trip")
 
 Source: [docs.mem0.ai/integrations/pipecat](https://docs.mem0.ai/integrations/pipecat)
 
+Install: `pip install "pipecat-ai[mem0]"`
+
 ```python
+import os
+
 from pipecat.services.mem0 import Mem0MemoryService
 
 memory = Mem0MemoryService(
@@ -235,8 +240,6 @@ pipeline = Pipeline([
     assistant_context
 ])
 ```
-
-
 
 ---
 
@@ -266,7 +269,7 @@ def chatbot(state: State):
     user_id = state["mem0_user_id"]
 
     # Retrieve relevant memories
-    memories = mem0.search(messages[-1].content, user_id=user_id)
+    memories = mem0.search(messages[-1].content, filters={"user_id": user_id})
     context = "Relevant context:\n"
     for memory in memories["results"]:
         context += f"- {memory['memory']}\n"
@@ -344,6 +347,8 @@ Install: `pip install autogen mem0ai`
 Multi-agent conversational systems with memory persistence.
 
 ```python
+import os
+
 from autogen import ConversableAgent
 from mem0 import MemoryClient
 
@@ -359,7 +364,7 @@ agent = ConversableAgent(
 
 def get_context_aware_response(question: str) -> str:
     # Retrieve memories for context
-    relevant_memories = memory_client.search(question, user_id=USER_ID)
+    relevant_memories = memory_client.search(question, filters={"user_id": USER_ID})
     context = "\n".join([m["memory"] for m in relevant_memories.get("results", [])])
 
     prompt = f"""Answer considering previous interactions:
@@ -384,12 +389,15 @@ Beyond the examples above, Mem0 integrates with:
 
 | Framework | Type | Install |
 |-----------|------|---------|
-| [Mastra](https://docs.mem0.ai/integrations/mastra) | TS agent framework | `npm install @mastra/mem0` |
+| [Mastra](https://docs.mem0.ai/integrations/mastra) | TS agent framework | `npm install @mastra/core @mastra/mem0 @ai-sdk/openai zod` |
 | [ElevenLabs](https://docs.mem0.ai/integrations/elevenlabs) | Voice AI | `pip install elevenlabs mem0ai` |
 | [LiveKit](https://docs.mem0.ai/integrations/livekit) | Real-time voice/video | `pip install livekit-agents mem0ai` |
-| [Camel AI](https://docs.mem0.ai/integrations/camel-ai) | Multi-agent framework | `pip install camel-ai[all] mem0ai` |
-| [AWS Bedrock](https://docs.mem0.ai/integrations/aws-bedrock) | Cloud LLM provider | `pip install boto3 mem0ai` |
+| [Camel AI](https://docs.mem0.ai/integrations/camel-ai) | Multi-agent framework | `pip install "camel-ai>=0.2.0" mem0ai` |
+| [AWS Bedrock](https://docs.mem0.ai/integrations/aws-bedrock) | Cloud LLM provider | `pip install mem0ai boto3 opensearch-py` |
 | [Dify](https://docs.mem0.ai/integrations/dify) | Low-code AI platform | Plugin-based |
 | [Google AI ADK](https://docs.mem0.ai/integrations/google-ai-adk) | Google agent framework | `pip install google-adk mem0ai` |
+| [Agno](https://docs.mem0.ai/integrations/agno) | Multimodal agent framework | `pip install agno mem0ai` |
+| [Strands Agents](https://docs.mem0.ai/integrations/strands) | AWS agent SDK (native `MemoryStore`) | `pip install mem0-strands` |
+| [LangChain Tools](https://docs.mem0.ai/integrations/langchain-tools) | Mem0 tools for any LangChain agent | `pip install langchain_core mem0ai` |
 
 For the general Python pattern (no framework), see the "Common integration pattern" in [SKILL.md](../SKILL.md).
