@@ -399,6 +399,62 @@ def test_gpt5_uses_max_completion_tokens(mock_openai_client):
     assert "max_tokens" not in call_kwargs
 
 
+def test_gemma4_uses_max_output_tokens(mock_openai_client, monkeypatch):
+    """Gemma 4 on Bedrock Mantle expects max_output_tokens in the request body."""
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    config = OpenAIConfig(model="gemma-4-31b", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "max_tokens" not in call_kwargs
+    assert "max_completion_tokens" not in call_kwargs
+    assert "max_output_tokens" not in call_kwargs
+    assert call_kwargs["extra_body"] == {"max_output_tokens": 100}
+    assert call_kwargs["temperature"] == 0.7
+    assert call_kwargs["top_p"] == 1.0
+
+
+def test_gemma4_preserves_explicit_max_output_tokens(mock_openai_client, monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    config = OpenAIConfig(model="bedrock/gemma-4-31b", max_tokens=100)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages, extra_body={"max_output_tokens": 250, "custom": "value"})
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "max_tokens" not in call_kwargs
+    assert call_kwargs["extra_body"] == {"max_output_tokens": 250, "custom": "value"}
+
+
+def test_openrouter_gemma4_keeps_max_tokens(mock_openai_client, monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    config = OpenAIConfig(model="gemma-4-31b", max_tokens=100)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs["max_tokens"] == 100
+    assert "extra_body" not in call_kwargs
+
+
 def test_gpt4_uses_max_tokens(mock_openai_client):
     """Older models (gpt-4.x) keep using max_tokens — guards against regressions."""
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0)
