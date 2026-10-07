@@ -139,7 +139,8 @@ class TestMilvusDB:
         # Verify results are parsed correctly
         assert len(results) == 1
         assert results[0].id == "mem1"
-        assert results[0].score == 0.8
+        # fixture uses COSINE metric: distance must be converted to similarity
+        assert results[0].score == pytest.approx(0.2)  # max(0, 1 - 0.8)
 
     def test_search_different_user_ids(self, milvus_db, mock_milvus_client):
         """Test that search works with different user_ids (reproduces reported bug)."""
@@ -241,13 +242,14 @@ class TestMilvusDB:
         ]
         
         parsed = milvus_db._parse_output(raw_data)
-        
+
         assert len(parsed) == 2
         assert parsed[0].id == "mem1"
-        assert parsed[0].score == 0.9
+        # fixture uses COSINE metric: distance must be converted to similarity
+        assert parsed[0].score == pytest.approx(0.1)  # max(0, 1 - 0.9)
         assert parsed[0].payload == {"user_id": "alice"}
         assert parsed[1].id == "mem2"
-        assert parsed[1].score == 0.85
+        assert parsed[1].score == pytest.approx(0.15)  # max(0, 1 - 0.85)
 
     def test_update_with_none_vector_fetches_existing(self, milvus_db, mock_milvus_client):
         """Test that update with vector=None fetches the existing vector (fixes #3708)."""
@@ -394,6 +396,37 @@ class TestMilvusDB:
 
         # create_collection should not be called
         mock_milvus_client.create_collection.assert_not_called()
+
+    def test_keyword_search_keeps_raw_bm25_score(self, milvus_db, mock_milvus_client):
+        """BM25 keyword hits must keep their higher-is-better score, not be distance-converted."""
+        mock_milvus_client.search.return_value = [[
+            {"id": "mem1", "distance": 5.0, "entity": {"metadata": {"user_id": "alice"}}}
+        ]]
+
+        # Force the BM25 schema path so keyword_search proceeds.
+        milvus_db._has_bm25_schema = True
+
+        results = milvus_db.keyword_search("hello", top_k=5, filters={"user_id": "alice"})
+
+        assert len(results) == 1
+        # BM25 score 5.0 must pass through unchanged (not 1/(1+5) = ~0.167).
+        assert results[0].score == 5.0
+
+    def test_cosine_distance_converted_to_similarity(self, milvus_db):
+        """Regression for #6933: COSINE distance must become similarity per the base contract."""
+        # milvus_db fixture uses MetricType.COSINE
+        raw_data = [
+            {"id": "mem1", "distance": 0.0, "entity": {"metadata": {"user_id": "alice"}}},
+            {"id": "mem2", "distance": 1.0, "entity": {"metadata": {"user_id": "bob"}}},
+            {"id": "mem3", "distance": 2.0, "entity": {"metadata": {"user_id": "carol"}}},
+        ]
+
+        parsed = milvus_db._parse_output(raw_data)
+
+        # Best match (distance 0) must score highest, per base.py contract
+        assert parsed[0].score == pytest.approx(1.0)  # max(0, 1-0)
+        assert parsed[1].score == pytest.approx(0.0)  # max(0, 1-1)
+        assert parsed[2].score == pytest.approx(0.0)  # max(0, 1-2) clamps at 0
 
 
 if __name__ == "__main__":
