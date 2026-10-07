@@ -183,16 +183,28 @@ def get_image_description(image_obj, llm, vision_details):
     return response
 
 
-def parse_vision_messages(messages, llm=None, vision_details="auto"):
+def parse_vision_messages(messages, llm=None, vision_details="auto", return_source_indices=False):
     """
-    Parse the vision messages from the messages
+    Parse the vision messages from the messages.
+
+    When ``return_source_indices`` is True, also return, for each surviving message,
+    its position in the caller's original ``messages`` array. This parse drops some
+    turns (a content-less assistant tool-call, a text-less content list, an image
+    when ``llm`` is None), so a downstream loop position no longer matches the
+    caller's — the original index is the only one that survives the parse step.
     """
     returned_messages = []
-    for msg in messages:
+    source_indices = []
+
+    def _keep(m, idx):
+        returned_messages.append(m)
+        source_indices.append(idx)
+
+    for idx, msg in enumerate(messages):
         role = msg.get("role")
         content = msg.get("content")
         if role == "system":
-            returned_messages.append(msg)
+            _keep(msg, idx)
             continue
 
         # Skip messages without content (e.g. assistant tool-call messages
@@ -209,10 +221,10 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
                 ]
                 if not text_parts:
                     continue
-                returned_messages.append({"role": role, "content": " ".join(text_parts)})
+                _keep({"role": role, "content": " ".join(text_parts)}, idx)
             else:
                 description = get_image_description(msg, llm, vision_details)
-                returned_messages.append({"role": role, "content": description})
+                _keep({"role": role, "content": description}, idx)
         elif isinstance(content, dict) and content.get("type") == "image_url":
             if llm is None:
                 continue
@@ -222,13 +234,15 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
                 raise ValueError("image_url content part is missing image_url.url")
             try:
                 description = get_image_description(image_url, llm, vision_details)
-                returned_messages.append({"role": role, "content": description})
+                _keep({"role": role, "content": description}, idx)
             except Exception as e:
                 raise Exception(f"Error while downloading {image_url}.") from e
         else:
             # Regular text content
-            returned_messages.append(msg)
+            _keep(msg, idx)
 
+    if return_source_indices:
+        return returned_messages, source_indices
     return returned_messages
 
 
