@@ -24,8 +24,8 @@ const client = new MemoryClient({ apiKey: 'm0-xxx' });
 **Constructor:** `new MemoryClient({ apiKey, host?, identityCacheMax? })`. `apiKey` is required: the constructor throws `Mem0 API key is required` when it is missing or empty. There is no `MEM0_API_KEY` environment fallback, so pass `apiKey: process.env.MEM0_API_KEY` yourself.
 
 - Also a named export: `import { MemoryClient, Feedback, WebhookEvent } from 'mem0ai'`
-- HTTP library: `axios`
-- Timeout: 60 seconds
+- HTTP library: native `fetch` (the axios instance in `mem0.ts` is unused)
+- Timeout: none set by the SDK
 - Base URL: `https://api.mem0.ai` (override with `host`)
 - All methods are async (return `Promise`)
 - Top-level option names are camelCase and responses come back camelCased (`event_id` becomes `eventId`). Keys inside `filters` are sent as written, so keep them snake_case (`user_id`).
@@ -84,9 +84,9 @@ for (const mem of results.results) {
 | `options.rerank` | boolean | Enable semantic reranking (default: false) |
 | `options.threshold` | number | Minimum similarity (default: 0.1) |
 | `options.latestOnly` | boolean | Return only current (non-superseded) memories |
-| `options.fields` | string[] | Restrict the fields returned on each result |
-| `options.categories` | string[] | Only memories tagged with these categories |
-| `options.metadata` | object | Only memories whose metadata matches |
+| `options.fields` | string[] | Not applied in v3 |
+| `options.categories` | string[] | Not applied in v3. Use `filters: { AND: [{ categories: { in: [...] } }] }` |
+| `options.metadata` | object | Not applied in v3. Use `filters: { AND: [{ metadata: {...} }] }` |
 | `options.showExpired` | boolean | Include memories past their expiration date |
 | `options.referenceDate` | string \| number | Treat this as "now" for relative time queries |
 | `options.keywordSearch` | boolean | Search by keywords |
@@ -118,8 +118,7 @@ const filtered = await client.getAll({
 | `options.filters` | object | Filter object with entity IDs (`user_id`, `agent_id`, etc.) and/or `AND`/`OR`/`NOT` conditions |
 | `options.page` | number | Page number |
 | `options.pageSize` | number | Results per page (default: 100, max: 200) |
-| `options.startDate` / `options.endDate` | string | Restrict by creation date |
-| `options.categories` | string[] | Only memories tagged with these categories |
+| `options.startDate` / `options.endDate` / `options.categories` | - | Not applied in v3. Use `filters` with `created_at` or `categories` |
 | `options.latestOnly` | boolean | Return only current (non-superseded) memories |
 | `options.showExpired` | boolean | Include memories past their expiration date |
 
@@ -163,7 +162,7 @@ Takes top-level `userId`, `agentId`, `appId`, `runId` (not `filters`).
 
 ```typescript
 const history = await client.history('ea925981-...');
-// Returns: [{id, memoryId, input, oldMemory, newMemory, userId, categories, event, createdAt, updatedAt}]
+// Returns: [{id, memoryId, input, oldMemory, newMemory, event, userId, categories, metadata, createdAt, updatedAt}]
 ```
 
 ---
@@ -193,7 +192,7 @@ await client.batchDelete(['uuid-1', 'uuid-2', 'uuid-3']);
 
 ```typescript
 const users = await client.users({ page: 1, pageSize: 50 });
-// Returns: {count, next, previous, results: [{id, name, type, totalMemories, createdAt, updatedAt, owner}, ...]}
+// Returns: {count, next, previous, totalUsers, totalAgents, totalApps, totalRuns, results: [{id, name, type, createdAt, updatedAt, owner, metadata, isPlayground}, ...]}
 ```
 
 #### deleteUsers(params)
@@ -275,7 +274,7 @@ await client.feedback({
 ```typescript
 const exportReq = await client.createMemoryExport({
     schema: { type: 'object', properties: { name: { type: 'string' } } },
-    filters: { user_id: 'alice' },
+    filters: { AND: [{ user_id: 'alice' }] },
     exportInstructions: 'Build a profile from all memories',
 });
 
@@ -488,8 +487,8 @@ await client.search("query", { filters: { user_id: "alice" }, topK: 20 });
 | Param | v2 | v3 |
 |-------|----|----|
 | `topK` (OSS) | 100 | 20 |
-| `threshold` | none | 0.1 |
-| `rerank` | true | false |
+| `threshold` | 0.3 (Platform), none (OSS) | 0.1 |
+| `rerank` | false (Platform), true (OSS) | false |
 
 Platform `topK` defaults to 10 (max 1000).
 

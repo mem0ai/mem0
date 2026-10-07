@@ -106,17 +106,17 @@ The root can also be a bare condition such as `{"user_id": "alice"}`. Sibling to
 | `categories` | `in`, `contains` (`eq` and `ne` are rejected) |
 | `metadata` | `eq`, `ne`, `contains` (top-level keys only) |
 | `keywords` | `contains`, `icontains` |
-| `memory_ids` | `in` |
+| `memory_ids` | plain list of UUIDs (no `in`) |
 
 ### Filter Constraints
 
 1. **Entity scope partitioning:** `user_id` AND `agent_id` in one `AND` block yields empty results (except for Direct Import records).
 2. **Metadata limitations:** Only top-level keys. Only `eq`, `contains`, `ne`. No `in` or `gt`.
-3. **Operator syntax:** Use `gte`, `lt`, `ne`. SQL-style (`>=`, `!=`) rejected. There is no `nin` on Platform: use `{"NOT": {"categories": {"in": [...]}}}`.
+3. **Operator syntax:** Use `gte`, `lt`, `ne`. SQL-style (`>=`, `!=`) rejected. There is no `nin` on Platform: use `{"NOT": [{"categories": {"in": [...]}}]}`.
 4. **Entity filter required for get-all:** At least one of `user_id`, `agent_id`, `app_id`, or `run_id`.
 5. **Wildcard excludes null:** `*` matches only non-null values.
 6. **Date format:** ISO 8601 (`YYYY-MM-DDTHH:MM:SSZ`). Timezone-naive defaults to UTC.
-7. **Keyword filter:** `keywords` works in `get_all` filters but returns a 500 inside `search()` filters (MEM-5746). Pass the text as `query` for search.
+7. **Keyword filter:** `keywords` works in `get_all` filters but returns a 503 inside `search()` filters (MEM-5746). Pass the text as `query` for search.
 
 ## Response Formats
 

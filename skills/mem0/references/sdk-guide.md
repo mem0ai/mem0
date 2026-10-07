@@ -142,12 +142,11 @@ filters={"AND": [
 ]}
 
 # Exclude categories with NOT
-filters={"AND": [{"user_id": "user_123"}, {"NOT": {"categories": {"in": ["spam", "test"]}}}]}
+filters={"AND": [{"user_id": "user_123"}, {"NOT": [{"categories": {"in": ["spam", "test"]}}]}]}
 
 # Multi-dimensional query
 filters={"AND": [
     {"user_id": "user_123"},
-    {"keywords": {"icontains": "invoice"}},
     {"categories": {"in": ["finance"]}},
     {"created_at": {"gte": "2024-01-01T00:00:00Z"}}
 ]}
@@ -237,7 +236,7 @@ await client.deleteAll({ userId: "alice" });
 **Python:**
 ```python
 history = client.history(memory_id="ea925981-...")
-# Returns: [{previous_value, new_value, action, timestamps}]
+# Returns: [{id, memory_id, input, old_memory, new_memory, event, user_id, categories, metadata, created_at, updated_at}]
 ```
 
 **TypeScript:**
@@ -357,8 +356,8 @@ v3 TypeScript uses camelCase for all parameters:
 
 | Parameter | v2 Default | v3 Default |
 |-----------|------------|------------|
-| `threshold` | none | 0.1 |
-| `rerank` | `true` | `false` |
+| `threshold` | 0.3 | 0.1 |
+| `rerank` | `false` | `false` |
 
 **4. Removed Parameters**
 

@@ -122,8 +122,8 @@ Query In
 | Parameter | Default | Notes |
 |-----------|---------|-------|
 | `top_k` | 10 | Range 1-1000 (OSS default is 20) |
-| `threshold` | 0.1 | Was None in v2. Pass `0.0` to disable |
-| `rerank` | False | Was True in v2 |
+| `threshold` | 0.1 | Was 0.3 on Platform v2 (None on OSS v2). Pass `0.0` to disable |
+| `rerank` | False | Was False on Platform v2 (True on OSS v2) |
 
 ### Unmentioned entities are not constrained
 

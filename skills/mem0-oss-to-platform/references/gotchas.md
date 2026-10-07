@@ -88,7 +88,7 @@ platform form: pass `user_id`/`agent_id`/`app_id`/`run_id` directly.
 
 ## 11. Filters and update/add signatures
 - Platform `filters` only accept an allowlist of top-level keys; custom metadata must be nested under
-  `"metadata"` and supports only `eq`/`ne`/`contains` (no `nin`). OSS filters on arbitrary metadata
+  `"metadata"` and supports only `eq`/`ne`/`contains` (no `nin`; use a `NOT` list, e.g. `{"NOT": [{"categories": {"in": [...]}}]}`). OSS filters on arbitrary metadata
   keys or richer operators need rewriting or a decision.
 - Python `update` takes `text=` as a keyword (a positional string breaks); TS `update` requires an
   options object and TS `add` requires `Message[]`, not a bare string.

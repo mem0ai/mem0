@@ -252,7 +252,7 @@ schema = {
 # Create export
 response = client.create_memory_export(
     schema=schema,
-    filters={"user_id": "alice"},
+    filters={"AND": [{"user_id": "alice"}]},
     export_instructions="Create comprehensive profile based on all memories"
 )
 

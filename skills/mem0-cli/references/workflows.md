@@ -88,6 +88,8 @@ Output:
 }
 ```
 
+This is the Python CLI output. The Node CLI omits `scope` and writes the `Importing memories... n/n` progress line to stdout before the JSON, so its output cannot be piped to `jq`.
+
 ---
 
 ## Agent Mode for LLM Consumption
@@ -143,7 +145,7 @@ Output:
 
 ## JSON Output + jq
 
-Use `--output json` (or `-o json`) for JSON output, then pipe to `jq` for processing. `search`, `get`, `add`, `update`, and `delete` print the raw API response. `list`, `status`, and `import` print the standard envelope instead, so read the results from `.data`.
+Use `--output json` (or `-o json`) for JSON output, then pipe to `jq` for processing. `search`, `get`, `add`, `update`, and `delete` print the raw API response. `list`, `status`, and `import` print the standard envelope instead, so read the results from `.data`. Piping `import` to `jq` works only with the Python CLI (Node writes its progress line to stdout ahead of the JSON).
 
 ### Extract just memory text
 

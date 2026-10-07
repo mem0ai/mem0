@@ -62,11 +62,11 @@ For **add** and **delete_all**, top-level entity IDs are accepted.
 
 Filter differences: Platform validates each top-level filter key against a fixed allowlist
 (`AND`/`OR`/`NOT`, `user_id`, `agent_id`, `app_id`, `run_id`, `created_at`, `updated_at`, `timestamp`,
-`expiration_date`, `text`, `categories`, `metadata`, `keywords_search`, `memory_ids`, `keywords`) and
+`expiration_date`, `text`, `categories`, `metadata`, `memory_ids`, `keywords`) and
 returns 400 for anything else, so custom metadata keys must be nested under `"metadata"`
 (`{"metadata": {"plan": "pro"}}`). Platform `metadata` supports only `eq`/`ne`/`contains`, and there is
-no `nin` (use `NOT` + `in`). OSS accepts arbitrary metadata keys and a wider operator set. Flag any
-OSS filter that depends on either.
+no `nin` (use `{"NOT": [{"categories": {"in": [...]}}]}`; `NOT` must be a list). OSS accepts arbitrary
+metadata keys and a wider operator set. Flag any OSS filter that depends on either.
 
 ---
 
@@ -123,7 +123,7 @@ Also drop legacy options that no longer apply: `async_mode`, `output_format`, `e
   `event == "UPDATE"` / `"DELETE"` is dead on both sides (add is ADD-only since 2.0).
 - `history(...)` entries share `memory_id`, `old_memory`, `new_memory`, `event`, `created_at`,
   `updated_at`. OSS adds `is_deleted`, `actor_id`, `role`; the hosted API adds `input`, `user_id`,
-  `agent_id`, `app_id`, `categories`, `metadata`.
+  `categories`, `metadata`.
 
 ---
 

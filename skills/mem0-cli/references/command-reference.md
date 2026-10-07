@@ -214,7 +214,7 @@ Search memories by semantic query.
 | `--rerank` | boolean | false | Enable reranking for improved relevance (Platform only). |
 | `--keyword` | boolean | false | Use keyword search. |
 | `--filter <json>` | string | - | Advanced filter expression as JSON. If it contains `AND` or `OR` it is sent as-is and entity IDs (including config defaults) are not merged in. |
-| `--fields <list>` | string | - | Comma-separated list of fields to return. |
+| `--fields <list>` | string | - | Comma-separated list of fields to return. Sent to the API but not applied by v3 search. |
 | `--show-expired` | boolean | false | Include expired memories. |
 | `--reference-date <date>` | string | - | Reference date for relative queries (YYYY-MM-DD or unix timestamp). |
 | `--latest-only` | boolean | false | Only return the latest version of each memory. |
@@ -416,7 +416,7 @@ Import memories from a JSON file.
 ]
 ```
 
-**Behavior:** Iterates through items, calling the add API for each. Displays progress and reports `added` and `failed` counts on completion (text mode writes the summary to stderr). Only `-u`, `--agent-id`, `-o`, `--api-key` and `--base-url` are accepted.
+**Behavior:** Iterates through items, calling the add API for each. Displays progress and reports `added` and `failed` counts on completion (text mode writes the summary to stderr). In JSON mode the Python CLI sends progress to stderr and includes `scope` in the envelope; the Node CLI writes the progress line to stdout before the JSON (so `| jq` fails) and omits `scope`. Only `-u`, `--agent-id`, `-o`, `--api-key` and `--base-url` are accepted.
 
 **Examples:**
 ```bash

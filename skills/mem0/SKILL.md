@@ -145,7 +145,7 @@ def chat(user_input: str, user_id: str) -> str:
 
 The "v2" line is Python SDK 1.x and TypeScript SDK 2.x. If you are still on it, note these differences from the current SDKs (Python 2.x, TypeScript 3.x):
 - **Entity IDs:** `user_id` / `agent_id` / `run_id` could be top-level kwargs on `search()` and `get_all()`. They now go inside `filters` (top-level raises an error)
-- **Defaults (Platform):** no threshold, `rerank=True`. OSS: `top_k=100`, no threshold, `rerank=True`
+- **Defaults (Platform):** `threshold=0.3`, `rerank=False`. OSS: `top_k=100`, no threshold, `rerank=True`
 - **Graph memory:** `enable_graph=True` and `relations` are gone. Entity linking is built in (see [client/python.md](client/python.md) for OSS)
 
 See the [Platform migration guide](https://docs.mem0.ai/migration/platform-v2-to-v3) and the [OSS migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for details.

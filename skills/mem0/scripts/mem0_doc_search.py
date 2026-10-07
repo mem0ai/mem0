@@ -20,6 +20,8 @@ Purpose:
     - Search across the full Mem0 documentation site
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import re
@@ -33,7 +35,6 @@ LLMS_INDEX = f"{DOCS_BASE}/llms.txt"
 ENTRY_URL = re.compile(r"\((https?://[^)\s]+)\)")
 MAX_RESULTS = 20
 
-# Known documentation sections for targeted retrieval
 SECTION_MAP = {
     "platform": [
         "/platform/overview",
@@ -82,9 +83,9 @@ def fetch_url(url: str) -> str:
         with urllib.request.urlopen(req, timeout=15) as resp:
             return resp.read().decode("utf-8")
     except urllib.error.HTTPError as e:
-        return f"HTTP Error {e.code}: {e.reason}"
-    except urllib.error.URLError as e:
-        return f"URL Error: {e.reason}"
+        sys.exit(f"Error fetching {url}: HTTP {e.code} {e.reason}")
+    except OSError as e:
+        sys.exit(f"Error fetching {url}: {e}")
 
 
 def index_entries() -> list:
@@ -126,9 +127,11 @@ def search_docs(query: str, section: str | None = None) -> dict:
 
 def fetch_page(page_path: str) -> dict:
     """Fetch a specific documentation page as markdown."""
-    url = f"{DOCS_BASE}{page_path}" if page_path.startswith("/") else page_path
-    if not url.endswith(".md"):
-        url = f"{url.rstrip('/')}.md"
+    parts = urllib.parse.urlsplit(urllib.parse.urljoin(DOCS_BASE, page_path))
+    path = parts.path.rstrip("/")
+    if not path.endswith(".md"):
+        path = f"{path}.md"
+    url = urllib.parse.urlunsplit((parts.scheme, parts.netloc, path, "", ""))
     content = fetch_url(url)
     return {"url": url, "content": content[:10000], "truncated": len(content) > 10000}
 

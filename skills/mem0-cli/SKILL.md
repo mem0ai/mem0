@@ -130,7 +130,7 @@ On error:
 }
 ```
 
-The `--agent` flag is an alias for `--json` (except on `mem0 init`, where `--agent` is the Agent Mode bootstrap flag). Both write spinners and progress to stderr so stdout is always clean, parseable JSON. Optional keys: `duration_ms`, `scope`, `count` appear only where relevant, and `mem0_notice` appears when the platform flags an unclaimed Agent Mode account.
+The `--agent` flag is an alias for `--json` (except on `mem0 init`, where `--agent` is the Agent Mode bootstrap flag). Both write spinners and progress to stderr so stdout is clean, parseable JSON (the one exception is Node `import`, see below). Optional keys: `duration_ms`, `scope`, `count` appear only where relevant, and `mem0_notice` appears when the platform flags an unclaimed Agent Mode account.
 
 ## Node and Python Differences
 
@@ -139,6 +139,7 @@ Both the Node.js (`@mem0/cli`) and Python (`mem0-cli`) CLIs share the command se
 - **`--json` / `--agent` placement:** Python accepts the flag anywhere on the command line. Node reads it only as a global option, so put it before the subcommand (`mem0 --json list`). `mem0 init --json` and `mem0 help --json` work after the subcommand in both.
 - **`--limit`:** `mem0 search --limit` is a Python-only alias for `--top-k`.
 - **Agent-mode `delete --all` data:** Python returns `{"deleted": true}` (plus scope for `--project`); Node returns the raw API result.
+- **`import` JSON output:** Python prints the envelope with `scope`. Node omits `scope` and writes the `Importing memories... n/n` progress line to stdout before the JSON, so only Python's output pipes cleanly to `jq`.
 - **Message text:** The empty-search error (`Search query cannot be empty.` in Python, `No query provided...` in Node) and the delete dry-run footers differ slightly.
 
 ## Common Edge Cases

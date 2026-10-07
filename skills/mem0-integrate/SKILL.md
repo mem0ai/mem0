@@ -36,7 +36,7 @@ of the Mem0 API.
 - Scope-tagged docs index: https://docs.mem0.ai/llms.txt
 - Full docs (single file, deep dives): https://docs.mem0.ai/llms-full.txt
 - OpenAPI spec (Platform REST, machine-readable): https://docs.mem0.ai/openapi.json
-- Hosted MCP server: https://mcp.mem0.ai (requires Platform API key)
+- Hosted MCP server: https://mcp.mem0.ai/mcp (requires Platform API key)
 - Integrations index: https://docs.mem0.ai/integrations
 
 ### Published Mem0 skills — delegate; do not reimplement
@@ -109,7 +109,7 @@ the target stack. If yes, delegate — copy its call-site pattern into
 |---|---|---|
 | `@ai-sdk/*` + `ai` in `package.json` | `skills/mem0-vercel-ai-sdk` | Integration is via `createMem0` provider wrapper, not raw `MemoryClient`. |
 | CLI-only repo (Typer, Commander, Click, Cobra) with no LLM call sites | `skills/mem0-cli` | Call sites are command handlers, not model wrappers. Consider whether mem0 actually fits first. |
-| Target is an MCP client / editor config (Claude Code, Cursor, Codex settings) | `integrations/mem0-agent-plugin` | Local stdio MCP server (one search tool) plus skills, no hooks or automatic capture; for a hosted endpoint use `https://mcp.mem0.ai`. No SDK code usually needed. |
+| Target is an MCP client / editor config (Claude Code, Cursor, Codex settings) | `integrations/mem0-agent-plugin` | Local stdio MCP server (one search tool) plus skills, no hooks or automatic capture; for a hosted endpoint use `https://mcp.mem0.ai/mcp`. No SDK code usually needed. |
 | Any other Python or TS repo with an LLM call site | `skills/mem0` | Default SDK integration path. |
 
 Record the delegated skill's raw URL in `plan.md` under a

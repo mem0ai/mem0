@@ -1,18 +1,15 @@
 ---
 name: mem0-oss-to-platform
 description: >-
-  Plan and then execute a migration of a project from the mem0 open-source / self-hosted SDK
-  (the local `Memory` class) to the mem0 Platform / hosted / managed SDK (the `MemoryClient`
-  class). Use this whenever a developer wants to move, switch, or migrate their mem0 usage off
-  OSS/self-hosted to the hosted API — e.g. "migrate my mem0 setup to the platform", "switch from
-  self-hosted mem0 to MemoryClient", "use my mem0 API key instead of a local Qdrant", "move mem0
-  to the cloud/hosted/managed service", or "replace my local mem0 vector store + embedder config
-  with the platform". Applies to Python (`from mem0 import Memory` → `from mem0 import MemoryClient`)
-  and TypeScript/JavaScript (`import { Memory } from "mem0ai/oss"` → `import MemoryClient from "mem0ai"`).
-  Trigger even when the user doesn't say the word "migrate" but clearly wants their existing mem0
-  integration to run against the hosted platform. It first produces a reviewable migration plan,
-  then executes it after the developer approves. Strictly scoped to the mem0 integration — it does
-  not refactor, restructure, or "improve" any unrelated code.
+  Plan, then execute, a migration of a project from the mem0 open-source / self-hosted SDK
+  (local `Memory` class) to the mem0 Platform / hosted SDK (`MemoryClient`). TRIGGER when: the
+  developer wants to move, switch, or migrate mem0 off OSS/self-hosted to the hosted API, e.g.
+  "migrate my mem0 setup to the platform", "switch from self-hosted mem0 to MemoryClient", "use my
+  mem0 API key instead of a local Qdrant", "replace my local vector store + embedder config with
+  the platform", even without the word "migrate". Covers Python (`Memory` to `MemoryClient`) and
+  TypeScript (`mem0ai/oss` to `mem0ai`). Produces a reviewable plan, then executes it after
+  approval. Touches only the mem0 integration. DO NOT TRIGGER when: adding mem0 to a project that
+  has none (use `mem0-integrate`) or answering SDK usage questions (use `mem0`).
 license: Apache-2.0
 metadata:
   author: mem0ai

@@ -70,7 +70,7 @@ client.add(messages, user_id="alice")
 | `custom_instructions` | str | None | Override extraction instructions |
 | `agent_custom_instructions` | str | None | Extraction instructions for agent-scoped memories |
 | `expiration_date` | str | None | `YYYY-MM-DD`, memory is hidden after this date |
-| `timestamp` | int \| float \| str | None | Custom timestamp (Unix epoch or ISO 8601) |
+| `timestamp` | int | None | Custom timestamp (Unix epoch seconds) |
 
 **Returns:** `dict` -- asynchronous by default: `{"event_id": "...", "status": "PENDING"}`. Poll `GET /v1/event/{event_id}/` until `SUCCEEDED`. With `infer=False` it is synchronous and returns the stored `results`.
 
@@ -91,9 +91,9 @@ for mem in results.get("results", []):
 | `top_k` | int | 10 | Number of results |
 | `rerank` | bool | False | Enable deep semantic reranking (+150-200ms) |
 | `threshold` | float | 0.1 | Minimum similarity score |
-| `fields` | list | None | Specific fields to return |
-| `categories` | list | None | Filter by category |
-| `metadata` | dict | None | Filter by metadata |
+| `fields` | - | - | Not applied in v3 |
+| `categories` | - | - | Not applied in v3. Use `filters={"AND": [{"categories": {"in": [...]}}]}` |
+| `metadata` | - | - | Not applied in v3. Use `filters={"AND": [{"metadata": {...}}]}` |
 | `reference_date` | str \| int | None | Anchor for relative time queries (`YYYY-MM-DD`, ISO datetime, or Unix epoch) |
 | `show_expired` | bool | False | Include memories past their `expiration_date` |
 | `latest_only` | bool | None | Only return the latest version of a memory |
@@ -125,8 +125,7 @@ memories = client.get_all(filters={"AND": [{"user_id": "alice"}, {"categories": 
 | `filters` | dict | None | Filter object with entity IDs and/or `AND`/`OR`/`NOT` conditions |
 | `page` | int | 1 | Page number |
 | `page_size` | int | 100 | Results per page (max 200) |
-| `start_date` / `end_date` | str | None | Only memories created on or after / before this date |
-| `categories` | list | None | Filter by category |
+| `start_date` / `end_date` / `categories` | - | - | Not applied in v3. Use `filters` with `created_at` or `categories` |
 | `show_expired` | bool | False | Include expired memories |
 | `latest_only` | bool | None | Only return the latest version of a memory |
 
@@ -166,7 +165,7 @@ Get the change history of a memory.
 
 ```python
 history = client.history("ea925981-...")
-# Returns: [{previous_value, new_value, action, timestamps}]
+# Returns: [{id, memory_id, input, old_memory, new_memory, event, user_id, categories, metadata, created_at, updated_at}]
 ```
 
 ---
@@ -505,8 +504,8 @@ The "v2" line is Python SDK 1.x (TypeScript SDK 2.x). If you are still on it, th
 | Param | v2 Platform | v3 Platform | v2 OSS | v3 OSS |
 |-------|-------------|-------------|--------|--------|
 | `top_k` | 10 | 10 | 100 | 20 |
-| `threshold` | None | 0.1 | None | 0.1 |
-| `rerank` | True | False | True | False |
+| `threshold` | 0.3 | 0.1 | None | 0.1 |
+| `rerank` | False | False | True | False |
 
 **Removed Parameters:**
 - Constructor: `org_id`, `project_id`

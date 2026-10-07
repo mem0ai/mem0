@@ -42,7 +42,7 @@ for await (const chunk of result.textStream) {
 }
 ```
 
-Memory storage and retrieval both finish before streaming begins. The Mem0 source (`sources`) is only attached by `generateText`, not by streaming.
+The add request and the memory search both finish before streaming begins (extraction itself is async). The Mem0 source (`sources`) is only attached by `generateText`, not by streaming.
 
 ## 3. Standalone Utilities with OpenAI
 
@@ -277,7 +277,7 @@ export async function POST(req: Request) {
 ```
 
 **Critical detail:** The `addMemories` call in step 2a is **awaited**, meaning:
-- The write completes (or fails) before the search and the LLM call, so the current prompt is already stored when memories are retrieved
+- The add request is sent (and awaited) before the search and the LLM call, but extraction is async (`/v3/memories/add/` only queues the work and returns `PENDING`), so facts from the current prompt are usually not searchable until a later call
 - Each wrapped call adds one Mem0 write and one Mem0 search of latency before the LLM starts
 - If the memory write fails, it logs an error and the call continues
 - `messagesPrompts` is the full prompt (all roles, including earlier turns), so every call sends the entire conversation to the add endpoint

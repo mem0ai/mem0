@@ -68,7 +68,7 @@ const { text, sources } = await generateText({
   prompt: "Recommend a restaurant",
 });
 
-console.log(sources[0].providerMetadata?.mem0);
+console.log(sources.find((s) => s.title === "Mem0 Memories")?.providerMetadata?.mem0);
 ```
 
 The source has `title: "Mem0 Memories"` and `providerMetadata.mem0` holds `memories` (array of memory objects) and `memoriesText`. It is only present when at least one memory was retrieved.
