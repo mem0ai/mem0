@@ -15,7 +15,7 @@ description: >
 license: Apache-2.0
 metadata:
   author: mem0ai
-  version: "0.1.0"
+  version: "0.1.1"
   category: ai-memory
   tags: "memory, integration, tdd, platform, oss"
   mem0_tested_versions: "mem0ai (PyPI) >=2.0.0,<3.0.0; mem0ai (npm) >=3.0.0,<4.0.0"
@@ -36,7 +36,7 @@ of the Mem0 API.
 - Scope-tagged docs index: https://docs.mem0.ai/llms.txt
 - Full docs (single file, deep dives): https://docs.mem0.ai/llms-full.txt
 - OpenAPI spec (Platform REST, machine-readable): https://docs.mem0.ai/openapi.json
-- Hosted MCP server: https://mcp.mem0.ai (requires Platform API key)
+- Hosted MCP server: https://mcp.mem0.ai/mcp (requires Platform API key)
 - Integrations index: https://docs.mem0.ai/integrations
 
 ### Published Mem0 skills — delegate; do not reimplement
@@ -109,7 +109,7 @@ the target stack. If yes, delegate — copy its call-site pattern into
 |---|---|---|
 | `@ai-sdk/*` + `ai` in `package.json` | `skills/mem0-vercel-ai-sdk` | Integration is via `createMem0` provider wrapper, not raw `MemoryClient`. |
 | CLI-only repo (Typer, Commander, Click, Cobra) with no LLM call sites | `skills/mem0-cli` | Call sites are command handlers, not model wrappers. Consider whether mem0 actually fits first. |
-| Target is an MCP client / editor config (Claude Code, Cursor, Codex settings) | `integrations/mem0-agent-plugin` | Wire via MCP server URL + hooks; no SDK code usually needed. |
+| Target is an MCP client / editor config (Claude Code, Cursor, Codex settings) | `integrations/mem0-agent-plugin` | Local stdio MCP server (one search tool) plus skills, no hooks or automatic capture; for a hosted endpoint use `https://mcp.mem0.ai/mcp`. No SDK code usually needed. |
 | Any other Python or TS repo with an LLM call site | `skills/mem0` | Default SDK integration path. |
 
 Record the delegated skill's raw URL in `plan.md` under a
@@ -168,7 +168,7 @@ start executing a step; the summary below is only for routing.
 | `trace.jsonl` | Every tool call, decision, and subagent exchange this run. | Overwritten per run. |
 | `diff.patch` | The committed integration as a reviewable patch. | Overwritten per run. |
 | `heal-trace.md` | Per-attempt record of the self-healing loop (step 10). | Overwritten per run. |
-| `product.json` | `{"product": "platform"\|"oss", "language": "...", "mem0_version": "...", "write_site": "file:line", "read_site": "file:line", "feature_flag": "MEM0_ENABLED"}` — consumed by the verification skill. | Overwritten per run. |
+| `product.json` | `{"product": "platform"\|"oss", "language": "...", "mem0_version": "...", "write_site": "file:line", "read_site": "file:line", "feature_flag": "MEM0_ENABLED", "preferred_site": "<surface index from step 2>"}`, consumed by the verification skill. | Overwritten per run. |
 
 `.mem0-integration/` is added to `.gitignore` on first run. Nothing is
 written outside this directory and the repo's source tree.

@@ -51,13 +51,15 @@ unambiguous. Example:
 ## Concerns & decisions needed
 The non-1:1 items from the gotchas that apply here, each phrased as a decision for the developer.
 Cover, where relevant: data not migrating, self-hosting/data-residency, local models moving server-
-side, graph memory, custom prompts (now dashboard settings), network/latency/cost on hot paths,
-return-shape changes (`add` ADD-only, `get_all` pagination, default `top_k`/threshold/rerank), and
-any `reset()` usage. Be specific about which file/line each concern affects.
+side, graph memory, custom prompts (now project-level `custom_instructions`), network/latency/cost on
+hot paths, return-shape changes (`add` is async and returns an `event_id` (`eventId` on TS), `get_all` pagination,
+default `top_k` 20 vs 10), metadata filters that need rewriting, and any `reset()` usage. Be specific
+about which file/line each concern affects.
 
 ## Out of scope
 - Existing memory **data** is not migrated (code only). If wanted, it's a separate opt-in task
-  (export from the OSS store, re-add to the hosted client).
+  (for hosted Qdrant + Python OSS, `scripts/oss-to-platform-migrate.sh`; otherwise export from the
+  OSS store and re-add to the hosted client).
 - No unrelated refactors, renames, or behavior changes.
 
 ## Verification plan
@@ -65,7 +67,8 @@ How execution will be confirmed end-to-end:
 - Imports / type-checks / byte-compiles cleanly.
 - Smoke test against the hosted API with a real `MEM0_API_KEY`: `add` a fact → `search`/`get_all`
   returns it → `delete_all` clears it. Plus: the app's own entry point still runs.
-- Confirm no local mem0 storage dir is created anymore (e.g. `.mem0/`) — proof memory is hosted.
+- Confirm no local OSS storage is created anymore (e.g. `~/.mem0/history.db`, a local Qdrant path).
+  The client still creates `~/.mem0/config.json`, so the bare `.mem0/` directory is not the check.
 
 ## Rollback
 - All changes are in version control; revert with git if needed. Note the branch/commit strategy.
