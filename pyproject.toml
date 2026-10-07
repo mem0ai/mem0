@@ -54,6 +54,12 @@ vector-stores = [
     "langchain-aws>=0.2.23,<0.3.0",
     "oracledb>=2.2.0",
 ]
+# scylla-driver and cassandra-driver both provide the `cassandra` import
+# namespace and conflict if installed together, so ScyllaDB gets its own
+# extras group.
+scylladb = [
+    "scylla-driver>=3.29.0",
+]
 llms = [
     "groq>=0.3.0",
     "together>=0.2.10",
