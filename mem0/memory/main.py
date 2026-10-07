@@ -22,8 +22,9 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
-from mem0.exceptions import LLMError, VectorStoreError
+from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.exceptions import VectorStoreError
 from mem0.memory.base import MemoryBase
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
@@ -2062,6 +2063,7 @@ class Memory(MemoryBase):
         if existing_memory is None:
             raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
 
+        metadata_only = data is None
         prev_value = existing_memory.payload.get("data")
         if data is None:
             data = prev_value
@@ -2079,7 +2081,9 @@ class Memory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        if data in existing_embeddings:
+        if metadata_only and getattr(self.vector_store, "_supports_metadata_only_update", False) is True:
+            embeddings = None
+        elif data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
             embeddings = self.embedding_model.embed(data, "update")
@@ -3780,6 +3784,7 @@ class AsyncMemory(MemoryBase):
         if existing_memory is None:
             raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
 
+        metadata_only = data is None
         prev_value = existing_memory.payload.get("data")
         if data is None:
             data = prev_value
@@ -3797,7 +3802,9 @@ class AsyncMemory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        if data in existing_embeddings:
+        if metadata_only and getattr(self.vector_store, "_supports_metadata_only_update", False) is True:
+            embeddings = None
+        elif data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
