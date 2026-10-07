@@ -209,10 +209,12 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
                 ]
                 if not text_parts:
                     continue
-                returned_messages.append({"role": role, "content": " ".join(text_parts)})
+                new_msg = {**msg, "content": " ".join(text_parts)}
+                returned_messages.append(new_msg)
             else:
                 description = get_image_description(msg, llm, vision_details)
-                returned_messages.append({"role": role, "content": description})
+                new_msg = {**msg, "content": description}
+                returned_messages.append(new_msg)
         elif isinstance(content, dict) and content.get("type") == "image_url":
             if llm is None:
                 continue
@@ -222,7 +224,8 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
                 raise ValueError("image_url content part is missing image_url.url")
             try:
                 description = get_image_description(image_url, llm, vision_details)
-                returned_messages.append({"role": role, "content": description})
+                new_msg = {**msg, "content": description}
+                returned_messages.append(new_msg)
             except Exception as e:
                 raise Exception(f"Error while downloading {image_url}.") from e
         else:

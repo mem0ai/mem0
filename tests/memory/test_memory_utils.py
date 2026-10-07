@@ -129,6 +129,32 @@ class TestParseVisionMessages:
         assert "network down" in str(exc_info.value.__cause__)
 
 
+
+    def test_multimodal_list_preserves_name(self):
+        messages = [
+            {"role": "assistant", "name": "planner", "content": [
+                {"type": "text", "text": "What is this?"}
+            ]},
+        ]
+        result = parse_vision_messages(messages, llm=None)
+        assert len(result) == 1
+        assert result[0]["role"] == "assistant"
+        assert result[0]["name"] == "planner"
+        assert result[0]["content"] == "What is this?"
+
+    def test_image_dict_with_llm_preserves_name(self):
+        mock_llm = Mock()
+        mock_llm.generate_response.return_value = "A photo of a cat"
+        messages = [
+            {"role": "user", "name": "planner", "content": {
+                "type": "image_url", "image_url": {"url": "https://example.com/cat.png"}
+            }},
+        ]
+        result = parse_vision_messages(messages, llm=mock_llm, vision_details="auto")
+        assert result[0]["role"] == "user"
+        assert result[0]["name"] == "planner"
+        assert result[0]["content"] == "A photo of a cat"
+
 class TestRemoveSpacesFromEntities:
     """
     Covers behavior used by Neo4j, Memgraph (sanitize_relationship=True),
