@@ -1,6 +1,8 @@
 from unittest import mock
 from unittest.mock import Mock
 
+import pytest
+
 from mem0.llms.azure_openai_structured import SCOPE, AzureOpenAIStructuredLLM
 
 
@@ -302,6 +304,39 @@ def test_generate_response_rewrites_assistant_keyword_for_model_only(mock_azure_
     sent_messages = mock_client.chat.completions.create.call_args[1]["messages"]
     assert sent_messages[-1]["content"] == "my ai helps me"
     assert messages[-1]["content"] == "my assistant helps me"
+
+
+@pytest.mark.parametrize(
+    "content, expected_content",
+    [
+        ("the assistants arrived", "the assistants arrived"),
+        ("nonassistant setups exist", "nonassistant setups exist"),
+        ("assistantship program", "assistantship program"),
+        ("pass the assistant_id along", "pass the assistant_id along"),
+        ("configure my_assistant now", "configure my_assistant now"),
+        ("assistant2 2assistant", "assistant2 2assistant"),
+        ("my assistant helps with assistants", "my ai helps with assistants"),
+        ("Assistant ASSISTANT assistant", "Assistant ASSISTANT ai"),
+        ("assistant", "ai"),
+        ("(assistant), assistant's co-assistant.", "(ai), ai's co-ai."),
+    ],
+)
+def test_rewrite_assistant_keyword_respects_word_boundaries(content, expected_content):
+    messages = [
+        {"role": "assistant", "content": "I am your assistant."},
+        {"role": "user", "content": content},
+    ]
+
+    rewritten_messages = AzureOpenAIStructuredLLM._rewrite_assistant_keyword(messages)
+
+    assert rewritten_messages == [
+        {"role": "assistant", "content": "I am your assistant."},
+        {"role": "user", "content": expected_content},
+    ]
+    assert messages == [
+        {"role": "assistant", "content": "I am your assistant."},
+        {"role": "user", "content": content},
+    ]
 
 
 @mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
