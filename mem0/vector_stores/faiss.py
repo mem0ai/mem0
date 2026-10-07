@@ -223,6 +223,13 @@ class FAISS(VectorStoreBase):
             logger.warning(f"Failed to load FAISS index: {e}")
             self.docstore = {}
             self.index_to_id = {}
+            # Reset index to avoid ntotal vs mapping shift (corrupted json) or None
+            # leaving store unusable (corrupted faiss). Start clean.
+            self.index = None
+            try:
+                self.create_col(self.collection_name)
+            except Exception as ce:
+                logger.warning(f"Failed to recover FAISS store after load failure: {ce}")
 
     def _save(self):
         """Save FAISS index and docstore to disk using JSON format (secure)."""
@@ -234,7 +241,12 @@ class FAISS(VectorStoreBase):
             index_path = f"{self.path}/{self.collection_name}.faiss"
             json_docstore_path = f"{self.path}/{self.collection_name}.json"
 
-            faiss.write_index(self.index, index_path)
+            # Atomic save: write to temp files then rename to avoid truncated
+            # json when process is killed mid-dump (which triggers the
+            # index/docstore shift bug on next load).
+            tmp_index = f"{index_path}.tmp"
+            tmp_json = f"{json_docstore_path}.tmp"
+            faiss.write_index(self.index, tmp_index)
 
             # Save docstore as JSON (safe format, no code execution risk)
             # JSON keys must be strings, so convert int keys to str
@@ -242,8 +254,16 @@ class FAISS(VectorStoreBase):
                 "docstore": self.docstore,
                 "index_to_id": {str(k): v for k, v in self.index_to_id.items()},
             }
-            with open(json_docstore_path, "w", encoding="utf-8") as f:
+            with open(tmp_json, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
+            # Flush to disk before rename
+            try:
+                f.flush()
+                os.fsync(f.fileno())
+            except Exception:
+                pass
+            os.replace(tmp_index, index_path)
+            os.replace(tmp_json, json_docstore_path)
 
         except Exception as e:
             logger.warning(f"Failed to save FAISS index: {e}")
