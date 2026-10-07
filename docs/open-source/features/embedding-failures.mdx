@@ -1,0 +1,120 @@
+---
+title: Embedding Failures
+description: See exactly which memories were dropped when an embedding call fails.
+icon: "triangle-exclamation"
+---
+
+When you call `add()` with a batch of messages, some of them can fail to embed while the rest succeed. A rate limit hits halfway through, the provider returns a short batch, one vector comes back with the wrong dimension. The Node SDK reports those drops back to you instead of losing them quietly, so you can decide what to do about each one.
+
+<Info>
+  **You'll use this when…**
+  - You add memories in batches and need to know whether every one of them landed.
+  - You want to retry only the items that failed, not the whole call.
+  - You need to tell a transient provider blip apart from a misconfiguration that retrying will never fix.
+</Info>
+
+<Note>
+  This is the OSS `Memory` class in the Node SDK (`mem0ai/oss`). The Python SDK exposes the same `error_code` vocabulary and the same positional contract.
+</Note>
+
+## What `add()` returns
+
+`add()` returns an `AddResult`. `failed` is always present, and an empty array means nothing was dropped on a covered path.
+
+```typescript
+interface AddResult {
+  results: MemoryItem[];
+  failed: EmbeddingFailure[];
+}
+```
+
+Each entry in `failed` is plain data, so it survives a JSON round trip and can go straight into a queue or a log line.
+
+```typescript
+interface EmbeddingFailure {
+  text: string;
+  index: number;
+  errorClass: "provider_error" | "validation_error" | "internal_error";
+  remediation: "retry" | "reconfigure" | "escalate";
+  errorCode?: "EMBED_001" | "EMBED_002" | "EMBED_003" | "EMBED_004";
+  retryAfter?: number;
+  error: string;
+}
+```
+
+## Reading a failure
+
+Two fields answer two different questions. `errorClass` says whose fault it was. `errorCode` says which fault it was. They are deliberately not one to one: `provider_error` covers both a rate limit you should retry and an auth failure you should not.
+
+| `errorClass` | `remediation` | `errorCode` | What happened |
+| --- | --- | --- | --- |
+| `provider_error` | `retry` | `EMBED_001` | 429, a 5xx, a network reset, or the provider returned no vector for that text. Retrying can work. |
+| `provider_error` | `escalate` | `EMBED_003` | 401, 403, or another non-transient 4xx. Needs a key or a quota change, not a retry. |
+| `validation_error` | `reconfigure` | `EMBED_002` | The vector came back with the wrong dimension. Your store and your embedder disagree. |
+| `validation_error` | `escalate` | `EMBED_002` | The vector came back empty or contained a non-finite number. |
+| `internal_error` | `escalate` | `EMBED_004` | A mem0-side fault, such as a vector store insert that failed after the text embedded fine. |
+
+`retryAfter` is set in seconds when the provider sent a `Retry-After` header, so you can honour its backoff instead of guessing one.
+
+<Warning>
+  Branch on `remediation`, not on the error string. Provider messages change between versions and between providers; `remediation` is the field that tells you whether another attempt is worth making.
+</Warning>
+
+## Finding the message that failed
+
+`index` locates the failure in the call that produced it, so two identical texts in the same `add()` stay distinguishable. Every entry carries one, and every entry from a single call is in the same coordinate space, whether the drop happened during embedding or during the vector store insert. That means you can sort `failed` and compare entries directly.
+
+What `index` points at depends on how you called `add()`:
+
+| Call | `index` is | Round trip |
+| --- | --- | --- |
+| `infer: false` | The position in the `messages` array you passed | `messages[f.index]` is the message that failed |
+| `infer: true` | The position in the extracted fact list sent to the embedder | Separates duplicate facts, but does not lead back to a message |
+
+With `infer: false` the position is captured before any internal parsing, so it survives the parse step dropping or rewriting messages along the way. With `infer: true` the list is built by mem0 rather than by you, and extraction carries no per-fact provenance, so the index cannot be mapped back to an input message.
+
+## Handling the failures
+
+```typescript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory();
+
+const { results, failed } = await memory.add(messages, {
+  userId: "alice",
+  infer: false,
+});
+
+console.log(`stored ${results.length}, dropped ${failed.length}`);
+
+const retryable = failed.filter((f) => f.remediation === "retry");
+const misconfigured = failed.filter((f) => f.remediation === "reconfigure");
+
+for (const f of misconfigured) {
+  console.error(`[${f.errorCode}] ${f.error}`);
+}
+
+if (retryable.length > 0) {
+  const wait = Math.max(...retryable.map((f) => f.retryAfter ?? 1));
+  await new Promise((r) => setTimeout(r, wait * 1000));
+  await memory.add(
+    retryable.map((f) => messages[f.index]),
+    { userId: "alice", infer: false },
+  );
+}
+```
+
+Because `index` points back into the array you passed, `messages[f.index]` gives you the original message with its role and metadata intact. You never have to reconstruct it from `f.text`.
+
+## What is covered
+
+<AccordionGroup>
+  <Accordion title="Reported in failed[]">
+    - Embedding failures on raw writes (`infer: false`).
+    - Embedding failures on LLM-extracted facts (`infer: true`).
+    - Vector store insert failures on both paths, as `internal_error`.
+  </Accordion>
+  <Accordion title="Not reported yet">
+    Entity linking embeds a second set of vectors for the graph layer. Those failures are tracked separately and do not appear in `failed[]`. A dropped entity costs recall on graph queries; it never costs you a stored memory, because the memory row is written on the path above.
+  </Accordion>
+</AccordionGroup>

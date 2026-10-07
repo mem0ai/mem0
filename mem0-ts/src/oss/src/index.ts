@@ -1,4 +1,18 @@
 export * from "./memory";
+// Only the shapes a caller of add() handles. The classifier and validator
+// internals stay unexported so they remain free to change without a major
+// version.
+export type {
+  AddResult,
+  EmbeddingFailure,
+  ErrorClass,
+  Remediation,
+} from "./memory/errorRetry";
+export {
+  EmbeddingError,
+  EMBED_ERROR_CODE,
+  type EmbedErrorCode,
+} from "../../common/exceptions";
 export * from "./memory/memory.types";
 export * from "./types";
 export * from "./embeddings/base";
