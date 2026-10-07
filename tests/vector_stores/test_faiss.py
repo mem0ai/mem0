@@ -190,9 +190,7 @@ def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_
     search_indices = np.array([[0, 1, 2, 3]])
     mock_faiss_index.search.return_value = (search_scores, search_indices)
 
-    results = faiss_instance.search(
-        query="test query", vectors=query_vector, top_k=2, filters={"category": "A"}
-    )
+    results = faiss_instance.search(query="test query", vectors=query_vector, top_k=2, filters={"category": "A"})
 
     # Two matching vectors exist among the over-fetched set, so we must get top_k of them.
     assert len(results) == 2
@@ -704,6 +702,124 @@ class TestFAISSSecurityIntegration:
                 assert not os.path.exists(json_path), "JSON file should be deleted"
                 assert not os.path.exists(pkl_path), "PKL file should be deleted"
                 assert not os.path.exists(faiss_index_path), "FAISS index should be deleted"
+
+
+class TestFAISSLoadFailureRecovery:
+    """Regression coverage for recovery after persisted state fails to load."""
+
+    def test_corrupted_json_recreates_empty_collection(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            faiss_path = os.path.join(temp_dir, "faiss")
+            store = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+            store.insert(
+                vectors=[[1.0, 0.0]],
+                payloads=[{"name": "apple"}],
+                ids=["apple"],
+            )
+
+            with open(os.path.join(faiss_path, "test_collection.json"), "w", encoding="utf-8") as file:
+                file.write("{")
+
+            recovered = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+
+            assert recovered.index.ntotal == 0
+            assert recovered.docstore == {}
+            assert recovered.index_to_id == {}
+            assert os.path.exists(os.path.join(faiss_path, "test_collection.faiss.corrupt"))
+            assert os.path.exists(os.path.join(faiss_path, "test_collection.json.corrupt"))
+
+            recovered.insert(
+                vectors=[[0.0, 1.0]],
+                payloads=[{"name": "cherry"}],
+                ids=["cherry"],
+            )
+            results = recovered.search(query="", vectors=[[0.0, 1.0]], top_k=1)
+            assert [result.id for result in results] == ["cherry"]
+
+    def test_corrupted_index_recreates_empty_collection(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            faiss_path = os.path.join(temp_dir, "faiss")
+            store = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+            store.insert(
+                vectors=[[1.0, 0.0]],
+                payloads=[{"name": "apple"}],
+                ids=["apple"],
+            )
+
+            with open(os.path.join(faiss_path, "test_collection.faiss"), "wb") as file:
+                file.write(b"corrupted index")
+
+            recovered = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+
+            assert recovered.index.ntotal == 0
+            assert recovered.docstore == {}
+            assert recovered.index_to_id == {}
+            assert os.path.exists(os.path.join(faiss_path, "test_collection.faiss.corrupt"))
+            with open(os.path.join(faiss_path, "test_collection.faiss.corrupt"), "rb") as file:
+                assert file.read() == b"corrupted index"
+
+            recovered.insert(
+                vectors=[[0.0, 1.0]],
+                payloads=[{"name": "cherry"}],
+                ids=["cherry"],
+            )
+            assert recovered.get("cherry").payload == {"name": "cherry"}
+
+    def test_save_failure_preserves_previous_json(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            faiss_path = os.path.join(temp_dir, "faiss")
+            store = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+            store.insert(
+                vectors=[[1.0, 0.0]],
+                payloads=[{"name": "apple"}],
+                ids=["apple"],
+            )
+
+            json_path = os.path.join(faiss_path, "test_collection.json")
+            with open(json_path, encoding="utf-8") as file:
+                original_json = file.read()
+
+            with patch("mem0.vector_stores.faiss.json.dump", side_effect=OSError("disk full")):
+                store._save()
+
+            with open(json_path, encoding="utf-8") as file:
+                assert file.read() == original_json
+            assert not [name for name in os.listdir(faiss_path) if name.endswith(".tmp")]
+
+    def test_save_recovers_if_docstore_replace_fails(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            faiss_path = os.path.join(temp_dir, "faiss")
+            store = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+            store.insert(
+                vectors=[[1.0, 0.0]],
+                payloads=[{"name": "apple"}],
+                ids=["apple"],
+            )
+            with patch.object(store, "_save"):
+                store.insert(
+                    vectors=[[0.0, 1.0]],
+                    payloads=[{"name": "banana"}],
+                    ids=["banana"],
+                )
+
+            json_path = os.path.join(faiss_path, "test_collection.json")
+            original_replace = os.replace
+
+            def fail_docstore_replace(source, destination):
+                if destination == json_path and source.endswith(".json.tmp"):
+                    raise OSError("simulated replace failure")
+                original_replace(source, destination)
+
+            with patch("mem0.vector_stores.faiss.os.replace", side_effect=fail_docstore_replace):
+                store._save()
+
+            recovered = FAISS(collection_name="test_collection", path=faiss_path, embedding_model_dims=2)
+
+            assert recovered.index.ntotal == 2
+            assert recovered.get("apple").payload == {"name": "apple"}
+            assert recovered.get("banana").payload == {"name": "banana"}
+            assert not os.path.exists(os.path.join(faiss_path, "test_collection.save.json"))
+            assert not [name for name in os.listdir(faiss_path) if name.endswith(".tmp")]
 
 
 class TestCosineNormalization:
