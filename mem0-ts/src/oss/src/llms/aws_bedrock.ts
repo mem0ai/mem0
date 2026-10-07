@@ -23,6 +23,7 @@ const PROVIDERS = [
   "j2",
   "llama",
   "minimax",
+  "openai",
 ];
 
 /**
@@ -203,6 +204,12 @@ export class AWSBedrockLLM implements LLM {
       maxTokens: this.maxTokens,
       temperature: this.temperature,
     };
+    if (this.provider === "openai") {
+      // GPT-5.6 / GPT-6 on Bedrock reject both temperature and topP:
+      // "This model doesn't support the temperature field."
+      delete inferenceConfig.temperature;
+      return inferenceConfig;
+    }
     if (
       this.topP != null &&
       !["anthropic", "minimax"].includes(this.provider)
