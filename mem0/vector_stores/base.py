@@ -2,6 +2,10 @@ from abc import ABC, abstractmethod
 
 
 class VectorStoreBase(ABC):
+    # Opt in only when update(vector=None, payload=...) preserves existing
+    # vectors and persists the payload, including explicit None values.
+    _supports_metadata_only_update = False
+
     @abstractmethod
     def create_col(self, name, vector_size, distance):
         """Create a new collection."""
