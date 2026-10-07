@@ -768,8 +768,15 @@ export class Memory {
       has_filters: !!config.filters,
       infer: config.infer,
     });
-    // Copy: scope keys are written into this object below, and the caller's next add() must not inherit them (#6796).
-    const filters: SearchFilters = { ...(config.filters ?? {}) };
+    // Fresh object, scope ids validated and trimmed as in search() and getAll(); the caller's object is never written to.
+    const filters: SearchFilters = Object.fromEntries(
+      Object.entries({
+        ...(config.filters ?? {}),
+        user_id: validateAndTrimEntityId(config.filters?.user_id, "user_id"),
+        agent_id: validateAndTrimEntityId(config.filters?.agent_id, "agent_id"),
+        run_id: validateAndTrimEntityId(config.filters?.run_id, "run_id"),
+      }).filter(([, v]) => v !== undefined),
+    );
     const { infer = true } = config;
     const metadata = stripIdentityKeys(config.metadata);
 
