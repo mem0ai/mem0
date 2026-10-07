@@ -59,6 +59,30 @@ class TestConfig:
         config = load_config()
         assert config.platform.api_key == ""
 
+    def test_load_config_reads_utf8_json(self, isolate_config):
+        import json
+
+        from mem0_cli.config import CONFIG_FILE, ensure_config_dir
+
+        ensure_config_dir()
+        CONFIG_FILE.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "platform": {
+                        "api_key": "m0-test",
+                        "base_url": "https://api.mem0.ai",
+                        "user_email": "用户@example.com",
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        loaded = load_config()
+        assert loaded.platform.user_email == "用户@example.com"
+
     def test_config_file_permissions(self, isolate_config):
         config = Mem0Config()
         config.platform.api_key = "secret"
