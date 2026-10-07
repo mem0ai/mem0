@@ -23,6 +23,7 @@ v3 uses multi-signal hybrid search combining:
 - **Semantic search** (vector similarity)
 - **BM25 keyword search** (normalized term matching)
 - **Entity matching** (entity graph boost)
+- **Temporal reasoning** (Platform only): memories whose event dates match time expressions in the query ("last week", "as of March 2025") get a boost
 
 This is automatic — no configuration needed.
 
@@ -56,10 +57,10 @@ v3 replaces graph memory with built-in entity linking. Entities (proper nouns, q
 ### How It Works
 
 1. **Extraction**: During `add()`, entities are automatically extracted from memory text
-2. **Storage**: Entities are stored in a parallel collection (`{collection}_entities`)
+2. **Storage**: Entities are stored in a parallel collection (OSS: `{collection}_entities`; on Platform the entity store is managed for you)
 3. **Retrieval**: During `search()`, query entities are matched and used to boost relevant memories
 
-Entity linking is automatic — no configuration required. The boost is folded into the combined `score` on each result.
+Entity linking is automatic, no configuration required. The boost is folded into the combined `score` on each result. On Platform this is Graph Memory: built in on all plans, no external graph store to provision, and the dashboard Graph view is Pro and Enterprise only.
 
 ### v2 Migration Note
 
@@ -141,6 +142,32 @@ client.project.update(custom_instructions="Your guidelines here...")
 await client.updateProject({ customInstructions: "Your guidelines here..." });
 ```
 
+### Agent Custom Instructions
+
+`agent_custom_instructions` (Python SDK 2.0.17+, TypeScript SDK 3.1.5+) is a second set of extraction rules that applies only to agent-scoped memories. It is unset by default, and while unset `custom_instructions` applies to every memory.
+
+```python
+client.project.update(
+    custom_instructions="Extract the user's preferences, goals, and constraints.",
+    agent_custom_instructions="Extract tools that failed, and retry strategies that worked.",
+)
+```
+
+```javascript
+await client.updateProject({
+    customInstructions: "Extract the user's preferences, goals, and constraints.",
+    agentCustomInstructions: "Extract tools that failed, and retry strategies that worked.",
+});
+```
+
+| The `add` call passes | Instructions applied |
+|-----------------------|----------------------|
+| `user_id` only | `custom_instructions` |
+| `agent_id` only | `agent_custom_instructions` |
+| `user_id` and `agent_id` | `agent_custom_instructions` for memories attributed to the assistant, `custom_instructions` for the rest |
+
+Both fields can also be passed per `add` call to override the project setting for that call. Clear the project value with an empty string.
+
 ### Template Structure
 
 1. **Task Description** -- brief extraction overview
@@ -194,8 +221,11 @@ for item in feedback_data:
 
 **TypeScript:**
 ```typescript
-await client.feedback('mem-123', {
-    feedback: 'POSITIVE',
+import { Feedback } from 'mem0ai';
+
+await client.feedback({
+    memoryId: 'mem-123',
+    feedback: Feedback.POSITIVE,
     feedbackReason: 'Accurately captured dietary preference',
 });
 ```
@@ -209,8 +239,6 @@ Create structured exports of memories using customizable schemas with filters.
 ### Usage
 
 ```python
-import json
-
 # Define export schema
 schema = {
     "type": "object",
@@ -223,8 +251,8 @@ schema = {
 
 # Create export
 response = client.create_memory_export(
-    schema=json.dumps(schema),
-    filters={"user_id": "alice"},
+    schema=schema,
+    filters={"AND": [{"user_id": "alice"}]},
     export_instructions="Create comprehensive profile based on all memories"
 )
 
@@ -238,33 +266,39 @@ result = client.get_memory_export(memory_export_id=response["id"])
 
 ## Group Chat
 
-Process multi-participant conversations and automatically attribute memories to individual speakers.
+Process multi-participant conversations and keep a separate memory profile per speaker. Scope comes only from the `user_id`, `agent_id`, and `run_id` you pass to `add()`: Mem0 does not infer it from the conversation.
 
 ### Usage
 
-```python
-messages = [
-    {"role": "user", "name": "Alice", "content": "I think we should use React for the frontend"},
-    {"role": "user", "name": "Bob", "content": "I prefer Vue.js, it's simpler for our use case"},
-    {"role": "assistant", "content": "Both are great choices. Let me note your preferences."},
-]
+Call `add()` once per participant with their own `user_id`, and share a `run_id` for the session:
 
-# Mem0 automatically attributes memories to each speaker
-response = client.add(messages, run_id="team_meeting_1")
+```python
+client.add(
+    [{"role": "user", "content": "I think we should use React for the frontend"}],
+    user_id="alice", run_id="team_meeting_1",
+)
+client.add(
+    [{"role": "user", "content": "I prefer Vue.js, it's simpler for our use case"}],
+    user_id="bob", run_id="team_meeting_1",
+)
 
 # Retrieve Alice's memories from that session
 alice_mems = client.get_all(
     filters={"AND": [{"user_id": "alice"}, {"run_id": "team_meeting_1"}]}
 )
+
+session_mems = client.get_all(
+    filters={"AND": [{"user_id": "*"}, {"run_id": "team_meeting_1"}]}
+)
 ```
 
-Use the `name` field in messages to identify speakers. Mem0 maps names to entity scopes automatically.
+A `name` field on a message is stored as extraction context only. Passing messages from two different `name`s in one `add()` call does not split the memories: they all land under the `user_id` you passed.
 
 ---
 
 ## MCP Integration
 
-Model Context Protocol integration enables AI clients (Claude, Claude Code, Cursor, Windsurf, VS Code, OpenCode) to manage Mem0 memory autonomously.
+Model Context Protocol integration enables AI clients (Claude, Claude Code, Codex, Cursor, Windsurf, VS Code, OpenCode) to manage Mem0 memory autonomously.
 
 ### Setup
 
@@ -275,15 +309,17 @@ npx mcp-add \
   --name mem0-mcp \
   --type http \
   --url "https://mcp.mem0.ai/mcp" \
-  --clients "claude,claude code,cursor,windsurf,vscode,opencode"
+  --clients "claude code,cursor,windsurf,vscode,opencode"
 ```
+
+Claude Desktop rejects `mcp-add`: add it under Settings > Connectors instead. Codex reads `~/.codex/config.toml` (TOML, server name `mem0`). The first tool call opens a browser sign-in, or send your API key as a bearer token for headless environments.
 
 ### Available MCP Tools
 
-The MCP server exposes 9 memory tools that AI agents can use autonomously:
-- Add, search, get, update, delete memories
-- Get history, list users, delete users
-- Search Mem0 documentation
+The MCP server exposes 11 memory tools that AI agents can use autonomously:
+- `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`
+- `delete_memory`, `delete_all_memories`, `delete_entities`
+- `list_entities`, `list_events`, `get_event_status`
 
 ### How It Works
 
@@ -307,6 +343,12 @@ Real-time event notifications for memory operations.
 | `memory_update` | Memory modified |
 | `memory_delete` | Memory removed |
 | `memory_categorize` | Memory tagged |
+| `ingest_job_completed` | Ingest job finished successfully |
+| `ingest_job_partially_completed` | Ingest job finished with some items failed |
+| `ingest_job_failed` | Ingest job failed entirely |
+| `ingest_job_cancelled` | Ingest job cancelled |
+
+The TypeScript `WebhookEvent` enum covers only the four `memory_*` events (`MEMORY_ADDED`, `MEMORY_UPDATED`, `MEMORY_DELETED`, `MEMORY_CATEGORIZED`).
 
 ### Create Webhook
 
@@ -320,6 +362,18 @@ webhook = client.create_webhook(
     event_types=["memory_add", "memory_categorize"]
 )
 ```
+
+```typescript
+import { WebhookEvent } from 'mem0ai';
+
+const webhook = await client.createWebhook({
+    url: 'https://your-app.com/webhook',
+    name: 'Memory Logger',
+    eventTypes: [WebhookEvent.MEMORY_ADDED, WebhookEvent.MEMORY_CATEGORIZED],
+});
+```
+
+TypeScript `createWebhook` takes no `projectId`: it uses the project resolved by the client. `getWebhooks({ projectId })` accepts one optionally.
 
 ### Manage Webhooks
 
@@ -341,6 +395,7 @@ client.delete_webhook(webhook_id="wh_123")
 
 ### Payload Structure
 
+The POST body wraps everything in `event_details`.
 Memory events contain: ID, data object with memory content, event type (`ADD`/`UPDATE`/`DELETE`).
 Categorization events contain: memory ID, event type (`CATEGORIZE`), assigned category labels.
 
@@ -348,59 +403,4 @@ Categorization events contain: memory ID, event type (`CATEGORIZE`), assigned ca
 
 ## Multimodal Support
 
-Mem0 can process images and documents alongside text.
-
-### Supported Media Types
-
-- Images: JPG, PNG
-- Documents: MDX, TXT, PDF
-
-### Image via URL
-
-```python
-image_message = {
-    "role": "user",
-    "content": {
-        "type": "image_url",
-        "image_url": {"url": "https://example.com/image.jpg"}
-    }
-}
-client.add([image_message], user_id="alice")
-```
-
-### Image via Base64
-
-```python
-import base64
-with open("photo.jpg", "rb") as f:
-    base64_image = base64.b64encode(f.read()).decode("utf-8")
-
-image_message = {
-    "role": "user",
-    "content": {
-        "type": "image_url",
-        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-    }
-}
-client.add([image_message], user_id="alice")
-```
-
-### Document (MDX/TXT)
-
-```python
-doc_message = {
-    "role": "user",
-    "content": {"type": "mdx_url", "mdx_url": {"url": document_url}}
-}
-client.add([doc_message], user_id="alice")
-```
-
-### PDF Document
-
-```python
-pdf_message = {
-    "role": "user",
-    "content": {"type": "pdf_url", "pdf_url": {"url": pdf_url}}
-}
-client.add([pdf_message], user_id="alice")
-```
+`POST /v3/memories/add/` (what `client.add()` calls) accepts only string `content`. Structured multimodal content (`image_url`, `pdf_url`, `txt_url`, `mdx_url`) is rejected with a 400 `Not a valid string.`, with `infer=True` and with `infer=False`. To remember what an image or document says, extract the text yourself and pass it as a plain string.

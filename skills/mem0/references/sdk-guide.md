@@ -24,7 +24,7 @@ import MemoryClient from 'mem0ai';
 const client = new MemoryClient({ apiKey: 'm0-your-api-key' });
 ```
 
-Constructor accepts `apiKey` (required) and `host` (optional, default: `https://api.mem0.ai`).
+Constructor accepts `apiKey` (required in TypeScript; Python falls back to the `MEM0_API_KEY` env var) and `host` (optional, default: `https://api.mem0.ai`).
 
 ---
 
@@ -58,6 +58,7 @@ await client.add(messages, { userId: "alice", metadata: { source: "onboarding" }
 | `run_id` | string | Session identifier |
 | `metadata` | object | Custom key-value pairs |
 | `infer` | boolean | If `false`, store raw text without inference (default: `true`) |
+| `expiration_date` | string | `YYYY-MM-DD`, memory is hidden from search and get_all after this date |
 
 ### Advanced Add Options
 
@@ -109,7 +110,10 @@ const results = await client.search("work experience", {
 | `filters` | object | Filter object (AND/OR operators). Use `{"user_id": "..."}` to filter by user |
 | `top_k` | number | Number of results (default: 10 for Platform) |
 | `rerank` | boolean | Enable reranking for better relevance (default: `false`) |
-| `threshold` | number | Minimum similarity score (default: 0.1) |
+| `threshold` | number | Server-side relevance cutoff (0 to 1), applied before score blending, so it is not a floor on the returned `score`. The default and `0.0` returned the same or nearly the same results in live tests |
+| `reference_date` | string / number | Anchor for relative time queries such as "last week" (epoch, `YYYY-MM-DD`, or ISO datetime) |
+| `show_expired` | boolean | Include memories past their `expiration_date` (default: `false`) |
+| `latest_only` | boolean | Only return the latest version of a memory |
 
 ### Common Filter Patterns
 
@@ -138,12 +142,11 @@ filters={"AND": [
 ]}
 
 # Exclude categories with NOT
-filters={"AND": [{"user_id": "user_123"}, {"NOT": {"categories": {"in": ["spam", "test"]}}}]}
+filters={"AND": [{"user_id": "user_123"}, {"NOT": [{"categories": {"in": ["spam", "test"]}}]}]}
 
 # Multi-dimensional query
 filters={"AND": [
     {"user_id": "user_123"},
-    {"keywords": {"icontains": "invoice"}},
     {"categories": {"in": ["finance"]}},
     {"created_at": {"gte": "2024-01-01T00:00:00Z"}}
 ]}
@@ -191,7 +194,7 @@ const memory = await client.get("ea925981-...");
 const memories = await client.getAll({ filters: { user_id: "alice" } });
 ```
 
-**Note:** `get_all` requires at least one of `user_id`, `agent_id`, `app_id`, or `run_id` in filters.
+**Note:** `get_all` requires non-empty `filters`. Scope them with at least one of `user_id`, `agent_id`, `app_id`, or `run_id`.
 
 ---
 
@@ -215,12 +218,14 @@ await client.update("ea925981-...", { text: "Updated: vegan since 2024" });
 **Python:**
 ```python
 client.delete(memory_id="ea925981-...")
+client.delete(memory_id="ea925981-...", delete_linked=True)
 client.delete_all(user_id="alice")  # Irreversible bulk delete
 ```
 
 **TypeScript:**
 ```typescript
 await client.delete("ea925981-...");
+await client.delete("ea925981-...", { deleteLinked: true });
 await client.deleteAll({ userId: "alice" });
 ```
 
@@ -231,7 +236,7 @@ await client.deleteAll({ userId: "alice" });
 **Python:**
 ```python
 history = client.history(memory_id="ea925981-...")
-# Returns: [{previous_value, new_value, action, timestamps}]
+# Returns: [{id, memory_id, input, old_memory, new_memory, event, user_id, categories, metadata, created_at, updated_at}]
 ```
 
 **TypeScript:**
@@ -241,8 +246,19 @@ const history = await client.history("ea925981-...");
 
 ---
 
-## Batch Operations (TypeScript)
+## Batch Operations
 
+**Python:**
+```python
+client.batch_update([
+    {"memory_id": "uuid-1", "text": "Updated text"},
+    {"memory_id": "uuid-2", "text": "Another updated text"},
+])
+
+client.batch_delete([{"memory_id": "uuid-1"}, {"memory_id": "uuid-2"}])
+```
+
+**TypeScript:**
 ```typescript
 // Batch update
 await client.batchUpdate([
@@ -253,6 +269,8 @@ await client.batchUpdate([
 // Batch delete
 await client.batchDelete(["uuid-1", "uuid-2", "uuid-3"]);
 ```
+
+Each batch update item must include `text`. `metadata` on an item is ignored and a metadata-only item returns a 400.
 
 ---
 
@@ -269,8 +287,14 @@ client.delete_users(user_id="alice")
 client.feedback(memory_id="...", feedback="POSITIVE", feedback_reason="Accurate extraction")
 
 # Export memories
-export = client.create_memory_export(filters={"AND": [{"user_id": "alice"}]})
+export = client.create_memory_export(
+    schema={"type": "object", "properties": {"diet": {"type": "string"}}},
+    filters={"AND": [{"user_id": "alice"}]},
+)
 data = client.get_memory_export(memory_export_id=export["id"])
+
+profile = client.get_profile("alice")
+client.generate_profile("alice")
 ```
 
 ---
@@ -281,8 +305,8 @@ data = client.get_memory_export(memory_export_id=export["id"])
 2. **SQL operators rejected** -- use `gte`, `lt`, etc. Not `>=`, `<`.
 3. **Metadata filtering is limited** -- only top-level keys with `eq`, `contains`, `ne`.
 4. **Wildcard `*` excludes null** -- only matches non-null values.
-5. **Default threshold is 0.1** -- increase for stricter matching.
-6. **Async processing** -- memories process asynchronously. Wait 2-3s after `add()` before searching.
+5. **Threshold is a server-side cutoff** -- raise it to drop weak matches, but it is applied before score blending, so it is not a floor on the returned `score`. Filter on `score` client-side for a precise cutoff.
+6. **Async processing** -- `add()` returns `{"event_id": ..., "status": "PENDING"}` (`eventId` on the TS client). Memories are searchable after the event is `SUCCEEDED` (poll `GET /v1/event/{event_id}/`, or wait a few seconds). `infer=False` is synchronous.
 
 ## Naming Conventions
 
@@ -334,8 +358,8 @@ v3 TypeScript uses camelCase for all parameters:
 
 | Parameter | v2 Default | v3 Default |
 |-----------|------------|------------|
-| `threshold` | 0.3 | 0.1 |
-| `rerank` | (not specified) | `false` |
+| `threshold` | 0.3 | server-side cutoff |
+| `rerank` | `false` | `false` |
 
 **4. Removed Parameters**
 
@@ -347,7 +371,6 @@ The following parameters are no longer supported:
 | `keyword_search` | Removed from search |
 | `filter_memories` | Removed |
 | `immutable` | Removed from add |
-| `expiration_date` | Removed from add |
 | `includes` | Removed from add |
 | `excludes` | Removed from add |
 | `async_mode` | Removed from add |

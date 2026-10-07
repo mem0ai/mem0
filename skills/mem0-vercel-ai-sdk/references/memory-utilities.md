@@ -24,7 +24,7 @@ await addMemories(
 
 ```typescript
 async function addMemories(
-  messages: LanguageModelV2Prompt | string,
+  messages: LanguageModelV3Prompt,
   config?: Mem0ConfigSettings
 ): Promise<any>;
 ```
@@ -33,15 +33,16 @@ async function addMemories(
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `messages` | `LanguageModelV2Prompt \| string` | Messages to store. If a string, wrapped as `[{ role: "user", content: string }]` |
+| `messages` | `LanguageModelV3Prompt` | Messages to store. A plain string is also handled at runtime (wrapped as `[{ role: "user", content: string }]`) but is not part of the declared type |
 | `config` | `Mem0ConfigSettings` | Optional. Must include entity scope (`user_id`, etc.) and API key |
 
 **Behavior:**
 1. If `messages` is a string, wraps it as a single user message
-2. Otherwise, converts `LanguageModelV2Prompt` to Mem0 format via `convertToMem0Format` (handles multimodal content)
-3. Calls `POST /v1/memories/` with the converted messages and config
+2. Otherwise, converts `LanguageModelV3Prompt` to Mem0 format via `convertToMem0Format` (maps multimodal parts, but the add endpoint rejects them with a 400)
+3. Calls `POST {host}/v3/memories/add/` with body `{ messages, user_id?, app_id?, agent_id?, run_id?, metadata?, infer? }` (entity IDs are top-level on add)
+4. Throws `HTTP error! status: <code>` on a non-2xx response
 
-**Returns:** The API response from Mem0 (memory operation result).
+**Returns:** The parsed JSON response from Mem0. The v3 add endpoint queues extraction and responds with `{ status: "PENDING", event_id }` (the provider returns the raw REST JSON, so keys stay snake_case, unlike the `mem0ai` client). With `infer: false` messages are stored verbatim synchronously and the response also includes `results`.
 
 ---
 
@@ -63,7 +64,7 @@ const systemPrompt = await retrieveMemories("What restaurants do I like?", {
 
 ```typescript
 async function retrieveMemories(
-  prompt: LanguageModelV2Prompt | string,
+  prompt: LanguageModelV3Prompt | string,
   config?: Mem0ConfigSettings
 ): Promise<string>;
 ```
@@ -72,13 +73,13 @@ async function retrieveMemories(
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `prompt` | `LanguageModelV2Prompt \| string` | The query to search memories for |
+| `prompt` | `LanguageModelV3Prompt \| string` | The query to search memories for |
 | `config` | `Mem0ConfigSettings` | Optional. Entity scope and API key |
 
 **Behavior:**
-1. Flattens the prompt to a plain string (extracts text from `LanguageModelV2Prompt` parts)
-2. Calls `searchInternalMemories` (`POST /v2/memories/search/`)
-3. Formats each memory as `"Memory: {memory.memory}\n\n"`
+1. Flattens the prompt to a plain string (extracts text from `LanguageModelV3Prompt` parts)
+2. Calls `searchInternalMemories` (`POST /v3/memories/search/`)
+3. Accepts either a flat array or a `{ results: [...] }` response and formats each memory as `"Memory: {memory.memory}\n\n"`
 4. Wraps everything in a system prompt preamble
 
 **Returns:** A **string** containing the formatted system prompt with embedded memories. Returns `""` (empty string) if no memories found.
@@ -112,7 +113,7 @@ const memories = await getMemories("What are my preferences?", {
 
 ```typescript
 async function getMemories(
-  prompt: LanguageModelV2Prompt | string,
+  prompt: LanguageModelV3Prompt | string,
   config?: Mem0ConfigSettings
 ): Promise<any>;
 ```
@@ -121,21 +122,21 @@ async function getMemories(
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `prompt` | `LanguageModelV2Prompt \| string` | The query to search memories for |
+| `prompt` | `LanguageModelV3Prompt \| string` | The query to search memories for |
 | `config` | `Mem0ConfigSettings` | Optional. Entity scope and API key |
 
 **Behavior:**
 1. Flattens the prompt to a plain string
-2. Calls `searchInternalMemories` (`POST /v2/memories/search/`)
-3. Returns `memories.results` (the array of memory objects)
+2. Calls `searchInternalMemories` (`POST /v3/memories/search/`)
+3. Normalizes the response: returns the response itself if it is an array, otherwise `response.results` (or `[]`)
 
-**Returns:** Memory object array.
+**Returns:** Flat memory object array.
 
 ---
 
 ## `searchMemories(prompt, config?)`
 
-Retrieves the **full search API response** including results, relations, scores, and metadata.
+Retrieves the **raw search API response** including results, scores, and metadata.
 
 ```typescript
 import { searchMemories } from "@mem0/vercel-ai-provider";
@@ -144,14 +145,14 @@ const response = await searchMemories("cooking preferences", {
   user_id: "alice",
   mem0ApiKey: "m0-xxx",
 });
-// Returns: { results: [{ memory: "...", score: 0.95, ... }], relations: [...] }
+// Returns: { results: [{ memory: "...", score: 0.95, ... }] }
 ```
 
 **Signature:**
 
 ```typescript
 async function searchMemories(
-  prompt: LanguageModelV2Prompt | string,
+  prompt: LanguageModelV3Prompt | string,
   config?: Mem0ConfigSettings
 ): Promise<any>;
 ```
@@ -160,17 +161,17 @@ async function searchMemories(
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `prompt` | `LanguageModelV2Prompt \| string` | The query to search memories for |
+| `prompt` | `LanguageModelV3Prompt \| string` | The query to search memories for |
 | `config` | `Mem0ConfigSettings` | Optional. Entity scope and API key |
 
 **Behavior:**
 1. Flattens the prompt to a plain string
-2. Calls `searchInternalMemories` (`POST /v2/memories/search/`)
-3. Returns the full response without any filtering
+2. Calls `searchInternalMemories` (`POST /v3/memories/search/`)
+3. Returns the response without any normalization
 
-**Returns:** The complete API response object. On error, returns `[]`.
+**Returns:** The API response as-is (an object with `results`, or a flat array if the API returns one). On error, logs and returns `[]` instead of throwing (unlike the other utilities, which rethrow).
 
-**Note:** Unlike `getMemories`, this always returns the full response.
+**Note:** Unlike `getMemories`, this does not unwrap `results`.
 
 ---
 
@@ -180,7 +181,7 @@ async function searchMemories(
 |----------|---------|----------|
 | `retrieveMemories` | Formatted system prompt **string** | Injecting directly into a `system` parameter for `generateText`/`streamText` |
 | `getMemories` | Memory **array** | Processing memories programmatically (filtering, transforming, counting) |
-| `searchMemories` | Full API **response** (results + relations) | Need relations, similarity scores, or complete metadata |
+| `searchMemories` | Raw API **response** | Need similarity scores or complete metadata |
 | `addMemories` | API response | Storing new conversation messages as memories |
 
 ## Internal: `searchInternalMemories(query, config?, top_k?)`
@@ -191,25 +192,27 @@ Not exported. Used by all retrieval functions.
 async function searchInternalMemories(
   query: string,
   config?: Mem0ConfigSettings,
-  top_k: number = 5
+  top_k: number = 10
 ): Promise<any>;
 ```
 
 **Behavior:**
-1. Builds a `filters` object from entity identifiers (`user_id`, `app_id`, `agent_id`, `run_id`)
-2. Resolves entity identifiers
-3. Loads the API key from `config.mem0ApiKey` or `MEM0_API_KEY` env var
-4. Calls `POST {host}/v2/memories/search/` with:
+1. Builds a `filters` object from `config.filters`, then sets `user_id`, `app_id`, `agent_id`, `run_id` on it when present (entity IDs go inside `filters`, never top-level)
+2. Loads the API key from `config.mem0ApiKey` or `MEM0_API_KEY` env var
+3. Calls `POST {host}/v3/memories/search/` with:
    - `query`: the search string
    - `filters`: the filter object with entity identifiers
-   - `top_k`: from config or default 5
-   - All other config fields spread into the request body
+   - `top_k`: `config.top_k` or default 10 (an explicit `0` is respected)
+   - `threshold`, `rerank`, `metadata`: only when set in config
+   - No other config fields (`infer`, `page`, `page_size`, `host`, `mem0ApiKey`) are sent
+4. Sends `Authorization: Token <key>` plus `X-Mem0-Source: VERCEL_AI_SDK` and `X-Mem0-Client: mem0-vercel-ai-provider/<version>` headers
+5. Throws `HTTP error! status: <code>` on a non-2xx response
 
 **Default host:** `https://api.mem0.ai`
 
 ## Internal: `convertToMem0Format(messages)`
 
-Not exported. Used by `addMemories` to convert `LanguageModelV2Prompt` messages to Mem0's format.
+Not exported. Used by `addMemories` to convert `LanguageModelV3Prompt` messages to Mem0's format.
 
 **Multimodal content mapping:**
 
@@ -223,6 +226,8 @@ Not exported. Used by `addMemories` to convert `LanguageModelV2Prompt` messages 
 | MDX content | `{ type: "mdx_url", mdx_url: { url } }` or `{ type: "mdx", ... }` | MDX URL | `{ role, content: { type: "mdx_url", mdx_url: { url } } }` |
 | PDF content | `{ type: "pdf_url", pdf_url: { url } }` or `{ type: "pdf", ... }` | PDF URL | `{ role, content: { type: "pdf_url", pdf_url: { url } } }` |
 
+`/v3/memories/add/` rejects structured (non-string) `content` with a 400 `Not a valid string.` (live-tested on the Python SDK with `infer` true and false), so a prompt containing these parts is expected to fail with `HTTP error! status: 400` (checked against the endpoint, not through the provider). Only text parts are storable.
+
 The function handles three message content shapes:
 1. **String content**: passed through directly
 2. **Array content**: each element mapped individually, nulls filtered out
@@ -230,7 +235,7 @@ The function handles three message content shapes:
 
 ## Internal: `flattenPrompt(prompt)`
 
-Not exported. Extracts plain text from `LanguageModelV2Prompt` for use as a search query.
+Not exported. Extracts plain text from `LanguageModelV3Prompt` for use as a search query.
 
 - Iterates over prompt parts, extracting text from `user` role messages
 - For `text` type content: extracts `.text`
@@ -249,12 +254,12 @@ All fields are optional. Used across all utility functions.
 | `agent_id` | `string` | -- | Scope memories to an agent |
 | `run_id` | `string` | -- | Scope memories to a session/run |
 | `metadata` | `Record<string, any>` | -- | Custom metadata |
-| `filters` | `Record<string, any>` | -- | Custom search filters |
-| `infer` | `boolean` | -- | Enable inference |
-| `page` | `number` | -- | Pagination page number |
-| `page_size` | `number` | -- | Results per page |
+| `filters` | `Record<string, any>` | -- | Custom search filters (entity IDs above are merged in and win on conflicts) |
+| `infer` | `boolean` | -- | Sent on add only. `false` stores messages verbatim without extraction |
+| `page` | `number` | -- | Declared in the type, not sent by the provider |
+| `page_size` | `number` | -- | Declared in the type, not sent by the provider |
 | `mem0ApiKey` | `string` | `MEM0_API_KEY` env | Mem0 API key |
-| `top_k` | `number` | `5` | Number of memories to retrieve |
-| `threshold` | `number` | -- | Minimum similarity score |
-| `rerank` | `boolean` | -- | Enable re-ranking |
+| `top_k` | `number` | `10` | Number of memories to retrieve |
+| `threshold` | `number` | -- | Server-side relevance cutoff, not a floor on the returned score; sent only when set |
+| `rerank` | `boolean` | -- (API default `false`) | Enable re-ranking, sent only when set |
 | `host` | `string` | `https://api.mem0.ai` | Custom API host |

@@ -1,18 +1,22 @@
 ---
 name: mem0-oss-to-platform
 description: >-
-  Plan and then execute a migration of a project from the mem0 open-source / self-hosted SDK
-  (the local `Memory` class) to the mem0 Platform / hosted / managed SDK (the `MemoryClient`
-  class). Use this whenever a developer wants to move, switch, or migrate their mem0 usage off
-  OSS/self-hosted to the hosted API — e.g. "migrate my mem0 setup to the platform", "switch from
-  self-hosted mem0 to MemoryClient", "use my mem0 API key instead of a local Qdrant", "move mem0
-  to the cloud/hosted/managed service", or "replace my local mem0 vector store + embedder config
-  with the platform". Applies to Python (`from mem0 import Memory` → `from mem0 import MemoryClient`)
-  and TypeScript/JavaScript (`import { Memory } from "mem0ai/oss"` → `import MemoryClient from "mem0ai"`).
-  Trigger even when the user doesn't say the word "migrate" but clearly wants their existing mem0
-  integration to run against the hosted platform. It first produces a reviewable migration plan,
-  then executes it after the developer approves. Strictly scoped to the mem0 integration — it does
-  not refactor, restructure, or "improve" any unrelated code.
+  Plan, then execute, a migration of a project from the mem0 open-source / self-hosted SDK
+  (local `Memory` class) to the mem0 Platform / hosted SDK (`MemoryClient`). TRIGGER when: the
+  developer wants to move, switch, or migrate mem0 off OSS/self-hosted to the hosted API, e.g.
+  "migrate my mem0 setup to the platform", "switch from self-hosted mem0 to MemoryClient", "use my
+  mem0 API key instead of a local Qdrant", "replace my local vector store + embedder config with
+  the platform", even without the word "migrate". Covers Python (`Memory` to `MemoryClient`) and
+  TypeScript (`mem0ai/oss` to `mem0ai`). Produces a reviewable plan, then executes it after
+  approval. Touches only the mem0 integration. DO NOT TRIGGER when: adding mem0 to a project that
+  has none (use `mem0-integrate`) or answering SDK usage questions (use `mem0`).
+license: Apache-2.0
+metadata:
+  author: mem0ai
+  version: "0.2.0"
+  category: ai-memory
+  tags: "migration, oss, self-hosted, platform, hosted"
+  mem0_tested_versions: "mem0ai (PyPI) >=2.0.0,<3.0.0; mem0ai (npm) >=3.0.0,<4.0.0"
 ---
 
 # Migrate mem0 OSS → mem0 Platform (hosted)
@@ -35,7 +39,8 @@ few parameter conventions tighten up and the return values are server responses.
 
 So the core of every migration is:
 1. `Memory` / `Memory.from_config({...})` → `MemoryClient()` (reads the API key from the env).
-2. Delete the local `vector_store` / `llm` / `embedder` / `graph_store` / `history_db_path` config.
+2. Delete the local `vector_store` / `llm` / `embedder` / `reranker` / `history_db_path` config (and any
+   leftover `graph_store`).
 3. Fix up each call site to the hosted call convention (entity IDs into `filters`, pagination, etc.).
 4. Flag everything that *isn't* a clean 1:1 so the developer can decide (see `references/gotchas.md`).
 
@@ -55,10 +60,11 @@ must be set (in `.env` / secrets manager, never hardcoded) before execution and 
 ### Phase 1 — Discover the mem0 footprint
 Do not assume the layout. Find every place mem0 appears. Detect the language and the **installed**
 version first, then sweep for usage. Concretely, search for:
-- **Imports / instantiation:** `from mem0 import Memory`, `Memory.from_config`, `Memory(`,
-  `import ... from "mem0ai"`, `from "mem0ai/oss"`, `new Memory(`.
-- **Config blocks:** keys like `vector_store`/`vectorStore`, `embedder`, `llm`, `graph_store`/
-  `graphStore`, `history_db_path`, `historyStore`, `custom_fact_extraction_prompt`,
+- **Imports / instantiation:** `from mem0 import Memory`, `AsyncMemory`, `Memory.from_config`,
+  `Memory(`, `import ... from "mem0ai"`, `from "mem0ai/oss"`, `new Memory(`.
+- **Config blocks:** keys like `vector_store`/`vectorStore`, `embedder`, `llm`, `reranker`,
+  `graph_store`/`graphStore`, `history_db_path`/`historyDbPath`, `historyStore`,
+  `custom_instructions`/`customInstructions`, `custom_fact_extraction_prompt`/`customPrompt`,
   `custom_update_memory_prompt`, `enable_graph`.
 - **Every call site:** `.add(`, `.search(`, `.get_all(`/`.getAll(`, `.delete_all(`/`.deleteAll(`,
   `.get(`, `.update(`, `.delete(`, `.reset(`, `.history(`.
@@ -78,11 +84,14 @@ confirm the **real** signatures of the installed package rather than trusting me
   `site-packages/mem0/client/main.py` if anything is ambiguous (e.g. whether a method *rejects*
   top-level entity params). Also check the OSS side the project currently uses.
 - **TypeScript:** read the installed types/dist under `node_modules/mem0ai/` to confirm option names
-  (`limit` vs `topK`, `userId` vs a nested `filters`) and the default vs `mem0ai/oss` export.
+  (`limit` vs `topK`, `userId` vs a nested `filters: { user_id }`) and the default vs `mem0ai/oss`
+  export.
 
 This verification step is the single most important habit — it's what keeps the plan correct across
 mem0 versions. Then consult `references/api-mapping.md` for the OSS→hosted translation of each
-method (Python and TypeScript), and the official guide at https://docs.mem0.ai/migration/oss-v2-to-v3.
+method (Python and TypeScript). The docs guide is https://docs.mem0.ai/migration/oss-to-platform
+(verify its code samples against the installed SDK); OSS upgrade changes are at
+https://docs.mem0.ai/migration/oss-v2-to-v3.
 
 ### Phase 3 — Map each site and flag the gaps
 For every call site and config block from Phase 1, determine the hosted equivalent using the
@@ -90,7 +99,8 @@ mapping. Most calls map cleanly. Some don't — and those matter more than the m
 Read `references/gotchas.md` and flag anything that needs a human decision: self-hosted/data-
 residency setups, local model choices moving server-side, graph-memory usage, custom prompts, hot-
 path calls that now make network round-trips, and **existing locally-stored memories not carrying
-over** (data migration is out of scope unless the developer asks — note it, don't silently attempt it).
+over** (data migration is out of scope unless the developer asks: note it, don't silently attempt it;
+if they do ask, see `references/gotchas.md` #1, which covers the hosted-Qdrant migration script).
 
 ### Phase 4 — Write the plan and stop
 Write the full plan to `MEM0_MIGRATION_PLAN.md` at the repo root, following the structure in
@@ -106,11 +116,13 @@ Once the developer approves (they may ask for changes first — incorporate them
 - **Verify**, mirroring how you'd confirm any backend swap:
   - It imports / type-checks / byte-compiles.
   - A smoke test exercises `add` → `search`/`get_all` → `delete_all` against the hosted API with a
-    real `MEM0_API_KEY`, and the app's own entry point still runs.
-  - No local mem0 storage directory gets created anymore (e.g. a `.mem0/`, local Qdrant path) —
-    proof the memory really lives on the platform now.
+    real `MEM0_API_KEY`, and the app's own entry point still runs. Hosted `add` is asynchronous, so
+    allow a short wait before expecting the fact to show up in `search`/`get_all`.
+  - No local OSS storage gets created anymore (e.g. `~/.mem0/history.db`, a local Qdrant path). The
+    client itself still creates `~/.mem0/config.json`, so don't use the bare `.mem0/` directory as
+    the check.
 - Report what changed, what was verified, and any flagged concerns the developer still needs to act
-  on (e.g. configuring custom instructions in the dashboard, migrating old data).
+  on (e.g. re-applying custom instructions with `project.update`, migrating old data).
 
 ## Reference files
 - `references/api-mapping.md` — exact OSS→hosted method/param/return mapping for Python and
