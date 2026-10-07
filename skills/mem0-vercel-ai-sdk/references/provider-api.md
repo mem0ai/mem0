@@ -109,7 +109,7 @@ interface Mem0ConfigSettings {
   page_size?: number;            // Declared in the type, not sent by the provider
   mem0ApiKey?: string;           // Mem0 API key (overrides provider-level key)
   top_k?: number;                // Number of memories to retrieve (default: 10)
-  threshold?: number;            // Minimum relevance score; sent only when set (API default: 0.1)
+  threshold?: number;            // Server-side relevance cutoff; sent only when set
   rerank?: boolean;              // Enable re-ranking of search results; sent only when set (API default: false)
   host?: string;                 // Custom Mem0 API host (default: "https://api.mem0.ai")
 }

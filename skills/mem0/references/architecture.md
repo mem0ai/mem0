@@ -80,7 +80,7 @@ v3 processes memories asynchronously by default:
 - Stores text exactly as provided, no LLM processing
 - Skips semantic duplicate detection (same fact in different words can be stored twice); exact repeats are deduplicated by hash
 - `user` and `assistant` messages are stored, one memory per message; `system` messages are dropped
-- Multimodal content (`image_url`, `pdf_url`, `txt_url`, `mdx_url`) is skipped, not stored
+- Structured multimodal content (`image_url`, `pdf_url`, `txt_url`, `mdx_url`) is rejected with a 400, not skipped
 - Best for: bulk imports, pre-structured data, migrations
 
 **Warning:** Don't mix `infer=True` and `infer=False` for the same data — the same fact will be stored twice.
@@ -122,7 +122,7 @@ Query In
 | Parameter | Default | Notes |
 |-----------|---------|-------|
 | `top_k` | 10 | Range 1-1000 (OSS default is 20) |
-| `threshold` | 0.1 | Was 0.3 on Platform v2 (None on OSS v2). Pass `0.0` to disable |
+| `threshold` | server-side cutoff | Not a floor on the returned `score`. On Platform v3 the default and `0.0` return the same or nearly the same results. Was 0.3 on Platform v2 (None on OSS v2) |
 | `rerank` | False | Was False on Platform v2 (True on OSS v2) |
 
 ### Unmentioned entities are not constrained
@@ -195,6 +195,7 @@ v3 uses ADD-only extraction. Memories accumulate over time rather than being con
 | `created_at` | datetime | Creation timestamp |
 | `updated_at` | datetime | Last modification timestamp |
 | `structured_attributes` | object | Temporal breakdown for time-based queries |
+| `lifecycle_state` | string | Lifecycle state of the memory (returned by get) |
 | `score` | float | Combined multi-signal relevance (search results only, 0-1) |
 
 ---

@@ -139,7 +139,7 @@ def chat(user_input: str, user_id: str) -> str:
 - **AND filter with user_id + agent_id returns empty:** Entities are stored separately. Use `OR` instead, or query separately.
 - **Duplicate memories:** Don't mix `infer=True` (default) and `infer=False` for the same data. Stick to one mode.
 - **Wrong import:** For the hosted Platform use `from mem0 import MemoryClient` (or `AsyncMemoryClient` for async). `from mem0 import Memory` is the self-hosted OSS class and does not use `MEM0_API_KEY`.
-- **v3 defaults (Platform):** `top_k=10`, `threshold=0.1`, `rerank=False`. The client sends none of these unless you pass them. The OSS `Memory.search()` default is `top_k=20`. Adjust as needed for your use case.
+- **v3 defaults (Platform):** `top_k=10`, `rerank=False`. `threshold` is a server-side cutoff applied before score blending, not a floor on the returned `score` (the default and `0.0` return the same or nearly the same results). The client sends none of these unless you pass them. The OSS `Memory.search()` default is `top_k=20`. Adjust as needed for your use case.
 
 ## v2 Compatibility
 

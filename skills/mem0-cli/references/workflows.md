@@ -136,7 +136,7 @@ Output:
 {
   "status": "error",
   "command": "search",
-  "error": "Authentication failed. Your API key may be invalid or expired.",
+  "error": "Invalid or expired API key.",
   "data": null
 }
 ```
@@ -318,10 +318,16 @@ fi
 
 ### Capture memory ID from add
 
+Default adds are asynchronous and return an `event_id`. Use `--no-infer` for a synchronous add whose `.data[0].id` is the memory id.
+
 ```bash
-# Use agent mode to get structured output
-result=$(mem0 --agent add "new fact" --user-id alice 2>/dev/null)
-memory_id=$(echo "$result" | jq -r '.data[0].id // empty')
+event_id=$(mem0 --agent add "new fact" --user-id alice 2>/dev/null | jq -r '.data[0].event_id // empty')
+for _ in $(seq 30); do
+  status=$(mem0 --agent event status "$event_id" | jq -r '.data.status')
+  [ "$status" = "SUCCEEDED" ] || [ "$status" = "FAILED" ] && break
+  sleep 2
+done
+memory_id=$(mem0 --agent event status "$event_id" | jq -r '.data.results[0].id // empty')
 if [ -n "$memory_id" ]; then
   echo "Created memory: $memory_id"
 fi
@@ -359,7 +365,7 @@ mem0 list
 
 ### Timeout handling
 
-The CLI uses a 30-second timeout for all API requests. For long-running scripts, handle timeouts:
+The CLI uses a 30-second timeout for normal API requests (the key-validation ping uses 5 seconds and `init` uses 5, 10 and 30 seconds). For long-running scripts, handle timeouts:
 
 ```bash
 if ! mem0 search "query" --user-id alice -o json 2>/dev/null; then

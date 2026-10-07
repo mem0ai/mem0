@@ -82,7 +82,7 @@ for (const mem of results.results) {
 | `options.filters` | object | Filter object with entity IDs (`user_id`, `agent_id`, etc.) and/or `AND`/`OR`/`NOT` conditions |
 | `options.topK` | number | Number of results (default: 10) |
 | `options.rerank` | boolean | Enable semantic reranking (default: false) |
-| `options.threshold` | number | Minimum similarity (default: 0.1) |
+| `options.threshold` | number | Server-side relevance cutoff (0 to 1), applied before score blending, so it is not a floor on the returned `score`. Omitting it and passing `0` returned the same results in live tests. Filter on `score` client-side for a precise cutoff |
 | `options.latestOnly` | boolean | Return only current (non-superseded) memories |
 | `options.fields` | string[] | Not applied in v3 |
 | `options.categories` | string[] | Not applied in v3. Use `filters: { AND: [{ categories: { in: [...] } }] }` |
@@ -103,7 +103,7 @@ const memory = await client.get('ea925981-...');
 
 #### getAll(options?)
 
-Retrieve all memories. Requires at least one entity identifier in filters.
+Retrieve all memories. Requires non-empty `filters`; scope them with at least one entity identifier.
 
 ```typescript
 const memories = await client.getAll({ filters: { user_id: 'alice' } });
@@ -177,6 +177,8 @@ await client.batchUpdate([
     { memoryId: 'uuid-2', text: 'Another update' },
 ]);
 ```
+
+Each item must include `text`. `metadata` on a batch item is ignored and a metadata-only item returns a 400. Use `update(memoryId, { metadata })` to change metadata.
 
 #### batchDelete(memories)
 
@@ -316,6 +318,8 @@ interface MemoryHistory { id: string; memoryId: string; oldMemory: string | null
 interface FeedbackPayload { memoryId: string; feedback?: Feedback | null; feedbackReason?: string | null; }
 interface WebhookCreatePayload { name: string; url: string; eventTypes: WebhookEvent[]; }
 ```
+
+`Message.content` is typed to allow an `image_url` object, but `/v3/memories/add/` rejects structured content with a 400 (`Not a valid string.`), so pass a plain string (see Multimodal Support in [features.md](../references/features.md)).
 
 Also exported: `DeleteAllMemoryOptions`, `MemoryUpdateBody`, `PromptUpdatePayload`, `Webhook`, `WebhookUpdatePayload`, `User`, `AllUsers`, the profile types, and the error classes `MemoryError`, `AuthenticationError`, `RateLimitError`, `ValidationError`, `MemoryNotFoundError`, `NetworkError`, `ConfigurationError`, `MemoryQuotaExceededError`.
 
@@ -488,7 +492,7 @@ await client.search("query", { filters: { user_id: "alice" }, topK: 20 });
 | Param | v2 | v3 |
 |-------|----|----|
 | `topK` (OSS) | 100 | 20 |
-| `threshold` | 0.3 (Platform), none (OSS) | 0.1 |
+| `threshold` | 0.3 (Platform), none (OSS) | server-side cutoff (Platform), 0.1 (OSS) |
 | `rerank` | false (Platform), true (OSS) | false |
 
 Platform `topK` defaults to 10 (max 1000).

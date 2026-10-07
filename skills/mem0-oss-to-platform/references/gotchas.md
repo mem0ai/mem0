@@ -76,7 +76,7 @@ constructor, they're resolved from the API key. Per-call legacy options like `as
   (`count`/`next`/`previous`/`results`). Code that limited via `top_k` on `get_all` should move to
   `page`/`page_size` (default `page_size` 100).
 - Defaults differ: OSS `search` uses `top_k=20`, the platform uses `top_k=10`. Both default to
-  `threshold=0.1` and `rerank=false`. Result counts can change even when the call looks equivalent;
+  `rerank=false`. OSS `threshold` defaults to 0.1; on the platform it is a server-side cutoff, not a floor on the returned `score`. Result counts can change even when the call looks equivalent;
   pass `top_k` explicitly.
 
 ## 10. `reset()` is much more destructive
@@ -93,7 +93,7 @@ one page keeps the rest. Re-run until it raises `No entities to delete`, or dele
 
 ## 11. Filters and update/add signatures
 - Platform `filters` only accept an allowlist of top-level keys; custom metadata must be nested under
-  `"metadata"` and supports only `eq`/`ne`/`contains` (no `nin`; use a `NOT` list, e.g. `{"NOT": [{"categories": {"in": [...]}}]}`). OSS filters on arbitrary metadata
+  `"metadata"` and supports only `eq`/`ne`/`contains` (whole value or list member, not a substring; no `nin`; use a `NOT` list, e.g. `{"NOT": [{"categories": {"in": [...]}}]}`). OSS filters on arbitrary metadata
   keys or richer operators need rewriting or a decision.
 - Python `update` takes `text=` as a keyword (a positional string breaks); TS `update` requires an
   options object and TS `add` requires `Message[]`, not a bare string.

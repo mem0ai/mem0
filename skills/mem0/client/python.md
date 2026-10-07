@@ -90,7 +90,7 @@ for mem in results.get("results", []):
 | `filters` | dict | None | Filter object with entity IDs and/or `AND`/`OR`/`NOT` conditions (e.g., `{"user_id": "alice"}`) |
 | `top_k` | int | 10 | Number of results |
 | `rerank` | bool | False | Enable deep semantic reranking (+150-200ms) |
-| `threshold` | float | 0.1 | Minimum similarity score |
+| `threshold` | float | server-side | Relevance cutoff (0.0 to 1.0), applied before score blending, so it is not a floor on the returned `score`. The default and `0.0` returned the same or nearly the same results in live tests |
 | `fields` | - | - | Not applied in v3 |
 | `categories` | - | - | Not applied in v3. Use `filters={"AND": [{"categories": {"in": [...]}}]}` |
 | `metadata` | - | - | Not applied in v3. Use `filters={"AND": [{"metadata": {...}}]}` |
@@ -112,7 +112,7 @@ memory = client.get(memory_id="ea925981-...")
 
 #### get_all(options=None, **kwargs)
 
-Retrieve all memories with optional filtering. Requires at least one entity identifier.
+Retrieve all memories with optional filtering. Requires non-empty `filters`; scope them with at least one entity identifier.
 
 ```python
 memories = client.get_all(filters={"user_id": "alice"})
@@ -179,9 +179,11 @@ Update up to 1000 memories in a single request.
 ```python
 client.batch_update([
     {"memory_id": "uuid-1", "text": "Updated text"},
-    {"memory_id": "uuid-2", "text": "Another update", "metadata": {"verified": True}},
+    {"memory_id": "uuid-2", "text": "Another update"},
 ])
 ```
+
+Each item must include `text`. `metadata` on a batch item is ignored and a metadata-only item returns a 400. Use `update(memory_id, metadata=...)` to change metadata.
 
 #### batch_delete(memories)
 
@@ -304,10 +306,10 @@ webhook = client.create_webhook(
 )
 
 # Update
-client.update_webhook(webhook_id=123, name="Updated", url="https://new-url.com")
+client.update_webhook(webhook_id="wh_123", name="Updated", url="https://new-url.com")
 
 # Delete
-client.delete_webhook(webhook_id=123)
+client.delete_webhook(webhook_id="wh_123")
 ```
 
 ---
@@ -504,7 +506,7 @@ The "v2" line is Python SDK 1.x (TypeScript SDK 2.x). If you are still on it, th
 | Param | v2 Platform | v3 Platform | v2 OSS | v3 OSS |
 |-------|-------------|-------------|--------|--------|
 | `top_k` | 10 | 10 | 100 | 20 |
-| `threshold` | 0.3 | 0.1 | None | 0.1 |
+| `threshold` | 0.3 | server-side cutoff | None | 0.1 |
 | `rerank` | False | False | True | False |
 
 **Removed Parameters:**

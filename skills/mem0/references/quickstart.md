@@ -114,6 +114,8 @@ curl -X POST https://api.mem0.ai/v3/memories/search/ \
 }
 ```
 
+The TS client returns the same fields camelCased (`userId`, `createdAt`).
+
 ## Next Steps
 
 - [SDK Guide](sdk-guide.md) -- all methods for Python and TypeScript

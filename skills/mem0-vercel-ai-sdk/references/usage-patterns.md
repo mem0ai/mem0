@@ -321,7 +321,7 @@ const mem0 = createMem0();
 const model = mem0("gpt-5-mini", {
   user_id: "alice",
   top_k: 20,          // retrieve up to 20 memories (default: 10)
-  threshold: 0.8,     // only memories with score >= 0.8
+  threshold: 0.8,     // server-side cutoff applied before score blending
   rerank: true,       // enable re-ranking of results
 });
 ```

@@ -126,7 +126,7 @@ On error:
 {
   "status": "error",
   "command": "search",
-  "error": "Authentication failed. Your API key may be invalid or expired.",
+  "error": "Invalid or expired API key.",
   "data": null
 }
 ```
@@ -147,6 +147,7 @@ Both the Node.js (`@mem0/cli`) and Python (`mem0-cli`) CLIs share the command se
 
 - **Async processing delay:** After `mem0 add`, memories process asynchronously. Wait 2-3 seconds before searching for newly added content. Use `mem0 event list` to check processing status.
 - **`--all` vs `--entity` delete modes:** `mem0 delete --all -u alice` deletes all memories for user alice. `mem0 delete --entity -u alice` deletes the entity itself AND all its memories (cascade). These are mutually exclusive modes.
+- **`--dry-run` in `--json`/`--agent` mode:** `mem0 --json delete --all --dry-run` still requires `--force`, then prints nothing and deletes nothing (exit 0). Node also prints nothing for single and `--entity` dry runs. Use text mode to see the preview.
 - **`--dry-run` does not protect `--all --project`:** `mem0 delete --all --project --dry-run` ignores the flag and deletes every memory in the project. Never use `--dry-run` to preview a project-wide delete.
 - **Entity ID resolution:** If you pass any explicit scope flag (e.g. `--user-id`), the CLI uses ONLY the explicit IDs and ignores config defaults. If no scope flags are given, all configured defaults apply.
 - **Stdin detection:** When no text argument is provided and stdin is a pipe or a redirected file (a plain non-TTY is not enough), the CLI reads from stdin. Works with `add`, `search`, and `update`. In `--json`/`--agent` mode `add` never reads stdin (Python also skips it for `search` and `update`), so pass the text as an argument there.

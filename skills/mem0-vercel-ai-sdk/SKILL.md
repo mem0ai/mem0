@@ -191,7 +191,7 @@ User controls each step:
 - **`processMemories` awaits `addMemories`** before searching and calling the LLM, so each wrapped call includes one memory write and one memory search. If either request fails, the error is logged and the LLM call proceeds without memories.
 - **`"google"` and `"gemini"`** are both accepted and map to `@ai-sdk/google`.
 - **Removed in 3.0.0**: `org_id`, `project_id`, `org_name`, `project_name`, `output_format`, `filter_memories`, `async_mode`, `enable_graph`, `version`, `api_version`. Graph memory is now a Mem0 Platform project setting, not a provider option.
-- **Default `top_k` is 10.** `threshold` and `rerank` are only sent when set (API defaults: `0.1` and `false`).
+- **Default `top_k` is 10.** `threshold` and `rerank` are only sent when set (the API default for `rerank` is `false`; `threshold` is a server-side cutoff, not a floor on the returned score).
 - **Custom host**: set `host` in the config to point to a different Mem0 API endpoint (default: `https://api.mem0.ai`).
 
 ## References

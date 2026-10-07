@@ -152,7 +152,7 @@ Add a memory from text, messages, file, or stdin.
 | `-m, --metadata <json>` | string | - | Custom metadata as JSON object (e.g. `'{"source":"cli"}'`). |
 | `--no-infer` | boolean | false | Skip inference; store the text verbatim. |
 | `--expires <date>` | string | - | Expiration date (YYYY-MM-DD). Must be in the future. |
-| `--immutable` | boolean | false | Prevent future updates. |
+| `--immutable` | boolean | false | Accepted but has no effect on v3: the memory can still be updated and no marker is stored. |
 | `--custom-instructions <text>` | string | - | Custom instructions for fact extraction. |
 | `--agent-custom-instructions <text>` | string | - | Extraction instructions for agent-scoped memories, overriding the project setting. |
 | `--custom-categories <json>` | string | - | Custom categories as a JSON array of `{name: description}` objects. |
@@ -183,7 +183,6 @@ mem0 add --messages '[{"role":"user","content":"I like Python"}]' -u alice
 mem0 add --file conversation.json -u alice -o json
 echo "I prefer dark mode" | mem0 add -u alice
 mem0 add "temporary note" -u alice --expires 2027-12-31
-mem0 add "important fact" -u alice --immutable
 mem0 add "uses vim" -u alice --custom-categories '[{"tools":"Editors and developer tooling"}]'
 ```
 
@@ -210,7 +209,7 @@ Search memories by semantic query.
 | `--app-id <id>` | string | - | Filter by app. |
 | `--run-id <id>` | string | - | Filter by run. |
 | `-k, --top-k <n>` | integer | 10 | Maximum number of results to return (must be >= 1). Python also accepts `--limit` as an alias. |
-| `--threshold <score>` | float | 0.3 | Minimum similarity score (0.0 to 1.0). |
+| `--threshold <score>` | float | 0.3 | Minimum similarity score (0.0 to 1.0), applied before hybrid score blending, so a returned item's displayed `score` can be lower than this value. |
 | `--rerank` | boolean | false | Enable reranking for improved relevance (Platform only). |
 | `--keyword` | boolean | false | Sent to the API as `keyword_search` but not applied by v3 search, which always blends keyword matching into hybrid scoring. |
 | `--filter <json>` | string | - | Advanced filter expression as JSON. If it contains `AND` or `OR` it is sent as-is and entity IDs (including config defaults) are not merged in. |
@@ -365,7 +364,7 @@ You cannot combine `<memory_id>` with `--all` or `--entity`, and you cannot comb
 
 **Dry-run behavior:**
 - Single: fetches the memory, displays it, and prints "No changes made." (Python: "No changes made (dry run)."). Node also prints "Would delete memory <id8>: <text>".
-- `--all`: lists matching memories, prints "Would delete N memories." and the "No changes made" line.
+- `--all`: lists matching memories, prints "Would delete N memories." and the "No changes made" line. In `--json`/`--agent` mode `--all` still requires `--force` even with `--dry-run`, and the command then exits 0 with no output and deletes nothing. Use text mode to see the preview.
 - `--entity`: prints "Would delete entity <scope> and all its memories." and the "No changes made" line.
 - **Warning:** `--all --project` does not honor `--dry-run`. It skips the preview and deletes every memory in the project (after the confirmation, or immediately with `--force`). Never pass `--dry-run` to `--all --project` expecting a preview. This is a known CLI bug in both CLIs, not intended behavior, so do not rely on it. To preview, run `mem0 delete --all --dry-run` per scope (for example `-u alice`) instead.
 
@@ -416,7 +415,7 @@ Import memories from a JSON file.
 ]
 ```
 
-**Behavior:** Iterates through items, calling the add API for each. Displays progress and reports `added` and `failed` counts on completion (text mode writes the summary to stderr). In JSON mode the Python CLI sends progress to stderr and includes `scope` in the envelope; the Node CLI writes the progress line to stdout before the JSON (so `| jq` fails) and omits `scope`. Only `-u`, `--agent-id`, `-o`, `--api-key` and `--base-url` are accepted.
+**Behavior:** Iterates through items, calling the add API for each. Displays progress and reports `added` and `failed` counts on completion (text mode writes the summary to stderr in Python and to stdout in Node). In JSON mode the Python CLI sends progress to stderr and includes `scope` in the envelope; the Node CLI writes the progress line to stdout before the JSON (so `| jq` fails) and omits `scope`. Only `-u`, `--agent-id`, `-o`, `--api-key` and `--base-url` are accepted.
 
 **Examples:**
 ```bash
@@ -564,7 +563,7 @@ List recent background processing events.
 |------|------|---------|-------------|
 | `-o, --output <fmt>` | string | `table` | Output format: `table`, `json`. |
 
-**Behavior:** Fetches all events for the project. Displays a table with columns: Event ID (first 8 chars), Type, Status (color-coded), Latency, Created. Status values: `PENDING`, `SUCCEEDED`, `FAILED`, `PROCESSING`.
+**Behavior:** Fetches all events for the project. Displays a table with columns: Event ID (first 8 chars), Type, Status (color-coded), Latency, Created. Status values: `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`.
 
 **Examples:**
 ```bash
@@ -667,7 +666,7 @@ When `--json` or `--agent` is passed, data commands (add, search, list, get, upd
 
 | Command | `data` shape |
 |---------|-------------|
-| `add` | `[{id, memory, event}]` or `[{status, event_id}]` for PENDING |
+| `add` | `[{id, event}]` for synchronous results (`--no-infer`) or `[{status, event_id}]` for PENDING (default) |
 | `search` | `[{id, memory, score, created_at, categories, expiration_date}]` |
 | `list` | `[{id, memory, created_at, categories, expiration_date}]` |
 | `get` | `{id, memory, created_at, updated_at, categories, metadata, expiration_date}` |
@@ -676,7 +675,7 @@ When `--json` or `--agent` is passed, data commands (add, search, list, get, upd
 | `delete --all` | `{deleted}`, with `scope` in the envelope (Node: raw API result) |
 | `delete --all --project` | `{deleted, scope: "project"}` (Node: raw API result) |
 | `delete --entity` / `entity delete` | `{deleted}` |
-| `entity list` | `[{name, type, count}]` |
+| `entity list` | `[{name, type}]` |
 | `event list` | `[{id, event_type, status, latency, created_at}]` |
 | `event status` | `{id, event_type, status, latency, created_at, updated_at, results}` |
 | `status` | `{connected, backend, base_url}` |
@@ -691,10 +690,12 @@ When `--json` or `--agent` is passed, data commands (add, search, list, get, upd
 {
   "status": "error",
   "command": "search",
-  "error": "Authentication failed. Your API key may be invalid or expired.",
+  "error": "Invalid or expired API key.",
   "data": null
 }
 ```
+
+The `error` text varies by CLI and failure point (for example a 401 after the upfront key check passes returns "Authentication failed. Your API key may be invalid or expired."). Branch on `status`, not on the message.
 
 ---
 

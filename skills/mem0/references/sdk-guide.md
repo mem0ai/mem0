@@ -110,7 +110,7 @@ const results = await client.search("work experience", {
 | `filters` | object | Filter object (AND/OR operators). Use `{"user_id": "..."}` to filter by user |
 | `top_k` | number | Number of results (default: 10 for Platform) |
 | `rerank` | boolean | Enable reranking for better relevance (default: `false`) |
-| `threshold` | number | Minimum similarity score (default: 0.1) |
+| `threshold` | number | Server-side relevance cutoff (0 to 1), applied before score blending, so it is not a floor on the returned `score`. The default and `0.0` returned the same or nearly the same results in live tests |
 | `reference_date` | string / number | Anchor for relative time queries such as "last week" (epoch, `YYYY-MM-DD`, or ISO datetime) |
 | `show_expired` | boolean | Include memories past their `expiration_date` (default: `false`) |
 | `latest_only` | boolean | Only return the latest version of a memory |
@@ -194,7 +194,7 @@ const memory = await client.get("ea925981-...");
 const memories = await client.getAll({ filters: { user_id: "alice" } });
 ```
 
-**Note:** `get_all` requires at least one of `user_id`, `agent_id`, `app_id`, or `run_id` in filters.
+**Note:** `get_all` requires non-empty `filters`. Scope them with at least one of `user_id`, `agent_id`, `app_id`, or `run_id`.
 
 ---
 
@@ -270,6 +270,8 @@ await client.batchUpdate([
 await client.batchDelete(["uuid-1", "uuid-2", "uuid-3"]);
 ```
 
+Each batch update item must include `text`. `metadata` on an item is ignored and a metadata-only item returns a 400.
+
 ---
 
 ## Additional Methods
@@ -303,7 +305,7 @@ client.generate_profile("alice")
 2. **SQL operators rejected** -- use `gte`, `lt`, etc. Not `>=`, `<`.
 3. **Metadata filtering is limited** -- only top-level keys with `eq`, `contains`, `ne`.
 4. **Wildcard `*` excludes null** -- only matches non-null values.
-5. **Default threshold is 0.1** -- increase for stricter matching.
+5. **Threshold is a server-side cutoff** -- raise it to drop weak matches, but it is applied before score blending, so it is not a floor on the returned `score`. Filter on `score` client-side for a precise cutoff.
 6. **Async processing** -- `add()` returns `{"event_id": ..., "status": "PENDING"}` (`eventId` on the TS client). Memories are searchable after the event is `SUCCEEDED` (poll `GET /v1/event/{event_id}/`, or wait a few seconds). `infer=False` is synchronous.
 
 ## Naming Conventions
@@ -356,7 +358,7 @@ v3 TypeScript uses camelCase for all parameters:
 
 | Parameter | v2 Default | v3 Default |
 |-----------|------------|------------|
-| `threshold` | 0.3 | 0.1 |
+| `threshold` | 0.3 | server-side cutoff |
 | `rerank` | `false` | `false` |
 
 **4. Removed Parameters**

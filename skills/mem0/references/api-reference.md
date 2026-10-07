@@ -37,12 +37,11 @@ The `GET`/`POST` `/v1/memories/`, `POST` `/v2/memories/`, and `POST` `/v1/memori
 | `run_id` | string (nullable) | Run/session identifier (see note below) |
 | `metadata` | object | Custom key-value pairs |
 | `categories` | array of strings | Auto-assigned category tags |
-| `hash` | string | Content hash |
 | `expiration_date` | string (nullable) | Date after which the memory is hidden unless `show_expired` is true |
 | `created_at` | datetime | Creation timestamp |
 | `updated_at` | datetime | Last modification timestamp |
 
-Search results additionally include `score` (relevance metric) and `score_breakdown` (per-signal scores). Get-all results additionally include `structured_attributes` (temporal breakdown of the creation time), `replaced_by`, and `synthesized`.
+Search results additionally include `score` (relevance metric) and `score_breakdown` (per-signal scores). Get and get-all results additionally include `structured_attributes` (temporal breakdown of the creation time), `replaced_by`, and `synthesized`, and get also returns `lifecycle_state`. Get and get-all omit `app_id` and `run_id` when they are not set.
 
 The run/session identifier is `run_id` in search results but `session_id` in get, get-all, and history results.
 
@@ -102,9 +101,9 @@ The root can also be a bare condition such as `{"user_id": "alice"}`. Sibling to
 | Field | Valid Operators |
 |-------|-----------------|
 | `user_id`, `agent_id`, `app_id`, `run_id` | `eq`, `ne`, `in`, `*` |
-| `created_at`, `updated_at`, `timestamp`, `expiration_date` | `gt`, `gte`, `lt`, `lte`, `ne`, `in` (explicit `eq` is rejected, pass a bare value) |
+| `created_at`, `updated_at`, `timestamp`, `expiration_date` | `gt`, `gte`, `lt`, `lte`, `ne` (explicit `eq` is rejected, pass a bare value; `in` fails with a 503 in search and a 500 in get-all) |
 | `categories` | `in`, `contains` (`eq` and `ne` are rejected) |
-| `metadata` | `eq`, `ne`, `contains` (top-level keys only) |
+| `metadata` | `eq`, `ne`, `contains` (top-level keys only). `contains` is case-sensitive and matches the whole stored value or one member of a list value, not a substring. `icontains` is rejected with a 400 |
 | `keywords` | `contains`, `icontains` |
 | `memory_ids` | plain list of UUIDs (no `in`) |
 
@@ -113,7 +112,7 @@ The root can also be a bare condition such as `{"user_id": "alice"}`. Sibling to
 1. **Entity scope partitioning:** `user_id` AND `agent_id` in one `AND` block yields empty results (except for Direct Import records).
 2. **Metadata limitations:** Only top-level keys. Only `eq`, `contains`, `ne`. No `in` or `gt`.
 3. **Operator syntax:** Use `gte`, `lt`, `ne`. SQL-style (`>=`, `!=`) rejected. There is no `nin` on Platform: use `{"NOT": [{"categories": {"in": [...]}}]}`.
-4. **Entity filter required for get-all:** At least one of `user_id`, `agent_id`, `app_id`, or `run_id`.
+4. **Filters required for get-all:** Empty or missing `filters` return a 400. Scope the listing with at least one of `user_id`, `agent_id`, `app_id`, or `run_id` (search enforces this, get-all does not).
 5. **Wildcard excludes null:** `*` matches only non-null values.
 6. **Date format:** ISO 8601 (`YYYY-MM-DDTHH:MM:SSZ`). Timezone-naive defaults to UTC.
 7. **Keyword filter:** `keywords` works in `get_all` filters but returns a 503 inside `search()` filters (MEM-5746). Pass the text as `query` for search.
@@ -148,7 +147,7 @@ v3 is ADD-only. No UPDATE or DELETE events. With `infer=false` the call is synch
 }
 ```
 
-In v3, `score` is a combined multi-signal relevance score in [0, 1]. Request defaults: `top_k` 10 (1 to 1000), `threshold` 0.1 (pass `0.0` to disable), `rerank` false.
+In v3, `score` is a combined multi-signal relevance score in [0, 1]. Request defaults: `top_k` 10 (1 to 1000), `rerank` false. `threshold` is a server-side cutoff applied before score blending, not a floor on the returned `score`: the default and `0.0` returned the same or nearly the same results in live tests, including scores below 0.1.
 
 ### Get All Response (v3)
 

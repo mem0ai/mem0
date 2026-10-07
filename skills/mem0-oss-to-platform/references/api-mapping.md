@@ -62,11 +62,11 @@ For **add** and **delete_all**, top-level entity IDs are accepted.
 
 Filter differences: Platform validates each top-level filter key against a fixed allowlist
 (`AND`/`OR`/`NOT`, `user_id`, `agent_id`, `app_id`, `run_id`, `created_at`, `updated_at`, `timestamp`,
-`expiration_date`, `text`, `categories`, `metadata`, `memory_ids`, `keywords`) and
+`expiration_date`, `categories`, `metadata`, `memory_ids`, `keywords`) and
 returns 400 for anything else, so custom metadata keys must be nested under `"metadata"`
-(`{"metadata": {"plan": "pro"}}`). Platform `metadata` supports only `eq`/`ne`/`contains`, and there is
+(`{"metadata": {"plan": "pro"}}`). Platform `metadata` supports only `eq`/`ne`/`contains` (`contains` is case-sensitive and matches the whole value or one list member, not a substring), and there is
 no `nin` (use `{"NOT": [{"categories": {"in": [...]}}]}`; `NOT` must be a list). OSS accepts arbitrary
-metadata keys and a wider operator set. Flag any OSS filter that depends on either.
+metadata keys and a wider operator set. Flag any OSS filter that depends on either. Do not filter on `text`: search fails with a 503 and `get_all` rejects it. Pass the text as the search `query`.
 
 ---
 
@@ -152,7 +152,7 @@ Also drop legacy options that no longer apply: `async_mode`, `output_format`, `e
 Surface any that affect the project. Defaults differ between the two sides even when a call looks
 identical:
 - `search`: OSS `top_k=20`, `threshold=0.1`, `rerank=False`. Platform `top_k=10` (allowed 1 to 1000),
-  `threshold=0.1`, `rerank=false`. Pass `top_k` explicitly to keep the old result count.
+  `rerank=false`, and `threshold` is a server-side cutoff, not a floor on the returned `score`. Pass `top_k` explicitly to keep the old result count.
 - `get_all`: OSS `top_k=20`, not paginated. Platform `page=1`, `page_size=100`.
 - `custom_fact_extraction_prompt` (TS `customPrompt`) was renamed `custom_instructions`
   (`customInstructions`) in OSS 2.0/3.0; `custom_update_memory_prompt` is deprecated. See the

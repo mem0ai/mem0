@@ -38,7 +38,7 @@ async function addMemories(
 
 **Behavior:**
 1. If `messages` is a string, wraps it as a single user message
-2. Otherwise, converts `LanguageModelV3Prompt` to Mem0 format via `convertToMem0Format` (handles multimodal content)
+2. Otherwise, converts `LanguageModelV3Prompt` to Mem0 format via `convertToMem0Format` (maps multimodal parts, but the add endpoint rejects them with a 400)
 3. Calls `POST {host}/v3/memories/add/` with body `{ messages, user_id?, app_id?, agent_id?, run_id?, metadata?, infer? }` (entity IDs are top-level on add)
 4. Throws `HTTP error! status: <code>` on a non-2xx response
 
@@ -226,6 +226,8 @@ Not exported. Used by `addMemories` to convert `LanguageModelV3Prompt` messages 
 | MDX content | `{ type: "mdx_url", mdx_url: { url } }` or `{ type: "mdx", ... }` | MDX URL | `{ role, content: { type: "mdx_url", mdx_url: { url } } }` |
 | PDF content | `{ type: "pdf_url", pdf_url: { url } }` or `{ type: "pdf", ... }` | PDF URL | `{ role, content: { type: "pdf_url", pdf_url: { url } } }` |
 
+`/v3/memories/add/` rejects structured (non-string) `content` with a 400 `Not a valid string.` (live-tested on the Python SDK with `infer` true and false), so a prompt containing these parts is expected to fail with `HTTP error! status: 400` (checked against the endpoint, not through the provider). Only text parts are storable.
+
 The function handles three message content shapes:
 1. **String content**: passed through directly
 2. **Array content**: each element mapped individually, nulls filtered out
@@ -258,6 +260,6 @@ All fields are optional. Used across all utility functions.
 | `page_size` | `number` | -- | Declared in the type, not sent by the provider |
 | `mem0ApiKey` | `string` | `MEM0_API_KEY` env | Mem0 API key |
 | `top_k` | `number` | `10` | Number of memories to retrieve |
-| `threshold` | `number` | -- (API default `0.1`) | Minimum relevance score, sent only when set |
+| `threshold` | `number` | -- | Server-side relevance cutoff, not a floor on the returned score; sent only when set |
 | `rerank` | `boolean` | -- (API default `false`) | Enable re-ranking, sent only when set |
 | `host` | `string` | `https://api.mem0.ai` | Custom API host |

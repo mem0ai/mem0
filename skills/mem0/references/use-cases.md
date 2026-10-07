@@ -295,7 +295,7 @@ async function consult(userId: string, question: string): Promise<string> {
 
 ### Key Benefits
 
-- High threshold (0.7) ensures only confident matches for safety-critical retrieval
+- High threshold (0.7) drops weak matches for safety-critical retrieval (it is a server-side cutoff applied before score blending, so check `score` too)
 - Session scoping via `run_id` groups related health interactions
 - Metadata tagging separates patient info from conversation history
 
