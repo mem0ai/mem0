@@ -293,6 +293,32 @@ class TestBuildInferenceConfig:
         assert cfg["temperature"] == 0.1
         assert "topP" not in cfg
 
+    @pytest.mark.parametrize(
+        ("model", "expected"),
+        [
+            ("anthropic.claude-3-5-sonnet-20240620-v1:0", True),
+            ("us.anthropic.claude-haiku-4-5-20251001-v1:0", True),
+            ("us.anthropic.claude-sonnet-4-20250514-v1:0", True),
+            ("us.anthropic.claude-sonnet-4-6", True),
+            ("us.anthropic.claude-opus-4-1-20250805-v1:0", True),
+            ("us.anthropic.claude-opus-4-6-v1", True),
+            ("us.anthropic.claude-opus-4-7", False),
+            ("us.anthropic.claude-opus-4-8", False),
+            ("us.anthropic.claude-opus-5", False),
+            ("anthropic.claude-opus-5-5", False),
+            ("us.anthropic.claude-opus-5-5", False),
+            ("global.anthropic.claude-opus-5-5", False),
+            ("us.anthropic.claude-sonnet-5", False),
+            ("us.anthropic.claude-fable-5-1", False),
+        ],
+    )
+    def test_anthropic_temperature_only_for_models_that_accept_it(self, mock_boto3, model, expected):
+        # Opus 4.7+, Sonnet 5+ and Fable return "`temperature` is deprecated for this model."
+        llm = _make_llm(model, mock_boto3, temperature=0.1)
+        cfg = llm._build_inference_config()
+        assert ("temperature" in cfg) is expected
+        assert "topP" not in cfg
+
 
 # ---------------------------------------------------------------------------
 # generate_response — Converse API call assertions
