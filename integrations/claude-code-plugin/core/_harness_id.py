@@ -2,6 +2,7 @@
 
 HARNESS_ID = "claude-code"
 SOURCE_TAG = "CLAUDE_CODE_PLUGIN"
+DATA_DIR_NAME = "claude-code-plugin"
 
 # Platform-side vocabulary (mem0_event.source + X-Application). The whole
 # plugin family is one source; which editor it runs in is the application.

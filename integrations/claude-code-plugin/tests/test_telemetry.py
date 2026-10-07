@@ -24,6 +24,8 @@ def isolated_env(tmp_path, monkeypatch):
     monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", raising=False)
     monkeypatch.delenv("MEM0_API_URL", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     return tmp_path
 
 

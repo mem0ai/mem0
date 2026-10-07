@@ -10,6 +10,7 @@
  * tools registered via `ctx.tools.register(...)` are auto-unregistered when the
  * plugin unmounts (Cordis revertible effects).
  */
+import { homedir } from "node:os";
 import type { Context } from "@deepseek-ai/cordis";
 import type {} from "@deepseek-ai/dsh-agent";
 import type { PromptAssembly } from "@deepseek-ai/dsh-system-prompt";
@@ -20,6 +21,7 @@ import { formatMemoryList, formatAddResult } from "./formatting.ts";
 import { truncateOutput } from "./output.ts";
 import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 import { captureEvent, errorKind } from "./telemetry.ts";
+import { mem0CliApiKey } from "../../agent-plugin-core/typescript/src/credentials.ts";
 import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
 import {
   USER_RECALL_HEADING,
@@ -94,7 +96,7 @@ const scopeParams = {
 } as const;
 
 export function apply(ctx: Context, config: Config): void {
-  const apiKey = config.apiKey ?? process.env.MEM0_API_KEY;
+  const apiKey = config.apiKey || process.env.MEM0_API_KEY || mem0CliApiKey(homedir());
   if (!apiKey) {
     throw new Error("deepseek-plugin: set config.apiKey or the MEM0_API_KEY env var");
   }

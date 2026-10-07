@@ -1,6 +1,7 @@
 import {readFileSync} from "fs";
 import {homedir} from "os";
 import {join} from "path";
+import {mem0CliApiKey} from "../agent-plugin-core/typescript/src/credentials.ts";
 
 const PROFILE_FILES = [".zshrc", ".bashrc", ".zprofile", ".bash_profile", ".profile"];
 
@@ -26,5 +27,5 @@ export function resolveApiKey(env: NodeJS.ProcessEnv = process.env, homeDir = ho
     }
   }
 
-  return "";
+  return mem0CliApiKey(homeDir);
 }
