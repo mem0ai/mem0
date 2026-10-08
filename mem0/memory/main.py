@@ -2081,6 +2081,12 @@ class Memory(MemoryBase):
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
+        elif not text_changed:
+            # Metadata/expiration-only update: the stored text is unchanged, so
+            # re-embedding is unnecessary. Pass vector=None so the vector store
+            # refreshes only the payload, keeping the existing vector. This also
+            # makes the update resilient to a down embedding provider.
+            embeddings = None
         else:
             embeddings = self.embedding_model.embed(data, "update")
 
@@ -3799,6 +3805,12 @@ class AsyncMemory(MemoryBase):
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
+        elif not text_changed:
+            # Metadata/expiration-only update: the stored text is unchanged, so
+            # re-embedding is unnecessary. Pass vector=None so the vector store
+            # refreshes only the payload, keeping the existing vector. This also
+            # makes the update resilient to a down embedding provider.
+            embeddings = None
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
 

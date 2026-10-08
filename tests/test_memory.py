@@ -1665,3 +1665,84 @@ def test_sync_procedural_memory_empty_content_raises(
         )
 
     mock_vector_store.insert.assert_not_called()
+
+
+@patch('mem0.memory.storage.SQLiteManager')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.EmbedderFactory.create')
+def test_update_metadata_only_skips_embedding(mock_embedder_factory, mock_vector_factory, mock_llm_factory, mock_sqlite):
+    """Metadata-only updates must not call the embedding provider (text unchanged)."""
+    mock_embedder = MagicMock()
+    mock_embedder_factory.return_value = mock_embedder
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    existing = MagicMock()
+    existing.payload = {"data": "Name is John Doe.", "user_id": "u1"}
+    mock_vector_store.get.return_value = existing
+
+    memory.update("1", metadata={"reviewed": True})
+
+    # vector_store.update must receive vector=None (payload-only refresh)
+    assert mock_vector_store.update.call_args.kwargs.get("vector") is None
+    mock_embedder.embed.assert_not_called()
+
+
+@patch('mem0.memory.storage.SQLiteManager')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.EmbedderFactory.create')
+def test_update_metadata_only_survives_embedding_failure(mock_embedder_factory, mock_vector_factory, mock_llm_factory, mock_sqlite):
+    """Metadata-only updates persist even when the embedding provider raises."""
+    def _boom(*args, **kwargs):
+        raise RuntimeError("embedding provider down")
+    mock_embedder = MagicMock()
+    mock_embedder.embed.side_effect = _boom
+    mock_embedder_factory.return_value = mock_embedder
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    existing = MagicMock()
+    existing.payload = {"data": "Name is John Doe.", "user_id": "u1"}
+    mock_vector_store.get.return_value = existing
+
+    result = memory.update("1", metadata={"reviewed": True})
+    assert result["message"] == "Memory updated successfully!"
+    # The vector store payload update still happened without an embedding.
+    assert mock_vector_store.update.call_args.kwargs.get("vector") is None
+
+
+@patch('mem0.memory.storage.SQLiteManager')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.EmbedderFactory.create')
+def test_update_text_change_still_embeds(mock_embedder_factory, mock_vector_factory, mock_llm_factory, mock_sqlite):
+    """Text changes must still re-embed and pass the new vector."""
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2]
+    mock_embedder_factory.return_value = mock_embedder
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    existing = MagicMock()
+    existing.payload = {"data": "Name is John Doe.", "user_id": "u1"}
+    mock_vector_store.get.return_value = existing
+
+    memory.update("1", text="Name is John Kapoor.")
+    assert mock_vector_store.update.call_args.kwargs.get("vector") == [0.1, 0.2]
