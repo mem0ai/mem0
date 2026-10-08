@@ -104,6 +104,36 @@ describe("SQLiteManager", () => {
     expect(await db.getHistory("mem1")).toHaveLength(1);
     expect(await db.getHistory("mem2")).toHaveLength(1);
   });
+
+  test("saveMessages: a batched save beyond the cap keeps the newest 10", async () => {
+    const messages = Array.from({ length: 12 }, (_, i) => ({
+      role: "user",
+      content: `msg${i}`,
+    }));
+    await db.saveMessages(messages, "scope-a");
+
+    const kept = (await db.getLastMessages("scope-a", 10)).map(
+      (m) => m.content,
+    );
+
+    expect(kept).toEqual(Array.from({ length: 10 }, (_, i) => `msg${i + 2}`));
+  });
+
+  test("getLastMessages returns the newest N in insertion order within a batched save", async () => {
+    const messages = Array.from({ length: 8 }, (_, i) => ({
+      role: "user",
+      content: `msg${i}`,
+    }));
+    await db.saveMessages(messages, "scope-b");
+
+    const order = (await db.getLastMessages("scope-b", 5)).map(
+      (m) => m.content,
+    );
+
+    // A batched save ties created_at, so ordering the inner LIMIT by created_at keeps the
+    // oldest 5; only the rowid tiebreak returns the newest 5 in insertion order.
+    expect(order).toEqual(["msg3", "msg4", "msg5", "msg6", "msg7"]);
+  });
 });
 
 // ─── DummyHistoryManager ────────────────────────────────
