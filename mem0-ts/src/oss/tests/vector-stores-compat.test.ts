@@ -14,8 +14,94 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import {
+  canonicalResultId,
+  canonicalResultPayload,
+  expectCanonicalResultPayload,
+} from "./helpers/vectorStoreResultContract";
 
 jest.setTimeout(15000);
+
+it("shared canonical result payload helper rejects noncanonical shapes", () => {
+  expect(() =>
+    expectCanonicalResultPayload(
+      canonicalResultId,
+      {
+        id: canonicalResultId,
+        payload: { ...canonicalResultPayload, userId: "user-1" },
+      },
+      [
+        {
+          id: canonicalResultId,
+          payload: { ...canonicalResultPayload, userId: "user-1" },
+        },
+      ],
+      [
+        {
+          id: canonicalResultId,
+          payload: { ...canonicalResultPayload, userId: "user-1" },
+        },
+      ],
+    ),
+  ).toThrow();
+  expect(() =>
+    expectCanonicalResultPayload(
+      canonicalResultId,
+      {
+        id: canonicalResultId,
+        payload: { ...canonicalResultPayload, backendOnlyField: undefined },
+      },
+      [
+        {
+          id: canonicalResultId,
+          payload: canonicalResultPayload,
+        },
+      ],
+      [
+        {
+          id: canonicalResultId,
+          payload: canonicalResultPayload,
+        },
+      ],
+    ),
+  ).toThrow();
+  expect(() =>
+    expectCanonicalResultPayload(
+      canonicalResultId,
+      { id: canonicalResultId, payload: canonicalResultPayload },
+      [
+        {
+          id: canonicalResultId,
+          payload: { ...canonicalResultPayload, backendOnlyField: undefined },
+        },
+      ],
+      [
+        {
+          id: canonicalResultId,
+          payload: canonicalResultPayload,
+        },
+      ],
+    ),
+  ).toThrow();
+  expect(() =>
+    expectCanonicalResultPayload(
+      canonicalResultId,
+      { id: canonicalResultId, payload: canonicalResultPayload },
+      [
+        {
+          id: canonicalResultId,
+          payload: canonicalResultPayload,
+        },
+      ],
+      [
+        {
+          id: canonicalResultId,
+          payload: { ...canonicalResultPayload, backendOnlyField: undefined },
+        },
+      ],
+    ),
+  ).toThrow();
+});
 
 // ───────────────────────────────────────────────────────────────────────────
 // 1. MemoryVectorStore — full CRUD, no external dependencies
@@ -123,6 +209,59 @@ describe("MemoryVectorStore – full backward compat", () => {
     await store.deleteCol();
     const [afterDelete] = await store.list();
     expect(afterDelete.length).toBe(0);
+  });
+
+  it("MemoryVectorStore returns canonical result payloads from get, list, and search", async () => {
+    const store = new MemoryVectorStore({
+      collectionName: "test",
+      dimension: 3,
+      dbPath: path.join(tmpDir, "vs.db"),
+    });
+    const vector = [1, 0, 0];
+
+    await store.insert([vector], [canonicalResultId], [canonicalResultPayload]);
+
+    const [listed] = await store.list();
+    expectCanonicalResultPayload(
+      canonicalResultId,
+      await store.get(canonicalResultId),
+      listed,
+      await store.search(vector, 1),
+    );
+    (store as any).db.close();
+  });
+
+  it("normalizes camelCase entity keys on read", async () => {
+    const store = new MemoryVectorStore({
+      collectionName: "test",
+      dimension: 3,
+      dbPath: path.join(tmpDir, "vs.db"),
+    });
+    const vector = [1, 0, 0];
+    const normalizationResultId = "camelcase-entity-ids";
+
+    await store.insert(
+      [vector],
+      [normalizationResultId],
+      [
+        {
+          data: "camel entity ids",
+          userId: "user-camel",
+          agentId: "agent-camel",
+          runId: "run-camel",
+        },
+      ],
+    );
+
+    const result = await store.get(normalizationResultId);
+    expect(result).not.toBeNull();
+    expect(result!.payload.user_id).toBe("user-camel");
+    expect(result!.payload.agent_id).toBe("agent-camel");
+    expect(result!.payload.run_id).toBe("run-camel");
+    expect(result!.payload.userId).toBeUndefined();
+    expect(result!.payload.agentId).toBeUndefined();
+    expect(result!.payload.runId).toBeUndefined();
+    (store as any).db.close();
   });
 
   it("full CRUD cycle with custom dimension 768", async () => {
@@ -380,6 +519,27 @@ describe("Qdrant – backward compat with mocked client", () => {
     // DeleteCol
     await store.deleteCol();
     expect(mockClient.deleteCollection).toHaveBeenCalledWith("test");
+  });
+
+  it("Qdrant returns canonical result payloads from get, list, and search", async () => {
+    const { Qdrant } = require("../src/vector_stores/qdrant");
+    const store = new Qdrant({
+      client: createMockQdrantClient(),
+      collectionName: "test",
+      embeddingModelDims: 3,
+      dimension: 3,
+    });
+    const vector = [1, 0, 0];
+    await store.initialize();
+    await store.insert([vector], [canonicalResultId], [canonicalResultPayload]);
+
+    const [listed] = await store.list();
+    expectCanonicalResultPayload(
+      canonicalResultId,
+      await store.get(canonicalResultId),
+      listed,
+      await store.search(vector, 1),
+    );
   });
 
   it("getUserId and setUserId roundtrip", async () => {
@@ -2545,6 +2705,26 @@ describe("Cassandra – backward compat with mocked client", () => {
         score: 1,
       },
     ]);
+  });
+
+  it("Cassandra returns canonical result payloads from get, list, and search", async () => {
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+    const vector = [1, 0, 0];
+    await store.initialize();
+    await store.insert([vector], [canonicalResultId], [canonicalResultPayload]);
+
+    const [listed] = await store.list();
+    expectCanonicalResultPayload(
+      canonicalResultId,
+      await store.get(canonicalResultId),
+      listed,
+      await store.search(vector, 1),
+    );
   });
 
   it("roundtrips migration user ids", async () => {
@@ -4939,6 +5119,27 @@ describe("AzureMySQL – backward compat with mocked client", () => {
 
     // DeleteCol
     await store.deleteCol();
+  });
+
+  it("AzureMySQL returns canonical result payloads from get, list, and search", async () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 3,
+    });
+    const vector = [1, 0, 0];
+    await store.initialize();
+    await store.insert([vector], [canonicalResultId], [canonicalResultPayload]);
+
+    const [listed] = await store.list();
+    expectCanonicalResultPayload(
+      canonicalResultId,
+      await store.get(canonicalResultId),
+      listed,
+      await store.search(vector, 1),
+    );
   });
 
   it("keywordSearch matches textLemmatized payloads", async () => {
