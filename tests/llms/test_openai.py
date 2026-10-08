@@ -316,12 +316,17 @@ def test_is_reasoning_model_classification(mock_openai_client):
 
     # Reasoning models — should return True
     assert llm._is_reasoning_model("o1") is True
+    assert llm._is_reasoning_model("o1-mini") is True
     assert llm._is_reasoning_model("o3-mini") is True
     assert llm._is_reasoning_model("o3") is True
+    assert llm._is_reasoning_model("o4-mini") is True
+    assert llm._is_reasoning_model("o4") is True
     assert llm._is_reasoning_model("gpt-5") is True
     assert llm._is_reasoning_model("o1-preview") is True
     assert llm._is_reasoning_model("o1-2024-12-17") is True
+    assert llm._is_reasoning_model("o4-2026-03-01") is True
     assert llm._is_reasoning_model("openai/o3-mini") is True
+    assert llm._is_reasoning_model("openai/o4-mini") is True
 
     # Non-reasoning models — should return False
     assert llm._is_reasoning_model("gpt-5.4-mini") is False
