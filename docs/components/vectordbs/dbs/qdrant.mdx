@@ -98,3 +98,7 @@ Let's see the available parameters for the `qdrant` config:
 | `onDisk` | For enabling persistent storage | `False` |
 </Tab>
 </Tabs>
+
+<Note>
+`embedding_model_dims` (Python) / `dimension` (TypeScript) must match the actual output dimension of whichever embedder you configure — it does not update automatically. The default of `1536` only matches OpenAI's embedder; see the [Hugging Face](/components/embedders/models/huggingface) and [Ollama](/components/embedders/models/ollama) embedder pages for non-OpenAI examples.
+</Note>

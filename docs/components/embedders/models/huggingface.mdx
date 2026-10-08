@@ -23,6 +23,12 @@ config = {
         "config": {
             "model": "multi-qa-MiniLM-L6-cos-v1"
         }
+    },
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "embedding_model_dims": 384  # must match the embedder's output dimension
+        }
     }
 }
 
@@ -36,9 +42,13 @@ messages = [
 m.add(messages, user_id="john")
 ```
 
+<Accordion title="Why the example sets the vector store dimension">
+  Most of Mem0's vector stores, including Qdrant (the default), default `embedding_model_dims` to `1536` (OpenAI's dimension), which does not match most Hugging Face models. If you use a different `model`, set `vector_store.config.embedding_model_dims` to that model's real output dimension — a mismatch makes `add()` fail with a vector shape error.
+</Accordion>
+
 ### Using Text Embeddings Inference (TEI)
 
-You can also use Hugging Face's Text Embeddings Inference service for faster and more efficient embeddings. This is the mode the TypeScript SDK uses.
+You can also use Hugging Face's Text Embeddings Inference service for faster and more efficient embeddings. This is the mode the TypeScript SDK uses. Mem0 cannot detect a remote TEI endpoint's output dimension, so set `vector_store.config.embedding_model_dims` (Python) / `vectorStore.config.dimension` (TypeScript) to match whichever model your TEI server is hosting.
 
 <CodeGroup>
 ```python Python
