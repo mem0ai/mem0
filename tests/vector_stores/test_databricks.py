@@ -538,6 +538,15 @@ def test_list_memories_default_limit(db_instance_delta, mock_workspace_client):
     assert call_kwargs["num_results"] == 100
 
 
+def test_list_memories_returns_nested_empty_list_on_error(db_instance_delta, mock_workspace_client):
+    """list() must return [[]] not [] when an exception is raised."""
+    mock_workspace_client.vector_search_indexes.query_index.side_effect = Exception("boom")
+
+    result = db_instance_delta.list(top_k=1)
+
+    assert result == [[]]
+
+
 # ---------------------- Table Creation Tests ---------------------- #
 
 

@@ -205,10 +205,11 @@ class Langchain(VectorStoreBase):
                 # Convert the result to the expected format
                 if result and isinstance(result, dict):
                     return [self._parse_output(result)]
-                return []
+                return [[]]
+            return [[]]
         except Exception as e:
             logger.error(f"Error listing vectors from Chroma: {e}")
-            return []
+            return [[]]
 
     def reset(self):
         """Reset the index by deleting and recreating it."""
