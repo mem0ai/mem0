@@ -12,7 +12,10 @@ export class LMStudioLLM extends OpenAILLM {
     super({
       ...config,
       apiKey: config.apiKey || DEFAULT_LMSTUDIO_API_KEY,
-      baseURL: config.baseURL ?? DEFAULT_BASE_URL,
+      // Precedence: explicit config > LMSTUDIO_BASE_URL env > default (#6526),
+      // matching the vllm/deepseek/sarvam/minimax/together providers.
+      baseURL:
+        config.baseURL || process.env.LMSTUDIO_BASE_URL || DEFAULT_BASE_URL,
       model: config.model || DEFAULT_MODEL,
     });
   }
