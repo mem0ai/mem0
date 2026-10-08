@@ -9,9 +9,12 @@ from hashlib import sha256
 VECTOR_ID = str(uuid.uuid4())
 home_dir = os.path.expanduser("~")
 mem0_dir = os.environ.get("MEM0_DIR") or os.path.join(home_dir, ".mem0")
-os.makedirs(mem0_dir, exist_ok=True)
 
 _logger = logging.getLogger(__name__)
+try:
+    os.makedirs(mem0_dir, exist_ok=True)
+except OSError as e:
+    _logger.debug("Failed to create mem0 config dir %s: %s", mem0_dir, e)
 
 
 def _config_path():
