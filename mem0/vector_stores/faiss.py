@@ -223,6 +223,7 @@ class FAISS(VectorStoreBase):
             logger.warning(f"Failed to load FAISS index: {e}")
             self.docstore = {}
             self.index_to_id = {}
+            self.create_col(self.collection_name)
 
     def _save(self):
         """Save FAISS index and docstore to disk using JSON format (secure)."""
