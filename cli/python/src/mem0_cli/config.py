@@ -90,31 +90,40 @@ def load_config() -> Mem0Config:
     config = Mem0Config()
 
     if CONFIG_FILE.exists():
-        with open(CONFIG_FILE) as f:
-            data = json.load(f)
+        data = None
+        try:
+            with open(CONFIG_FILE) as f:
+                loaded = json.load(f)
+            if isinstance(loaded, dict):
+                data = loaded
+        except (json.JSONDecodeError, OSError):
+            data = None
 
-        config.version = data.get("version", CONFIG_VERSION)
+        # A missing, corrupted, or wrong-shape config file falls back to
+        # defaults below, same as a config file that doesn't exist at all.
+        if data is not None:
+            config.version = data.get("version", CONFIG_VERSION)
 
-        plat = data.get("platform", {})
-        config.platform.api_key = plat.get("api_key", "")
-        config.platform.base_url = plat.get("base_url", DEFAULT_BASE_URL)
-        config.platform.user_email = plat.get("user_email", "")
-        config.platform.agent_mode = bool(plat.get("agent_mode", False))
-        config.platform.created_via = plat.get("created_via", "")
-        config.platform.agent_caller = plat.get("agent_caller", "")
-        config.platform.claimed_at = plat.get("claimed_at", "")
-        config.platform.default_user_id = plat.get("default_user_id", "")
+            plat = data.get("platform", {})
+            config.platform.api_key = plat.get("api_key", "")
+            config.platform.base_url = plat.get("base_url", DEFAULT_BASE_URL)
+            config.platform.user_email = plat.get("user_email", "")
+            config.platform.agent_mode = bool(plat.get("agent_mode", False))
+            config.platform.created_via = plat.get("created_via", "")
+            config.platform.agent_caller = plat.get("agent_caller", "")
+            config.platform.claimed_at = plat.get("claimed_at", "")
+            config.platform.default_user_id = plat.get("default_user_id", "")
 
-        defaults = data.get("defaults", {})
-        config.defaults.user_id = defaults.get("user_id", "")
-        config.defaults.agent_id = defaults.get("agent_id", "")
-        config.defaults.app_id = defaults.get("app_id", "")
-        config.defaults.run_id = defaults.get("run_id", "")
-        telemetry = data.get("telemetry", {})
-        config.telemetry.anonymous_id = telemetry.get("anonymous_id", "")
+            defaults = data.get("defaults", {})
+            config.defaults.user_id = defaults.get("user_id", "")
+            config.defaults.agent_id = defaults.get("agent_id", "")
+            config.defaults.app_id = defaults.get("app_id", "")
+            config.defaults.run_id = defaults.get("run_id", "")
+            telemetry = data.get("telemetry", {})
+            config.telemetry.anonymous_id = telemetry.get("anonymous_id", "")
 
-        agent_rush = data.get("agent_rush", {})
-        config.agent_rush.acknowledged_at = agent_rush.get("acknowledged_at", "")
+            agent_rush = data.get("agent_rush", {})
+            config.agent_rush.acknowledged_at = agent_rush.get("acknowledged_at", "")
 
     # Environment variable overrides
     env_key = os.environ.get("MEM0_API_KEY")
@@ -174,10 +183,13 @@ def save_config(config: Mem0Config) -> None:
         },
     }
 
-    with open(CONFIG_FILE, "w") as f:
+    # Write to a temp file and rename into place so a crash, kill, or disk-full
+    # mid-write can never leave a truncated (unparseable) config.json behind.
+    tmp_file = CONFIG_FILE.with_suffix(".json.tmp")
+    with open(tmp_file, "w") as f:
         json.dump(data, f, indent=2)
-
-    os.chmod(CONFIG_FILE, stat.S_IRUSR | stat.S_IWUSR)  # 0600
+    os.chmod(tmp_file, stat.S_IRUSR | stat.S_IWUSR)  # 0600
+    os.replace(tmp_file, CONFIG_FILE)
 
     # Propagate the active api_key to ecosystem touchpoints (Claude Code
     # plugin env injection, shell rc exports). Idempotent — only updates
