@@ -323,11 +323,48 @@ def test_is_reasoning_model_classification(mock_openai_client):
     assert llm._is_reasoning_model("o1-2024-12-17") is True
     assert llm._is_reasoning_model("openai/o3-mini") is True
 
+    # GPT-5 dash family — reasoning models that reject non-default temperature
+    # (regression for https://github.com/mem0ai/mem0/issues/6085)
+    assert llm._is_reasoning_model("gpt-5-mini") is True
+    assert llm._is_reasoning_model("gpt-5-nano") is True
+    assert llm._is_reasoning_model("gpt-5-mini-2025-08-07") is True
+    assert llm._is_reasoning_model("openai/gpt-5-mini") is True
+
     # Non-reasoning models — should return False
     assert llm._is_reasoning_model("gpt-5.4-mini") is False
     assert llm._is_reasoning_model("gpt-5.4") is False
+    # gpt-5-chat family is the non-reasoning chat variant and DOES accept a
+    # custom temperature, so the gpt-5- dash rule must not strip it.
+    assert llm._is_reasoning_model("gpt-5-chat") is False
+    assert llm._is_reasoning_model("gpt-5-chat-latest") is False
+    assert llm._is_reasoning_model("openai/gpt-5-chat") is False
     assert llm._is_reasoning_model("gpt-4.1") is False
     assert llm._is_reasoning_model("gpt-4.1-nano-2025-04-14") is False
+
+
+def test_default_gpt5_mini_omits_temperature(mock_openai_client):
+    """Default OSS config must not send temperature for the resolved gpt-5-mini.
+
+    Regression test for https://github.com/mem0ai/mem0/issues/6085: with all
+    defaults, ``model`` resolves to ``gpt-5-mini`` (a reasoning model that
+    rejects any non-default temperature). Previously the default temperature
+    0.1 was still sent, so every add() failed LLM extraction and silently
+    stored nothing. The dash family must now be classified as reasoning so
+    temperature is stripped.
+    """
+    config = OpenAIConfig(temperature=0.1)  # model=None -> resolves to gpt-5-mini
+    llm = OpenAILLM(config)
+    assert llm.config.model == "gpt-5-mini"
+
+    messages = [{"role": "user", "content": "Hello"}]
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    assert "temperature" not in call_kwargs[1]
 
 
 def test_is_reasoning_model_explicit_override(mock_openai_client):
