@@ -339,9 +339,10 @@ class SQLiteManager:
                 raise
 
     def close(self) -> None:
-        if self.connection:
-            self.connection.close()
-            self.connection = None
+        with self._lock:
+            if self.connection:
+                self.connection.close()
+                self.connection = None
 
     def __del__(self):
         self.close()
