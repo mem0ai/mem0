@@ -10,8 +10,17 @@ license = { text = "Apache-2.0 AND MIT" }
 dependencies = [
     "mem0ai>=2.0.10,<3",
     "httpx>=0.27,<1",
+    # The pgvector store imports psycopg2 when the backend initializes
+    # (mem0/vector_stores/pgvector.py raises `Neither 'psycopg' nor 'psycopg2' library is
+    # available` otherwise). Hermes cannot keep a plugin's opt-in extra installed:
+    # `pm/install.py::_still_declared` prunes a recorded extra unless the agent tree's own
+    # pyproject declares it, so `hermes pm install --extra postgres` is dropped by the next
+    # `hermes update` and the provider stops initializing. Ship the driver unconditionally.
+    "psycopg2-binary>=2.9,<3",
 ]
 
 [project.optional-dependencies]
+# Kept so an existing `hermes-plugin-mem0[postgres]` request still resolves; the driver now
+# ships in `dependencies`.
 postgres = ['psycopg2-binary>=2.9,<3']
 qdrant = ['qdrant-client>=1.9,<2']
