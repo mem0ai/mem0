@@ -141,3 +141,74 @@ def test_generate_response_with_tools(mock_litellm):
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
+def test_reasoning_model_omits_temperature_and_top_p(mock_litellm):
+    """Reasoning models reject temperature/top_p; the shared gate must filter
+    them out for LiteLLM just like the OpenAI provider (#6241, #6085)."""
+    config = BaseLlmConfig(model="o3-mini", temperature=0.7, max_tokens=100, top_p=1)
+    llm = litellm.LiteLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="hi"))]
+    mock_litellm.completion.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    called = mock_litellm.completion.call_args.kwargs
+    assert "temperature" not in called
+    assert "top_p" not in called
+    assert called["model"] == "o3-mini"
+
+
+def test_default_resolved_gpt5_mini_omits_temperature_and_top_p(mock_litellm):
+    """mem0's default-resolved model is gpt-5-mini, a reasoning model that
+    rejects temperature/top_p. With no model set, the shared gate must still
+    strip them once LiteLLM resolves the default (#6241)."""
+    config = BaseLlmConfig(temperature=0.7, max_tokens=100, top_p=1)
+    llm = litellm.LiteLLM(config)
+    assert llm.config.model == "gpt-5-mini"
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="hi"))]
+    mock_litellm.completion.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    called = mock_litellm.completion.call_args.kwargs
+    assert "temperature" not in called
+    assert "top_p" not in called
+    assert called["model"] == "gpt-5-mini"
+
+
+def test_provider_prefixed_reasoning_model_omits_temperature(mock_litellm):
+    config = BaseLlmConfig(model="openai/o1-2024-12-17", temperature=0.7, max_tokens=100, top_p=1)
+    llm = litellm.LiteLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="hi"))]
+    mock_litellm.completion.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    called = mock_litellm.completion.call_args.kwargs
+    assert "temperature" not in called
+    assert "top_p" not in called
+
+
+def test_regular_model_keeps_temperature_and_max_tokens(mock_litellm):
+    """Non-reasoning models must send the exact same params as before."""
+    config = BaseLlmConfig(model="gpt-4.1-mini", temperature=0.7, max_tokens=100, top_p=1)
+    llm = litellm.LiteLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="hi"))]
+    mock_litellm.completion.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    called = mock_litellm.completion.call_args.kwargs
+    assert called["temperature"] == 0.7
+    assert called["top_p"] == 1
+    assert called["max_tokens"] == 100
+    assert "max_completion_tokens" not in called
