@@ -9,7 +9,11 @@ import json
 
 import pytest
 
-from mem0.memory.utils import extract_json, remove_code_blocks
+from mem0.memory.utils import (
+    _first_parseable_json_object,
+    extract_json,
+    remove_code_blocks,
+)
 
 
 # --- Test extract_json ---
@@ -91,8 +95,174 @@ That's the result."""
         parsed = json.loads(result)
         assert parsed["memory"][0]["id"] == "0"
 
+    def test_chatty_prose_with_braces_before_json(self):
+        """Prose that itself contains braces must not corrupt extraction.
+
+        Regression test: the naive first-'{'-to-last-'}' fallback grabbed a
+        brace from the prose, producing invalid JSON and (via the outer except
+        in _add_to_vector_store) silently dropping all extracted memories.
+        """
+        text = (
+            "Based on the conversation {about travel}, here is the update: "
+            '{"memory": [{"id": "0", "text": "likes travel", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes travel"
+
+    def test_braces_inside_json_string_value(self):
+        """Braces inside a JSON string value must not break extraction."""
+        text = '{"memory": [{"id": "0", "text": "use {curly} braces", "event": "ADD"}]}'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "use {curly} braces"
+
+    def test_many_unbalanced_braces_stays_linear(self):
+        """Regression guard against O(n^2) rescanning of unbalanced braces.
+
+        The first implementation restarted a full scan from every '{', so a long
+        run of unbalanced braces (truncated output, or '{{ }}' templating) was
+        O(n^2): about 25s for 50k braces. The linear scan handles it in
+        milliseconds; the generous bound fails the quadratic version by a wide
+        margin without being flaky on slow CI.
+        """
+        import time
+
+        text = "{" * 50000
+        start = time.perf_counter()
+        result = extract_json(text)
+        elapsed = time.perf_counter() - start
+        # No balanced JSON object exists, so nothing parseable is found.
+        assert _first_parseable_json_object(text) is None
+        assert result == text  # falls through to the return-as-is branch
+        assert elapsed < 2.0
+
+    def test_unmatched_brace_before_real_json(self):
+        """An unmatched '{' in prose must not hide a later valid object.
+
+        Regression: a single running brace-depth counter is pinned above zero
+        by one stray open brace, so the real object is never reached and
+        extract_json falls through to the naive span, reproducing #5998.
+        """
+        text = (
+            "Sure, I will fill in {the blank with details later. "
+            'Here is the extracted JSON: '
+            '{"memory": [{"id": "0", "text": "likes travel", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes travel"
+
+    def test_many_unbalanced_braces_then_real_json_stays_linear(self):
+        """Unmatched braces followed by a real object: found, and still linear."""
+        import time
+
+        text = "{" * 50000 + ' {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        start = time.perf_counter()
+        result = extract_json(text)
+        elapsed = time.perf_counter() - start
+        assert json.loads(result)["memory"][0]["text"] == "ok"
+        assert elapsed < 2.0
+
+    def test_truncated_key_fragments_stay_linear(self):
+        """Truncated nested-key output must not make the scan quadratic or crash.
+
+        Regression guard: in '{"a":{"a":...' (a small model stuck repeating a
+        key fragment, then cut off by max_tokens) every '{' passes the
+        object-start prefilter, and raw_decode is expensive to reject at every
+        candidate -- repeating that unboundedly was O(n^2) (~seconds at 75k
+        chars), and decoding from a candidate with thousands of nesting levels
+        after it raises RecursionError (not JSONDecodeError) on the default
+        recursion limit, which must be caught, not crash. The cumulative scan
+        budget bounds total decode work to O(n) and falls through to the
+        naive-span fallback.
+        """
+        import time
+
+        text = '{"a":' * 15000
+        start = time.perf_counter()
+        result = extract_json(text)
+        elapsed = time.perf_counter() - start
+        assert _first_parseable_json_object(text) is None
+        assert result == text  # no '}' anywhere, so the as-is fallback applies
+        assert elapsed < 2.0
+
+    def test_truncated_fragments_then_real_json_recovered(self):
+        """Truncated fragments before a real object: the object is recovered, in bounded time.
+
+        The backward scan reaches the real object within its first few
+        candidates, before any of the expensive dead-end fragments are
+        attempted, so the payload is genuinely recovered -- not merely handed
+        to the naive-span fallback (whose span would include the fragments and
+        fail to parse, silently dropping the memories in main.py).
+        """
+        import time
+
+        text = '{"a":' * 15000 + ' {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        start = time.perf_counter()
+        result = extract_json(text)
+        elapsed = time.perf_counter() - start
+        assert elapsed < 2.0
+        assert json.loads(result) == {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}
+
+    def test_few_truncated_fragments_then_real_json_recovered(self):
+        """A handful of truncated fragments must not exhaust the scan.
+
+        Regression: with a forward scan, each '{"a":' fragment fails only at
+        end-of-text, so just two or three fragments consumed a
+        2*len(text)-character budget and the real object right behind them was
+        never attempted -- 15 characters of junk prose defeated the whole
+        recovery path. Scanning backward, the object is found first and the
+        fragments are never even decoded.
+        """
+        text = '{"a":' * 3 + ' {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        result = extract_json(text)
+        assert json.loads(result) == {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}
+
+    def test_many_cheap_decoys_then_real_json_recovered(self):
+        """Many cheap-to-reject decoys must not exhaust the scan.
+
+        Regression: a flat cap of 100 decode attempts gave up after 100 decoys
+        costing ~5 characters each, even though the total work done was tiny.
+        Work is now bounded by characters scanned, not attempts, and the
+        backward scan never reaches the decoys anyway.
+        """
+        text = '{"a"}' * 100 + ' {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        result = extract_json(text)
+        assert json.loads(result) == {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}
+
+    def test_multiple_disjoint_objects_last_wins(self):
+        """With several disjoint parseable objects, the trailing one is returned.
+
+        The backward scan intentionally prefers the last object: when a chatty
+        model quotes a JSON example in its prose and then emits the actual
+        payload, the payload comes last.
+        """
+        text = (
+            'For example, {"memory": []} would mean no change. My answer: '
+            '{"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        assert json.loads(result) == {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}
+
+    def test_brace_inside_string_value_before_nested_object(self):
+        """An unparseable '{\"' inside a string value must not hide the envelope.
+
+        Scanning backward from the nested memory item, the next candidate
+        leftward is the '{\"' inside the "note" string, which does not parse.
+        The walk must skip it and continue to the enclosing object rather than
+        stopping at the first failure and returning only the inner item.
+        """
+        text = '{"note": "see {\\" for quoting", "memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        result = extract_json(text)
+        assert json.loads(result) == {
+            "note": 'see {" for quoting',
+            "memory": [{"id": "0", "text": "ok", "event": "ADD"}],
+        }
+
 
 # --- Test remove_code_blocks ---
+
 
 class TestRemoveCodeBlocks:
     """Tests for remove_code_blocks — verify it does NOT handle chatty text."""
@@ -133,6 +303,7 @@ class TestRemoveCodeBlocks:
 
 
 # --- Test the full fallback chain (remove_code_blocks -> extract_json) ---
+
 
 class TestFallbackChain:
     """Tests the actual fallback pattern used in _add_to_vector_store:
@@ -230,3 +401,25 @@ I hope this helps!"""
         response = 'Sure! Here are the facts:\n{"facts": ["Name is Alex", "Loves basketball"]}\nHope that helps!'
         result = self._parse_with_fallback(response)
         assert result["facts"] == ["Name is Alex", "Loves basketball"]
+
+    def test_chatty_prose_with_braces(self):
+        """Full chain: chatty prose containing braces before the JSON.
+
+        Previously the fallback produced invalid JSON and the outer except in
+        main.py swallowed it, silently dropping all extracted memories.
+        """
+        response = (
+            "The user mentioned {a trip}. Here is the update: "
+            '{"memory": [{"id": "0", "text": "planning a trip", "event": "ADD"}]}'
+        )
+        result = self._parse_with_fallback(response)
+        assert result["memory"][0]["text"] == "planning a trip"
+
+    def test_unmatched_brace_before_json(self):
+        """Full chain: an unmatched '{' in prose before the real object."""
+        response = (
+            "Note: sketching {pseudocode for later. Final answer: "
+            '{"memory": [{"id": "0", "text": "Name is Alex", "event": "ADD"}]}'
+        )
+        result = self._parse_with_fallback(response)
+        assert result["memory"][0]["text"] == "Name is Alex"
