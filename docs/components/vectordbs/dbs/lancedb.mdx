@@ -1,0 +1,71 @@
+---
+title: "LanceDB"
+description: "Use LanceDB as a local, file-based vector store in Mem0 for embedded similarity search without an external database server."
+---
+[LanceDB](https://lancedb.github.io/lancedb/) is an open-source, embedded vector database built on the Lance columnar format. It stores vectors on the local filesystem, so you can run Mem0 without provisioning a separate vector database service. This makes LanceDB a strong fit for local development, single-node self-hosting, and lightweight deployments.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "lancedb",
+        "config": {
+            "collection_name": "memories",
+            "path": "/tmp/lancedb",
+            "embedding_model_dims": 1536,
+            "distance": "cosine",
+        },
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."},
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Installation
+
+Install Mem0 with the vector-store extras (includes LanceDB), or install LanceDB directly:
+
+```bash
+pip install "mem0ai[vector-stores]"
+# or
+pip install lancedb
+```
+
+### Config
+
+Here are the parameters available for configuring LanceDB:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | The name of the LanceDB table | `mem0` |
+| `path` | Local directory used as the LanceDB database path | `/tmp/lancedb` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `distance` | Distance metric to use (`cosine`, `l2`, or `dot`) | `cosine` |
+
+### Notes
+
+1. **Local persistence**: Vectors and payloads are stored under `path`. Persist that directory (or mount a volume in Docker) so data survives process restarts.
+2. **Single-writer deployments**: LanceDB local mode is best for one writer. Avoid multiple processes writing to the same database path concurrently.
+3. **Metadata filters**: LanceDB supports Mem0's equality, list / `in`, wildcard, logical `AND` / `OR` / `NOT`, comparison, and string containment filters. To preserve arbitrary metadata keys while remaining compatible with LanceDB 0.17, filters are evaluated in Python after vector recall. Search expands the recall window until it finds `top_k` matches or reaches the end of the table, so highly selective filters can scan the full table and may be slower on large collections.
+4. **Embedding dimensions**: If you change `embedding_model_dims`, create a new table or rebuild the store. Existing tables keep the dimension they were created with.
+
+### Distance Metrics
+
+LanceDB in Mem0 supports three distance metrics. Search results are returned as similarity scores where higher is better:
+
+- **cosine**: Cosine distance converted with `score = max(0.0, 1.0 - distance)`
+- **l2**: Euclidean distance converted with `score = 1.0 / (1.0 + distance)`
+- **dot**: Inner product distance converted with `score = 1.0 - distance`
