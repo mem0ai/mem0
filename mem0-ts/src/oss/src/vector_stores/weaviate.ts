@@ -15,18 +15,11 @@ interface WeaviateConfig extends VectorStoreConfig {
   embeddingModelDims: number;
 }
 
-const RETURN_PROPERTIES = [
-  "ids",
-  "hash",
-  "metadata",
-  "data",
-  "created_at",
-  "category",
-  "updated_at",
-  "user_id",
-  "agent_id",
-  "run_id",
-];
+// Seeds the collection schema on first create. Weaviate auto-schema extends it
+// with whatever the memory layer actually writes (camelCase timestamps, the
+// lemmatized text, and any custom metadata keys), so reads must not be pinned
+// to this list.
+const BASE_PROPERTIES = ["hash", "data", "user_id", "agent_id", "run_id"];
 
 export class WeaviateDB implements VectorStore {
   private _config: WeaviateConfig;
@@ -105,7 +98,7 @@ export class WeaviateDB implements VectorStore {
     if (!exists) {
       await this._client.collections.create({
         name: collectionName,
-        properties: RETURN_PROPERTIES.map((name) => ({
+        properties: BASE_PROPERTIES.map((name) => ({
           name,
           dataType: "text" as const,
         })),
@@ -178,9 +171,11 @@ export class WeaviateDB implements VectorStore {
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
     await this.initialize();
-    const obj = await this._col.query.fetchObjectById(vectorId, {
-      returnProperties: RETURN_PROPERTIES,
-    });
+    // Return every stored property. Restricting to a fixed property list drops
+    // the camelCase timestamps (createdAt/updatedAt) and any custom metadata key
+    // the memory layer writes but the list does not name. search() already omits
+    // returnProperties for the same reason.
+    const obj = await this._col.query.fetchObjectById(vectorId);
     if (!obj) return null;
     return { id: obj.uuid, payload: obj.properties };
   }
@@ -216,7 +211,6 @@ export class WeaviateDB implements VectorStore {
     const result = await this._col.query.fetchObjects({
       limit: topK ?? 100,
       filters: this._buildFilters(filters),
-      returnProperties: RETURN_PROPERTIES,
     });
     const results = result.objects.map((obj: any) => ({
       id: obj.uuid,
