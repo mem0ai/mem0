@@ -38,6 +38,13 @@ class OutputData(BaseModel):
     payload: Optional[Dict]  # metadata
 
 
+def _distance_to_similarity(distance: Optional[float]) -> Optional[float]:
+    """Convert Neptune's squared-Euclidean distance to Mem0's similarity score."""
+    if distance is None:
+        return None
+    return 1.0 / (1.0 + max(distance, 0.0))
+
+
 class NeptuneAnalyticsVector(VectorStoreBase):
     """
     Neptune Analytics vector store implementation for Mem0.
@@ -432,7 +439,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             properties = item[self._FIELD_N][self._FIELD_PROP]
             properties.pop("label", None)
             if with_score:
-                score = item[self._FIELD_SCORE]
+                score = _distance_to_similarity(item[self._FIELD_SCORE])
             else:
                 score = None
             result.append(OutputData(
