@@ -102,3 +102,10 @@ def test_generate_response_forwards_extra_kwargs(mock_together_client):
     assert response == "Hi"
     call_kwargs = mock_together_client.chat.completions.create.call_args.kwargs
     assert call_kwargs["frequency_penalty"] == 0.5
+
+def test_init_with_base_url(mock_together_client):
+    import os
+    with patch.dict(os.environ, {"TOGETHER_API_BASE": "https://custom.together.endpoint/v1"}):
+        TogetherLLM(BaseLlmConfig(model="mistralai/Mixtral-8x7B-Instruct-v0.1"))
+        from mem0.llms.together import Together
+        Together.assert_called_with(api_key=None, base_url="https://custom.together.endpoint/v1")
