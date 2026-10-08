@@ -46,6 +46,33 @@ describe("MemoryClient - batchUpdate()", () => {
     ]);
   });
 
+  test("preserves metadata in request body", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/batch/", { status: 200, body: { message: "OK" } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.batchUpdate([
+      {
+        memoryId: "mem_1",
+        text: "updated 1",
+        metadata: { category: "profile", source: "batch-import" },
+      },
+      { memoryId: "mem_2", text: "updated 2" },
+    ]);
+
+    const call = findFetchCall(mock, "/v1/batch/", "PUT");
+    const body = getFetchBody(call!);
+    expect(body.memories).toEqual([
+      {
+        memory_id: "mem_1",
+        text: "updated 1",
+        metadata: { category: "profile", source: "batch-import" },
+      },
+      { memory_id: "mem_2", text: "updated 2" },
+    ]);
+  });
+
   test("handles empty array without crashing", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v1/batch/", { status: 200, body: { message: "OK" } });
