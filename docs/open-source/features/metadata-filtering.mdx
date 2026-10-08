@@ -210,52 +210,48 @@ results = m.search(
 
 ## Configure it
 
-Tune your vector store so filter-heavy queries stay fast. Index fields you frequently filter on and keep complex checks for later in the evaluation order.
+Mem0 does not let you choose which metadata fields to index, and an unknown config key is
+rejected rather than ignored: `QdrantConfig` runs a `validate_extra_fields` model validator that
+raises on any field outside `collection_name`, `embedding_model_dims`, `client`, `host`, `port`,
+`url`, `api_key`, `https`, `path` and `on_disk`.
 
 ```python
-# Ensure your vector store supports indexing on filtered fields
 config = {
     "vector_store": {
         "provider": "qdrant",
         "config": {
             "host": "localhost",
             "port": 6333,
-            "indexed_fields": ["category", "priority", "status", "user_id"]
+            "collection_name": "mem0",
         }
     }
 }
 ```
 
-<Info icon="check">
-  After enabling indexing, benchmark the same query: latency should drop once the store can prune documents on indexed fields before vector scoring.
-</Info>
+What mem0 indexes on its own: `_create_filter_indexes` in `mem0/vector_stores/qdrant.py` calls
+`create_payload_index` with a `keyword` schema for `user_id`, `agent_id`, `run_id` and `actor_id`
+every time it opens a collection against a Qdrant server. Those four are not configurable, and the
+step is skipped when mem0 builds an embedded local client from `path`, which does not support it.
 
-<Tip>
-  Put simple key=value filters on indexed fields before your range or text conditions so the store trims results early.
-</Tip>
+To index your own metadata fields, create the payload indexes on a client and pass that client in:
 
 ```python
-# More efficient: Filter on indexed fields first
-good_filters = {
-    "user_id": "alice",
-    "AND": [
-        {"category": "work"},
-        {"content": {"contains": "meeting"}}
-    ]
-}
+from qdrant_client import QdrantClient
 
-# Less efficient: Complex operations first
-avoid_filters = {
-    "user_id": "alice",
-    "AND": [
-        {"description": {"icontains": "complex text search"}}
-    ]
+client = QdrantClient(host="localhost", port=6333)
+for field in ("category", "priority", "status"):
+    client.create_payload_index(collection_name="mem0", field_name=field, field_schema="keyword")
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "client": client,
+            "collection_name": "mem0",
+        }
+    }
 }
 ```
-
-<Info icon="check">
-  When you reorder filters so indexed fields come first (`good_filters` example), queries typically return faster than the `avoid_filters` pattern where expensive text searches run before simple checks.
-</Info>
 
 Vector store support varies widely. This table reflects what each provider's filter-translation code (`mem0/vector_stores/<provider>.py`) actually implements, confirm before shipping if you use a store not listed:
 
