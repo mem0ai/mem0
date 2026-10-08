@@ -130,6 +130,10 @@ def cmd_import(
     for item in track(
         data, description=f"[{DIM_COLOR}]Importing memories...[/]", console=err_console
     ):
+        if not isinstance(item, dict):
+            failed += 1
+            continue
+
         content = item.get("memory", item.get("text", item.get("content", "")))
         if not content:
             failed += 1
