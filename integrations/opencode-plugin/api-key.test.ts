@@ -35,6 +35,8 @@ function pluginContext(logs: unknown[]) {
   return {
     client: {app: {log: async (entry: unknown) => logs.push(entry)}},
     $: () => ({quiet: async () => ({stdout: ""})}),
+    directory: "/work/test-project",
+    worktree: "/work/test-project",
   } as any;
 }
 
