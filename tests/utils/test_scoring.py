@@ -155,6 +155,102 @@ class TestScoreAndRank:
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
         assert "score_details" not in scored[0]
 
+    def test_negative_constraint_boost_for_recommendation_query(self):
+        results = [
+            {
+                "id": "preference",
+                "score": 0.8,
+                "payload": {
+                    "data": "User prefers low-priced badminton venues",
+                    "memory_type": "preference",
+                    "polarity": "positive",
+                },
+            },
+            {
+                "id": "constraint",
+                "score": 0.7,
+                "payload": {
+                    "data": "User does not want Smash Arena recommended because it is too noisy",
+                    "memory_type": "constraint",
+                    "polarity": "negative",
+                },
+            },
+        ]
+
+        scored = score_and_rank(
+            results,
+            {},
+            {},
+            threshold=0.1,
+            top_k=10,
+            query="Recommend a badminton venue",
+        )
+
+        assert scored[0]["id"] == "constraint"
+        assert scored[1]["id"] == "preference"
+
+    def test_negative_constraint_not_boosted_for_non_recommendation_query(self):
+        results = [
+            {
+                "id": "preference",
+                "score": 0.8,
+                "payload": {
+                    "data": "User prefers low-priced badminton venues",
+                    "memory_type": "preference",
+                    "polarity": "positive",
+                },
+            },
+            {
+                "id": "constraint",
+                "score": 0.7,
+                "payload": {
+                    "data": "User does not want Smash Arena recommended because it is too noisy",
+                    "memory_type": "constraint",
+                    "polarity": "negative",
+                },
+            },
+        ]
+
+        scored = score_and_rank(
+            results,
+            {},
+            {},
+            threshold=0.1,
+            top_k=10,
+            query="What sports does the user play?",
+        )
+
+        assert scored[0]["id"] == "preference"
+        assert scored[1]["id"] == "constraint"
+
+    def test_constraint_boost_explain_details(self):
+        results = [
+            {
+                "id": "constraint",
+                "score": 0.7,
+                "payload": {
+                    "data": "User does not want Smash Arena recommended because it is too noisy",
+                    "memory_type": "constraint",
+                    "polarity": "negative",
+                },
+            }
+        ]
+
+        scored = score_and_rank(
+            results,
+            {},
+            {},
+            threshold=0.1,
+            top_k=10,
+            explain=True,
+            query="Recommend a badminton venue",
+        )
+
+        details = scored[0]["score_details"]
+        assert details["constraint_boost"] == pytest.approx(0.35)
+        assert details["raw_score"] == pytest.approx(1.05)
+        assert details["max_possible_score"] == pytest.approx(1.35)
+
 
 class TestEntityBoostWeight:
     def test_weight_value(self):
