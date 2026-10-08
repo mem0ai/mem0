@@ -13,6 +13,26 @@ home_dir = os.path.expanduser("~")
 mem0_dir = os.environ.get("MEM0_DIR") or os.path.join(home_dir, ".mem0")
 
 
+class CompactionConfig(BaseModel):
+    """Configuration for memory compaction (merge-first deduplication).
+
+    Addresses bloat in the ADD-only pipeline. Users can call .compact()
+    to cluster similar memories and have the LLM synthesize richer canonical ones.
+    """
+
+    enabled: bool = Field(default=False, description="Enable compaction support")
+    max_memories: Optional[int] = Field(
+        default=None,
+        description="Optional threshold: if a scope has more memories than this, compaction is useful.",
+    )
+    similarity_threshold: float = Field(
+        default=0.82,
+        ge=0.5,
+        le=0.99,
+        description="Cosine similarity above which memories are considered for merging.",
+    )
+
+
 class MemoryItem(BaseModel):
     id: str = Field(..., description="The unique identifier for the text data")
     memory: str = Field(
@@ -53,6 +73,10 @@ class MemoryConfig(BaseModel):
     )
     custom_instructions: Optional[str] = Field(
         description="Custom instructions for fact extraction",
+        default=None,
+    )
+    compaction: Optional[CompactionConfig] = Field(
+        description="Configuration for automatic and manual memory compaction / consolidation (merge-first hygiene)",
         default=None,
     )
 
