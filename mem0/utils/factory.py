@@ -166,7 +166,15 @@ class EmbedderFactory:
 
     @classmethod
     def create(cls, provider_name, config, vector_config: Optional[dict]):
-        if provider_name == "upstash_vector" and vector_config and vector_config.enable_embeddings:
+        # enable_embeddings lives on the *vector store* config (Upstash), not
+        # the embedder provider name. Comparing provider_name to
+        # "upstash_vector" never matches the default embedder ("openai").
+        embeddings_enabled = (
+            vector_config.get("enable_embeddings")
+            if isinstance(vector_config, dict)
+            else getattr(vector_config, "enable_embeddings", False)
+        )
+        if embeddings_enabled:
             return MockEmbeddings()
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
