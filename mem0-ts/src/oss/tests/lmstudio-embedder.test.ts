@@ -10,14 +10,64 @@ const mockCreate = jest.fn().mockResolvedValue({
   data: [{ embedding: mockEmbedding }],
 });
 
+let capturedConstructorArgs: any;
+
 jest.mock("openai", () => {
-  return jest.fn().mockImplementation(() => ({
-    embeddings: { create: mockCreate },
-  }));
+  return jest.fn().mockImplementation((args: any) => {
+    capturedConstructorArgs = args;
+    return {
+      embeddings: { create: mockCreate },
+    };
+  });
 });
 
 describe("LMStudioEmbedder (unit)", () => {
-  beforeEach(() => mockCreate.mockClear());
+  beforeEach(() => {
+    mockCreate.mockClear();
+    capturedConstructorArgs = undefined;
+    delete process.env.LMSTUDIO_BASE_URL;
+  });
+
+  afterEach(() => {
+    delete process.env.LMSTUDIO_BASE_URL;
+  });
+
+  it("uses the default base URL when neither config nor env var is set", async () => {
+    const embedder = new LMStudioEmbedder({ model: "test-model" });
+
+    await embedder.embed("hello");
+
+    expect(capturedConstructorArgs).toMatchObject({
+      baseURL: "http://localhost:1234/v1",
+    });
+  });
+
+  it("uses LMSTUDIO_BASE_URL when config does not provide a base URL", async () => {
+    process.env.LMSTUDIO_BASE_URL = "http://example.test:5678/v1";
+
+    const embedder = new LMStudioEmbedder({ model: "test-model" });
+
+    await embedder.embed("hello");
+
+    expect(capturedConstructorArgs).toMatchObject({
+      baseURL: "http://example.test:5678/v1",
+    });
+  });
+
+  it("prefers an explicit config baseURL over LMSTUDIO_BASE_URL", async () => {
+    process.env.LMSTUDIO_BASE_URL = "http://example.test:5678/v1";
+
+    const embedder = new LMStudioEmbedder({
+      model: "test-model",
+      baseURL: "http://config.test:9999/v1",
+    });
+
+    await embedder.embed("hello");
+
+    expect(capturedConstructorArgs).toMatchObject({
+      baseURL: "http://config.test:9999/v1",
+    });
+  });
 
   it("embed() calls OpenAI with encoding_format float and returns vector", async () => {
     const embedder = new LMStudioEmbedder({

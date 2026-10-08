@@ -12,7 +12,11 @@ export class LMStudioEmbedder implements Embedder {
   private model: string;
 
   constructor(config: EmbeddingConfig) {
-    const baseURL = config.baseURL ?? config.url ?? DEFAULT_BASE_URL;
+    const baseURL =
+      config.baseURL ??
+      config.url ??
+      process.env.LMSTUDIO_BASE_URL ??
+      DEFAULT_BASE_URL;
     const apiKey = config.apiKey || DEFAULT_LMSTUDIO_API_KEY;
     this.openai = new OpenAI({ apiKey, baseURL: String(baseURL) });
     this.model = config.model || DEFAULT_MODEL;

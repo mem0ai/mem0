@@ -6,7 +6,6 @@ from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.lmstudio import LMStudioEmbedding
 
 
-
 @pytest.fixture
 def mock_lm_studio_client():
     with patch("mem0.embeddings.lmstudio.OpenAI") as mock_openai:
@@ -80,3 +79,31 @@ def test_embed_batch_count_mismatch_raises(mock_lm_studio_client):
 
     with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def test_base_url_honors_lmstudio_base_url_env(mock_lm_studio_client, monkeypatch):
+    monkeypatch.setenv("LMSTUDIO_BASE_URL", "http://lmstudio.internal:9000/v1")
+
+    with patch("mem0.embeddings.lmstudio.OpenAI") as mock_openai:
+        LMStudioEmbedding(BaseEmbedderConfig())
+
+    assert mock_openai.call_args.kwargs["base_url"] == "http://lmstudio.internal:9000/v1"
+
+
+def test_base_url_prefers_explicit_config_over_env(mock_lm_studio_client, monkeypatch):
+    monkeypatch.setenv("LMSTUDIO_BASE_URL", "http://lmstudio.internal:9000/v1")
+
+    with patch("mem0.embeddings.lmstudio.OpenAI") as mock_openai:
+        LMStudioEmbedding(BaseEmbedderConfig(lmstudio_base_url="http://explicit:1234/v1"))
+
+    assert mock_openai.call_args.kwargs["base_url"] == "http://explicit:1234/v1"
+
+
+def test_base_url_falls_back_to_localhost_default(mock_lm_studio_client, monkeypatch):
+    monkeypatch.delenv("LMSTUDIO_BASE_URL", raising=False)
+
+    with patch("mem0.embeddings.lmstudio.OpenAI") as mock_openai:
+        embedder = LMStudioEmbedding(BaseEmbedderConfig())
+
+    assert mock_openai.call_args.kwargs["base_url"] == "http://localhost:1234/v1"
+    assert embedder.config.lmstudio_base_url == "http://localhost:1234/v1"
