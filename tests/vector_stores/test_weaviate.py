@@ -145,6 +145,25 @@ class TestWeaviateDB(unittest.TestCase):
         self.assertEqual(results[0].id, "id1")
         self.assertEqual(results[0].score, 0.8)
 
+    def test_filters_include_custom_metadata_keys(self):
+        mock_filter = MagicMock()
+        mock_filter.equal.side_effect = lambda value: f"filter:{value}"
+
+        with (
+            patch("mem0.vector_stores.weaviate.Filter.by_property", return_value=mock_filter) as mock_by_property,
+            patch("mem0.vector_stores.weaviate.Filter.all_of", return_value="combined-filter") as mock_all_of,
+        ):
+            combined_filter = self.weaviate_db._build_filters(
+                {"user_id": "alice", "category": "movies", "test": 0, "agent_id": None}
+            )
+
+        self.assertEqual(combined_filter, "combined-filter")
+        mock_by_property.assert_any_call("user_id")
+        mock_by_property.assert_any_call("category")
+        mock_by_property.assert_any_call("test")
+        self.assertEqual(mock_by_property.call_count, 3)
+        mock_all_of.assert_called_once_with(["filter:alice", "filter:movies", "filter:0"])
+
     def test_delete(self):
         self.weaviate_db.delete(vector_id="id1")
 
