@@ -140,6 +140,16 @@ class Qdrant(VectorStoreBase):
             if collection.name == self.collection_name:
                 logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
                 info = self.client.get_collection(self.collection_name)
+
+                dense_vector_config = info.config.params.vectors
+                existing_vector_size = getattr(dense_vector_config, "size", None)
+                if existing_vector_size is not None and existing_vector_size != vector_size:
+                    raise ValueError(
+                        f"Collection '{self.collection_name}' has vector dimension {existing_vector_size}, "
+                        f"but embedding_model_dims is configured as {vector_size}. "
+                        "Use a different collection_name or recreate the collection with matching dimensions."
+                    )
+
                 sparse_cfg = info.config.params.sparse_vectors
                 self._has_bm25_slot = bool(sparse_cfg and "bm25" in sparse_cfg)
                 if not self._has_bm25_slot:
