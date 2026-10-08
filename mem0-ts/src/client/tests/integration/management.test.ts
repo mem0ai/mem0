@@ -100,6 +100,7 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
     const hookName = `test-hook-${randomUUID().slice(0, 8)}`;
     const hookUrl = `https://example.com/webhook/${randomUUID().slice(0, 8)}`;
     const updatedName = `updated-hook-${randomUUID().slice(0, 8)}`;
+    const updatedUrl = `https://example.com/updated/${randomUUID().slice(0, 8)}`;
 
     afterAll(async () => {
       if (createdWebhookId) {
@@ -168,7 +169,7 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
         client.updateWebhook({
           webhookId: createdWebhookId,
           name: updatedName,
-          url: "https://example.com/updated",
+          url: updatedUrl,
           eventTypes: [WebhookEvent.MEMORY_DELETED],
         }),
       );
