@@ -216,6 +216,11 @@ class PineconeDB(VectorStoreBase):
                     else:
                         condition[f"${op}"] = operand
                 pinecone_filter[key] = condition
+            elif value == "*":
+                # "Any value" wildcard: the field must exist. Without this,
+                # the wildcard becomes a literal {"$eq": "*"} that matches
+                # (almost) nothing.
+                pinecone_filter[key] = {"$exists": True}
             else:
                 pinecone_filter[key] = {"$eq": value}
 

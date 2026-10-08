@@ -263,3 +263,13 @@ def test_create_filter_in_operator(pinecone_db):
 def test_create_filter_ne_operator(pinecone_db):
     result = pinecone_db._create_filter({"status": {"ne": "deleted"}})
     assert result == {"status": {"$ne": "deleted"}}
+
+
+def test_create_filter_wildcard_becomes_exists(pinecone_db):
+    result = pinecone_db._create_filter({"agent_id": "*"})
+    assert result == {"agent_id": {"$exists": True}}
+
+
+def test_create_filter_wildcard_mixed_with_equality(pinecone_db):
+    result = pinecone_db._create_filter({"agent_id": "*", "user_id": "alice"})
+    assert result == {"agent_id": {"$exists": True}, "user_id": {"$eq": "alice"}}
