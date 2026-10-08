@@ -43,7 +43,7 @@ Multimodal support lets Mem0 extract facts from images alongside regular text. A
 ## Configure it
 
 <Warning>
-  You must set `enable_vision: True` in your LLM config for image content to be processed. Without it, image turns are silently dropped and no vision memories are created. Example:
+  In Python, you must set `enable_vision: True` in your LLM config for image content to be processed. Without it, image turns are silently dropped and no vision memories are created. Example:
   ```python
   config = {"llm": {"provider": "openai", "config": {"enable_vision": True, "vision_details": "auto"}}}
   client = Memory.from_config(config)
@@ -60,7 +60,9 @@ Multimodal support lets Mem0 extract facts from images alongside regular text. A
 ```python Python
 from mem0 import Memory
 
-client = Memory()
+client = Memory.from_config(
+    {"llm": {"provider": "openai", "config": {"enable_vision": True, "vision_details": "auto"}}}
+)
 
 messages = [
     {"role": "user", "content": "Hi, my name is Alice."},
@@ -113,7 +115,9 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
-client = Memory()
+client = Memory.from_config(
+    {"llm": {"provider": "openai", "config": {"enable_vision": True, "vision_details": "auto"}}}
+)
 base64_image = encode_image("path/to/your/image.jpg")
 
 messages = [
@@ -178,7 +182,9 @@ await client.add(messages, { userId: "alice" });
 ```python
 from mem0 import Memory
 
-client = Memory()
+client = Memory.from_config(
+    {"llm": {"provider": "openai", "config": {"enable_vision": True, "vision_details": "auto"}}}
+)
 
 messages = [
     {
@@ -240,7 +246,9 @@ client.add(messages, user_id="user123")
 ```python Python
 from mem0 import Memory
 
-client = Memory()
+client = Memory.from_config(
+    {"llm": {"provider": "openai", "config": {"enable_vision": True, "vision_details": "auto"}}}
+)
 
 try:
     messages = [{
