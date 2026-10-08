@@ -9,10 +9,10 @@ Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/REA
 ## Install
 
 ```bash
-opencode plugin @mem0/opencode-plugin
+opencode plugin -g @mem0/opencode-plugin
 ```
 
-This adds the plugin to your `~/.config/opencode/opencode.json`. The plugin registers its memory tools and skills. No MCP server configuration is needed.
+With `-g`, this adds the plugin to your global `~/.config/opencode/opencode.json`. Without `-g`, OpenCode writes a local config instead: `<repo root>/.opencode/opencode.json` inside a git repo, or `<current directory>/.opencode/opencode.json` outside one (from your home directory that is `~/.opencode/opencode.json`, which OpenCode also loads everywhere). The plugin registers its memory tools and skills. No MCP server configuration is needed.
 
 **Or let your agent do it**: paste this into OpenCode:
 
@@ -107,7 +107,8 @@ If the `mem0` tools respond, you're all set.
 |---------|-----|
 | No tools appearing | Restart OpenCode after installing |
 | 401 Unauthorized | Check that `MEM0_API_KEY` is set to a valid key without printing it |
-| Plugin not loading | Run `opencode plugin @mem0/opencode-plugin` again |
+| Plugin not loading | Run `opencode plugin -g @mem0/opencode-plugin` again, then restart OpenCode |
+| Plugin only loads in one repo | It was installed without `-g` into that repo's `.opencode/opencode.json`. Reinstall with `-g` and remove it from the local file |
 
 ## License
 

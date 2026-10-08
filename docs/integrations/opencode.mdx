@@ -31,7 +31,7 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 ### Option A: Plugin Install (Recommended)
 
 ```bash
-opencode plugin @mem0/opencode-plugin
+opencode plugin -g @mem0/opencode-plugin
 ```
 
 **Or let your agent do it**: paste this into OpenCode:
@@ -40,7 +40,7 @@ opencode plugin @mem0/opencode-plugin
 Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/integrations/opencode-plugin/README.md
 ```
 
-This adds the plugin to your `~/.config/opencode/opencode.json`. Restart OpenCode. You get the native memory tools, lifecycle hooks, and all `/mem0-*` slash commands. The memory tools are registered by the plugin itself via the `mem0ai` SDK. No MCP server to configure.
+With `-g`, this adds the plugin to your global `~/.config/opencode/opencode.json`. Without `-g`, OpenCode writes a local config instead: `<repo root>/.opencode/opencode.json` inside a git repo, or `<current directory>/.opencode/opencode.json` outside one (from your home directory that is `~/.opencode/opencode.json`, which OpenCode also loads everywhere). Restart OpenCode. You get the native memory tools, lifecycle hooks, and all `/mem0-*` slash commands. The memory tools are registered by the plugin itself via the `mem0ai` SDK. No MCP server to configure.
 
 ### Option B: Standalone MCP Server
 
@@ -128,7 +128,8 @@ Automatic capture sends the selected user prompt with its full redacted text, wi
 
 - **No tools appearing**: Restart OpenCode after installing
 - **"Connection failed"**: Verify your key is set: `echo $MEM0_API_KEY`
-- **Plugin not loading**: Run `opencode plugin @mem0/opencode-plugin` again, then restart
+- **Plugin not loading**: Run `opencode plugin -g @mem0/opencode-plugin` again, then restart
+- **Plugin only loads in one repo**: It was installed without `-g` into that repo's `.opencode/opencode.json`. Reinstall with `-g` and remove it from the local file.
 - **Hooks not firing**: Hooks require the plugin install (Option A). MCP-only installs don't include hooks.
 - **Wrong project name / memories not found**: The project id comes from your git remote; launch OpenCode from inside the repo (not your home directory). Check the resolved id with `/mem0-status`.
 
