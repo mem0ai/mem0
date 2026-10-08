@@ -268,6 +268,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Strands Agents](https://docs.mem0.ai/integrations/strands) [Both]: Use when the user is on AWS Strands and wants a native MemoryStore.
 
 ### AI Coding Tools
+- [Agent Plugins Overview](https://docs.mem0.ai/integrations/agent-plugins) [Platform]: Use when choosing a Mem0 plugin for a coding agent or agent harness, or comparing what each plugin captures and recalls.
 - [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Platform]: Use when wiring memory into Claude Code.
 - [Claude.ai](https://docs.mem0.ai/integrations/claude-ai) [Platform]: Use when connecting Mem0 to Claude.ai (the hosted web app) via a custom remote MCP connector, or when Claude's native memory seems to be crowding out mem0 tool calls.
 - [Cursor](https://docs.mem0.ai/integrations/cursor) [Platform]: Use when adding lifecycle capture, explicit memory recall, and six memory skills to Cursor.
