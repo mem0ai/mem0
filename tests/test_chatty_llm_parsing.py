@@ -23,6 +23,14 @@ class TestExtractJson:
         parsed = json.loads(result)
         assert parsed["memory"][0]["text"] == "likes basketball"
 
+    def test_json_value_containing_code_fence_roundtrips(self):
+        # A stored payload whose value contains a ``` code fence must survive
+        # json.dumps -> extract_json -> json.loads unchanged; the fence inside
+        # the value must not be mistaken for an enclosing code block.
+        original = {"snippet": "```python\nx = 1\n```", "user_id": "u1"}
+        stored = json.dumps(original)
+        assert json.loads(extract_json(stored)) == original
+
     def test_json_in_markdown_code_block(self):
         text = '```json\n{"memory": [{"id": "0", "text": "likes basketball", "event": "ADD"}]}\n```'
         result = extract_json(text)
