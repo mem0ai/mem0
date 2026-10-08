@@ -14,6 +14,37 @@ from mem0.memory.utils import extract_json, remove_code_blocks
 
 # --- Test extract_json ---
 
+class TestExtractJsonWithReasoningBlocks:
+    """The answer is not always in the first fenced block.
+
+    Reasoning-style models routinely emit their scratch work in a code block before the answer.
+    Taking the first fence unconditionally returned the scratch work, and the caller's
+    `json.loads` then failed on text that was never meant to be JSON.
+    """
+
+    def test_reasoning_code_block_before_inline_json(self):
+        text = 'Let me think:\n```\nstep 1: recall the facts\nstep 2: answer\n```\nFinal: {"facts": ["a"]}'
+
+        assert json.loads(extract_json(text)) == {"facts": ["a"]}
+
+    def test_reasoning_code_block_before_json_code_block(self):
+        text = '```\nscratch notes\n```\n```json\n{"facts": ["a"]}\n```'
+
+        assert json.loads(extract_json(text)) == {"facts": ["a"]}
+
+    def test_json_tagged_block_wins_over_an_earlier_untagged_one(self):
+        text = '```python\nprint("hello")\n```\n```json\n{"facts": ["b"]}\n```'
+
+        assert json.loads(extract_json(text)) == {"facts": ["b"]}
+
+    def test_nothing_parseable_returns_the_old_first_block(self):
+        """With no JSON anywhere, keep returning what the caller used to see in the error."""
+        assert extract_json("```\nnot json at all\n```") == "not json at all"
+        assert extract_json("sorry, I cannot help") == "sorry, I cannot help"
+
+
+
+
 class TestExtractJson:
     """Tests for extract_json utility."""
 
@@ -230,3 +261,48 @@ I hope this helps!"""
         response = 'Sure! Here are the facts:\n{"facts": ["Name is Alex", "Loves basketball"]}\nHope that helps!'
         result = self._parse_with_fallback(response)
         assert result["facts"] == ["Name is Alex", "Loves basketball"]
+
+
+class TestExtractJsonRejectsScalarBlocks:
+    """A fenced block that parses is not necessarily the answer.
+
+    `json.loads` accepts bare scalars, so a scratch fence containing `42`, `"done"`, `true`
+    or `null` is valid JSON and would win over the real object if the only test were "does
+    it parse". Every caller indexes the result as an object
+    (`json.loads(extract_json(response)).get("memory", [])`), so a scalar reaches them as an
+    int/str/bool and raises `AttributeError`, which the caller's `except Exception` swallows.
+    Reported in review on #6659.
+    """
+
+    ANSWER = '{"memory": [{"text": "likes basketball"}]}'
+
+    @pytest.mark.parametrize("scratch", ["42", '"done"', "true", "null", "[1, 2]", "-0.5"])
+    def test_scalar_scratch_block_does_not_win(self, scratch):
+        # Both fences untagged is the shape that exposes it: with the answer tagged ```json
+        # it is already ordered ahead of the scratch block and the bug does not appear.
+        response = f"```\n{scratch}\n```\n```\n{self.ANSWER}\n```"
+
+        extracted = extract_json(response)
+
+        assert json.loads(extracted) == json.loads(self.ANSWER)
+        # and the caller's own access pattern survives
+        assert json.loads(extracted, strict=False).get("memory") == [{"text": "likes basketball"}]
+
+    def test_json_tagged_scalar_still_does_not_win(self):
+        """Even an explicitly ```json-tagged scalar loses to an untagged real object."""
+        response = f"```json\n42\n```\n```\n{self.ANSWER}\n```"
+
+        assert json.loads(extract_json(response)) == json.loads(self.ANSWER)
+
+    def test_prose_scratch_block_still_works(self):
+        """The original case this PR fixes must keep working."""
+        response = f"```\nthinking about it\n```\n```\n{self.ANSWER}\n```"
+
+        assert json.loads(extract_json(response)) == json.loads(self.ANSWER)
+
+    def test_scalar_only_response_falls_back_unchanged(self):
+        """With no object anywhere, the old behaviour is preserved: the caller's json.loads
+        gets the first candidate and raises on its own terms rather than us inventing a value."""
+        response = "```\n42\n```"
+
+        assert extract_json(response) == "42"
