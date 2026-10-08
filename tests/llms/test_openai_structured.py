@@ -51,6 +51,63 @@ def test_regular_model_sends_sampling_params(mock_openai_client):
     assert call_kwargs["model"] == "gpt-4o"
 
 
+def test_generate_response_with_tools(mock_openai_client):
+    """Tool calls must be returned, not dropped (#6420)."""
+    config = OpenAIConfig(model="gpt-4o")
+    llm = OpenAIStructuredLLM(config)
+
+    mock_tool_call = Mock()
+    mock_tool_call.function.name = "add_memory"
+    mock_tool_call.function.arguments = '{"data": "sunny day"}'
+
+    mock_message = Mock()
+    mock_message.content = "I've added the memory."
+    mock_message.tool_calls = [mock_tool_call]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=mock_message)]
+    mock_openai_client.beta.chat.completions.parse.return_value = mock_response
+
+    tools = [{"type": "function", "function": {"name": "add_memory"}}]
+    response = llm.generate_response([{"role": "user", "content": "Remember sunny day"}], tools=tools)
+
+    assert response["content"] == "I've added the memory."
+    assert len(response["tool_calls"]) == 1
+    assert response["tool_calls"][0]["name"] == "add_memory"
+    assert response["tool_calls"][0]["arguments"] == {"data": "sunny day"}
+
+
+def test_generate_response_with_tools_no_tool_calls(mock_openai_client):
+    """With tools passed but none called, the dict shape is still returned."""
+    config = OpenAIConfig(model="gpt-4o")
+    llm = OpenAIStructuredLLM(config)
+
+    mock_message = Mock()
+    mock_message.content = "No tools needed."
+    mock_message.tool_calls = None
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=mock_message)]
+    mock_openai_client.beta.chat.completions.parse.return_value = mock_response
+
+    tools = [{"type": "function", "function": {"name": "add_memory"}}]
+    response = llm.generate_response([{"role": "user", "content": "Hello"}], tools=tools)
+
+    assert response["content"] == "No tools needed."
+    assert response["tool_calls"] == []
+
+
+def test_generate_response_without_tools_returns_content(mock_openai_client):
+    """Without tools the return value stays a plain string."""
+    config = OpenAIConfig(model="gpt-4o")
+    llm = OpenAIStructuredLLM(config)
+    _mock_parse(mock_openai_client, content="plain content")
+
+    response = llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    assert response == "plain content"
+
+
 def test_uses_openai_base_url_environment_variable(monkeypatch):
     base_url = "https://gateway.example/v1"
     monkeypatch.setenv("OPENAI_API_BASE", "https://legacy.example/v1")
