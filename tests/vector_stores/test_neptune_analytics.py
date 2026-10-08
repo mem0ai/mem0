@@ -283,6 +283,59 @@ class TestNeptuneAnalyticsVectorInitValidation:
             )
 
 
+class _FakeNeptuneSearchGraph:
+    """Returns a canned topK.byEmbedding response so search()'s score handling can be
+    exercised without a real Neptune Analytics endpoint. Neptune returns the squared
+    Euclidean DISTANCE as `score` (lower = more similar); the sample below mirrors the
+    AWS docs where the nearest (identical) node scores 0.0 and farther nodes score higher."""
+
+    # (node_id, squared_euclidean_distance) ordered nearest -> farthest
+    _RESULTS = [("A", 0.0), ("B", 24.0), ("C", 25.0)]
+
+    def query(self, query_string, params=None):
+        if "topKByEmbedding" in query_string or "topK.byEmbedding" in query_string:
+            return [
+                {"n": {"~id": nid, "~properties": {"data": nid, "label": "MEM0_VECTOR_scores"}}, "score": dist}
+                for nid, dist in self._RESULTS
+            ]
+        return []
+
+
+class TestNeptuneAnalyticsScoreContract:
+    """search() must satisfy the VectorStoreBase.search contract: higher score = more
+    similar. Neptune returns a raw distance, so without conversion the nearest match
+    (distance ~0) scores ~0 and is dropped/ranked last."""
+
+    def _make_vec(self, monkeypatch):
+        monkeypatch.setattr(
+            "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsGraph", lambda *args, **kwargs: None
+        )
+        vec = NeptuneAnalyticsVector(endpoint="neptune-graph://test", collection_name="scores")
+        vec.graph = _FakeNeptuneSearchGraph()
+        return vec
+
+    def test_nearest_neighbour_has_highest_score(self, monkeypatch):
+        vec = self._make_vec(monkeypatch)
+        results = vec.search(query="", vectors=[0.1, 0.2], top_k=3)
+
+        by_id = {r.id: r.score for r in results}
+        # Contract: the nearest neighbour (distance 0.0) must score highest.
+        assert by_id["A"] > by_id["B"] > by_id["C"], f"nearest match should score highest, got {by_id}"
+        # And it must not collapse to a raw distance that the default threshold drops.
+        assert by_id["A"] >= 0.1
+
+    def test_ranking_not_inverted_end_to_end(self, monkeypatch):
+        from mem0.utils.scoring import score_and_rank
+
+        vec = self._make_vec(monkeypatch)
+        out = vec.search(query="", vectors=[0.1, 0.2], top_k=3)
+        cands = [{"id": o.id, "score": o.score, "payload": o.payload} for o in out]
+        ranked = score_and_rank(cands, {}, {}, threshold=0.1, top_k=3)
+
+        assert ranked, "nearest match must not be dropped by the threshold"
+        assert ranked[0]["id"] == "A", f"nearest match should rank first, got {[r['id'] for r in ranked]}"
+
+
 class _FakeNeptuneGraph:
     """Minimal stand-in for `NeptuneAnalyticsGraph.query()` so update()'s compensation
     path can be exercised without a real Neptune Analytics endpoint."""
