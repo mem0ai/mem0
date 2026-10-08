@@ -992,8 +992,10 @@ class Memory(MemoryBase):
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
+        batch_count = None
         try:
             mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
+            batch_count = len(mem_embeddings_list)
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             # Fallback: embed individually
@@ -1003,6 +1005,35 @@ class Memory(MemoryBase):
                     embed_map[text] = self.embedding_model.embed(text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text: {e}")
+
+        # Catches a memory text left out of embed_map either way: a short
+        # embed_batch() return (zip() above truncates to the shorter side) or an
+        # individual failure inside the per-item fallback above. Checked once the
+        # embedding path is settled rather than inside the try, which only ever
+        # saw the first case. Compared as a set because embed_map is keyed by
+        # text, so repeated texts collapse to one entry without anything being
+        # lost.
+        unique_texts = set(mem_texts)
+        missing = unique_texts - embed_map.keys()
+        if missing:
+            logger.warning(
+                "%d of %d memory texts have no embedding and are not stored",
+                len(missing),
+                len(unique_texts),
+            )
+        # A count disagreement also means the surviving pairs cannot be trusted:
+        # zip() above pairs by position, so a vector missing from the middle of
+        # the response leaves every text after it holding its neighbour's vector,
+        # and a longer-than-expected response says the ordering is not what this
+        # code assumes. Reported, not repaired: re-embedding or refusing the
+        # batch would change what add() stores.
+        if batch_count is not None and batch_count != len(mem_texts):
+            logger.warning(
+                "embed_batch() returned %d vectors for %d memory texts — pairing "
+                "is positional, so stored vectors may not correspond to their text",
+                batch_count,
+                len(mem_texts),
+            )
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         # Build set of existing hashes for dedup
@@ -2673,8 +2704,10 @@ class AsyncMemory(MemoryBase):
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
+        batch_count = None
         try:
             mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
+            batch_count = len(mem_embeddings_list)
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             embed_map = {}
@@ -2683,6 +2716,35 @@ class AsyncMemory(MemoryBase):
                     embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text (async): {e}")
+
+        # Catches a memory text left out of embed_map either way: a short
+        # embed_batch() return (zip() above truncates to the shorter side) or an
+        # individual failure inside the per-item fallback above. Checked once the
+        # embedding path is settled rather than inside the try, which only ever
+        # saw the first case. Compared as a set because embed_map is keyed by
+        # text, so repeated texts collapse to one entry without anything being
+        # lost.
+        unique_texts = set(mem_texts)
+        missing = unique_texts - embed_map.keys()
+        if missing:
+            logger.warning(
+                "%d of %d memory texts have no embedding and are not stored",
+                len(missing),
+                len(unique_texts),
+            )
+        # A count disagreement also means the surviving pairs cannot be trusted:
+        # zip() above pairs by position, so a vector missing from the middle of
+        # the response leaves every text after it holding its neighbour's vector,
+        # and a longer-than-expected response says the ordering is not what this
+        # code assumes. Reported, not repaired: re-embedding or refusing the
+        # batch would change what add() stores.
+        if batch_count is not None and batch_count != len(mem_texts):
+            logger.warning(
+                "embed_batch() returned %d vectors for %d memory texts — pairing "
+                "is positional, so stored vectors may not correspond to their text",
+                batch_count,
+                len(mem_texts),
+            )
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         existing_hashes = set()
