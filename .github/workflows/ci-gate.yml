@@ -46,6 +46,7 @@ jobs:
       n8n_nodes_mem0: ${{ steps.filter.outputs.n8n_nodes_mem0 }}
       zapier_mem0: ${{ steps.filter.outputs.zapier_mem0 }}
       mem0_strands: ${{ steps.filter.outputs.mem0_strands }}
+      eve: ${{ steps.filter.outputs.eve }}
       docs_llms_txt: ${{ steps.filter.outputs.docs_llms_txt }}
       github_scripts: ${{ steps.filter.outputs.github_scripts }}
     steps:
@@ -125,6 +126,10 @@ jobs:
             mem0_strands:
               - 'integrations/mem0-strands/**'
               - '.github/workflows/mem0-strands-checks.yml'
+              - '.github/workflows/ci-gate.yml'
+            eve:
+              - 'integrations/eve/**'
+              - '.github/workflows/eve-checks.yml'
               - '.github/workflows/ci-gate.yml'
             docs_llms_txt:
               - 'docs/**/*.mdx'
@@ -229,6 +234,13 @@ jobs:
     uses: ./.github/workflows/mem0-strands-checks.yml
     secrets: inherit
 
+  eve:
+    name: Eve
+    needs: changes
+    if: needs.changes.outputs.eve == 'true'
+    uses: ./.github/workflows/eve-checks.yml
+    secrets: inherit
+
   docs-llms-txt:
     name: docs llms.txt
     needs: changes
@@ -271,6 +283,7 @@ jobs:
       - n8n-nodes-mem0
       - zapier-mem0
       - mem0-strands
+      - eve
       - docs-llms-txt
       - github-scripts
     if: always()
