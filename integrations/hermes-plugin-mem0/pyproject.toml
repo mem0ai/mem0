@@ -10,6 +10,7 @@ license = { text = "Apache-2.0 AND MIT" }
 dependencies = [
     "mem0ai>=2.0.10,<3",
     "httpx>=0.27,<1",
+    "ollama>=0.3.0",
 ]
 
 [project.optional-dependencies]
