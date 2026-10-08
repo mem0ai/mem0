@@ -49,6 +49,7 @@ export interface SearchOptions {
   run_id?: string;
   top_k?: number;
   threshold?: number;
+  rerank?: boolean;
   categories?: string[];
   filters?: Record<string, unknown>;
   source?: string;
