@@ -200,6 +200,48 @@ class TestOpenSearchDB(unittest.TestCase):
         self.assertEqual(self.client_mock.index.call_count, 3)
         self.assertEqual(self.client_mock.indices.refresh.call_count, 1)
 
+    def test_timeout_omitted_by_default(self):
+        """When timeout is unset, no timeout kwarg is passed to the OpenSearch client.
+
+        Guarantees byte-identical behavior with prior releases: opensearch-py
+        applies its own default request timeout (10s) only when the kwarg is absent.
+        """
+        # self.os_db (built in setUp without a timeout) is the default case;
+        # self.mock_os captured that construction call.
+        _, kwargs = self.mock_os.call_args
+        self.assertNotIn("timeout", kwargs)
+
+    def test_timeout_passed_when_set(self):
+        """An explicit timeout is forwarded to the OpenSearch client constructor."""
+        with patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock) as mock_os:
+            OpenSearchDB(
+                host="localhost",
+                port=9200,
+                collection_name="test_timeout",
+                embedding_model_dims=1536,
+                timeout=60,
+            )
+        _, kwargs = mock_os.call_args
+        self.assertEqual(kwargs["timeout"], 60)
+
+    def test_pool_maxsize_passed_through(self):
+        """A custom pool_maxsize reaches the client (regression: it was hard-coded to 20)."""
+        with patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock) as mock_os:
+            OpenSearchDB(
+                host="localhost",
+                port=9200,
+                collection_name="test_pool",
+                embedding_model_dims=1536,
+                pool_maxsize=42,
+            )
+        _, kwargs = mock_os.call_args
+        self.assertEqual(kwargs["pool_maxsize"], 42)
+
+    def test_pool_maxsize_defaults_to_20(self):
+        """The pool_maxsize default stays 20 (no behavior change for existing users)."""
+        _, kwargs = self.mock_os.call_args
+        self.assertEqual(kwargs["pool_maxsize"], 20)
+
     def test_insert(self):
         vectors = [[0.1] * 1536, [0.2] * 1536]
         payloads = [{"key1": "value1"}, {"key2": "value2"}]
