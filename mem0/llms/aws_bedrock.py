@@ -228,6 +228,26 @@ class AWSBedrockLLM(LLMBase):
         
         return formatted_messages
 
+    def _format_messages_mistral_text(self, messages: List[Dict[str, str]]) -> str:
+        """Format messages as a Mistral instruct prompt string.
+
+        Bedrock's Mistral text-completion contract requires ``prompt`` to be a
+        string; the message-array form used by the chat formatter is rejected by
+        the API. Instructions are wrapped in the ``[INST]``/``[/INST]`` template
+        expected by the Mistral instruct models.
+        """
+        segments: List[str] = []
+        for message in messages:
+            role = message["role"]
+            content = message["content"]
+            if role == "system":
+                segments.append(f"[INST] {content} [/INST]")
+            elif role == "user":
+                segments.append(f"[INST] {content} [/INST]")
+            elif role == "assistant":
+                segments.append(content)
+        return " ".join(segments).strip()
+
     def _format_messages_generic(self, messages: List[Dict[str, str]]) -> str:
         """Generic message formatting for other providers."""
         formatted_messages = []
@@ -643,6 +663,10 @@ class AWSBedrockLLM(LLMBase):
             if self.provider == "amazon":
                 # Legacy Amazon models need string formatting, not array formatting
                 prompt = self._format_messages_generic(messages)
+            elif self.provider == "mistral":
+                # Bedrock Mistral text-completion requires a string prompt; the
+                # chat-array form is rejected by the API.
+                prompt = self._format_messages_mistral_text(messages)
             else:
                 prompt = self._format_messages(messages)
             input_body = self._prepare_input(prompt)

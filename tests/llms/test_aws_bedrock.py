@@ -554,3 +554,49 @@ class TestAnthropicConverseContentParsing:
         llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
 
         assert llm.generate_response(MESSAGES) == "object answer"
+
+
+# ---------------------------------------------------------------------------
+# Mistral text-completion prompt must be a string (#7572)
+# ---------------------------------------------------------------------------
+
+class TestMistralTextCompletionPrompt:
+    """Bedrock's Mistral text-completion contract requires ``prompt`` to be a
+    string; the chat-array form is rejected by the API."""
+
+    MISTRAL_MODELS = [
+        "mistral.mistral-large-2402-v1:0",
+        "mistral.mistral-7b-instruct-v0:2",
+        "mistral.mixtral-8x7b-instruct-v0:1",
+    ]
+
+    def _invoke(self, mock_boto3, model: str) -> dict:
+        """Run the no-tools generation path and return the parsed request body."""
+        import json as _json
+
+        captured = {}
+
+        def _fake_invoke(**kwargs):
+            captured["body"] = _json.loads(kwargs["body"])
+            return {"body": __import__("io").BytesIO(
+                _json.dumps({"outputs": [{"text": "hello"}]}).encode()
+            )}
+
+        mock_boto3.invoke_model.side_effect = _fake_invoke
+        llm = _make_llm(model, mock_boto3)
+        result = llm.generate_response(MESSAGES)
+        assert result == "hello"
+        return captured["body"]
+
+    def test_mistral_prompt_is_string_not_array(self, mock_boto3):
+        for model in self.MISTRAL_MODELS:
+            body = self._invoke(mock_boto3, model)
+            assert isinstance(body["prompt"], str), f"{model}: prompt is {type(body['prompt']).__name__}, expected str"
+            assert "Hello" in body["prompt"]
+
+    def test_mistral_prompt_uses_instruction_template(self, mock_boto3):
+        body = self._invoke(mock_boto3, "mistral.mistral-7b-instruct-v0:2")
+        assert "[INST]" in body["prompt"] and "[/INST]" in body["prompt"]
+        # System content and user content must both survive.
+        assert "You are a helpful assistant" in body["prompt"]
+        assert "Hello" in body["prompt"]
