@@ -161,6 +161,7 @@ class GeminiLLM(LLMBase):
         response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
+        **kwargs,
     ):
         """
         Generate a response based on the given messages using Gemini.
@@ -169,7 +170,11 @@ class GeminiLLM(LLMBase):
             messages (list): List of message dicts containing 'role' and 'content'.
             response_format (str or object, optional): Format for the response. Defaults to "text".
             tools (list, optional): List of tools that the model can call. Defaults to None.
-            tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            tool_choice (str, optional): Tool choice method. One of "auto", "any",
+                "required" (forces a tool call by mapping to ANY mode + allowed_function_names),
+                or any other value (NONE). Defaults to "auto".
+            **kwargs: Additional provider-specific parameters. ``max_tokens`` overrides
+                ``self.config.max_tokens`` for this call only — see #5430.
 
         Returns:
             str: The generated response.
@@ -183,8 +188,11 @@ class GeminiLLM(LLMBase):
         config_params = {}
         if self.config.temperature is not None:
             config_params["temperature"] = self.config.temperature
-        if self.config.max_tokens is not None:
-            config_params["max_output_tokens"] = self.config.max_tokens
+        # Per-call ``max_tokens`` override (the base ``**kwargs`` contract);
+        # falls back to the configured value when not supplied — see #5430.
+        max_tokens = kwargs.pop("max_tokens", self.config.max_tokens)
+        if max_tokens is not None:
+            config_params["max_output_tokens"] = max_tokens
         if self.config.top_p is not None:
             config_params["top_p"] = self.config.top_p
 
@@ -204,16 +212,24 @@ class GeminiLLM(LLMBase):
             if tool_choice:
                 if tool_choice == "auto":
                     mode = types.FunctionCallingConfigMode.AUTO
-                elif tool_choice == "any":
+                elif tool_choice in ("any", "required"):
+                    # Gemini has no "required" mode; map standard "required"
+                    # (force-a-tool-call) to ANY + allowed_function_names,
+                    # matching the behaviour callers expect from other
+                    # providers — see #5430. Without this, "required" fell
+                    # through to NONE and silently disabled tool calling.
                     mode = types.FunctionCallingConfigMode.ANY
                 else:
                     mode = types.FunctionCallingConfigMode.NONE
 
+                # Restrict the call to the provided tool names whenever the
+                # caller is forcing a tool call (any / required).
+                force_tool_call = tool_choice in ("any", "required")
                 tool_config = types.ToolConfig(
                     function_calling_config=types.FunctionCallingConfig(
                         mode=mode,
                         allowed_function_names=(
-                            [tool["function"]["name"] for tool in tools] if tool_choice == "any" else None
+                            [tool["function"]["name"] for tool in tools] if force_tool_call else None
                         ),
                     )
                 )
