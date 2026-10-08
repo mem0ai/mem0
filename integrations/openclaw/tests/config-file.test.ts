@@ -73,6 +73,7 @@ describe("readPluginAuth", () => {
               autoRecall: true,
               autoCapture: false,
               topK: 10,
+              recallTimeoutMs: 120000,
             },
           },
         },
@@ -88,6 +89,7 @@ describe("readPluginAuth", () => {
       autoRecall: true,
       autoCapture: false,
       topK: 10,
+      recallTimeoutMs: 120000,
     });
   });
 
@@ -209,6 +211,21 @@ describe("writePluginAuth", () => {
     expect(cfg.apiKey).toBe("sk-set");
     expect(cfg).not.toHaveProperty("baseUrl");
     expect(cfg).not.toHaveProperty("userId");
+  });
+
+  it("CLI/config surface: recall_timeout_ms round-trip and bounds", () => {
+    setNoFile();
+    mockExists.mockReturnValue(false);
+
+    writePluginAuth({ recallTimeoutMs: 120000 });
+
+    const written = JSON.parse(mockWriteText.mock.calls[0][1]);
+    expect(written.plugins.entries["openclaw-mem0"].config.recallTimeoutMs).toBe(
+      120000,
+    );
+
+    setConfigFile(written);
+    expect(readPluginAuth().recallTimeoutMs).toBe(120000);
   });
 });
 
