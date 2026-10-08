@@ -208,6 +208,7 @@ When editing these files manually, restrict both `.env` and `mem0.json` to their
 | `user_id` | gateway user ID, then `hermes-user` | Identifier that scopes memories. See cross-channel behavior below |
 | `agent_id` | `hermes` | Agent identifier attached to writes |
 | `rerank` | `false` | Platform reranking for recall and tool searches that omit `rerank` |
+| `share_conversation_context` | `false` | Opt in to conversation attribution metadata on new writes |
 | `sync_max_chars` | `450` | Per-message character cap for automatic fact extraction in every mode |
 | `oss` | `{}` | OSS LLM, embedder, and vector-store configuration |
 
@@ -219,6 +220,26 @@ Hermes can run from the CLI and from gateways like Telegram, Slack, and Discord.
 - **Leave it unset** (or at the default `hermes-user`) and each gateway uses its own native ID when available, falling back to `hermes-user`.
 
 Every write is tagged with `metadata.channel` (for example `telegram` or `cli`). Plugin searches filter by user identity across sessions; they do not restrict recall to the current channel or session.
+
+### Optional conversation attribution
+
+Conversation attribution is **off by default**, including for existing installations. Enable **Share conversation context** during `hermes memory setup mem0` or in Hermes' native memory-provider settings. You can also add this setting to the active profile's `mem0.json`, preserving your other settings:
+
+```json
+{
+  "share_conversation_context": true
+}
+```
+
+Restart Hermes to apply the change; switching sessions within a running process does not reload configuration. Both automatic capture and `mem0_add` then send the available fields below to your configured backend (Mem0 Cloud, a self-hosted server, or OSS storage):
+
+- `gateway_user_id` and `gateway_user_id_alt`: gateway identities, independent of a shared memory `user_id`.
+- `user_name`, `chat_id`, `chat_name`, `chat_type`, and `thread_id`: the conversation context supplied by Hermes at initialization.
+- `session_title` and `session_id`: the originating session. The title is omitted after a session switch or when a turn supplies a different session ID, because the plugin does not have that session's title.
+
+Absent values are omitted; each new value is converted to text and limited to 256 characters. Local paths, internal routing keys, and credentials are excluded. Session rotation updates subsequent manual writes, and automatic writes retain the metadata captured when the plugin queues its worker. Recall continues to search by memory user identity only.
+
+To stop exporting conversation context, set the option to `false` and restart Hermes. This affects future writes only; metadata on stored memories is unchanged. The plugin exposes this control through memory setup and native provider settings, not a `hermes tools` menu entry. Unattended setup preserves any existing preference and does not opt in automatically.
 
 ## Migration for Existing Users
 
@@ -232,7 +253,7 @@ Automatic migration depends on Hermes rollout as well as this repository:
 
 With these in place, Hermes installs a missing configured provider during `hermes update` across profiles or at agent startup. Startup installation respects `security.allow_lazy_installs`. Offline or disabled installation needs manual action; merging the plugin directory alone does not complete automatic migration.
 
-CLI setup and status are supported. This plugin does not ship a Desktop configuration panel or provider-specific CLI commands.
+CLI setup and status are supported, and settings are exposed through Hermes' generic memory-provider configuration UI. This plugin does not ship a custom Desktop panel or provider-specific CLI commands.
 
 ## Reliability
 
