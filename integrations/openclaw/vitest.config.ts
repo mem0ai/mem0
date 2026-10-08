@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import pkg from "./package.json";
 
@@ -9,14 +10,14 @@ export default defineConfig({
     alias: {
       // OpenClaw SDK modules are resolved from the gateway at runtime.
       // During unit tests we provide lightweight stubs.
-      "openclaw/plugin-sdk/plugin-entry": new URL(
-        "./test-shims/plugin-entry.ts",
-        import.meta.url,
-      ).pathname,
-      "openclaw/plugin-sdk": new URL(
-        "./test-shims/plugin-sdk.ts",
-        import.meta.url,
-      ).pathname,
+      // fileURLToPath, not URL.pathname: pathname breaks on Windows
+      // (leading slash before the drive letter, percent-encoded spaces).
+      "openclaw/plugin-sdk/plugin-entry": fileURLToPath(
+        new URL("./test-shims/plugin-entry.ts", import.meta.url),
+      ),
+      "openclaw/plugin-sdk": fileURLToPath(
+        new URL("./test-shims/plugin-sdk.ts", import.meta.url),
+      ),
     },
   },
 });
