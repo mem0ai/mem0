@@ -228,3 +228,39 @@ def test_update_entity_payload_without_hash_and_timestamps():
     assert data_dict["hash"] == ""
     assert data_dict["created_at"] == 0
     assert data_dict["updated_at"] == 0
+
+
+def test_search_requests_updated_at_in_return_fields():
+    """search() must request updated_at so its payload can surface it, matching
+    get() and list().
+
+    Regression: updated_at was missing from the search() return_fields, so the
+    ``if "updated_at" in result`` payload guard was dead code and search results
+    never carried updated_at even though update() persists it and it is a
+    declared index field.
+    """
+    db, mock_index = _make_redis_db()
+    mock_index.query.return_value = []
+
+    with patch("mem0.vector_stores.redis.VectorQuery") as mock_vector_query:
+        db.search("query", [0.1, 0.2, 0.3, 0.4], top_k=5, filters=None)
+
+    return_fields = mock_vector_query.call_args.kwargs["return_fields"]
+    assert "updated_at" in return_fields
+
+
+def test_keyword_search_requests_updated_at_in_return_fields():
+    """keyword_search() must request updated_at so its payload can surface it,
+    matching get(), list() and search().
+
+    Same dead-guard regression as search(): the ``if "updated_at" in result``
+    branch never fired because updated_at was absent from return_fields.
+    """
+    db, mock_index = _make_redis_db()
+    mock_index.query.return_value = []
+
+    with patch("mem0.vector_stores.redis.TextQuery") as mock_text_query:
+        db.keyword_search("query", top_k=5, filters=None)
+
+    return_fields = mock_text_query.call_args.kwargs["return_fields"]
+    assert "updated_at" in return_fields
