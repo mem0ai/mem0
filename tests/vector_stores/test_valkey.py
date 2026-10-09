@@ -1092,3 +1092,47 @@ def test_escape_tag_value_normal_strings(valkey_db):
 def test_escape_tag_value_hyphenated_user_id(valkey_db):
     """Hyphenated user IDs must have the hyphen escaped for exact-match."""
     assert valkey_db._escape_tag_value("user-123") == r"user\-123"
+
+
+def _make_search_results(vector_scores):
+    """Build a mocked Valkey search result with the given vector_score strings."""
+    docs = []
+    for vector_score in vector_scores:
+        mock_doc = MagicMock()
+        mock_doc.memory_id = "test_id"
+        mock_doc.hash = "test_hash"
+        mock_doc.memory = "test_data"
+        mock_doc.created_at = str(int(datetime.now().timestamp()))
+        mock_doc.metadata = json.dumps({})
+        mock_doc.vector_score = vector_score
+        docs.append(mock_doc)
+    mock_results = MagicMock()
+    mock_results.docs = docs
+    return mock_results
+
+
+def test_search_score_cosine_uses_one_minus_distance(valkey_db):
+    """Default COSINE metric keeps the 1 - distance similarity mapping."""
+    results = valkey_db._process_search_results(_make_search_results(["0.25"]))
+
+    assert results[0].score == pytest.approx(0.75)
+
+
+def test_search_score_l2_uses_bounded_map(valkey_db):
+    """L2 distance is unbounded; scores must not collapse to 0."""
+    valkey_db.distance_metric = "L2"
+
+    results = valkey_db._process_search_results(_make_search_results(["0.5", "4.0"]))
+
+    # 1 / (1 + d): a distance > 1 would have collapsed to 0 under the old
+    # cosine-only formula; the bounded map keeps ranking intact.
+    assert results[0].score == pytest.approx(1.0 / 1.5)
+    assert results[1].score == pytest.approx(1.0 / 5.0)
+    assert results[0].score > results[1].score > 0.0
+
+
+def test_create_col_persists_distance_metric(valkey_db, mock_valkey_client):
+    """create_col stores the configured metric for later metric-aware scoring."""
+    valkey_db.create_col(name="other_collection", vector_size=1536, distance="L2")
+
+    assert valkey_db.distance_metric == "L2"
