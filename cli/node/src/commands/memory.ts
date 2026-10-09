@@ -596,14 +596,25 @@ export async function cmdDeleteAll(
 ): Promise<void> {
 	setCurrentCommand("delete-all");
 	const { isAgentMode } = await import("../state.js");
-	if (isAgentMode() && !opts.force) {
+	if (isAgentMode() && !opts.force && !opts.dryRun) {
 		printError("Destructive operation requires --force in agent mode.");
 		process.exit(1);
 	}
 	if (opts.all) {
-		// Project-wide wipe using wildcard entity IDs
-		// Note: --dry-run is ignored here because the API has no count-before-delete endpoint.
+		if (opts.dryRun) {
+			const preview = { dry_run: true, deleted: false, scope: "project" };
+			if (opts.output === "agent") {
+				formatAgentEnvelope({ command: "delete-all", data: preview });
+			} else if (opts.output === "json") {
+				formatJson(preview);
+			} else if (opts.output !== "quiet") {
+				printInfo("Would delete ALL memories across the ENTIRE project.");
+				printInfo("No changes made (dry run).");
+			}
+			return;
+		}
 
+		// Project-wide wipe using wildcard entity IDs
 		if (!opts.force) {
 			const readline = await import("node:readline");
 			const rl = readline.createInterface({

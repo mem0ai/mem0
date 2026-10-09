@@ -3,10 +3,13 @@
  */
 
 import { Command } from "commander";
+import { createInterface } from "node:readline";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Backend } from "../src/backend/base.js";
 import { setAgentMode } from "../src/state.js";
 import { createMockBackend } from "./setup.js";
+
+vi.mock("node:readline", () => ({ createInterface: vi.fn() }));
 
 let mockBackend: Backend;
 
@@ -463,6 +466,140 @@ describe("cmdDelete", () => {
 });
 
 describe("cmdDeleteAll", () => {
+	it.each(["json", "quiet"])(
+		"project dry-run respects output format %s",
+		async (format) => {
+			const { cmdDeleteAll } = await import("../src/commands/memory.js");
+			await cmdDeleteAll(mockBackend, {
+				all: true,
+				dryRun: true,
+				force: true,
+				output: format,
+			});
+			expect(mockBackend.delete).not.toHaveBeenCalled();
+			expect(errOutput).toBe("");
+			if (format === "json") {
+				expect(JSON.parse(output)).toEqual({
+					dry_run: true,
+					deleted: false,
+					scope: "project",
+				});
+			} else {
+				expect(output).toBe("");
+			}
+		},
+	);
+
+	it.each([
+		{ agentMode: false, force: false },
+		{ agentMode: false, force: true },
+		{ agentMode: true, force: false },
+		{ agentMode: true, force: true },
+	])(
+		"project dry-run never deletes or prompts: %j",
+		async ({ agentMode, force }) => {
+			setAgentMode(agentMode);
+			const prompt = vi.mocked(createInterface).mockReturnValue({
+				question: (_prompt: string, callback: (answer: string) => void) =>
+					callback("y"),
+				close: vi.fn(),
+			} as unknown as ReturnType<typeof createInterface>);
+			prompt.mockClear();
+			const exit = vi.spyOn(process, "exit").mockImplementation(() => {
+				throw new Error("Unexpected process.exit");
+			});
+			try {
+				const { cmdDeleteAll } = await import("../src/commands/memory.js");
+				await cmdDeleteAll(mockBackend, {
+					all: true,
+					dryRun: true,
+					force,
+					userId: "alice",
+					output: agentMode ? "agent" : "text",
+				});
+				expect(mockBackend.delete).not.toHaveBeenCalled();
+				expect(mockBackend.listMemories).not.toHaveBeenCalled();
+				expect(prompt).not.toHaveBeenCalled();
+				if (agentMode) {
+					const data = JSON.parse(output.trim());
+					expect(data.command).toBe("delete-all");
+					expect(data.data).toEqual({
+						dry_run: true,
+						deleted: false,
+						scope: "project",
+					});
+				} else {
+					expect(errOutput.toLowerCase()).toContain("entire project");
+					expect(errOutput).toContain("No changes made");
+				}
+			} finally {
+				exit.mockRestore();
+			}
+		},
+	);
+
+	it.each([false, true])(
+		"scoped dry-run needs no force in agent mode %s",
+		async (agentMode) => {
+			setAgentMode(agentMode);
+			vi.mocked(createInterface).mockClear();
+			const exit = vi.spyOn(process, "exit").mockImplementation(() => {
+				throw new Error("Unexpected process.exit");
+			});
+			try {
+				const { cmdDeleteAll } = await import("../src/commands/memory.js");
+				await cmdDeleteAll(mockBackend, {
+					dryRun: true,
+					force: false,
+					userId: "alice",
+					output: agentMode ? "agent" : "text",
+				});
+				expect(mockBackend.delete).not.toHaveBeenCalled();
+				expect(createInterface).not.toHaveBeenCalled();
+				expect(mockBackend.listMemories).toHaveBeenCalledWith({
+					userId: "alice",
+					agentId: undefined,
+					appId: undefined,
+					runId: undefined,
+				});
+			} finally {
+				exit.mockRestore();
+			}
+		},
+	);
+
+	it.each([false, true])(
+		"agent deletion still requires force for project %s",
+		async (all) => {
+			setAgentMode(true);
+			const exit = vi.spyOn(process, "exit").mockImplementation(() => {
+				throw new Error("Blocked deletion");
+			});
+			try {
+				const { cmdDeleteAll } = await import("../src/commands/memory.js");
+				await expect(
+					cmdDeleteAll(mockBackend, { all, force: false, output: "agent" }),
+				).rejects.toThrow("Blocked deletion");
+				expect(exit).toHaveBeenCalledWith(1);
+				expect(mockBackend.delete).not.toHaveBeenCalled();
+			} finally {
+				exit.mockRestore();
+			}
+		},
+	);
+
+	it("project deletion with force retains wildcard scope", async () => {
+		const { cmdDeleteAll } = await import("../src/commands/memory.js");
+		await cmdDeleteAll(mockBackend, { all: true, force: true, output: "text" });
+		expect(mockBackend.delete).toHaveBeenCalledWith(undefined, {
+			all: true,
+			userId: "*",
+			agentId: "*",
+			appId: "*",
+			runId: "*",
+		});
+	});
+
 	it("deletes all with force", async () => {
 		const { cmdDeleteAll } = await import("../src/commands/memory.js");
 		await cmdDeleteAll(mockBackend, {

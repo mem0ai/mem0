@@ -168,6 +168,9 @@ mem0 delete --all --project --force
 
 # Preview what would be deleted
 mem0 delete --all --user-id alice --dry-run
+
+# Preview a project-wide deletion without confirmation or --force
+mem0 delete --all --project --dry-run
 ```
 
 | Flag | Description |
@@ -177,6 +180,10 @@ mem0 delete --all --user-id alice --dry-run
 | `--project` | With `--all`: delete all memories project-wide |
 | `--dry-run` | Preview without deleting |
 | `--force` | Skip confirmation prompt |
+
+Project-wide dry runs show the entire-project scope without fetching a memory count.
+No memories are deleted, even when combined with `--force`. Dry runs do not require
+`--force` in agent mode.
 
 ### `mem0 import`
 
