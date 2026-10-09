@@ -7,19 +7,6 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
-<Update label="2026-10-09" description="v2.3.0">
-
-**Breaking Changes:**
-- **Client:** `MemoryClient.add()` and `AsyncMemoryClient.add()` now raise `ValueError` when passed `filters`. The add endpoint reads entity IDs at the top level and rejected `filters` with an unhelpful 400 ("At least one entity ID is required"). Pass `user_id`, `agent_id`, `app_id`, or `run_id` directly instead ([#7581](https://github.com/mem0ai/mem0/pull/7581))
-- **Client:** `delete_all()` now raises `ValueError` when passed `filters`. The dict was sent as a single `?filters={...}` query string, which the delete endpoint rejects with a 400. Pass entity IDs at the top level instead ([#7581](https://github.com/mem0ai/mem0/pull/7581))
-- **Client:** `delete_all()` and `delete_users()` now raise `ValueError` on an empty or whitespace-only `user_id`, `agent_id`, `app_id`, or `run_id`. The API treats an empty ID as matching every memory, so `delete_all(user_id="")` deleted the whole project and `delete_users(user_id="")` deleted every entity. To delete everything on purpose, call `delete_all()` with `"*"` explicitly, e.g. `delete_all(user_id="*")` ([#7581](https://github.com/mem0ai/mem0/pull/7581))
-
-**Bug Fixes:**
-- **Client:** `AddMemoryOptions` and `DeleteAllMemoryOptions` now declare `user_id`, `agent_id`, `app_id`, and `run_id`, and no longer document a `filters` field the endpoints never read. Previously the entity IDs were silently dropped by the model ([#7581](https://github.com/mem0ai/mem0/pull/7581))
-- **Proxy:** `Mem0().chat.completions.create(filters=...)` no longer forwards `filters` to `add()`. It is still applied to the memory search ([#7581](https://github.com/mem0ai/mem0/pull/7581))
-
-</Update>
-
 <Update label="2026-09-25" description="v2.2.1">
 
 **Bug Fixes:**
@@ -1269,15 +1256,6 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 </Tab>
 
 <Tab title="TypeScript">
-
-<Update label="2026-10-09" description="v3.4.0">
-
-**Breaking Changes:**
-- **Client:** `MemoryClient.add()` now throws when passed `filters`. The add endpoint reads entity IDs at the top level and rejected `filters` with an unhelpful 400 ("At least one entity ID is required"). Pass `userId`, `agentId`, `appId`, or `runId` directly instead ([#7581](https://github.com/mem0ai/mem0/pull/7581))
-- **Client:** `deleteAll()` now throws when passed `filters`. The object was serialized as `?filters=[object Object]`, which the delete endpoint cannot read. Pass entity IDs at the top level instead ([#7581](https://github.com/mem0ai/mem0/pull/7581))
-- **Client:** `deleteAll()` and `deleteUsers()` now throw on an empty or whitespace-only `userId`, `agentId`, `appId`, or `runId` (snake_case keys included). The API treats an empty ID as matching every memory, so `deleteAll({ userId: "" })` deleted the whole project and `deleteUsers({ userId: "" })` deleted every entity. To delete everything on purpose, call `deleteAll()` with `"*"` explicitly, e.g. `deleteAll({ userId: "*" })` ([#7581](https://github.com/mem0ai/mem0/pull/7581))
-
-</Update>
 
 <Update label="2026-09-25" description="v3.3.1">
 
