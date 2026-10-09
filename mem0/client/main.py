@@ -91,6 +91,24 @@ def _encode_path_segment(value: Any) -> str:
     return quote(str(value), safe="")
 
 
+def _reject_filters(method: str, params: Dict[str, Any]) -> None:
+    """Raise when filters is passed to an endpoint that reads entity IDs at the top level."""
+    if params.get("filters") is not None:
+        raise ValueError(
+            f"filters is not supported in {method}(). Pass entity IDs at the top level, e.g. user_id='...'."
+        )
+
+
+def _reject_blank_entity_ids(params: Dict[str, Any]) -> None:
+    """Raise on an empty or whitespace-only entity ID, which the API treats as matching every memory."""
+    for name, value in params.items():
+        if name in ENTITY_PARAMS and isinstance(value, str) and not value.strip():
+            raise ValueError(
+                f"{name} cannot be empty or whitespace-only: an empty ID would match every memory in the project. "
+                f"To delete everything on purpose, call delete_all() with '*' explicitly."
+            )
+
+
 def _maybe_alias_anon_to_email(user_email):
     """Fire $identify per prior anon ID so PostHog merges them into email.
 
@@ -309,7 +327,7 @@ class MemoryClient:
                      a user message.
             options: Typed options for the add operation (AddMemoryOptions).
             **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      metadata, filters.
+                      run_id, metadata. Entity IDs go at the top level, not in filters.
 
         Returns:
             A dictionary containing the API response in v1.1 format.
@@ -321,8 +339,10 @@ class MemoryClient:
             MemoryQuotaExceededError: If memory quota is exceeded.
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
+            ValueError: If filters is passed.
         """
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
+        _reject_filters("add", kwargs)
         # Handle different message input formats (align with OSS behavior)
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
@@ -533,12 +553,12 @@ class MemoryClient:
 
     @api_error_handler
     def delete_all(self, options: Optional[DeleteAllMemoryOptions] = None, **kwargs) -> Dict[str, str]:
-        """Delete all memories, with optional filtering.
+        """Delete all memories for the given entity IDs.
 
         Args:
             options: Typed options for the delete_all operation (DeleteAllMemoryOptions).
-            **kwargs: Optional parameters for filtering (user_id, agent_id,
-                      app_id).
+            **kwargs: Entity IDs to delete memories for (user_id, agent_id, app_id, run_id).
+                      Pass '*' to target every entity of that type.
 
         Returns:
             A dictionary containing the API response.
@@ -550,8 +570,11 @@ class MemoryClient:
             MemoryQuotaExceededError: If memory quota is exceeded.
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
+            ValueError: If filters is passed or an entity ID is empty or whitespace-only.
         """
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
+        _reject_filters("delete_all", kwargs)
+        _reject_blank_entity_ids(kwargs)
         params = self._prepare_params(kwargs)
         response = self.client.delete("/v1/memories/", params=params)
         response.raise_for_status()
@@ -615,12 +638,13 @@ class MemoryClient:
             Dict with success message
 
         Raises:
-            ValueError: If specified entity not found
+            ValueError: If specified entity not found or an entity ID is empty or whitespace-only
             ValidationError: If the input data is invalid.
             AuthenticationError: If authentication fails.
             MemoryNotFoundError: If the entity doesn't exist.
             NetworkError: If network connectivity issues occur.
         """
+        _reject_blank_entity_ids({"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id})
 
         if user_id:
             to_delete = [{"type": "user", "name": user_id}]
@@ -1404,7 +1428,7 @@ class AsyncMemoryClient:
                      a user message.
             options: Typed options for the add operation (AddMemoryOptions).
             **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      metadata, filters.
+                      run_id, metadata. Entity IDs go at the top level, not in filters.
 
         Returns:
             A dictionary containing the API response in v1.1 format.
@@ -1416,8 +1440,10 @@ class AsyncMemoryClient:
             MemoryQuotaExceededError: If memory quota is exceeded.
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
+            ValueError: If filters is passed.
         """
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
+        _reject_filters("add", kwargs)
         # Handle different message input formats (align with OSS behavior)
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
@@ -1614,11 +1640,12 @@ class AsyncMemoryClient:
 
     @api_error_handler
     async def delete_all(self, options: Optional[DeleteAllMemoryOptions] = None, **kwargs) -> Dict[str, str]:
-        """Delete all memories, with optional filtering.
+        """Delete all memories for the given entity IDs.
 
         Args:
             options: Typed options for the delete_all operation (DeleteAllMemoryOptions).
-            **kwargs: Optional parameters for filtering (user_id, agent_id, app_id).
+            **kwargs: Entity IDs to delete memories for (user_id, agent_id, app_id, run_id).
+                      Pass '*' to target every entity of that type.
 
         Returns:
             A dictionary containing the API response.
@@ -1630,8 +1657,11 @@ class AsyncMemoryClient:
             MemoryQuotaExceededError: If memory quota is exceeded.
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
+            ValueError: If filters is passed or an entity ID is empty or whitespace-only.
         """
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
+        _reject_filters("delete_all", kwargs)
+        _reject_blank_entity_ids(kwargs)
         params = self._prepare_params(kwargs)
         response = await self.async_client.delete("/v1/memories/", params=params)
         response.raise_for_status()
@@ -1694,12 +1724,13 @@ class AsyncMemoryClient:
             Dict with success message
 
         Raises:
-            ValueError: If specified entity not found
+            ValueError: If specified entity not found or an entity ID is empty or whitespace-only
             ValidationError: If the input data is invalid.
             AuthenticationError: If authentication fails.
             MemoryNotFoundError: If the entity doesn't exist.
             NetworkError: If network connectivity issues occur.
         """
+        _reject_blank_entity_ids({"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id})
 
         if user_id:
             to_delete = [{"type": "user", "name": user_id}]

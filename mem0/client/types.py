@@ -1,11 +1,4 @@
-"""Pydantic option models for MemoryClient methods.
-
-These models provide IDE autocompletion, runtime validation, and type safety.
-Methods accept both typed options and **kwargs for backward compatibility.
-
-Identity fields (user_id, agent_id, app_id, run_id) must be passed inside
-the ``filters`` dict — the v3 API does not accept them at the top level.
-"""
+"""Pydantic option models for MemoryClient methods."""
 
 from typing import Any, Dict, List, Optional, Union
 
@@ -13,15 +6,12 @@ from pydantic import BaseModel, Field
 
 
 class AddMemoryOptions(BaseModel):
-    """Options for the add() method.
+    """Options for the add() method, with entity IDs passed at the top level."""
 
-    Identity fields (user_id, agent_id, app_id, run_id) must be passed inside
-    the ``filters`` dict — the v3 API does not accept them at the top level.
-    """
-
-    filters: Optional[Dict[str, Any]] = Field(
-        default=None, description="Filters containing entity IDs (e.g. {'user_id': '...'})"
-    )
+    user_id: Optional[str] = Field(default=None, description="User the memory belongs to")
+    agent_id: Optional[str] = Field(default=None, description="Agent the memory belongs to")
+    app_id: Optional[str] = Field(default=None, description="App the memory belongs to")
+    run_id: Optional[str] = Field(default=None, description="Run the memory belongs to")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the memory")
     infer: Optional[bool] = Field(default=None, description="Whether to infer memories from the input")
     custom_categories: Optional[List[Dict[str, Any]]] = Field(
@@ -86,15 +76,12 @@ class GetAllMemoryOptions(BaseModel):
 
 
 class DeleteAllMemoryOptions(BaseModel):
-    """Options for the delete_all() method.
+    """Options for the delete_all() method, with entity IDs passed at the top level."""
 
-    Identity fields (user_id, agent_id, app_id, run_id) must be passed inside
-    the ``filters`` dict — the API does not accept them at the top level.
-    """
-
-    filters: Optional[Dict[str, Any]] = Field(
-        default=None, description="Filters containing entity IDs (e.g. {'user_id': '...'})"
-    )
+    user_id: Optional[str] = Field(default=None, description="Delete memories belonging to this user")
+    agent_id: Optional[str] = Field(default=None, description="Delete memories belonging to this agent")
+    app_id: Optional[str] = Field(default=None, description="Delete memories belonging to this app")
+    run_id: Optional[str] = Field(default=None, description="Delete memories belonging to this run")
 
 
 class UpdateMemoryOptions(BaseModel):
@@ -103,7 +90,9 @@ class UpdateMemoryOptions(BaseModel):
     text: Optional[str] = Field(default=None, description="New text content for the memory")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Updated metadata")
     timestamp: Optional[Union[int, float, str]] = Field(default=None, description="Updated timestamp")
-    expiration_date: Optional[str] = Field(default=None, description="Expiration date in YYYY-MM-DD format, or None to clear")
+    expiration_date: Optional[str] = Field(
+        default=None, description="Expiration date in YYYY-MM-DD format, or None to clear"
+    )
 
 
 class ProjectUpdateOptions(BaseModel):

@@ -86,6 +86,25 @@ def test_completions_create(mock_memory_client, mock_litellm):
     assert response == {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
 
 
+def test_completions_create_keeps_filters_out_of_add(mock_memory_client, mock_litellm):
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = []
+    mock_litellm.supports_function_calling.return_value = True
+
+    with patch("mem0.proxy.main.threading.Thread") as mock_thread:
+        mock_thread.side_effect = lambda target, daemon: Mock(start=target)
+        completions.create(
+            model="gpt-4.1-nano-2025-04-14",
+            messages=[{"role": "user", "content": "Hello"}],
+            user_id="test_user",
+            filters={"categories": {"in": ["travel"]}},
+        )
+
+    assert "filters" not in mock_memory_client.add.call_args.kwargs
+    assert mock_memory_client.add.call_args.kwargs["user_id"] == "test_user"
+    assert mock_memory_client.search.call_args.kwargs["filters"] == {"categories": {"in": ["travel"]}}
+
+
 def test_completions_create_with_system_message(mock_memory_client, mock_litellm):
     completions = Completions(mock_memory_client)
 
