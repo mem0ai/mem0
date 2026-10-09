@@ -598,13 +598,22 @@ def cmd_delete_all(
     set_current_command("delete-all")
     if is_agent_mode():
         output = "agent"
-        if not force:
+        if not force and not dry_run:
             print_error(err_console, "Destructive operation requires --force in agent mode.")
             raise typer.Exit(1)
     if all_:
-        # Project-wide wipe using wildcard entity IDs
-        # Note: --dry-run is ignored here because the API has no count-before-delete endpoint.
+        if dry_run:
+            preview = {"dry_run": True, "deleted": False, "scope": "project"}
+            if output == "agent":
+                format_agent_envelope(console, command="delete-all", data=preview)
+            elif output == "json":
+                format_json(console, preview)
+            elif output != "quiet":
+                print_info(console, "Would delete ALL memories across the ENTIRE project.")
+                print_info(console, "No changes made (dry run).")
+            return
 
+        # Project-wide wipe using wildcard entity IDs
         if not force:
             confirm = typer.confirm(
                 "\n  ⚠  Delete ALL memories across the ENTIRE project? This cannot be undone."

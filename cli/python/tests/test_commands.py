@@ -786,6 +786,105 @@ class TestDeleteCommand:
 
 
 class TestDeleteAllCommand:
+    @pytest.mark.parametrize("output", ["json", "quiet"])
+    def test_project_dry_run_output_formats(self, mock_backend, output):
+        console, buf = _make_console()
+        with patch("mem0_cli.commands.memory.console", console):
+            cmd_delete_all(
+                mock_backend,
+                force=True,
+                dry_run=True,
+                all_=True,
+                user_id=None,
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                output=output,
+            )
+        mock_backend.delete.assert_not_called()
+        if output == "json":
+            assert json.loads(buf.getvalue()) == {
+                "dry_run": True,
+                "deleted": False,
+                "scope": "project",
+            }
+        else:
+            assert buf.getvalue() == ""
+
+    @pytest.mark.parametrize("agent_mode", [False, True])
+    @pytest.mark.parametrize("force", [False, True])
+    def test_project_dry_run_never_deletes_or_prompts(self, mock_backend, agent_mode, force):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            patch("mem0_cli.state.is_agent_mode", return_value=agent_mode),
+            patch("mem0_cli.commands.memory.typer.confirm", return_value=True) as confirm,
+        ):
+            cmd_delete_all(
+                mock_backend,
+                force=force,
+                dry_run=True,
+                all_=True,
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                output="text",
+            )
+        mock_backend.delete.assert_not_called()
+        mock_backend.list_memories.assert_not_called()
+        confirm.assert_not_called()
+        if agent_mode:
+            data = json.loads(buf.getvalue())
+            assert data["command"] == "delete-all"
+            assert data["data"] == {"dry_run": True, "deleted": False, "scope": "project"}
+        else:
+            assert "entire project" in buf.getvalue().lower()
+            assert "No changes made" in buf.getvalue()
+
+    @pytest.mark.parametrize("agent_mode", [False, True])
+    def test_scoped_dry_run_without_force(self, mock_backend, agent_mode):
+        with (
+            patch("mem0_cli.state.is_agent_mode", return_value=agent_mode),
+            patch("mem0_cli.commands.memory.typer.confirm", return_value=True) as confirm,
+        ):
+            cmd_delete_all(
+                mock_backend,
+                force=False,
+                dry_run=True,
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                output="text",
+            )
+        mock_backend.delete.assert_not_called()
+        confirm.assert_not_called()
+        mock_backend.list_memories.assert_called_once_with(
+            user_id="alice", agent_id=None, app_id=None, run_id=None
+        )
+
+    @pytest.mark.parametrize("project", [False, True])
+    def test_agent_delete_still_requires_force(self, mock_backend, project):
+        with (
+            patch("mem0_cli.state.is_agent_mode", return_value=True),
+            pytest.raises(TyperExit) as exc,
+        ):
+            cmd_delete_all(
+                mock_backend,
+                force=False,
+                all_=project,
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                output="text",
+            )
+        assert exc.value.exit_code == 1
+        mock_backend.delete.assert_not_called()
+
     def test_delete_all_force(self, mock_backend):
         console, buf = _make_console()
         err_console, _err_buf = _make_err_console()
