@@ -99,7 +99,7 @@ class Completions:
 
         prepared_messages = self._prepare_messages(messages)
         if prepared_messages[-1]["role"] == "user":
-            self._async_add_to_memory(messages, user_id, agent_id, run_id, metadata, filters)
+            self._async_add_to_memory(messages, user_id, agent_id, run_id, metadata)
             relevant_memories = self._fetch_relevant_memories(messages, user_id, agent_id, run_id, filters, top_k)
             logger.debug(f"Retrieved {len(relevant_memories)} relevant memories")
             prepared_messages[-1]["content"] = self._format_query_with_memories(messages, relevant_memories)
@@ -146,7 +146,7 @@ class Completions:
             return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + messages
         return messages
 
-    def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
+    def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata):
         def add_task():
             logger.debug("Adding to memory asynchronously")
             self.mem0_client.add(
@@ -155,7 +155,6 @@ class Completions:
                 agent_id=agent_id,
                 run_id=run_id,
                 metadata=metadata,
-                filters=filters,
             )
 
         threading.Thread(target=add_task, daemon=True).start()
