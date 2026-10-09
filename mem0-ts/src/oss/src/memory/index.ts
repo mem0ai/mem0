@@ -780,6 +780,12 @@ export class Memory {
     if (userId) filters.user_id = metadata.user_id = userId;
     if (agentId) filters.agent_id = metadata.agent_id = agentId;
     if (runId) filters.run_id = metadata.run_id = runId;
+    // Validate and trim entity IDs passed via filters the same way the read
+    // paths (search/getAll) do. Without this, a padded or blank id is stored
+    // as-is and, since every read trims before matching, can never be read back.
+    if (filters.user_id) filters.user_id = validateAndTrimEntityId(filters.user_id, "user_id");
+    if (filters.agent_id) filters.agent_id = validateAndTrimEntityId(filters.agent_id, "agent_id");
+    if (filters.run_id) filters.run_id = validateAndTrimEntityId(filters.run_id, "run_id");
     if (filters.user_id) metadata.user_id = filters.user_id;
     if (filters.agent_id) metadata.agent_id = filters.agent_id;
     if (filters.run_id) metadata.run_id = filters.run_id;
