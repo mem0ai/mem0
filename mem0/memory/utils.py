@@ -192,6 +192,9 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
         role = msg.get("role")
         content = msg.get("content")
         if role == "system":
+            if isinstance(content, list):
+                text_parts = [part["text"] for part in content if isinstance(part, dict) and part.get("type") == "text"]
+                msg = {**msg, "content": " ".join(text_parts)}
             returned_messages.append(msg)
             continue
 
