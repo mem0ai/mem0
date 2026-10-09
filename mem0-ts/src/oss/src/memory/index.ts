@@ -308,10 +308,11 @@ export class Memory {
           error instanceof Error ? error : new Error(String(error));
         console.error(this._initError);
       });
-      await this._initPromise;
-      if (this._initError) {
-        throw this._initError;
-      }
+    }
+    // Another caller may already have started the shared retry.
+    await this._initPromise;
+    if (this._initError) {
+      throw this._initError;
     }
   }
 
