@@ -7,8 +7,6 @@ try:
 except ImportError:
     raise ImportError("The 'boto3' library is required. Please install it using 'pip install boto3'.")
 
-import numpy as np
-
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
 
@@ -50,12 +48,6 @@ class AWSBedrockEmbedding(EmbeddingBase):
             aws_secret_access_key=aws_secret_key if aws_secret_key else None,
             aws_session_token=aws_session_token if aws_session_token else None,
         )
-
-    def _normalize_vector(self, embeddings):
-        """Normalize the embedding to a unit vector."""
-        emb = np.array(embeddings)
-        norm_emb = emb / np.linalg.norm(emb)
-        return norm_emb.tolist()
 
     def _get_embedding(self, text):
         """Call out to Bedrock embedding endpoint."""

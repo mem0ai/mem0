@@ -248,28 +248,6 @@ class AzureMySQL(VectorStoreBase):
                 data
             )
 
-    def _cosine_distance(self, vec1_json: str, vec2: List[float]) -> str:
-        """Generate SQL for cosine distance calculation."""
-        # For MySQL, we need to calculate cosine similarity manually
-        # This is a simplified version - in production, you'd use stored procedures or UDFs
-        return """
-            1 - (
-                (SELECT SUM(a.val * b.val) /
-                (SQRT(SUM(a.val * a.val)) * SQRT(SUM(b.val * b.val))))
-                FROM (
-                    SELECT JSON_EXTRACT(vector, CONCAT('$[', idx, ']')) as val
-                    FROM (SELECT @row := @row + 1 as idx FROM (SELECT 0 UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) t1, (SELECT 0 UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) t2) indices
-                    WHERE idx < JSON_LENGTH(vector)
-                ) a,
-                (
-                    SELECT JSON_EXTRACT(%s, CONCAT('$[', idx, ']')) as val
-                    FROM (SELECT @row := @row + 1 as idx FROM (SELECT 0 UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) t1, (SELECT 0 UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) t2) indices
-                    WHERE idx < JSON_LENGTH(%s)
-                ) b
-                WHERE a.idx = b.idx
-            )
-        """
-
     def search(
         self,
         query: str,

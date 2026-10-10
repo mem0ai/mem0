@@ -315,9 +315,6 @@ class RedisDB(VectorStoreBase):
         self.index.set_client(self.client)
         self.index.create(overwrite=True)
 
-        # or use
-        # self.create_col(collection_name, self.embedding_model_dims)
-
         # Recreate the index with the same parameters
         self.create_col(collection_name, self.embedding_model_dims)
 

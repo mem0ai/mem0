@@ -736,27 +736,6 @@ class Memory(MemoryBase):
             raise
         return cls(config)
 
-    def _should_use_agent_memory_extraction(self, messages, metadata):
-        """Determine whether to use agent memory extraction based on the logic:
-        - If agent_id is present and messages contain assistant role -> True
-        - Otherwise -> False
-
-        Args:
-            messages: List of message dictionaries
-            metadata: Metadata containing user_id, agent_id, etc.
-
-        Returns:
-            bool: True if should use agent memory extraction, False for user memory extraction
-        """
-        # Check if agent_id is present in metadata
-        has_agent_id = metadata.get("agent_id") is not None
-
-        # Check if there are assistant role messages
-        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-
-        # Use agent memory extraction if agent_id is present and there are assistant messages
-        return has_agent_id and has_assistant_messages
-
     def add(
         self,
         messages,
@@ -2430,27 +2409,6 @@ class AsyncMemory(MemoryBase):
             logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
-
-    def _should_use_agent_memory_extraction(self, messages, metadata):
-        """Determine whether to use agent memory extraction based on the logic:
-        - If agent_id is present and messages contain assistant role -> True
-        - Otherwise -> False
-
-        Args:
-            messages: List of message dictionaries
-            metadata: Metadata containing user_id, agent_id, etc.
-
-        Returns:
-            bool: True if should use agent memory extraction, False for user memory extraction
-        """
-        # Check if agent_id is present in metadata
-        has_agent_id = metadata.get("agent_id") is not None
-
-        # Check if there are assistant role messages
-        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-
-        # Use agent memory extraction if agent_id is present and there are assistant messages
-        return has_agent_id and has_assistant_messages
 
     async def add(
         self,

@@ -107,30 +107,6 @@ class BaseProject(ABC):
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
-    def _prepare_org_params(self, kwargs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Prepare query parameters for organization-level API requests.
-
-        Args:
-            kwargs: Additional keyword arguments.
-
-        Returns:
-            Dictionary containing prepared parameters.
-
-        Raises:
-            ValueError: If org_id is not provided.
-        """
-        if kwargs is None:
-            kwargs = {}
-
-        # Add org_id if available
-        if self.config.org_id:
-            kwargs["org_id"] = self.config.org_id
-        else:
-            raise ValueError("org_id must be set for organization-level operations")
-
-        return {k: v for k, v in kwargs.items() if v is not None}
-
     @abstractmethod
     def get(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:
         """

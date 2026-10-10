@@ -3,34 +3,7 @@ import logging
 import re
 from typing import Any, Dict, List
 
-from mem0.configs.prompts import (
-    AGENT_MEMORY_EXTRACTION_PROMPT,
-    FACT_RETRIEVAL_PROMPT,
-    USER_MEMORY_EXTRACTION_PROMPT,
-)
-
 logger = logging.getLogger(__name__)
-
-
-def get_fact_retrieval_messages(message, is_agent_memory=False):
-    """Get fact retrieval messages based on the memory type.
-    
-    Args:
-        message: The message content to extract facts from
-        is_agent_memory: If True, use agent memory extraction prompt, else use user memory extraction prompt
-        
-    Returns:
-        tuple: (system_prompt, user_prompt)
-    """
-    if is_agent_memory:
-        return AGENT_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
-    else:
-        return USER_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
-
-
-def get_fact_retrieval_messages_legacy(message):
-    """Legacy function for backward compatibility."""
-    return FACT_RETRIEVAL_PROMPT, f"Input:\n{message}"
 
 
 def ensure_json_instruction(system_prompt, user_prompt):
@@ -75,17 +48,6 @@ def parse_messages(messages):
             response += f"assistant: {content}\n"
     return response
 
-
-def format_entities(entities):
-    if not entities:
-        return ""
-
-    formatted_lines = []
-    for entity in entities:
-        simplified = f"{entity['source']} -- {entity['relationship']} -- {entity['destination']}"
-        formatted_lines.append(simplified)
-
-    return "\n".join(formatted_lines)
 
 def normalize_facts(raw_facts):
     """Normalize LLM-extracted facts to a list of strings.

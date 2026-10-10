@@ -323,43 +323,6 @@ class AWSBedrockLLM(LLMBase):
 
         return input_body
 
-    def _convert_tool_format(self, original_tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Convert tools to Bedrock-compatible format.
-
-        Args:
-            original_tools: List of tool definitions
-
-        Returns:
-            Converted tools in Bedrock format
-        """
-        new_tools = []
-
-        for tool in original_tools:
-            if tool["type"] == "function":
-                function = tool["function"]
-                new_tool = {
-                    "toolSpec": {
-                        "name": function["name"],
-                        "description": function.get("description", ""),
-                        "inputSchema": {
-                            "json": {
-                                "type": "object",
-                                "properties": {},
-                                "required": function["parameters"].get("required", []),
-                            }
-                        },
-                    }
-                }
-
-                # Add properties
-                for prop, details in function["parameters"].get("properties", {}).items():
-                    new_tool["toolSpec"]["inputSchema"]["json"]["properties"][prop] = details
-
-                new_tools.append(new_tool)
-
-        return new_tools
-
     def _parse_response(
         self, response: Dict[str, Any], tools: Optional[List[Dict]] = None
     ) -> Union[str, Dict[str, Any]]:
