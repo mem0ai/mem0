@@ -1,9 +1,11 @@
+import asyncio
 import json
 import logging
+import threading
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
@@ -1333,3 +1335,175 @@ class TestAsyncPartialInsertFailure:
             )
 
         mock_async_memory.db.save_messages.assert_called_once()
+
+
+class _ConcurrencyTrackingStore:
+    """Fake vector store that records the peak concurrency of its write methods.
+
+    Every write marks itself active, sleeps briefly, then marks itself done, so
+    overlapping writes push ``max_write_concurrency`` above 1. Used to prove
+    that AsyncMemory serializes store writes on embedded backends (#4892).
+    """
+
+    def __init__(self, is_local=True, write_delay=0.03):
+        self.is_local = is_local
+        self._write_delay = write_delay
+        self._stats_lock = threading.Lock()
+        self._active_writes = 0
+        self.max_write_concurrency = 0
+        self.delete_col_calls = 0
+        self._pending_delete_batch = []
+
+    def _write(self):
+        with self._stats_lock:
+            self._active_writes += 1
+            self.max_write_concurrency = max(self.max_write_concurrency, self._active_writes)
+        try:
+            time.sleep(self._write_delay)
+        finally:
+            with self._stats_lock:
+                self._active_writes -= 1
+
+    def insert(self, vectors, ids=None, payloads=None, **kwargs):
+        self._write()
+
+    def update(self, vector_id=None, vector=None, payload=None, **kwargs):
+        self._write()
+
+    def delete(self, vector_id=None, **kwargs):
+        self._write()
+
+    def delete_col(self):
+        with self._stats_lock:
+            self.delete_col_calls += 1
+        self._write()
+
+    def search(self, query=None, vectors=None, top_k=None, filters=None, **kwargs):
+        return []
+
+    def get(self, vector_id=None, **kwargs):
+        return SimpleNamespace(id=vector_id, score=1.0, payload={"data": "old fact", "user_id": "u1"})
+
+    def list(self, filters=None, top_k=None, **kwargs):
+        batch, self._pending_delete_batch = self._pending_delete_batch, []
+        return [batch]
+
+
+@pytest.mark.asyncio
+class TestAsyncStoreWriteSerialization:
+    """AsyncMemory store writes must not overlap on embedded backends (#4892).
+
+    ``asyncio.to_thread`` dispatches vector-store writes onto the default thread
+    pool, so on embedded backends (e.g. Qdrant local mode) two coroutines can
+    mutate the in-process HNSW index at the same time and corrupt it. These
+    tests pin the write serialization with a store that measures peak write
+    concurrency.
+    """
+
+    LLM_RESPONSE = json.dumps({"memory": [{"text": "User's name is Aryan"}, {"text": "User works as an engineer"}]})
+
+    @pytest.fixture
+    def async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        # reset() recreates the vector store; give the factory an unbounded return
+        # value so tests may construct/reconstruct stores freely.
+        mocker.patch("mem0.utils.factory.VectorStoreFactory.create", return_value=mocker.MagicMock())
+
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.config.history_db_path = ":memory:"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda texts, action: [[0.1, 0.2, 0.3] for _ in texts])
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+        mocker.patch("mem0.memory.main.extract_entities", return_value=[])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        return memory
+
+    @staticmethod
+    def _attach_store(memory, store):
+        """Swap the tracking store in and rebuild the write lock to match it."""
+        memory.vector_store = store
+        memory._store_write_lock = asyncio.Lock() if getattr(store, "is_local", False) else None
+
+    async def test_concurrent_adds_serialize_writes_on_embedded_store(self, async_memory):
+        """20 concurrent add() calls must not overlap vector-store writes (#4892)."""
+        store = _ConcurrencyTrackingStore(is_local=True)
+        self._attach_store(async_memory, store)
+        async_memory.llm.generate_response.return_value = self.LLM_RESPONSE
+
+        await asyncio.gather(
+            *[
+                async_memory._add_to_vector_store(
+                    messages=[{"role": "user", "content": f"I like the color {i}"}],
+                    metadata={},
+                    effective_filters={},
+                    infer=True,
+                )
+                for i in range(20)
+            ]
+        )
+
+        assert store.max_write_concurrency == 1, (
+            f"embedded store saw overlapping writes (peak concurrency {store.max_write_concurrency}); "
+            "AsyncMemory must serialize store writes on embedded backends"
+        )
+
+    async def test_delete_all_gather_is_serialized_on_embedded_store(self, async_memory, mocker):
+        """delete_all fans _delete_memory out via asyncio.gather — writes stay serialized."""
+        mocker.patch("mem0.memory.main.display_first_run_notice_async", new=AsyncMock())
+        mocker.patch("mem0.memory.main.display_decay_usage_notice_async", new=AsyncMock())
+        store = _ConcurrencyTrackingStore(is_local=True)
+        store._pending_delete_batch = [
+            SimpleNamespace(id=f"mem-{i}", payload={"data": f"fact {i}", "user_id": "u1"}) for i in range(6)
+        ]
+        self._attach_store(async_memory, store)
+
+        await async_memory.delete_all(user_id="u1")
+
+        assert store.max_write_concurrency == 1, (
+            f"delete_all's gather produced overlapping deletes (peak concurrency {store.max_write_concurrency})"
+        )
+
+    async def test_concurrent_updates_and_deletes_serialize_on_embedded_store(self, async_memory):
+        """Mixed update/delete traffic must not overlap either."""
+        store = _ConcurrencyTrackingStore(is_local=True)
+        self._attach_store(async_memory, store)
+
+        await asyncio.gather(
+            *[async_memory._update_memory(f"mem-{i}", f"updated fact {i}", {}) for i in range(10)],
+            *[async_memory._delete_memory(f"mem-{i}", skip_entity_cleanup=True) for i in range(10)],
+        )
+
+        assert store.max_write_concurrency == 1, (
+            f"update/delete traffic overlapped (peak concurrency {store.max_write_concurrency})"
+        )
+
+    async def test_reset_delete_col_goes_through_store_write(self, async_memory, mocker):
+        """reset() deletes the collection — that write is serialized too (#4892)."""
+        mocker.patch("mem0.memory.main.display_first_run_notice_async", new=AsyncMock())
+        store = _ConcurrencyTrackingStore(is_local=True)
+        self._attach_store(async_memory, store)
+        store_write_spy = mocker.patch.object(async_memory, "_store_write", wraps=async_memory._store_write)
+
+        await async_memory.reset()
+
+        assert store.delete_col_calls == 1
+        store_write_spy.assert_awaited()
+
+    async def test_server_backed_store_keeps_parallel_writes(self, async_memory):
+        """is_local=False stores must not be throttled: no lock, writes may overlap."""
+        store = _ConcurrencyTrackingStore(is_local=False)
+        self._attach_store(async_memory, store)
+
+        await asyncio.gather(*[async_memory._create_memory(f"fact {i}", {}) for i in range(20)])
+
+        assert store.max_write_concurrency >= 2, (
+            f"server-backed stores should keep write parallelism (peak concurrency was {store.max_write_concurrency})"
+        )
