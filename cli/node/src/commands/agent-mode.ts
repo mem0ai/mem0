@@ -3,7 +3,7 @@
  */
 
 import readline from "node:readline";
-import { colors, printError, printInfo, printSuccess } from "../branding.js";
+import { colors, printError, printSuccess } from "../branding.js";
 import { type Mem0Config, saveConfig } from "../config.js";
 
 const { brand, dim } = colors;

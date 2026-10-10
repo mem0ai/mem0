@@ -15,7 +15,7 @@ import {
 import { formatAgentEnvelope, formatJson } from "../output.js";
 import { setCurrentCommand } from "../state.js";
 
-const { brand, accent, dim } = colors;
+const { accent, dim } = colors;
 
 const VALID_TYPES = new Set(["users", "agents", "apps", "runs"]);
 

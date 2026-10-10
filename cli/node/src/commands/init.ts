@@ -22,7 +22,6 @@ import {
 	saveConfig,
 } from "../config.js";
 import { formatJsonEnvelope } from "../output.js";
-import { isAgentMode } from "../state.js";
 
 const { brand, dim } = colors;
 

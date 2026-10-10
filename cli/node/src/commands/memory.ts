@@ -15,13 +15,12 @@ import {
 	formatAddResult,
 	formatAgentEnvelope,
 	formatJson,
-	formatJsonEnvelope,
 	formatMemoriesTable,
 	formatMemoriesText,
 	formatSingleMemory,
 	printResultSummary,
 } from "../output.js";
-import { isAgentMode, setCurrentCommand, stdinIsPiped } from "../state.js";
+import { setCurrentCommand, stdinIsPiped } from "../state.js";
 
 /** Exit 1 if value is not a future YYYY-MM-DD date. */
 function _validateExpires(value: string): void {

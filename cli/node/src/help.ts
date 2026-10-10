@@ -10,8 +10,6 @@ import type { Argument, Command, Help, Option } from "commander";
 // ── Colors (matching Typer/Rich defaults) ────────────────────────────────
 
 const cyanBold = chalk.cyan.bold; // option flags, command names
-const greenBold = chalk.green.bold; // switch flags (boolean --force etc)
-const yellowBold = chalk.yellow.bold; // metavar <value>
 const yellow = chalk.yellow; // "Usage:" label
 const bold = chalk.bold; // command name in usage
 const dim = chalk.dim; // defaults, descriptions
@@ -48,9 +46,6 @@ const COMMAND_GROUPS: { panel: string; commands: string[] }[] = [
 		],
 	},
 ];
-
-/** Flat order derived from COMMAND_GROUPS. */
-const COMMAND_ORDER: string[] = COMMAND_GROUPS.flatMap((g) => g.commands);
 
 // ── Option-to-panel mapping (derived from Python's rich_help_panel) ─────
 
@@ -370,18 +365,5 @@ function formatOptionRows(opts: Option[]): string[] {
 		const desc = opt.description || "";
 		const def = formatDefault(opt);
 		return ` ${term}  ${desc}${def}`;
-	});
-}
-
-// ── Sort commands by COMMAND_ORDER ──────────────────────────────────────
-
-function sortCommands(cmds: Command[]): Command[] {
-	return [...cmds].sort((a, b) => {
-		const ai = COMMAND_ORDER.indexOf(a.name());
-		const bi = COMMAND_ORDER.indexOf(b.name());
-		// Unknown commands go to end, preserving original order
-		const aIdx = ai === -1 ? COMMAND_ORDER.length : ai;
-		const bIdx = bi === -1 ? COMMAND_ORDER.length : bi;
-		return aIdx - bIdx;
 	});
 }

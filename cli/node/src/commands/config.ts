@@ -11,7 +11,7 @@ import {
 	saveConfig,
 	setNestedValue,
 } from "../config.js";
-import { formatAgentEnvelope, formatJsonEnvelope } from "../output.js";
+import { formatAgentEnvelope } from "../output.js";
 import { isAgentMode, setCurrentCommand } from "../state.js";
 
 const { brand, accent, dim } = colors;

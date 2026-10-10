@@ -6,7 +6,7 @@ import fs from "node:fs";
 import boxen from "boxen";
 import type { Backend } from "../backend/base.js";
 import { colors, printError, printSuccess, timedStatus } from "../branding.js";
-import { formatAgentEnvelope, formatJsonEnvelope } from "../output.js";
+import { formatAgentEnvelope } from "../output.js";
 import { setCurrentCommand } from "../state.js";
 
 const { brand, dim, success, error: errorColor } = colors;
