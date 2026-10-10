@@ -1,5 +1,5 @@
 // @ts-nocheck
-import type { TelemetryClient, TelemetryOptions } from "./telemetry.types";
+import type { TelemetryClient } from "./telemetry.types";
 
 // __MEM0_SDK_VERSION__ is inlined by tsup/esbuild's `define` at build time from
 // package.json. In unbundled environments (ts-jest, jest globalSetup) the

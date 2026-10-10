@@ -1,5 +1,5 @@
 import type Cloudflare from "cloudflare";
-import type { Vectorize, VectorizeVector } from "@cloudflare/workers-types";
+import type { VectorizeVector } from "@cloudflare/workers-types";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import { loadPeer } from "../utils/load_peer";

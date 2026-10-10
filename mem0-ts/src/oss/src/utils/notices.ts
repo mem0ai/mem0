@@ -7,7 +7,6 @@ import bundledNoticeConfig from "./oss_notices_config.json";
 import type { TelemetryInstance } from "./telemetry.types";
 
 export const NOTICE_FLAG_KEY = "mem0-oss-notices";
-export const NOTICE_EVENT_NAME = "mem0.notice_displayed";
 export const NOTICE_STATE_SECTION = "notice_state";
 export const FIRST_RUN_NOTICE_ID = "first_run";
 export const TEMPORAL_FEATURE_NOTICE_ID = "temporal_stub";

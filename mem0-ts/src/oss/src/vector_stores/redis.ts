@@ -50,20 +50,6 @@ interface RedisSchema {
   fields: RedisField[];
 }
 
-interface RedisEntry {
-  memory_id: string;
-  hash: string;
-  memory: string;
-  created_at: number;
-  updated_at?: number;
-  embedding: Buffer;
-  agent_id?: string;
-  run_id?: string;
-  user_id?: string;
-  metadata?: string;
-  [key: string]: any;
-}
-
 interface RedisDocument {
   id: string;
   value: {
@@ -83,11 +69,6 @@ interface RedisDocument {
 interface RedisSearchResult {
   total: number;
   documents: RedisDocument[];
-}
-
-interface RedisModule {
-  name: string;
-  ver: number;
 }
 
 const DEFAULT_FIELDS: RedisField[] = [

@@ -549,17 +549,6 @@ export class AzureAISearch implements VectorStore {
   }
 
   /**
-   * Get information about the index
-   */
-  private async colInfo(): Promise<{ name: string; fields: SearchField[] }> {
-    const index = await this.indexClient.getIndex(this.indexName);
-    return {
-      name: index.name,
-      fields: index.fields,
-    };
-  }
-
-  /**
    * List all vectors in the index
    */
   async list(

@@ -17,10 +17,6 @@ import {
   RerankerFactory,
 } from "../utils/factory";
 import {
-  FactRetrievalSchema,
-  getFactRetrievalMessages,
-  getUpdateMemoryMessages,
-  parseMessages,
   extractJson,
   ADDITIVE_EXTRACTION_PROMPT,
   AGENT_CONTEXT_SUFFIX,
@@ -73,7 +69,6 @@ import {
   getBm25Params,
   normalizeBm25,
   ENTITY_BOOST_WEIGHT,
-  ScoredResult,
 } from "../utils/scoring";
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 import { logger } from "../utils/logger";
