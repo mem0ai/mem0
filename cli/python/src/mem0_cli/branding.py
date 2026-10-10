@@ -22,8 +22,6 @@ LOGO = r"""
 ╚═╝     ╚═╝╚══════╝╚═╝     ╚═╝ ╚═════╝      ╚═════╝╚══════╝╚═╝
 """
 
-LOGO_MINI = "◆ mem0"
-
 TAGLINE = "The Memory Layer for AI Agents"
 
 BRAND_COLOR = "#8b5cf6"  # Purple
