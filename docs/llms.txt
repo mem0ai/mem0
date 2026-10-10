@@ -266,6 +266,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Vercel AI SDK](https://docs.mem0.ai/integrations/vercel-ai-sdk) [Both]: Use when the user is on the Vercel AI SDK.
 - [Vercel](https://docs.mem0.ai/integrations/vercel) [Platform]: Use when deploying on Vercel and installing Mem0 from the Vercel Marketplace.
 - [Strands Agents](https://docs.mem0.ai/integrations/strands) [Both]: Use when the user is on AWS Strands and wants a native MemoryStore.
+- [ppl-memory](https://docs.mem0.ai/integrations/ppl-memory) [Both]: Use when backing Mem0 with ppl, a personal CRM, via the community PplMem0 adapter.
 
 ### AI Coding Tools
 - [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Platform]: Use when wiring memory into Claude Code.
