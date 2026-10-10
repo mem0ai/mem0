@@ -1381,6 +1381,9 @@ class _ConcurrencyTrackingStore:
     def search(self, query=None, vectors=None, top_k=None, filters=None, **kwargs):
         return []
 
+    def search_batch(self, queries=None, vectors_list=None, top_k=None, filters=None, **kwargs):
+        return [[] for _ in (queries or [])]
+
     def get(self, vector_id=None, **kwargs):
         return SimpleNamespace(id=vector_id, score=1.0, payload={"data": "old fact", "user_id": "u1"})
 
@@ -1453,6 +1456,36 @@ class TestAsyncStoreWriteSerialization:
         assert store.max_write_concurrency == 1, (
             f"embedded store saw overlapping writes (peak concurrency {store.max_write_concurrency}); "
             "AsyncMemory must serialize store writes on embedded backends"
+        )
+
+    async def test_concurrent_adds_serialize_entity_store_writes(self, async_memory, mocker):
+        """Phase-7 batch entity linking writes to the shared embedded client — serialized too (#4892)."""
+        mocker.patch(
+            "mem0.memory.main.extract_entities_batch",
+            side_effect=lambda texts: [[("PERSON", "Aryan")] for _ in texts],
+        )
+        store = _ConcurrencyTrackingStore(is_local=True)
+        self._attach_store(async_memory, store)
+        # The entity store shares the embedded client with the vector store, so the
+        # same tracking store stands in for both.
+        async_memory._entity_store = store
+        async_memory.llm.generate_response.return_value = self.LLM_RESPONSE
+
+        await asyncio.gather(
+            *[
+                async_memory._add_to_vector_store(
+                    messages=[{"role": "user", "content": f"I like the color {i}"}],
+                    metadata={},
+                    effective_filters={},
+                    infer=True,
+                )
+                for i in range(20)
+            ]
+        )
+
+        assert store.max_write_concurrency == 1, (
+            f"entity-store writes overlapped (peak concurrency {store.max_write_concurrency}); "
+            "Phase-7 batch entity linking must go through _store_write on embedded backends"
         )
 
     async def test_delete_all_gather_is_serialized_on_embedded_store(self, async_memory, mocker):

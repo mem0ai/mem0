@@ -2874,7 +2874,7 @@ class AsyncMemory(MemoryBase):
                             linked |= memory_ids
                             payload["linked_memory_ids"] = sorted(linked)
                             try:
-                                await asyncio.to_thread(
+                                await self._store_write(
                                     self.entity_store.update,
                                     vector_id=match.id,
                                     vector=None,
@@ -2895,7 +2895,7 @@ class AsyncMemory(MemoryBase):
                     # 7e: Batch insert new entities
                     if to_insert_vectors:
                         try:
-                            await asyncio.to_thread(
+                            await self._store_write(
                                 self.entity_store.insert,
                                 vectors=to_insert_vectors,
                                 ids=to_insert_ids,
