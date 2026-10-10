@@ -10,7 +10,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import ValidationError
 
@@ -22,8 +22,9 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
-from mem0.exceptions import LLMError, VectorStoreError
+from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.exceptions import VectorStoreError
 from mem0.memory.base import MemoryBase
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
@@ -1957,6 +1958,237 @@ class Memory(MemoryBase):
             display_first_run_notice(self, "sync", "delete_all")
         return {"message": "Memories deleted successfully!"}
 
+    def batch_add(
+        self,
+        batch_data: List[Dict[str, Any]],
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        infer: bool = True,
+        expiration_date: Optional[Any] = None,
+        memory_type: Optional[str] = None,
+        prompt: Optional[str] = None,
+        max_workers: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Add multiple memories in a single batch operation.
+
+        Each item in ``batch_data`` is passed to :meth:`add` with the same semantics as
+        calling ``add`` directly, so the arguments below act as defaults that every item
+        inherits. Per-item ``metadata`` is merged over the batch-level ``metadata``.
+
+        Args:
+            batch_data: List of dicts, each holding ``messages`` (required) and optional
+                ``metadata``. Every other argument below is a batch-wide default.
+            user_id (str, optional): Default user_id for every memory in the batch.
+            agent_id (str, optional): Default agent_id for every memory in the batch.
+            run_id (str, optional): Default run_id for every memory in the batch.
+            metadata (dict, optional): Default metadata for every memory in the batch.
+            infer (bool, optional): Passed through to ``add``. Defaults to True.
+            expiration_date (Any, optional): Passed through to ``add``. Defaults to None.
+            memory_type (str, optional): Passed through to ``add``. Defaults to None.
+            prompt (str, optional): Passed through to ``add``. Defaults to None.
+            max_workers (int, optional): Cap on concurrent workers. Defaults to the
+                executor default. Pass 1 to run the batch strictly in sequence, which is
+                what an on-disk or embedded vector store needs.
+
+        Returns:
+            list: One entry per input item, in input order. Each entry is either
+            ``{"status": "success", "result": <add() result>}`` or
+            ``{"status": "error", "error": <message>, "index": <i>}``.
+
+        Raises:
+            TypeError: If ``batch_data`` is not a list.
+            ValueError: If ``batch_data`` is empty.
+
+        Note:
+            This runs ``add`` concurrently across the batch. That keeps ``add``'s
+            behaviour identical to calling it directly, but it also means one LLM
+            extraction call and one set of vector-store writes per item. Memory
+            storage is thread-safe, while a vector store only needs to tolerate
+            writes that target unrelated ids. Backed by an on-disk or embedded
+            vector store, pass ``max_workers=1`` to serialise the batch.
+
+        Example:
+            >>> m.batch_add(
+            ...     [{"messages": "I like tea", "metadata": {"topic": "drinks"}},
+            ...      {"messages": "I play chess"}],
+            ...     user_id="alice",
+            ... )
+        """
+        if not isinstance(batch_data, list):
+            raise TypeError(f"batch_data must be a list, got {type(batch_data).__name__}")
+        if not batch_data:
+            raise ValueError("batch_data must contain at least one item.")
+
+        if max_workers is not None and max_workers < 1:
+            raise ValueError("max_workers must be at least 1")
+
+        scope = {key: value for key, value in (("user_id", user_id), ("agent_id", agent_id), ("run_id", run_id)) if value}
+        keys, encoded_ids = process_telemetry_filters(scope)
+        capture_event(
+            "mem0.batch_add",
+            self,
+            {"keys": keys, "encoded_ids": encoded_ids, "batch_size": len(batch_data), "sync_type": "sync"},
+        )
+
+        results: List[Dict[str, Any]] = [{} for _ in batch_data]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_index = {}
+            for index, item in enumerate(batch_data):
+                item_metadata = deepcopy(metadata) if metadata else {}
+                if item.get("metadata"):
+                    item_metadata.update(item["metadata"])
+
+                future = executor.submit(
+                    self.add,
+                    item.get("messages"),
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    run_id=run_id,
+                    metadata=item_metadata or None,
+                    infer=infer,
+                    expiration_date=expiration_date,
+                    memory_type=memory_type,
+                    prompt=prompt,
+                )
+                future_to_index[future] = index
+
+            for future in concurrent.futures.as_completed(future_to_index):
+                index = future_to_index[future]
+                try:
+                    result = future.result()
+                    results[index] = {"status": "success", "result": result}
+                except Exception as exc:
+                    logger.warning("batch_add failed for item %d: %s", index, exc)
+                    results[index] = {"status": "error", "error": str(exc), "index": index}
+
+        return results
+
+    def batch_update(
+        self,
+        updates: List[Dict[str, Any]],
+        max_workers: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Update multiple memories in a single batch operation.
+
+        Mirrors the hosted client's ``batch_update`` payload: each item carries
+        ``memory_id`` plus ``text`` and/or ``metadata``.
+
+        Args:
+            updates: List of dicts with ``memory_id`` (required) and any of ``text``,
+                ``metadata`` and ``expiration_date``. All are passed through to
+                :meth:`update` unchanged.
+            max_workers (int, optional): Cap on concurrent workers. Pass 1 to run the
+                batch strictly in sequence.
+
+        Returns:
+            list: One entry per input item, in input order. Each entry is either
+            ``{"status": "success", "result": <update() result>}`` or
+            ``{"status": "error", "error": <message>, "memory_id": <id>}``.
+
+        Raises:
+            TypeError: If ``updates`` is not a list.
+            ValueError: If ``updates`` is empty.
+
+        Example:
+            >>> m.batch_update([
+            ...     {"memory_id": "mem-1", "text": "Likes tea"},
+            ...     {"memory_id": "mem-2", "metadata": {"lang": "en"}},
+            ... ])
+        """
+        if not isinstance(updates, list):
+            raise TypeError(f"updates must be a list, got {type(updates).__name__}")
+        if not updates:
+            raise ValueError("updates must contain at least one item.")
+        if max_workers is not None and max_workers < 1:
+            raise ValueError("max_workers must be at least 1")
+
+        capture_event("mem0.batch_update", self, {"batch_size": len(updates), "sync_type": "sync"})
+
+        results: List[Dict[str, Any]] = [{} for _ in updates]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_index = {}
+            for index, item in enumerate(updates):
+                future = executor.submit(
+                    self.update,
+                    item.get("memory_id"),
+                    text=item.get("text"),
+                    metadata=item.get("metadata"),
+                    expiration_date=item.get("expiration_date", _UNSET),
+                )
+                future_to_index[future] = index
+
+            for future in concurrent.futures.as_completed(future_to_index):
+                index = future_to_index[future]
+                memory_id = updates[index].get("memory_id")
+                try:
+                    result = future.result()
+                    results[index] = {"status": "success", "result": result}
+                except Exception as exc:
+                    logger.warning("batch_update failed for memory %s: %s", memory_id, exc)
+                    results[index] = {"status": "error", "error": str(exc), "memory_id": memory_id}
+
+        return results
+
+    def batch_delete(self, memory_ids: List[str], max_workers: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Delete multiple memories by id.
+
+        Mirrors the hosted client's ``batch_delete`` which takes a list of
+        ``{"memory_id": ...}`` dicts.
+
+        Args:
+            memory_ids: List of memory ids to delete.
+            max_workers (int, optional): Cap on concurrent workers. Pass 1 to run the
+                batch strictly in sequence.
+
+        Returns:
+            dict: ``successful`` (list of deleted ids), ``failed`` (ids that raised),
+            ``errors`` (id + message per failure) and a ``summary`` string.
+
+        Raises:
+            TypeError: If ``memory_ids`` is not a list.
+            ValueError: If ``memory_ids`` is empty.
+
+        Example:
+            >>> m.batch_delete(["mem-1", "mem-2"])
+            {'successful': ['mem-1'], 'failed': ['mem-2'], 'errors': [...], 'summary': 'Deleted 1/2 memories'}
+        """
+        if not isinstance(memory_ids, list):
+            raise TypeError(f"memory_ids must be a list, got {type(memory_ids).__name__}")
+        if not memory_ids:
+            raise ValueError("memory_ids must contain at least one id.")
+        if max_workers is not None and max_workers < 1:
+            raise ValueError("max_workers must be at least 1")
+
+        capture_event("mem0.batch_delete", self, {"batch_size": len(memory_ids), "sync_type": "sync"})
+
+        deleted: set = set()
+        errors: List[Dict[str, Any]] = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_id = {executor.submit(self.delete, memory_id): memory_id for memory_id in memory_ids}
+            for future in concurrent.futures.as_completed(future_to_id):
+                memory_id = future_to_id[future]
+                try:
+                    future.result()
+                    deleted.add(memory_id)
+                except Exception as exc:
+                    logger.warning("batch_delete failed for memory %s: %s", memory_id, exc)
+                    errors.append({"memory_id": memory_id, "error": str(exc)})
+
+        successful = [memory_id for memory_id in memory_ids if memory_id in deleted]
+        failed = [error["memory_id"] for error in errors]
+        return {
+            "successful": successful,
+            "failed": failed,
+            "errors": errors,
+            "summary": f"Deleted {len(successful)}/{len(memory_ids)} memories",
+        }
+
     def history(self, memory_id):
         """
         Get the history of changes for a memory by ID.
@@ -3652,6 +3884,206 @@ class AsyncMemory(MemoryBase):
         else:
             await display_first_run_notice_async(self, "async", "delete_all")
         return {"message": "Memories deleted successfully!"}
+
+    async def batch_add(
+        self,
+        batch_data: List[Dict[str, Any]],
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        infer: bool = True,
+        expiration_date: Optional[Any] = None,
+        memory_type: Optional[str] = None,
+        prompt: Optional[str] = None,
+        max_concurrency: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Add multiple memories in a single batch operation, asynchronously.
+
+        The async counterpart of :meth:`Memory.batch_add`. Each item is handed to
+        :meth:`add` unchanged, so the arguments below act as defaults every item
+        inherits and per-item ``metadata`` is merged over the batch-level ``metadata``.
+
+        Returns:
+            list: One entry per input item, in input order. Each entry is either
+            ``{"status": "success", "result": <add() result>}`` or
+            ``{"status": "error", "error": <message>, "index": <i>}``.
+
+        Raises:
+            TypeError: If ``batch_data`` is not a list.
+            ValueError: If ``batch_data`` is empty.
+
+        Note:
+            The async counterpart of :meth:`Memory.batch_add`. ``max_concurrency`` caps
+            how many items are in flight at once; pass 1 to serialise the batch, which
+            is what an on-disk or embedded vector store needs.
+        """
+        if not isinstance(batch_data, list):
+            raise TypeError(f"batch_data must be a list, got {type(batch_data).__name__}")
+        if not batch_data:
+            raise ValueError("batch_data must contain at least one item.")
+        if max_concurrency is not None and max_concurrency < 1:
+            raise ValueError("max_concurrency must be at least 1")
+
+        gate = asyncio.Semaphore(max_concurrency) if max_concurrency else None
+
+        scope = {key: value for key, value in (("user_id", user_id), ("agent_id", agent_id), ("run_id", run_id)) if value}
+        keys, encoded_ids = process_telemetry_filters(scope)
+        capture_event(
+            "mem0.batch_add",
+            self,
+            {"keys": keys, "encoded_ids": encoded_ids, "batch_size": len(batch_data), "sync_type": "async"},
+        )
+
+        async def _process_item(index: int, item: Dict[str, Any]) -> "tuple[int, Dict[str, Any]]":
+            item_metadata = deepcopy(metadata) if metadata else {}
+            if item.get("metadata"):
+                item_metadata.update(item["metadata"])
+            try:
+                if gate is not None:
+                    async with gate:
+                        result = await self.add(
+                            item.get("messages"),
+                            user_id=user_id,
+                            agent_id=agent_id,
+                            run_id=run_id,
+                            metadata=item_metadata or None,
+                            infer=infer,
+                            expiration_date=expiration_date,
+                            memory_type=memory_type,
+                            prompt=prompt,
+                        )
+                else:
+                    result = await self.add(
+                        item.get("messages"),
+                        user_id=user_id,
+                        agent_id=agent_id,
+                        run_id=run_id,
+                        metadata=item_metadata or None,
+                        infer=infer,
+                        expiration_date=expiration_date,
+                        memory_type=memory_type,
+                        prompt=prompt,
+                    )
+                return index, {"status": "success", "result": result}
+            except Exception as exc:
+                logger.warning("batch_add failed for item %d: %s", index, exc)
+                return index, {"status": "error", "error": str(exc), "index": index}
+
+        processed = await asyncio.gather(*[_process_item(i, item) for i, item in enumerate(batch_data)])
+        results: List[Dict[str, Any]] = [{}] * len(batch_data)
+        for index, entry in processed:
+            results[index] = entry
+        return results
+
+    async def batch_update(self, updates: List[Dict[str, Any]], max_concurrency: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Update multiple memories in a single batch operation, asynchronously.
+
+        The async counterpart of :meth:`Memory.batch_update`.
+
+        Returns:
+            list: One entry per input item, in input order. Each entry is either
+            ``{"status": "success", "result": <update() result>}`` or
+            ``{"status": "error", "error": <message>, "memory_id": <id>}``.
+
+        Raises:
+            TypeError: If ``updates`` is not a list.
+            ValueError: If ``updates`` is empty.
+        """
+        if not isinstance(updates, list):
+            raise TypeError(f"updates must be a list, got {type(updates).__name__}")
+        if not updates:
+            raise ValueError("updates must contain at least one item.")
+        if max_concurrency is not None and max_concurrency < 1:
+            raise ValueError("max_concurrency must be at least 1")
+
+        gate = asyncio.Semaphore(max_concurrency) if max_concurrency else None
+
+        capture_event("mem0.batch_update", self, {"batch_size": len(updates), "sync_type": "async"})
+
+        async def _process_item(index: int, item: Dict[str, Any]):
+            memory_id = item.get("memory_id")
+            try:
+                if gate is not None:
+                    async with gate:
+                        result = await self.update(
+                            memory_id,
+                            text=item.get("text"),
+                            metadata=item.get("metadata"),
+                            expiration_date=item.get("expiration_date", _UNSET),
+                        )
+                else:
+                    result = await self.update(
+                        memory_id,
+                        text=item.get("text"),
+                        metadata=item.get("metadata"),
+                        expiration_date=item.get("expiration_date", _UNSET),
+                    )
+                return index, {"status": "success", "result": result}
+            except Exception as exc:
+                logger.warning("batch_update failed for memory %s: %s", memory_id, exc)
+                return index, {"status": "error", "error": str(exc), "memory_id": memory_id}
+
+        processed = await asyncio.gather(*[_process_item(i, item) for i, item in enumerate(updates)])
+        results: List[Dict[str, Any]] = [{}] * len(updates)
+        for index, entry in processed:
+            results[index] = entry
+        return results
+
+    async def batch_delete(self, memory_ids: List[str], max_concurrency: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Delete multiple memories by id, asynchronously.
+
+        The async counterpart of :meth:`Memory.batch_delete`.
+
+        Returns:
+            dict: ``successful`` (list of deleted ids), ``failed`` (ids that raised),
+            ``errors`` (id + message per failure) and a ``summary`` string.
+
+        Raises:
+            TypeError: If ``memory_ids`` is not a list.
+            ValueError: If ``memory_ids`` is empty.
+        """
+        if not isinstance(memory_ids, list):
+            raise TypeError(f"memory_ids must be a list, got {type(memory_ids).__name__}")
+        if not memory_ids:
+            raise ValueError("memory_ids must contain at least one id.")
+        if max_concurrency is not None and max_concurrency < 1:
+            raise ValueError("max_concurrency must be at least 1")
+
+        gate = asyncio.Semaphore(max_concurrency) if max_concurrency else None
+
+        capture_event("mem0.batch_delete", self, {"batch_size": len(memory_ids), "sync_type": "async"})
+
+        async def _delete_one(memory_id: str):
+            try:
+                if gate is not None:
+                    async with gate:
+                        await self.delete(memory_id)
+                else:
+                    await self.delete(memory_id)
+                return ("success", memory_id, None)
+            except Exception as exc:
+                logger.warning("batch_delete failed for memory %s: %s", memory_id, exc)
+                return ("error", memory_id, str(exc))
+
+        settled = await asyncio.gather(*[_delete_one(mid) for mid in memory_ids])
+
+        deleted = {memory_id for status, memory_id, _ in settled if status == "success"}
+        errors: List[Dict[str, Any]] = [
+            {"memory_id": memory_id, "error": msg} for status, memory_id, msg in settled if status != "success"
+        ]
+        successful = [memory_id for memory_id in memory_ids if memory_id in deleted]
+        failed = [error["memory_id"] for error in errors]
+        return {
+            "successful": successful,
+            "failed": failed,
+            "errors": errors,
+            "summary": f"Deleted {len(successful)}/{len(memory_ids)} memories",
+        }
 
     async def history(self, memory_id):
         """
