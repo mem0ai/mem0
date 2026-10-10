@@ -328,7 +328,8 @@
                       "integrations/vercel-ai-sdk",
                       "integrations/vercel",
                       "integrations/chatdev",
-                      "integrations/strands"
+                      "integrations/strands",
+                      "integrations/ppl-memory"
                     ]
                   },
                   {

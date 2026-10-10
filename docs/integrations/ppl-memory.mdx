@@ -1,0 +1,48 @@
+---
+title: ppl-memory
+description: "Back Mem0 with ppl, a personal CRM: the PplMem0 adapter implements Mem0's MemoryBase so memories persist as notes on a ppl contact's timeline."
+---
+
+[**ppl-memory**](https://github.com/ppl-crm/ppl-memory) is a community integration that stores Mem0 memories in [ppl](https://withppl.com), a personal CRM. Its `PplMem0` class subclasses Mem0's `MemoryBase`, so it drops into any code that expects a Mem0-compatible memory store, with the same `add`/`search` signatures and result shapes as `mem0.Memory`.
+
+Memories are stored as notes on a ppl contact's timeline. The Mem0 `user_id` selects the ppl contact (id or name); `default_contact` is used when no `user_id` is given.
+
+## Prerequisites
+
+Before using ppl-memory with Mem0, ensure you have:
+
+1. Installed the required packages:
+```bash
+pip install ppl-memory[mem0]
+```
+
+2. A valid ppl API token (set as `PPL_API_TOKEN`). Create one at [withppl.com/settings/agents/setup](https://withppl.com/settings/agents/setup).
+
+## Basic Integration Example
+
+`PplMem0` implements the same `add`, `search`, `get`, `get_all`, `update`, and `delete` API as `mem0.Memory`:
+
+```python
+import os
+from ppl_memory.mem0 import PplMem0
+
+os.environ["PPL_API_TOKEN"] = "ppl_live_your_token"
+
+# user_id selects the ppl contact the memories are stored on.
+memory = PplMem0(default_contact="Alex")
+
+memory.add(
+    [{"role": "user", "content": "I prefer window seats on flights."}],
+    user_id="Alex",
+)
+
+results = memory.search("seat preferences", user_id="Alex")
+for item in results["results"]:
+    print(item["memory"])
+```
+
+Notes:
+
+- `add(..., infer=True)` is accepted for signature compatibility but inference is a no-op: message text is stored verbatim as the memory.
+- `delete_all` and `reset` are deliberate no-ops: ppl is the system of record and never wipes CRM history silently. Delete memories individually with `delete(memory_id)`.
+- Memories stored by the LangGraph adapter (`PplStore`) and `PplMem0` share the same storage, so the two interoperate.
