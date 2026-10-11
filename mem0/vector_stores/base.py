@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 
 class VectorStoreBase(ABC):
     # Opt in only when update(vector=None, payload=...) preserves existing
-    # vectors and persists the payload, including explicit None values.
+    # vectors and merges the supplied payload keys, including explicit None
+    # values, without replacing unspecified payload fields.
     _supports_metadata_only_update = False
 
     @abstractmethod

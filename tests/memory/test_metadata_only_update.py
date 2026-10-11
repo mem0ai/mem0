@@ -1,5 +1,6 @@
 """Regression coverage for #7561 with real Qdrant and SQLite storage."""
 
+import hashlib
 import inspect
 import sys
 from copy import deepcopy
@@ -10,7 +11,7 @@ import httpx
 import pytest
 from openai import APIConnectionError
 from openai.resources.embeddings import Embeddings
-from qdrant_client.models import PointVectors, SparseVector
+from qdrant_client.models import PointStruct, PointVectors, SparseVector
 
 from mem0 import AsyncMemory, Memory
 from mem0.memory import main as memory_main
@@ -147,7 +148,19 @@ async def test_payload_update_preserves_vectors_without_embedding(memory_setup, 
 async def test_payload_update_preserves_identity_and_input(memory_setup):
     memory, create = memory_setup
     memory_id = await seed(memory)
-    metadata = {"user_id": "other", "agent_id": "injected", "reviewed": True}
+    before = record(memory, memory_id).payload
+    metadata = {
+        "user_id": "other",
+        "agent_id": "injected",
+        "run_id": "injected",
+        "actor_id": "injected",
+        "data": "injected text",
+        "hash": "injected hash",
+        "text_lemmatized": "injected lemma",
+        "created_at": "injected date",
+        "updated_at": "injected date",
+        "reviewed": True,
+    }
     original = deepcopy(metadata)
     create.reset_mock()
     create.side_effect = outage()
@@ -157,7 +170,11 @@ async def test_payload_update_preserves_identity_and_input(memory_setup):
     create.assert_not_called()
     payload = record(memory, memory_id).payload
     assert payload["user_id"] == "owner"
-    assert "agent_id" not in payload
+    for key in ("agent_id", "run_id", "actor_id"):
+        assert key not in payload
+    for key in ("data", "hash", "text_lemmatized", "created_at"):
+        assert payload.get(key) == before.get(key)
+    assert payload["updated_at"] != "injected date"
     assert payload["reviewed"] is True
     assert metadata == original
 
@@ -220,3 +237,64 @@ async def test_payload_write_error_propagates_without_embedding_or_history(memor
     create.assert_not_called()
     assert record(memory, memory_id) == before
     assert await invoke(memory.history, memory_id) == history
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"metadata": {"reviewed": True}},
+        {"expiration_date": "2098-01-01"},
+        {"expiration_date": None},
+        {"metadata": {}},
+        {"metadata": {"reviewed": True}, "expiration_date": None},
+    ],
+    ids=["metadata", "set-expiry", "clear-expiry", "empty-metadata", "combined"],
+)
+async def test_payload_update_preserves_interleaved_text_write(memory_setup, monkeypatch, changes):
+    memory, create = memory_setup
+    memory_id = await seed(memory)
+    client = memory.vector_store.client
+    retrieve = client.retrieve
+    written_payload = None
+    concurrent_vectors = {"": [0.0, 1.0, 0.0], "bm25": SparseVector(indices=[9], values=[3.0])}
+
+    def retrieve_then_text_write(*args, **kwargs):
+        nonlocal written_payload
+        snapshot = retrieve(*args, **kwargs)
+        if written_payload is None and kwargs.get("ids") == [memory_id]:
+            # Writer B commits after A's read and before A's payload update.
+            # Inject at the storage SDK boundary; both reads and writes are real.
+            written_payload = deepcopy(snapshot[0].payload)
+            written_payload.update(
+                data=CHANGED_TEXT,
+                hash=hashlib.md5(CHANGED_TEXT.encode()).hexdigest(),
+                text_lemmatized=CHANGED_TEXT,
+                source="concurrent writer",
+                reviewed="concurrent review",
+                expiration_date="2097-01-01",
+            )
+            client.upsert(
+                collection_name="metadata_updates",
+                points=[PointStruct(id=memory_id, vector=concurrent_vectors, payload=written_payload)],
+            )
+        return snapshot
+
+    monkeypatch.setattr(client, "retrieve", retrieve_then_text_write)
+    create.reset_mock()
+    create.side_effect = outage()
+
+    await invoke(memory.update, memory_id, **changes)
+
+    create.assert_not_called()
+    after = record(memory, memory_id)
+    assert written_payload is not None
+    assert after.vector == concurrent_vectors
+    for key in ("data", "hash", "text_lemmatized", "created_at", "user_id", "source"):
+        assert after.payload.get(key) == written_payload.get(key)
+    assert after.payload["reviewed"] == changes.get("metadata", {}).get("reviewed", "concurrent review")
+    if "expiration_date" in changes:
+        expected_expiry = changes["expiration_date"]
+    else:
+        expected_expiry = written_payload["expiration_date"]
+    assert after.payload["expiration_date"] == expected_expiry
