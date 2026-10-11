@@ -22,8 +22,9 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
-from mem0.exceptions import LLMError, VectorStoreError
+from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.exceptions import VectorStoreError
 from mem0.memory.base import MemoryBase
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
@@ -2174,10 +2175,14 @@ class Memory(MemoryBase):
         display_first_run_notice(self, "sync", "reset")
 
     def close(self):
-        """Release resources held by this Memory instance (SQLite connections, etc.)."""
+        """Close history and owned vector-store resources supported by the provider."""
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
+        for name in ("vector_store", "_entity_store", "_telemetry_vector_store"):
+            store = getattr(self, name, None)
+            if store is not None:
+                store.close()
 
     def __enter__(self):
         return self
@@ -3896,10 +3901,14 @@ class AsyncMemory(MemoryBase):
         await display_first_run_notice_async(self, "async", "reset")
 
     def close(self):
-        """Release resources held by this AsyncMemory instance."""
+        """Close history and owned vector-store resources supported by the provider."""
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
+        for name in ("vector_store", "_entity_store", "_telemetry_vector_store"):
+            store = getattr(self, name, None)
+            if store is not None:
+                store.close()
 
     async def __aenter__(self):
         return self
