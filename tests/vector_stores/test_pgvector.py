@@ -319,6 +319,139 @@ class TestPGVector(unittest.TestCase):
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
     @patch.object(PGVector, '_get_cursor')
+    def test_create_col_creates_scope_expression_indexes(self, mock_get_cursor, mock_connection_pool):
+        """Regression test for issue #7598.
+
+        Without btree expression indexes on payload->>'user_id'/'agent_id'/'run_id',
+        a filtered vector search on a large shared table is served by the HNSW
+        index scan with the scope filter applied afterwards, capping results at
+        hnsw.ef_search across ALL users.
+        """
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=True,
+        )
+        pgvector._ensure_collection()
+
+        def rendered(execute_call):
+            """Render the executed statement (psycopg3 Composed) to SQL text."""
+            statement = execute_call.args[0]
+            return statement.as_string(None) if hasattr(statement, "as_string") else str(statement)
+
+        calls = [rendered(c) for c in self.mock_cursor.execute.call_args_list]
+        for scope_key in ("user_id", "agent_id", "run_id"):
+            scope_idx_calls = [c for c in calls if f"test_collection_{scope_key}_idx" in c]
+            self.assertTrue(len(scope_idx_calls) > 0, f"missing {scope_key} index DDL")
+            self.assertIn(
+                f"((payload->>'{scope_key}'))",
+                scope_idx_calls[0],
+                f"{scope_key} index must be a btree expression index",
+            )
+            self.assertIn("CREATE INDEX IF NOT EXISTS", scope_idx_calls[0])
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_search_hnsw_raises_ef_search(self, mock_get_cursor, mock_connection_pool):
+        """Regression test for issue #7598.
+
+        The HNSW scan yields at most hnsw.ef_search (default 40) candidates
+        before the scope filter runs, so candidates requested beyond 40 (e.g.
+        Memory.search's max(limit*4, 60) overfetch and the 500-candidate entity
+        path) were silently truncated. search() must raise ef_search
+        transaction-locally on the hnsw path.
+        """
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=True,
+        )
+
+        pgvector.search("test query", [0.1, 0.2, 0.3], top_k=60)
+        set_config_calls = [
+            c for c in self.mock_cursor.execute.call_args_list
+            if "set_config('hnsw.ef_search'" in str(c.args[0])
+        ]
+        self.assertEqual(len(set_config_calls), 1)
+        self.assertEqual(set_config_calls[0].args[1], ("64",))  # max(60, 64)
+
+        self.mock_cursor.reset_mock()
+        self.mock_cursor.fetchall.return_value = []
+        pgvector.search("test query", [0.1, 0.2, 0.3], top_k=500)
+        set_config_calls = [
+            c for c in self.mock_cursor.execute.call_args_list
+            if "set_config('hnsw.ef_search'" in str(c.args[0])
+        ]
+        self.assertEqual(len(set_config_calls), 1)
+        self.assertEqual(set_config_calls[0].args[1], ("500",))
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_search_does_not_set_ef_search_without_hnsw(self, mock_get_cursor, mock_connection_pool):
+        """hnsw.ef_search only affects HNSW scans; don't touch it on other paths."""
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+        pgvector.search("test query", [0.1, 0.2, 0.3], top_k=60)
+        self.assertFalse(
+            any("set_config" in str(c.args[0]) for c in self.mock_cursor.execute.call_args_list)
+        )
+
+        self.mock_cursor.reset_mock()
+        self.mock_cursor.fetchall.return_value = []
+        diskann_pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=True,
+            hnsw=False,
+        )
+        diskann_pgvector.search("test query", [0.1, 0.2, 0.3], top_k=60)
+        self.assertFalse(
+            any("set_config" in str(c.args[0]) for c in self.mock_cursor.execute.call_args_list)
+        )
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
     def test_insert_psycopg3(self, mock_get_cursor, mock_connection_pool):
         """Test vector insertion with psycopg3."""
         # Set up mock pool and cursor
@@ -2351,88 +2484,99 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_simple_equality(self):
         conditions, params = _build_filter_conditions({"user_id": "alice"})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s = %s", conditions[0])
-        self.assertEqual(params, ["user_id", "alice"])
+        self.assertIn("payload->>'user_id' = %s", conditions[0])
+        self.assertEqual(params, ["alice"])
 
     def test_multiple_equalities(self):
         conditions, params = _build_filter_conditions({"user_id": "alice", "agent_id": "bot1"})
         self.assertEqual(len(conditions), 2)
-        self.assertEqual(params, ["user_id", "alice", "agent_id", "bot1"])
+        self.assertEqual(params, ["alice", "bot1"])
+
+    def test_filter_key_is_inlined_literal(self):
+        """Filter keys must be SQL literals so expression indexes on scope keys can match (#7598)."""
+        conditions, params = _build_filter_conditions({"user_id": "alice"})
+        self.assertEqual(conditions[0], "payload->>'user_id' = %s")
+        self.assertEqual(params, ["alice"])
+
+    def test_filter_key_escapes_quotes_and_percent(self):
+        conditions, params = _build_filter_conditions({"weird'key%": "x"})
+        self.assertEqual(conditions[0], "payload->>'weird''key%%' = %s")
+        self.assertEqual(params, ["x"])
 
     def test_eq_operator(self):
         conditions, params = _build_filter_conditions({"status": {"eq": "active"}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s = %s", conditions[0])
-        self.assertEqual(params, ["status", "active"])
+        self.assertIn("payload->>'status' = %s", conditions[0])
+        self.assertEqual(params, ["active"])
 
     def test_ne_operator(self):
         conditions, params = _build_filter_conditions({"status": {"ne": "deleted"}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s != %s", conditions[0])
-        self.assertEqual(params, ["status", "deleted"])
+        self.assertIn("payload->>'status' != %s", conditions[0])
+        self.assertEqual(params, ["deleted"])
 
     def test_gt_operator(self):
         conditions, params = _build_filter_conditions({"price": {"gt": 100}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("(payload->>%s)::numeric > %s", conditions[0])
-        self.assertEqual(params, ["price", 100.0])
+        self.assertIn("(payload->>'price')::numeric > %s", conditions[0])
+        self.assertEqual(params, [100.0])
 
     def test_gte_operator(self):
         conditions, params = _build_filter_conditions({"price": {"gte": 100}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("(payload->>%s)::numeric >= %s", conditions[0])
-        self.assertEqual(params, ["price", 100.0])
+        self.assertIn("(payload->>'price')::numeric >= %s", conditions[0])
+        self.assertEqual(params, [100.0])
 
     def test_lt_operator(self):
         conditions, params = _build_filter_conditions({"price": {"lt": 50}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("(payload->>%s)::numeric < %s", conditions[0])
-        self.assertEqual(params, ["price", 50.0])
+        self.assertIn("(payload->>'price')::numeric < %s", conditions[0])
+        self.assertEqual(params, [50.0])
 
     def test_lte_operator(self):
         conditions, params = _build_filter_conditions({"price": {"lte": 50}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("(payload->>%s)::numeric <= %s", conditions[0])
-        self.assertEqual(params, ["price", 50.0])
+        self.assertIn("(payload->>'price')::numeric <= %s", conditions[0])
+        self.assertEqual(params, [50.0])
 
     def test_range_combination(self):
         conditions, params = _build_filter_conditions({"score": {"gte": 1, "lte": 10}})
         self.assertEqual(len(conditions), 2)
-        self.assertIn("(payload->>%s)::numeric >= %s", conditions[0])
-        self.assertIn("(payload->>%s)::numeric <= %s", conditions[1])
-        self.assertEqual(params, ["score", 1.0, "score", 10.0])
+        self.assertIn("(payload->>'score')::numeric >= %s", conditions[0])
+        self.assertIn("(payload->>'score')::numeric <= %s", conditions[1])
+        self.assertEqual(params, [1.0, 10.0])
 
     def test_in_operator(self):
         conditions, params = _build_filter_conditions({"status": {"in": ["active", "pending"]}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s = ANY(%s)", conditions[0])
-        self.assertEqual(params, ["status", ["active", "pending"]])
+        self.assertIn("payload->>'status' = ANY(%s)", conditions[0])
+        self.assertEqual(params, [["active", "pending"]])
 
     def test_nin_operator(self):
         conditions, params = _build_filter_conditions({"status": {"nin": ["deleted", "archived"]}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("NOT (payload->>%s = ANY(%s))", conditions[0])
-        self.assertEqual(params, ["status", ["deleted", "archived"]])
+        self.assertIn("NOT (payload->>'status' = ANY(%s))", conditions[0])
+        self.assertEqual(params, [["deleted", "archived"]])
 
     def test_contains_operator(self):
         conditions, params = _build_filter_conditions({"name": {"contains": "alice"}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("LIKE %s ESCAPE", conditions[0])
-        self.assertEqual(params, ["name", "%alice%"])
+        self.assertIn("payload->>'name' LIKE %s ESCAPE", conditions[0])
+        self.assertEqual(params, ["%alice%"])
 
     def test_icontains_operator(self):
         conditions, params = _build_filter_conditions({"name": {"icontains": "Alice"}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("ILIKE %s ESCAPE", conditions[0])
-        self.assertEqual(params, ["name", "%Alice%"])
+        self.assertIn("payload->>'name' ILIKE %s ESCAPE", conditions[0])
+        self.assertEqual(params, ["%Alice%"])
 
     def test_contains_escapes_wildcards(self):
         conditions, params = _build_filter_conditions({"name": {"contains": "50%_off"}})
-        self.assertEqual(params, ["name", "%50\\%\\_off%"])
+        self.assertEqual(params, ["%50\\%\\_off%"])
 
     def test_icontains_escapes_wildcards(self):
         conditions, params = _build_filter_conditions({"promo": {"icontains": "a%b_c"}})
-        self.assertEqual(params, ["promo", "%a\\%b\\_c%"])
+        self.assertEqual(params, ["%a\\%b\\_c%"])
 
     def test_wildcard(self):
         conditions, params = _build_filter_conditions({"metadata_key": "*"})
@@ -2443,8 +2587,8 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_list_shorthand(self):
         conditions, params = _build_filter_conditions({"tags": ["a", "b", "c"]})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s = ANY(%s)", conditions[0])
-        self.assertEqual(params, ["tags", ["a", "b", "c"]])
+        self.assertIn("payload->>'tags' = ANY(%s)", conditions[0])
+        self.assertEqual(params, [["a", "b", "c"]])
 
     def test_or_operator(self):
         conditions, params = _build_filter_conditions({
@@ -2456,7 +2600,7 @@ class TestBuildFilterConditions(unittest.TestCase):
         self.assertEqual(len(conditions), 1)
         self.assertIn(" OR ", conditions[0])
         self.assertTrue(conditions[0].startswith("("))
-        self.assertEqual(params, ["user_id", "alice", "user_id", "bob"])
+        self.assertEqual(params, ["alice", "bob"])
 
     def test_not_operator(self):
         conditions, params = _build_filter_conditions({
@@ -2466,7 +2610,7 @@ class TestBuildFilterConditions(unittest.TestCase):
         })
         self.assertEqual(len(conditions), 1)
         self.assertTrue(conditions[0].startswith("NOT"))
-        self.assertEqual(params, ["status", "deleted"])
+        self.assertEqual(params, ["deleted"])
 
     def test_or_with_operators(self):
         conditions, params = _build_filter_conditions({
@@ -2477,7 +2621,7 @@ class TestBuildFilterConditions(unittest.TestCase):
         })
         self.assertEqual(len(conditions), 1)
         self.assertIn(" OR ", conditions[0])
-        self.assertEqual(params, ["price", 100.0, "price", 10.0])
+        self.assertEqual(params, [100.0, 10.0])
 
     def test_mixed_simple_and_operator_filters(self):
         conditions, params = _build_filter_conditions({
@@ -2485,8 +2629,8 @@ class TestBuildFilterConditions(unittest.TestCase):
             "score": {"gte": 5},
         })
         self.assertEqual(len(conditions), 2)
-        self.assertIn("payload->>%s = %s", conditions[0])
-        self.assertIn("(payload->>%s)::numeric >= %s", conditions[1])
+        self.assertIn("payload->>'user_id' = %s", conditions[0])
+        self.assertIn("(payload->>'score')::numeric >= %s", conditions[1])
 
     def test_unsupported_operator_raises(self):
         with self.assertRaises(ValueError) as ctx:
@@ -2495,19 +2639,19 @@ class TestBuildFilterConditions(unittest.TestCase):
 
     def test_in_with_numeric_values(self):
         conditions, params = _build_filter_conditions({"priority": {"in": [1, 2, 3]}})
-        self.assertEqual(params, ["priority", ["1", "2", "3"]])
+        self.assertEqual(params, [["1", "2", "3"]])
 
     def test_boolean_true_uses_json_casing(self):
         conditions, params = _build_filter_conditions({"is_active": True})
-        self.assertEqual(params, ["is_active", "true"])
+        self.assertEqual(params, ["true"])
 
     def test_boolean_false_uses_json_casing(self):
         conditions, params = _build_filter_conditions({"is_active": False})
-        self.assertEqual(params, ["is_active", "false"])
+        self.assertEqual(params, ["false"])
 
     def test_numeric_scalar_becomes_string(self):
         conditions, params = _build_filter_conditions({"priority": 42})
-        self.assertEqual(params, ["priority", "42"])
+        self.assertEqual(params, ["42"])
 
     def test_in_rejects_string_value(self):
         """Passing a string to 'in' would iterate characters and produce a misleading ANY() clause."""
@@ -2524,4 +2668,4 @@ class TestBuildFilterConditions(unittest.TestCase):
 
     def test_in_accepts_list_value(self):
         conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
-        self.assertEqual(params, ["user_id", ["alice", "bob"]])
+        self.assertEqual(params, [["alice", "bob"]])

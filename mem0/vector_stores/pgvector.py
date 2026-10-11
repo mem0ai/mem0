@@ -34,17 +34,36 @@ from mem0.vector_stores.base import VectorStoreBase
 logger = logging.getLogger(__name__)
 
 OPERATOR_SQL_MAP = {
-    "eq": ("payload->>%s = %s", False),
-    "ne": ("payload->>%s != %s", False),
-    "gt": ("(payload->>%s)::numeric > %s", True),
-    "gte": ("(payload->>%s)::numeric >= %s", True),
-    "lt": ("(payload->>%s)::numeric < %s", True),
-    "lte": ("(payload->>%s)::numeric <= %s", True),
-    "in": ("payload->>%s = ANY(%s)", False),
-    "nin": ("NOT (payload->>%s = ANY(%s))", False),
-    "contains": ("payload->>%s LIKE %s", False),
-    "icontains": ("payload->>%s ILIKE %s", False),
+    # {field} is rendered as payload->>'<key>' with the filter key inlined as a
+    # SQL literal; only values stay bind parameters (#7598).
+    "eq": ("{field} = %s", False),
+    "ne": ("{field} != %s", False),
+    "gt": ("({field})::numeric > %s", True),
+    "gte": ("({field})::numeric >= %s", True),
+    "lt": ("({field})::numeric < %s", True),
+    "lte": ("({field})::numeric <= %s", True),
+    "in": ("{field} = ANY(%s)", False),
+    "nin": ("NOT ({field} = ANY(%s))", False),
+    "contains": ("{field} LIKE %s", False),
+    "icontains": ("{field} ILIKE %s", False),
 }
+
+
+def _json_field_expr(key: str) -> str:
+    """Render ``payload->>'<key>'`` with the key inlined as a SQL literal.
+
+    The key used to be a bind parameter (``payload->>%s``). Once psycopg
+    auto-prepares a statement and PostgreSQL switches to a generic plan, the
+    operator can no longer match a btree expression index on
+    ``payload->>'user_id'`` etc., so filtered searches silently degrade
+    (#7598). Inlining the key keeps the expression text stable across
+    parameters. ``%`` is doubled because condition strings are later
+    processed for ``%s`` placeholders by psycopg; ``'`` is doubled per SQL
+    string-literal rules (standard_conforming_strings is on by default, so
+    backslashes need no escaping).
+    """
+    escaped = str(key).replace("%", "%%").replace("'", "''")
+    return f"payload->>'{escaped}'"
 
 
 def _build_filter_conditions(filters):
@@ -88,6 +107,7 @@ def _build_filter_conditions(filters):
                 if op not in OPERATOR_SQL_MAP:
                     raise ValueError(f"Unsupported filter operator: {op}")
                 template, is_numeric = OPERATOR_SQL_MAP[op]
+                template = template.format(field=_json_field_expr(key))
                 if op in ("in", "nin"):
                     if not isinstance(op_value, list):
                         raise ValueError(
@@ -95,26 +115,26 @@ def _build_filter_conditions(filters):
                         )
                     str_list = [str(v) for v in op_value]
                     conditions.append(template)
-                    params.extend([key, str_list])
+                    params.extend([str_list])
                 elif op in ("contains", "icontains"):
                     escaped = str(op_value).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
                     conditions.append(template + " ESCAPE '\\'")
-                    params.extend([key, f"%{escaped}%"])
+                    params.extend([f"%{escaped}%"])
                 else:
                     conditions.append(template)
                     if is_numeric:
-                        params.extend([key, float(op_value)])
+                        params.extend([float(op_value)])
                     else:
-                        params.extend([key, str(op_value)])
+                        params.extend([str(op_value)])
         elif isinstance(value, list):
-            conditions.append("payload->>%s = ANY(%s)")
-            params.extend([key, [str(v) for v in value]])
+            conditions.append(f"{_json_field_expr(key)} = ANY(%s)")
+            params.extend([[str(v) for v in value]])
         else:
-            conditions.append("payload->>%s = %s")
+            conditions.append(f"{_json_field_expr(key)} = %s")
             if isinstance(value, bool):
-                params.extend([key, json.dumps(value)])
+                params.extend([json.dumps(value)])
             else:
-                params.extend([key, str(value)])
+                params.extend([str(value)])
 
     return conditions, params
 
@@ -307,6 +327,24 @@ class PGVector(VectorStoreBase):
                     self._col(),
                 )
             )
+            # Scope expression indexes (#7598): without them a filtered vector
+            # search on a large shared table is served by the HNSW index scan
+            # with the scope filter applied afterwards, so the scan yields only
+            # hnsw.ef_search nearest rows ACROSS ALL users before filtering —
+            # near-zero recall for a small-share user. A btree index per scope
+            # key lets the planner fetch that scope's rows first and rank them
+            # exactly. Only applies to tables created by create_col; existing
+            # collections should add these concurrently (see the pgvector docs).
+            for scope_key in ("user_id", "agent_id", "run_id"):
+                cur.execute(
+                    sql.SQL("""
+                    CREATE INDEX IF NOT EXISTS {} ON {} ((payload->>{}));
+                    """).format(
+                        sql.Identifier(f"{self.collection_name}_{scope_key}_idx"),
+                        self._col(),
+                        sql.Literal(scope_key),
+                    )
+                )
 
     def insert(self, vectors: list[list[float]], payloads=None, ids=None) -> None:
         self._ensure_collection()
@@ -352,6 +390,19 @@ class PGVector(VectorStoreBase):
         filter_clause = sql.SQL("WHERE " + " AND ".join(filter_conditions)) if filter_conditions else sql.SQL("")
 
         with self._get_cursor() as cur:
+            if self.use_hnsw:
+                # An HNSW scan yields at most hnsw.ef_search (default 40)
+                # nearest rows before the scope filter is applied (#7598), so
+                # candidates requested beyond 40 — including Memory.search's
+                # max(limit*4, 60) overfetch and the 500-candidate entity path —
+                # were silently truncated. Raise it transaction-locally so this
+                # search can see top_k rows; the setting reverts with the
+                # transaction and never leaks into other queries reusing the
+                # connection.
+                cur.execute(
+                    "SELECT set_config('hnsw.ef_search', %s, true)",
+                    (str(max(int(top_k or 0), 64)),),
+                )
             cur.execute(
                 sql.SQL("""
                 SELECT id, vector <=> %s::vector AS distance, payload

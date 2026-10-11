@@ -102,3 +102,18 @@ Here are the parameters available for configuring pgvector:
 1. `connection_pool` (highest priority)
 2. `connection_string`
 3. Individual connection parameters (`user`, `password`, `host`, `port`, `sslmode`)
+
+### Scope indexes for filtered searches (Python)
+
+With `hnsw: true`, all users share one table, and a filtered vector search (`search(..., user_id=...)`) is served by the HNSW index scan with the `payload->>'user_id'` filter applied **afterwards**. That scan yields at most `hnsw.ef_search` (default 40) nearest rows across **all** users, so on a large shared table a single user's search can return almost nothing — silently. Mem0 creates btree expression indexes on `payload->>'user_id'`, `payload->>'agent_id'` and `payload->>'run_id'` when it creates the table, and raises `hnsw.ef_search` per search so at least `top_k` candidates are considered.
+
+Tables created **before** this change don't get the indexes automatically — building them at startup would block writes on large tables. Add them yourself with `CREATE INDEX CONCURRENTLY` (run each statement separately; `CONCURRENTLY` cannot run inside a transaction), replacing `memories` with your collection name:
+
+```sql
+CREATE INDEX CONCURRENTLY IF NOT EXISTS memories_user_id_idx ON memories ((payload->>'user_id'));
+CREATE INDEX CONCURRENTLY IF NOT EXISTS memories_agent_id_idx ON memories ((payload->>'agent_id'));
+CREATE INDEX CONCURRENTLY IF NOT EXISTS memories_run_id_idx ON memories ((payload->>'run_id'));
+ANALYZE memories;
+```
+
+Each index adds some write overhead and storage; create only the scope keys you filter on. Existing deployments on pgvector ≥ 0.8 can additionally enable iterative index scans for residual HNSW-served searches (e.g. a single user owning the whole table) via `SET hnsw.iterative_scan = strict_order` on their connection.
