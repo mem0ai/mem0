@@ -154,6 +154,18 @@ describe("providerToBackend — search", () => {
       source: "OPENCLAW",
     });
   });
+
+  it("forwards runId as run_id to provider.search (#6708)", async () => {
+    const provider = createMockProvider();
+    const backend = providerToBackend(provider as any, DEFAULT_USER);
+
+    await backend.search("query", { runId: "session-abc" });
+
+    expect(provider.search).toHaveBeenCalledWith(
+      "query",
+      expect.objectContaining({ run_id: "session-abc" }),
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -259,6 +271,17 @@ describe("providerToBackend — listMemories", () => {
       page_size: undefined,
       source: "OPENCLAW",
     });
+  });
+
+  it("forwards runId as run_id to provider.getAll (#6708)", async () => {
+    const provider = createMockProvider();
+    const backend = providerToBackend(provider as any, DEFAULT_USER);
+
+    await backend.listMemories({ runId: "session-abc" });
+
+    expect(provider.getAll).toHaveBeenCalledWith(
+      expect.objectContaining({ run_id: "session-abc" }),
+    );
   });
 });
 

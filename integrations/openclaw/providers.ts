@@ -580,6 +580,7 @@ export function providerToBackend(
         top_k: opts.topK,
         threshold: opts.threshold,
         filters: opts.filters,
+        ...(opts.runId && { run_id: opts.runId }),
         source: "OPENCLAW",
       });
       return results as unknown as Record<string, unknown>[];
@@ -594,6 +595,7 @@ export function providerToBackend(
       const items = await provider.getAll({
         user_id: opts.userId ?? userId,
         page_size: opts.pageSize,
+        ...(opts.runId && { run_id: opts.runId }),
         source: "OPENCLAW",
       });
       return items as unknown as Record<string, unknown>[];
