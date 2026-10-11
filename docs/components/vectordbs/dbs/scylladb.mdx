@@ -1,0 +1,95 @@
+---
+title: ScyllaDB
+description: "Use ScyllaDB Cloud as a real-time distributed vector store in Mem0 with native ANN search."
+---
+
+[ScyllaDB](https://www.scylladb.com/) is a real-time distributed NoSQL database, compatible with the Cassandra CQL protocol, designed for AI workloads requiring single-digit millisecond latency and extreme throughput.
+
+### Prerequisites
+
+- A [ScyllaDB Cloud](https://cloud.scylladb.com) cluster with **Vector Search enabled** (ScyllaDB 2025.4.3 or later; scoped/filtered search requires 2026.2 or later).
+- The cluster's contact points, datacenter name, and credentials from the Cloud console.
+
+<Warning>
+Vector search is a **ScyllaDB Cloud** feature. It is not available in ScyllaDB Open Source or self-managed deployments, so a local Docker ScyllaDB container cannot serve ANN queries. See the [official availability documentation](https://cloud.docs.scylladb.com/stable/vector-search/vector-search-clusters.html).
+</Warning>
+
+### Installation
+
+The provider speaks CQL and works with either the Cassandra driver (bundled with Mem0's vector-stores extra) or ScyllaDB's own shard-aware driver:
+
+<CodeGroup>
+```bash cassandra-driver (default)
+pip install mem0ai[vector-stores]
+```
+
+```bash scylla-driver (shard-aware)
+pip install mem0ai scylla-driver
+```
+</CodeGroup>
+
+<Warning>
+Install only one of `cassandra-driver` and `scylla-driver`. Both packages provide the same `cassandra` import package, so installing both makes one silently overwrite the other.
+</Warning>
+
+### Usage
+
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "scylladb",
+        "config": {
+            "contact_points": ["node-0.aws-us-east-1.x.clusters.scylla.cloud"],
+            "port": 9042,
+            "username": "scylla",
+            "password": "your-cloud-password",
+            "keyspace": "mem0",
+            "collection_name": "memories",
+            "datacenter": "AWS_US_EAST_1",
+            "use_ssl": True,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm looking for a good sci-fi book."},
+    {"role": "assistant", "content": "Have you tried Dune? It's a classic."},
+    {"role": "user", "content": "I've read Dune. I prefer hard sci-fi with realistic physics."},
+    {"role": "assistant", "content": "Then you'll love The Martian or Project Hail Mary by Andy Weir."},
+]
+m.add(messages, user_id="alice", metadata={"category": "books"})
+```
+
+ScyllaDB Cloud requires TLS, so set `use_ssl=True` (certificate verification uses your system CA bundle by default; pass `ssl_cert_path` to pin a specific CA).
+
+### How scoped search works
+
+`user_id`, `agent_id`, and `run_id` are mirrored into dedicated table columns and registered as filtering columns on the vector index. When you scope a call (e.g. `m.search("...", user_id="alice")`), the equality predicates are pushed into the ANN query itself (`WHERE user_id = ? ... ORDER BY vector ANN OF ?`), so results are scoped by the database rather than pruned in the client. All other payload filters are evaluated client-side over a progressively widened ANN window.
+
+### Config Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `contact_points` | List of contact point addresses | **required** |
+| `port` | CQL port | `9042` |
+| `username` | Database username (must be set together with `password`) | `None` |
+| `password` | Database password (must be set together with `username`) | `None` |
+| `keyspace` | Keyspace name | `"mem0"` |
+| `collection_name` | Table name | `"memories"` |
+| `embedding_model_dims` | Embedding vector dimensions | `1536` |
+| `distance` | Index similarity metric: `"cosine"`, `"dot_product"`, or `"euclidean"` | `"cosine"` |
+| `datacenter` | Local datacenter for DC-aware routing (recommended for Cloud) | `None` |
+| `use_ssl` | Enable SSL/TLS (required by ScyllaDB Cloud) | `False` |
+| `ssl_cert_path` | Path to a CA certificate file (defaults to system CA bundle) | `None` |
+| `replication_strategy` | Keyspace replication strategy | `"NetworkTopologyStrategy"` |
+| `replication_factor` | Keyspace replication factor | `3` |
+
+<Warning>
+For production use, configure appropriate replication strategies and consistency levels based on your availability and consistency requirements.
+</Warning>

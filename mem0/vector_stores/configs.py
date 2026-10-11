@@ -19,6 +19,7 @@ class VectorStoreConfig(BaseModel):
         "milvus": "MilvusDBConfig",
         "baidu": "BaiduDBConfig",
         "cassandra": "CassandraConfig",
+        "scylladb": "ScyllaDBConfig",
         "neptune": "NeptuneAnalyticsConfig",
         "upstash_vector": "UpstashVectorConfig",
         "azure_ai_search": "AzureAISearchConfig",

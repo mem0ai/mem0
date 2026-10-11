@@ -225,6 +225,7 @@
                               "components/vectordbs/dbs/langchain",
                               "components/vectordbs/dbs/baidu",
                               "components/vectordbs/dbs/cassandra",
+                              "components/vectordbs/dbs/scylladb",
                               "components/vectordbs/dbs/s3-vectors",
                               "components/vectordbs/dbs/databricks",
                               "components/vectordbs/dbs/neon",

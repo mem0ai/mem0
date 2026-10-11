@@ -520,6 +520,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [LangChain Vector Store](https://docs.mem0.ai/components/vectordbs/dbs/langchain) [OSS]: Use when the vector store is wrapped behind LangChain.
 - [Baidu](https://docs.mem0.ai/components/vectordbs/dbs/baidu) [OSS]: Use when the user is on Baidu Cloud vector service.
 - [Cassandra](https://docs.mem0.ai/components/vectordbs/dbs/cassandra) [OSS]: Use when Cassandra is the backing store.
+- [ScyllaDB](https://docs.mem0.ai/components/vectordbs/dbs/scylladb) [OSS]: Use when ScyllaDB Cloud (native ANN vector search) is the backing store.
 - [S3 Vectors](https://docs.mem0.ai/components/vectordbs/dbs/s3-vectors) [OSS]: Use for AWS S3 Vectors.
 - [Databricks](https://docs.mem0.ai/components/vectordbs/dbs/databricks) [OSS]: Use when the user is on Databricks with Delta Lake.
 - [Neptune Analytics](https://docs.mem0.ai/components/vectordbs/dbs/neptune-analytics) [OSS]: Use when the user is on AWS Neptune Analytics (graph + vector).
