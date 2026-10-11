@@ -161,6 +161,7 @@ class Mem0MemoryProvider(MemoryProvider):
             {"key": "user_id", "description": "User identifier", "default": "hermes-user"},
             {"key": "agent_id", "description": "Agent identifier", "default": "hermes"},
             {"key": "rerank", "description": "Enable reranking for recall", "default": "false", "choices": ["true", "false"]},
+            {"key": "sync_exclude_channels", "description": "Channels whose turns are NOT synced to mem0 (comma-separated; default 'cron' skips cron/headless report extraction)", "default": "cron"},
         ]
 
     def post_setup(self, hermes_home: str, config: dict) -> None:
@@ -240,6 +241,14 @@ class Mem0MemoryProvider(MemoryProvider):
             self._sync_max_chars = int(cfg.get("sync_max_chars") or _SYNC_MSG_MAX_CHARS)
         except (ValueError, TypeError):
             self._sync_max_chars = _SYNC_MSG_MAX_CHARS
+        # Channels whose completed turns are NOT synced to mem0. Cron/headless runs produce
+        # scripted reports (stats, probes, watch alerts) — extracting them pollutes recall
+        # with logs instead of facts. Config: "sync_exclude_channels" in mem0.json
+        # (comma-separated, e.g. "cron,bot"; empty string = sync everything).
+        _skip = cfg.get("sync_exclude_channels", "cron")
+        self._sync_exclude_channels = (
+            {c.strip() for c in _skip.split(",") if c.strip()} if isinstance(_skip, str) else set(_skip)
+        )
         self._backend = self._create_backend()
         if self._backend and not self._atexit_registered:
             atexit.register(self.shutdown)
@@ -306,6 +315,8 @@ class Mem0MemoryProvider(MemoryProvider):
         """Send the turn to Mem0 for server-side fact extraction (non-blocking)."""
         if self._backend is None or self._is_breaker_open():
             return
+        if self._channel in self._sync_exclude_channels:
+            return  # scripted/cron channel: don't extract its reports into durable memory
 
         def _sync():
             if self._backend is not None:
