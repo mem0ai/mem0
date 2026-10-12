@@ -9,7 +9,7 @@ from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBea
 from jose import JWTError, jwt
 from models import APIKey, RefreshTokenJti, User
 from passlib.context import CryptContext
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "")
@@ -92,6 +92,15 @@ def consume_refresh_jti(jti: str, db: Session) -> None:
     if result.rowcount == 0:
         raise HTTPException(status_code=401, detail="Refresh token is no longer valid.")
     db.commit()
+
+
+def revoke_user_refresh_tokens(user_id: str, db: Session) -> int:
+    """Delete every refresh-token jti for a user, invalidating all their refresh
+    chains. Used on password change and logout so a session cannot outlive the
+    credential that created it. Returns the number of rows removed."""
+    result = db.execute(delete(RefreshTokenJti).where(RefreshTokenJti.user_id == uuid.UUID(user_id)))
+    db.commit()
+    return result.rowcount
 
 
 def decode_token(token: str) -> dict:

@@ -15,6 +15,7 @@ from auth import (
     dummy_verify_password,
     hash_password,
     require_auth,
+    revoke_user_refresh_tokens,
     verify_password,
 )
 from db import get_db
@@ -210,7 +211,18 @@ def change_password(
 
     db_user.password_hash = hash_password(body.new_password)
     db.commit()
+    # Invalidate every existing session so a changed password actually locks
+    # out anyone holding an old refresh token (CWE-613).
+    revoke_user_refresh_tokens(str(db_user.id), db)
     return MessageResponse(message="Password updated.")
+
+
+@router.post("/logout", response_model=MessageResponse)
+def logout(user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """Revoke all of the current user's refresh tokens (sign out everywhere).
+    Access tokens still expire on their own short window."""
+    revoke_user_refresh_tokens(str(user.id), db)
+    return MessageResponse(message="Logged out of all sessions.")
 
 
 @router.post("/onboarding-complete", response_model=MessageResponse)
