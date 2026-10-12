@@ -602,7 +602,7 @@ class TestAddAgentCustomInstructions:
 
         mock_memory_client.add(
             "hello",
-            filters={"agent_id": "a1"},
+            agent_id="a1",
             agent_custom_instructions="remember tool failures",
         )
 
@@ -617,7 +617,7 @@ class TestAddAgentCustomInstructions:
         mock_memory_client.add(
             "hello",
             AddMemoryOptions(
-                filters={"agent_id": "a1"},
+                agent_id="a1",
                 agent_custom_instructions="remember tool failures",
             ),
         )
@@ -629,7 +629,7 @@ class TestAddAgentCustomInstructions:
         """Callers that don't use the feature send an unchanged payload."""
         self._mock_add(mock_memory_client)
 
-        mock_memory_client.add("hello", filters={"user_id": "u1"})
+        mock_memory_client.add("hello", user_id="u1")
 
         _, kwargs = mock_memory_client.client.post.call_args
         assert "agent_custom_instructions" not in kwargs["json"]
