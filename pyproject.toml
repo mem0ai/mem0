@@ -58,7 +58,8 @@ vector-stores = [
 # namespace and conflict if installed together, so ScyllaDB gets its own
 # extras group.
 scylladb = [
-    "scylla-driver>=3.29.0",
+    # 3.29.12 fixes TLS connections to the shard-aware port (scylladb/python-driver#936).
+    "scylla-driver>=3.29.12",
 ]
 llms = [
     "groq>=0.3.0",

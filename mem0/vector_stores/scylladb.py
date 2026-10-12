@@ -24,7 +24,14 @@ logger = logging.getLogger(__name__)
 
 _SAFE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,127}$")
 
-_INDEX_BUILDING_RE = re.compile(r"is not available yet|missing index", re.IGNORECASE)
+# An index that exists but is still being (re)built answers with a 503 ("... is not
+# available yet ..."). This can also happen for a few seconds after reset().
+_INDEX_BUILDING_RE = re.compile(r"is not available yet", re.IGNORECASE)
+
+# Right after CREATE CUSTOM INDEX the vector store may not know the index yet:
+# it answers with a 404 ("missing index") or a 400 ("Global ANN query is not
+# supported ..."). These are transient only while the indexes are being created.
+_INDEX_CREATING_RE = re.compile(r"is not available yet|missing index|Global ANN query is not supported", re.IGNORECASE)
 
 # The vector index builds asynchronously in the background after CREATE
 # CUSTOM INDEX returns, so it can reject ANN queries with a transient error
@@ -33,6 +40,7 @@ _INDEX_BUILDING_RE = re.compile(r"is not available yet|missing index", re.IGNORE
 # node serves the query.
 _INDEX_READY_TIMEOUT_SECONDS = 30
 _INDEX_READY_POLL_INTERVAL_SECONDS = 1
+_SEARCH_RETRY_TIMEOUT_SECONDS = 10
 
 # Mem0 scopes every memory by these ids. They are stored as dedicated columns
 # (copied from the payload) so that ANN search and listing can be restricted
@@ -289,6 +297,16 @@ class ScyllaDB(VectorStoreBase):
     def _table(self, table_name: Optional[str] = None) -> str:
         return f"{self.keyspace}.{table_name or self.collection_name}"
 
+    def _execute_while_index_unavailable(self, statement, params, transient_re: re.Pattern, deadline: float):
+        """Execute *statement*, retrying while it fails with an error matching *transient_re*."""
+        while True:
+            try:
+                return self.session.execute(statement, params)
+            except Exception as e:
+                if not transient_re.search(str(e)) or time.monotonic() >= deadline:
+                    raise
+                time.sleep(_INDEX_READY_POLL_INTERVAL_SECONDS)
+
     def _wait_for_index_ready(self, table_name: str, dims: int):
         """
         Block until every local vector index on *table_name* can serve ANN queries.
@@ -304,14 +322,7 @@ class ScyllaDB(VectorStoreBase):
             probe = self.session.prepare(
                 f"SELECT id FROM {self._table(table_name)} WHERE {key} = ? ORDER BY vector ANN OF ? LIMIT 1"
             )
-            while True:
-                try:
-                    self.session.execute(probe, ("", probe_vector))
-                    break
-                except Exception as e:
-                    if not _INDEX_BUILDING_RE.search(str(e)) or time.monotonic() >= deadline:
-                        raise
-                    time.sleep(_INDEX_READY_POLL_INTERVAL_SECONDS)
+            self._execute_while_index_unavailable(probe, ("", probe_vector), _INDEX_CREATING_RE, deadline)
 
     def create_col(self, name: str = None, vector_size: int = None, distance: str = "cosine"):
         """
@@ -451,8 +462,10 @@ class ScyllaDB(VectorStoreBase):
             )
 
             fetch_limit = top_k
+            deadline = time.monotonic() + _SEARCH_RETRY_TIMEOUT_SECONDS
             while True:
-                rows = list(self.session.execute(prepared, (vectors, *entity_filters.values(), vectors, fetch_limit)))
+                params = (vectors, *entity_filters.values(), vectors, fetch_limit)
+                rows = list(self._execute_while_index_unavailable(prepared, params, _INDEX_BUILDING_RE, deadline))
                 results: List[OutputData] = []
                 for row in rows:
                     payload = json.loads(row.payload) if row.payload else {}

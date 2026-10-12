@@ -383,6 +383,44 @@ def test_search_propagates_database_errors(store, session):
         store.search(query="q", vectors=[0.1, 0.2, 0.3], top_k=5, filters={"user_id": "u"})
 
 
+def test_search_retries_while_index_is_building(store, session):
+    # Right after reset() the vector store can report an index as still being constructed.
+    errors = [Exception("Index ks.t_run_id_ann is not available yet as it is still being constructed")]
+    session.responder = lambda cql, params: errors.pop() if errors else [_ann_row("id1", 1.0, {"user_id": "u"})]
+
+    with patch("mem0.vector_stores.scylladb.time.sleep") as sleep:
+        results = store.search(query="q", vectors=[0.1, 0.2, 0.3], top_k=5, filters={"user_id": "u"})
+
+    assert [r.id for r in results] == ["id1"]
+    sleep.assert_called_once()
+
+
+def test_search_gives_up_when_index_stays_unavailable(store, session):
+    session.responder = lambda cql, params: Exception("Index is not available yet")
+
+    with (
+        patch("mem0.vector_stores.scylladb.time.sleep"),
+        patch("mem0.vector_stores.scylladb.time.monotonic", side_effect=[0, 0, 1000]),
+    ):
+        with pytest.raises(Exception, match="not available yet"):
+            store.search(query="q", vectors=[0.1, 0.2, 0.3], top_k=5, filters={"user_id": "u"})
+
+    assert len(session.calls) == 2
+
+
+def test_search_does_not_retry_missing_local_index(store, session):
+    # Outside index creation this error means the index really is missing, so it is not retried.
+    session.responder = lambda cql, params: Exception(
+        "Global ANN query is not supported when only a local vector index is available"
+    )
+
+    with patch("mem0.vector_stores.scylladb.time.sleep") as sleep:
+        with pytest.raises(Exception, match="Global ANN query"):
+            store.search(query="q", vectors=[0.1, 0.2, 0.3], top_k=5, filters={"user_id": "u"})
+
+    sleep.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # Filter evaluation
 # ---------------------------------------------------------------------------
@@ -622,6 +660,9 @@ def test_wait_for_index_ready_probes_every_local_index(store, session):
         "... is not available yet ...",
         'Error from server: code=2200 [Invalid query] message="Vector Store error: '
         'HTTP status 404 Not Found, message: missing index: test_keyspace.test_collection_user_id_ann"',
+        'Error from server: code=2200 [Invalid query] message="Vector Store error: HTTP status 400 Bad Request, '
+        "message: Global ANN query is not supported when only a local vector index is available for "
+        'test_keyspace.test_collection_run_id_ann"',
     ],
 )
 def test_wait_for_index_ready_retries_transient_errors(store, session, transient_error):
