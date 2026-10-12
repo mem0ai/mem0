@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import time
@@ -1333,3 +1334,114 @@ class TestAsyncPartialInsertFailure:
             )
 
         mock_async_memory.db.save_messages.assert_called_once()
+
+
+class TestExpiredExistingMemoriesDoNotBlockAdd:
+    """Regression coverage for #7612, for both ``Memory`` and ``AsyncMemory``.
+
+    An expired copy of a fact is hidden from ``get_all()``/``search()`` by the
+    SDK's own expiration contract, so it must not be handed to the extractor as
+    an existing active memory, and its content hash must not land in the dedup
+    set that suppresses a freshly extracted memory carrying a future expiry.
+    """
+
+    FACT = "User likes hiking"
+    EXPIRED = "2000-01-01"
+    FUTURE = "2999-01-01"
+
+    @staticmethod
+    def _existing_record(text, expiration_date):
+        """A ``vector_store.search()`` hit shaped the way the add pipeline reads it."""
+        return SimpleNamespace(
+            id="existing-id",
+            payload={
+                "data": text,
+                "hash": hashlib.md5(text.encode()).hexdigest(),
+                "expiration_date": expiration_date,
+            },
+        )
+
+    @staticmethod
+    def _memory(mocker, memory_cls):
+        memory = _build_memory_instance(mocker, memory_cls)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        mocker.patch("mem0.memory.main.capture_event")
+        # Entity extraction is out of scope here; keep the test offline and deterministic.
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+        return memory
+
+    @staticmethod
+    def _existing_section(memory):
+        prompt = memory.llm.generate_response.call_args.kwargs["messages"][1]["content"]
+        return prompt.split("## Existing Memories")[1].split("## New Messages")[0]
+
+    def test_expired_copy_does_not_suppress_fresh_add(self, mocker):
+        memory = self._memory(mocker, Memory)
+        memory.vector_store.search.return_value = [self._existing_record(self.FACT, self.EXPIRED)]
+        memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": self.FACT}]})
+
+        result = memory._add_to_vector_store(
+            messages=[{"role": "user", "content": self.FACT}],
+            metadata={"expiration_date": self.FUTURE},
+            filters={"user_id": "alice"},
+            infer=True,
+        )
+
+        assert [item["memory"] for item in result] == [self.FACT]
+        assert all(item["event"] == "ADD" for item in result)
+        assert memory.vector_store.insert.call_count == 1
+        assert self.FACT not in self._existing_section(memory)
+
+    @pytest.mark.asyncio
+    async def test_async_expired_copy_does_not_suppress_fresh_add(self, mocker):
+        memory = self._memory(mocker, AsyncMemory)
+        memory.vector_store.search.return_value = [self._existing_record(self.FACT, self.EXPIRED)]
+        memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": self.FACT}]})
+
+        result = await memory._add_to_vector_store(
+            messages=[{"role": "user", "content": self.FACT}],
+            metadata={"expiration_date": self.FUTURE},
+            effective_filters={"user_id": "alice"},
+            infer=True,
+        )
+
+        assert [item["memory"] for item in result] == [self.FACT]
+        assert all(item["event"] == "ADD" for item in result)
+        assert memory.vector_store.insert.call_count == 1
+        assert self.FACT not in self._existing_section(memory)
+
+    def test_unexpired_duplicate_is_still_deduplicated(self, mocker):
+        memory = self._memory(mocker, Memory)
+        memory.vector_store.search.return_value = [self._existing_record(self.FACT, self.FUTURE)]
+        memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": self.FACT}]})
+
+        result = memory._add_to_vector_store(
+            messages=[{"role": "user", "content": self.FACT}],
+            metadata={"expiration_date": self.FUTURE},
+            filters={"user_id": "alice"},
+            infer=True,
+        )
+
+        assert result == []
+        assert memory.vector_store.insert.call_count == 0
+        assert self.FACT in self._existing_section(memory)
+
+    @pytest.mark.asyncio
+    async def test_async_unexpired_duplicate_is_still_deduplicated(self, mocker):
+        memory = self._memory(mocker, AsyncMemory)
+        memory.vector_store.search.return_value = [self._existing_record(self.FACT, self.FUTURE)]
+        memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": self.FACT}]})
+
+        result = await memory._add_to_vector_store(
+            messages=[{"role": "user", "content": self.FACT}],
+            metadata={"expiration_date": self.FUTURE},
+            effective_filters={"user_id": "alice"},
+            infer=True,
+        )
+
+        assert result == []
+        assert memory.vector_store.insert.call_count == 0
+        assert self.FACT in self._existing_section(memory)

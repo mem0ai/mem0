@@ -931,6 +931,10 @@ class Memory(MemoryBase):
             top_k=10,
             filters=search_filters,
         )
+        # Expired memories are hidden from get_all()/search(), so they must not be
+        # offered to the extractor as existing active facts, and their hashes must
+        # not suppress a freshly extracted memory that carries a future expiry.
+        existing_results = [mem for mem in existing_results if not _payload_is_expired(getattr(mem, "payload", None))]
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
@@ -2614,6 +2618,10 @@ class AsyncMemory(MemoryBase):
             top_k=10,
             filters=search_filters,
         )
+        # Expired memories are hidden from get_all()/search(), so they must not be
+        # offered to the extractor as existing active facts, and their hashes must
+        # not suppress a freshly extracted memory that carries a future expiry.
+        existing_results = [mem for mem in existing_results if not _payload_is_expired(getattr(mem, "payload", None))]
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
