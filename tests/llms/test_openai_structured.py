@@ -60,3 +60,77 @@ def test_uses_openai_base_url_environment_variable(monkeypatch):
         OpenAIStructuredLLM(OpenAIConfig(api_key="test-api-key"))
 
     mock_openai.assert_called_once_with(api_key="test-api-key", base_url=base_url)
+
+
+def test_store_not_sent_by_default(mock_openai_client):
+    """`store` must NOT be injected into structured-output requests when the
+    user has not explicitly configured it (opt-in, mirroring OpenAILLM)."""
+    config = OpenAIConfig(model="gpt-5-mini")
+    assert config.store is None  # opt-in default
+    llm = OpenAIStructuredLLM(config)
+    _mock_parse(mock_openai_client)
+
+    llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    call_kwargs = mock_openai_client.beta.chat.completions.parse.call_args.kwargs
+    assert "store" not in call_kwargs
+
+
+def test_store_sent_when_explicitly_true(mock_openai_client):
+    """When the user explicitly sets `store=True`, the field must be forwarded
+    to structured-output requests as well (issue #7595)."""
+    config = OpenAIConfig(model="gpt-5-mini", store=True)
+    llm = OpenAIStructuredLLM(config)
+    _mock_parse(mock_openai_client)
+
+    llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    call_kwargs = mock_openai_client.beta.chat.completions.parse.call_args.kwargs
+    assert call_kwargs["store"] is True
+
+
+def test_store_sent_when_explicitly_false(mock_openai_client):
+    """An explicit `store=False` opt-out must still be forwarded."""
+    config = OpenAIConfig(model="gpt-5-mini", store=False)
+    llm = OpenAIStructuredLLM(config)
+    _mock_parse(mock_openai_client)
+
+    llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    call_kwargs = mock_openai_client.beta.chat.completions.parse.call_args.kwargs
+    assert call_kwargs["store"] is False
+
+
+def test_response_callback_invocation(mock_openai_client):
+    """`response_callback` must fire for structured completions, mirroring
+    OpenAILLM, with (llm_instance, raw_response, params)."""
+    mock_callback = Mock()
+
+    config = OpenAIConfig(model="gpt-5-mini", response_callback=mock_callback)
+    llm = OpenAIStructuredLLM(config)
+    messages = [{"role": "user", "content": "Test callback"}]
+    _mock_parse(mock_openai_client)
+
+    llm.generate_response(messages)
+
+    mock_callback.assert_called_once()
+    args = mock_callback.call_args[0]
+    assert args[0] is llm  # llm_instance
+    assert args[1] is mock_openai_client.beta.chat.completions.parse.return_value  # raw_response
+    assert "messages" in args[2]  # params
+
+
+def test_callback_exception_handling(mock_openai_client):
+    """A faulty callback must not break structured response generation."""
+
+    def faulty_callback(*args):
+        raise ValueError("Callback error")
+
+    config = OpenAIConfig(model="gpt-5-mini", response_callback=faulty_callback)
+    llm = OpenAIStructuredLLM(config)
+    _mock_parse(mock_openai_client, content="Expected response")
+
+    response = llm.generate_response([{"role": "user", "content": "Test exception"}])
+
+    assert response == "Expected response"
+    assert llm.config.response_callback is faulty_callback

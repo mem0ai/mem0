@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Dict, List, Optional
 
@@ -39,6 +40,12 @@ class OpenAIStructuredLLM(LLMBase):
         params = self._get_supported_params(messages=messages)
         params["model"] = self.config.model
 
+        # Only send OpenAI-specific parameters when the user has explicitly
+        # configured them. OpenAI-compatible backends (Gemini, Groq, vLLM, etc.)
+        # reject unknown fields, so `store` must be opt-in, not opt-out.
+        if self.config.store is not None:
+            params["store"] = self.config.store
+
         if response_format:
             params["response_format"] = response_format
         if tools:
@@ -46,4 +53,12 @@ class OpenAIStructuredLLM(LLMBase):
             params["tool_choice"] = tool_choice
 
         response = self.client.beta.chat.completions.parse(**params)
+
+        if self.config.response_callback:
+            try:
+                self.config.response_callback(self, response, params)
+            except Exception as e:
+                # Log error but don't propagate
+                logging.error(f"Error due to callback: {e}")
+
         return response.choices[0].message.content
