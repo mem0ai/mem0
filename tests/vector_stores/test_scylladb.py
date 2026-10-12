@@ -272,16 +272,19 @@ def test_insert_unserializable_payload_writes_nothing(store, session):
 # ---------------------------------------------------------------------------
 
 
-def test_search_returns_similarity_scores_unchanged(store, session):
+def test_search_converts_scylla_similarity_to_cosine(store, session):
+    # ScyllaDB's similarity_cosine returns (1 + cos) / 2; Mem0 thresholds expect plain cosine in [-1, 1].
     session.responder = lambda cql, params: [
         _ann_row("id1", 1.0, {"user_id": "u"}),
         _ann_row("id2", 0.8, {"user_id": "u"}),
+        _ann_row("id3", 0.5, {"user_id": "u"}),
+        _ann_row("id4", 0.0, {"user_id": "u"}),
     ]
 
     results = store.search(query="q", vectors=[0.1, 0.2, 0.3], top_k=5, filters={"user_id": "u"})
 
     assert all(isinstance(r, OutputData) for r in results)
-    assert [r.score for r in results] == [1.0, 0.8]
+    assert [r.score for r in results] == pytest.approx([1.0, 0.6, 0.0, -1.0])
 
 
 def test_search_scopes_ann_query_to_entity(store, session):
@@ -385,7 +388,13 @@ def test_search_propagates_database_errors(store, session):
 # ---------------------------------------------------------------------------
 
 
-PAYLOAD = {"user_id": "u", "category": "books", "rating": 4, "title": "Project Hail Mary"}
+PAYLOAD = {
+    "user_id": "u",
+    "category": "books",
+    "rating": 4,
+    "title": "Project Hail Mary",
+    "created_at": "2024-07-15T10:00:00-07:00",
+}
 
 
 @pytest.mark.parametrize(
@@ -406,6 +415,15 @@ PAYLOAD = {"user_id": "u", "category": "books", "rating": 4, "title": "Project H
         ({"category": "*"}, True),
         ({"missing": "*"}, False),
         ({"missing": {"eq": "x"}}, False),
+        ({"missing": {"ne": "x"}}, True),
+        ({"missing": {"nin": ["x"]}}, True),
+        ({"missing": {"in": ["x"]}}, False),
+        ({"missing": {"gt": 1}}, False),
+        ({"created_at": {"gte": "2024-07-01"}}, True),
+        ({"created_at": {"gte": "2024-08-01"}}, False),
+        ({"created_at": {"lt": "2024-07-15T12:00:00-07:00"}}, True),
+        ({"created_at": {"gt": "2024-07-15T08:00:00-10:00"}}, False),
+        ({"rating": {"gt": "abc"}}, False),
         ({"category": ["music", "books"]}, True),
         ({"$or": [{"category": "music"}, {"rating": {"gte": 4}}]}, True),
         ({"$or": [{"category": "music"}, {"rating": {"gte": 5}}]}, False),

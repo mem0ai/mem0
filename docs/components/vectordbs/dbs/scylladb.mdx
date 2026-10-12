@@ -177,7 +177,7 @@ ORDER BY vector ANN OF ?
 LIMIT 5;
 ```
 
-Scores are cosine similarities in `[0, 1]` (higher is more similar). Other metadata filters (for example `{"category": {"eq": "books"}}`) are evaluated against the payload within that scope. Every `search` call must include at least one of `user_id`, `agent_id` or `run_id`, which Mem0 already requires.
+Scores are plain cosine similarities in `[-1, 1]` (higher is more similar): the store converts ScyllaDB's `similarity_cosine`, which returns `(1 + cos) / 2`, so Mem0's similarity thresholds behave the same as with other vector stores. Other metadata filters (for example `{"category": {"eq": "books"}}`) are evaluated against the payload within that scope. Every `search` call must include at least one of `user_id`, `agent_id` or `run_id`, which Mem0 already requires.
 
 ### Performance Considerations
 

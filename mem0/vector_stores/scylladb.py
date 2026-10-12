@@ -4,6 +4,7 @@ import re
 import ssl
 import time
 import uuid
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
@@ -61,6 +62,33 @@ def _validate_identifier(name: str, label: str = "identifier") -> str:
     return name.lower()
 
 
+def _parse_datetime(value: str) -> Optional[datetime]:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _comparable(actual: Any, expected: Any) -> Optional[Tuple[Any, Any]]:
+    """Coerce both sides of a range comparison to numbers, datetimes or strings; None if impossible."""
+    if isinstance(actual, bool) or isinstance(expected, bool):
+        return None
+    try:
+        return float(actual), float(expected)
+    except (TypeError, ValueError):
+        pass
+    if not (isinstance(actual, str) and isinstance(expected, str)):
+        return None
+    actual_dt, expected_dt = _parse_datetime(actual), _parse_datetime(expected)
+    if actual_dt is not None and expected_dt is not None:
+        # A date-only or naive bound is interpreted in the payload timestamp's timezone.
+        if (actual_dt.tzinfo is None) != (expected_dt.tzinfo is None):
+            tz = actual_dt.tzinfo or expected_dt.tzinfo
+            actual_dt, expected_dt = actual_dt.replace(tzinfo=tz), expected_dt.replace(tzinfo=tz)
+        return actual_dt, expected_dt
+    return actual, expected
+
+
 def _compare(actual: Any, op: str, expected: Any) -> bool:
     if op == "eq":
         return actual == expected
@@ -76,17 +104,17 @@ def _compare(actual: Any, op: str, expected: Any) -> bool:
         if op == "icontains":
             return str(expected).lower() in actual.lower()
         return str(expected) in actual
-    try:
-        actual_num, expected_num = float(actual), float(expected)
-    except (TypeError, ValueError):
+    operands = _comparable(actual, expected)
+    if operands is None:
         return False
+    actual_val, expected_val = operands
     if op == "gt":
-        return actual_num > expected_num
+        return actual_val > expected_val
     if op == "gte":
-        return actual_num >= expected_num
+        return actual_val >= expected_val
     if op == "lt":
-        return actual_num < expected_num
-    return actual_num <= expected_num
+        return actual_val < expected_val
+    return actual_val <= expected_val
 
 
 def _matches_filters(payload: Dict[str, Any], filters: Optional[Dict[str, Any]]) -> bool:
@@ -112,7 +140,10 @@ def _matches_filters(payload: Dict[str, Any], filters: Optional[Dict[str, Any]])
             if unsupported:
                 raise ValueError(f"Unsupported filter operator(s) for key {key!r}: {', '.join(sorted(unsupported))}")
             if key not in payload:
-                return False
+                # A missing field satisfies negations ("ne", "nin") but no other operator.
+                if not all(op in ("ne", "nin") for op in value):
+                    return False
+                continue
             if not all(_compare(payload[key], op, expected) for op, expected in value.items()):
                 return False
         elif isinstance(value, list):
@@ -427,7 +458,9 @@ class ScyllaDB(VectorStoreBase):
                     payload = json.loads(row.payload) if row.payload else {}
                     if not _matches_filters(payload, payload_filters):
                         continue
-                    results.append(OutputData(id=row.id, score=row.score, payload=payload))
+                    # similarity_cosine returns (1 + cos) / 2; convert to plain cosine like other stores.
+                    score = 2 * row.score - 1 if row.score is not None else None
+                    results.append(OutputData(id=row.id, score=score, payload=payload))
                     if len(results) == top_k:
                         break
 
