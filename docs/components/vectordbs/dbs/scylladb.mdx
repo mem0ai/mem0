@@ -87,7 +87,7 @@ docker run -d --name scylla-vector-store --network container:scylla \
   scylladb/vector-store:1.11.0
 ```
 
-Then point Mem0 at `localhost`. A single node needs `replication_factor: 1`:
+Then point Mem0 at `localhost`:
 
 ```python
 config = {
@@ -97,7 +97,6 @@ config = {
             "contact_points": ["127.0.0.1"],
             "port": 9042,
             "datacenter": "datacenter1",
-            "replication_factor": 1,
             "keyspace": "mem0",
             "collection_name": "memories",
         }
@@ -129,7 +128,6 @@ docker rm -f scylla-vector-store scylla
 | `datacenter` | Local datacenter for DC-aware routing (required for ScyllaDB Cloud) | `None` |
 | `use_ssl` | Enable TLS/SSL | `False` |
 | `ssl_cert_path` | Path to CA certificate file. Leave `None` to use system CAs. | `None` |
-| `replication_factor` | Replication factor used when Mem0 creates the keyspace | `3` |
 
 ### Setup
 
@@ -182,7 +180,7 @@ Scores are plain cosine similarities in `[-1, 1]` (higher is more similar): the 
 ### Performance Considerations
 
 - **DC-aware routing**: Always set `datacenter` to your local datacenter so the driver routes requests to the nearest shard-owning replica.
-- **Replication**: Keyspaces are created with `NetworkTopologyStrategy`. Keep the default `replication_factor: 3` in production.
+- **Replication**: Mem0 creates the keyspace without a replication clause, so ScyllaDB uses `NetworkTopologyStrategy` with tablets and a replication factor that fits the cluster (3 on ScyllaDB Cloud, 1 on a single node). To use other settings, create the keyspace yourself before you start Mem0.
 - **Shard-awareness**: `scylla-driver` automatically routes each CQL request to the shard that owns the partition.
 - **Embedding dimensions**: Set `embedding_model_dims` to match your embedding model. This value is baked into the `VECTOR<FLOAT, N>` column definition and cannot be changed without recreating the table.
 - **Index freshness**: Newly written vectors typically become searchable within about a second.

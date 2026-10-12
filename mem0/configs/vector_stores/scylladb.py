@@ -33,14 +33,6 @@ class ScyllaDBConfig(BaseModel):
             "Path to a CA certificate file for SSL verification. Leave as None to use the system's default CA bundle."
         ),
     )
-    replication_factor: int = Field(
-        3,
-        ge=1,
-        description=(
-            "Replication factor used when the keyspace is created (NetworkTopologyStrategy). "
-            "Use 1 for a single-node development cluster."
-        ),
-    )
 
     @model_validator(mode="before")
     @classmethod

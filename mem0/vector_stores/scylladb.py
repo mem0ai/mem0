@@ -198,7 +198,6 @@ class ScyllaDB(VectorStoreBase):
         datacenter: Optional[str] = None,
         use_ssl: bool = False,
         ssl_cert_path: Optional[str] = None,
-        replication_factor: int = 3,
     ):
         """
         Initialize the ScyllaDB vector store.
@@ -219,7 +218,6 @@ class ScyllaDB(VectorStoreBase):
             use_ssl: Enable SSL/TLS
             ssl_cert_path: Path to a CA certificate file for SSL verification.
                            Pass None to use the system's default CA bundle.
-            replication_factor: Replication factor used when creating the keyspace (default: 3)
         """
         self.contact_points = contact_points
         self.port = port
@@ -231,7 +229,6 @@ class ScyllaDB(VectorStoreBase):
         self.datacenter = datacenter
         self.use_ssl = use_ssl
         self.ssl_cert_path = ssl_cert_path
-        self.replication_factor = replication_factor
 
         self.cluster = None
         self.session = None
@@ -282,13 +279,15 @@ class ScyllaDB(VectorStoreBase):
             raise
 
     def _create_keyspace(self):
-        """Create the keyspace if it does not already exist."""
+        """
+        Create the keyspace if it does not already exist.
+
+        Without a replication clause, ScyllaDB (2025.4+) uses NetworkTopologyStrategy
+        with tablets and a replication factor that fits the cluster (e.g. 3 on a
+        3-node ScyllaDB Cloud cluster, 1 on a single node).
+        """
         try:
-            self.session.execute(
-                f"CREATE KEYSPACE IF NOT EXISTS {self.keyspace} "
-                f"WITH REPLICATION = {{'class': 'NetworkTopologyStrategy', "
-                f"'replication_factor': {int(self.replication_factor)}}}"
-            )
+            self.session.execute(f"CREATE KEYSPACE IF NOT EXISTS {self.keyspace}")
             logger.info(f"Keyspace '{self.keyspace}' is ready")
         except Exception as e:
             logger.error(f"Failed to create keyspace: {e}")

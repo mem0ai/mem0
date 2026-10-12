@@ -111,15 +111,14 @@ def test_init_stores_config(session):
     assert instance.keyspace == "test_keyspace"
     assert instance.collection_name == "test_collection"
     assert instance.embedding_model_dims == 128
-    assert instance.replication_factor == 3
 
 
-def test_init_creates_keyspace_with_replication_factor(session):
-    _make_store(session, replication_factor=1)
+def test_init_creates_keyspace_with_default_replication(session):
+    # ScyllaDB 2025.4+ picks NetworkTopologyStrategy and a replication factor that fits the cluster.
+    _make_store(session)
 
     (cql, _), *_ = session.executed("CREATE KEYSPACE")
-    assert "'class': 'NetworkTopologyStrategy'" in cql
-    assert "'replication_factor': 1" in cql
+    assert cql == "CREATE KEYSPACE IF NOT EXISTS test_keyspace"
 
 
 def test_init_creates_scoped_schema(session):
@@ -702,13 +701,12 @@ def test_output_data_allows_none():
 
 def test_config_defaults():
     config = ScyllaDBConfig(contact_points=["127.0.0.1"])
-    assert config.replication_factor == 3
     assert config.use_ssl is False
 
 
-def test_config_rejects_invalid_replication_factor():
-    with pytest.raises(ValidationError):
-        ScyllaDBConfig(contact_points=["127.0.0.1"], replication_factor=0)
+def test_config_rejects_replication_factor():
+    with pytest.raises(ValidationError, match="Extra fields not allowed"):
+        ScyllaDBConfig(contact_points=["127.0.0.1"], replication_factor=3)
 
 
 def test_config_rejects_extra_fields():
