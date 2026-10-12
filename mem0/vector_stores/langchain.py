@@ -4,10 +4,10 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel
 
 try:
-    from langchain_community.vectorstores import VectorStore
+    from langchain_core.vectorstores import VectorStore
 except ImportError:
     raise ImportError(
-        "The 'langchain_community' library is required. Please install it using 'pip install langchain_community'."
+        "The 'langchain_core' library is required. Please install it using 'pip install langchain_core'."
     )
 
 from mem0.vector_stores.base import VectorStoreBase
