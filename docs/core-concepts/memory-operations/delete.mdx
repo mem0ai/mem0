@@ -137,6 +137,10 @@ You can also filter by other parameters such as:
   **Breaking change:** `delete_all` previously wiped all project memories when called with no filters. It now **raises an error** if no filters are provided. Use `"*"` wildcards for intentional bulk deletion (see below).
 </Warning>
 
+<Warning>
+  Pass entity IDs as top-level arguments (`user_id="alice"` or `userId: "alice"`). `delete_all` does not accept `filters`. An empty or whitespace-only ID such as `user_id=""` matches every memory in the project, so the SDKs raise an error before sending the request. `delete_users` and `deleteUsers` apply the same check.
+</Warning>
+
 ### Wildcard deletes
 
 Setting a filter to `"*"` deletes **all memories** for that entity type across the entire project. This is an intentionally explicit opt-in to bulk deletion.
