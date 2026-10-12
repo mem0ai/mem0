@@ -931,6 +931,10 @@ class Memory(MemoryBase):
             top_k=10,
             filters=search_filters,
         )
+        existing_results = [
+            mem for mem in existing_results
+            if not _payload_is_expired(getattr(mem, "payload", None))
+        ]
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
@@ -2614,6 +2618,10 @@ class AsyncMemory(MemoryBase):
             top_k=10,
             filters=search_filters,
         )
+        existing_results = [
+            mem for mem in existing_results
+            if not _payload_is_expired(getattr(mem, "payload", None))
+        ]
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
