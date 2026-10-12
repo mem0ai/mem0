@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import time
@@ -1333,3 +1334,158 @@ class TestAsyncPartialInsertFailure:
             )
 
         mock_async_memory.db.save_messages.assert_called_once()
+
+
+class TestExpiredMemoriesExcludedFromAddDedup:
+    """Regression tests for issue #7612: expired memories must not pollute
+    extraction context or suppress freshly extracted memories on subsequent add().
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, mock_vector_store = _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed = MagicMock(return_value=[0.1, 0.2, 0.3])
+        memory.embedding_model.embed_batch = MagicMock(return_value=[[0.1, 0.2, 0.3]])
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, mock_vector_store = _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed = MagicMock(return_value=[0.1, 0.2, 0.3])
+        memory.embedding_model.embed_batch = MagicMock(return_value=[[0.1, 0.2, 0.3]])
+        return memory
+
+    def test_sync_add_allows_readding_expired_fact(self, mock_memory):
+        fact = "User likes hiking"
+        fact_hash = hashlib.md5(fact.encode()).hexdigest()
+        expired_mem = Mock(
+            id="expired_id_1",
+            payload={
+                "data": fact,
+                "hash": fact_hash,
+                "expiration_date": "2020-01-01",
+            },
+        )
+        mock_memory.vector_store.search.return_value = [expired_mem]
+        mock_memory.vector_store.insert = MagicMock()
+        mock_memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": fact}]})
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like hiking"}],
+            metadata={"expiration_date": "2099-01-01"},
+            filters={"user_id": "test_user"},
+            infer=True,
+        )
+
+        # 1. Extraction prompt must not include the expired memory
+        prompt_call_args = mock_memory.llm.generate_response.call_args[1]["messages"]
+        user_prompt = prompt_call_args[1]["content"]
+        assert fact not in user_prompt or "Existing Memories" not in user_prompt or "expired_id_1" not in user_prompt
+
+        # 2. Vector store insert must have been called (not suppressed by expired hash)
+        mock_memory.vector_store.insert.assert_called_once()
+        inserted_payloads = mock_memory.vector_store.insert.call_args[1]["payloads"]
+        assert len(inserted_payloads) == 1
+        assert inserted_payloads[0]["data"] == fact
+        assert len(result) == 1
+
+    def test_sync_add_preserves_unexpired_duplicate_suppression(self, mock_memory):
+        fact = "User likes hiking"
+        fact_hash = hashlib.md5(fact.encode()).hexdigest()
+        active_mem = Mock(
+            id="active_id_1",
+            payload={
+                "data": fact,
+                "hash": fact_hash,
+                "expiration_date": "2099-01-01",
+            },
+        )
+        mock_memory.vector_store.search.return_value = [active_mem]
+        mock_memory.vector_store.insert = MagicMock()
+        mock_memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": fact}]})
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like hiking"}],
+            metadata={},
+            filters={"user_id": "test_user"},
+            infer=True,
+        )
+
+        # Active duplicate should still be skipped
+        mock_memory.vector_store.insert.assert_not_called()
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_async_add_allows_readding_expired_fact(self, mock_async_memory):
+        fact = "User likes hiking"
+        fact_hash = hashlib.md5(fact.encode()).hexdigest()
+        expired_mem = Mock(
+            id="expired_id_2",
+            payload={
+                "data": fact,
+                "hash": fact_hash,
+                "expiration_date": "2020-01-01",
+            },
+        )
+        mock_async_memory.vector_store.search.return_value = [expired_mem]
+        mock_async_memory.vector_store.insert = MagicMock()
+        mock_async_memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": fact}]})
+
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like hiking"}],
+            metadata={"expiration_date": "2099-01-01"},
+            effective_filters={"user_id": "test_user"},
+            infer=True,
+        )
+
+        # Vector store insert must have been called (not suppressed by expired hash)
+        mock_async_memory.vector_store.insert.assert_called_once()
+        inserted_payloads = mock_async_memory.vector_store.insert.call_args[1]["payloads"]
+        assert len(inserted_payloads) == 1
+        assert inserted_payloads[0]["data"] == fact
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_async_add_preserves_unexpired_duplicate_suppression(self, mock_async_memory):
+        fact = "User likes hiking"
+        fact_hash = hashlib.md5(fact.encode()).hexdigest()
+        active_mem = Mock(
+            id="active_id_2",
+            payload={
+                "data": fact,
+                "hash": fact_hash,
+                "expiration_date": "2099-01-01",
+            },
+        )
+        mock_async_memory.vector_store.search.return_value = [active_mem]
+        mock_async_memory.vector_store.insert = MagicMock()
+        mock_async_memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": fact}]})
+
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like hiking"}],
+            metadata={},
+            effective_filters={"user_id": "test_user"},
+            infer=True,
+        )
+
+        mock_async_memory.vector_store.insert.assert_not_called()
+        assert result == []
+
