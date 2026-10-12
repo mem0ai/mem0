@@ -15,9 +15,7 @@ class ScyllaDBConfig(BaseModel):
     password: Optional[str] = Field(None, description="Database password")
     keyspace: str = Field("mem0", description="Keyspace name")
     collection_name: str = Field("memories", description="Table name")
-    embedding_model_dims: int = Field(
-        1536, description="Dimensions of the embedding model vectors"
-    )
+    embedding_model_dims: int = Field(1536, description="Dimensions of the embedding model vectors")
     datacenter: Optional[str] = Field(
         None,
         description=(
@@ -32,8 +30,15 @@ class ScyllaDBConfig(BaseModel):
     ssl_cert_path: Optional[str] = Field(
         None,
         description=(
-            "Path to a CA certificate file for SSL verification. "
-            "Leave as None to use the system's default CA bundle."
+            "Path to a CA certificate file for SSL verification. Leave as None to use the system's default CA bundle."
+        ),
+    )
+    replication_factor: int = Field(
+        3,
+        ge=1,
+        description=(
+            "Replication factor used when the keyspace is created (NetworkTopologyStrategy). "
+            "Use 1 for a single-node development cluster."
         ),
     )
 
@@ -43,9 +48,7 @@ class ScyllaDBConfig(BaseModel):
         username = values.get("username")
         password = values.get("password")
         if bool(username) != bool(password):
-            raise ValueError(
-                "Both 'username' and 'password' must be provided together for authentication."
-            )
+            raise ValueError("Both 'username' and 'password' must be provided together for authentication.")
         return values
 
     @model_validator(mode="before")
@@ -55,8 +58,7 @@ class ScyllaDBConfig(BaseModel):
         extra = set(values.keys()) - allowed
         if extra:
             raise ValueError(
-                f"Extra fields not allowed: {', '.join(sorted(extra))}. "
-                f"Allowed fields: {', '.join(sorted(allowed))}"
+                f"Extra fields not allowed: {', '.join(sorted(extra))}. Allowed fields: {', '.join(sorted(allowed))}"
             )
         return values
 
