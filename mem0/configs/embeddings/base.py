@@ -16,6 +16,7 @@ class BaseEmbedderConfig(ABC):
         model: Optional[str] = None,
         api_key: Optional[str] = None,
         embedding_dims: Optional[int] = None,
+        batch_size: Optional[int] = None,
         # Ollama specific
         ollama_base_url: Optional[str] = None,
         # Openai specific
@@ -50,6 +51,8 @@ class BaseEmbedderConfig(ABC):
         :type api_key: Optional[str], optional
         :param embedding_dims: The number of dimensions in the embedding, defaults to None
         :type embedding_dims: Optional[int], optional
+        :param batch_size: Maximum number of texts to send in one embedding request, defaults to None
+        :type batch_size: Optional[int], optional
         :param ollama_base_url: Base URL for the Ollama API, defaults to None
         :type ollama_base_url: Optional[str], optional
         :param model_kwargs: key-value arguments for the huggingface embedding model, defaults a dict inside init
@@ -78,6 +81,11 @@ class BaseEmbedderConfig(ABC):
         self.api_key = api_key
         self.openai_base_url = openai_base_url
         self.embedding_dims = embedding_dims
+        if batch_size is not None and (
+            isinstance(batch_size, bool) or not isinstance(batch_size, int) or batch_size <= 0
+        ):
+            raise ValueError("batch_size must be a positive integer")
+        self.batch_size = batch_size
 
         # AzureOpenAI specific
         self.http_client_proxies = http_client_proxies
