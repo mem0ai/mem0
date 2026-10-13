@@ -9,27 +9,14 @@ class LlmConfig(BaseModel):
 
     @field_validator("config")
     def validate_config(cls, v, values):
+        # Lazy import avoids a circular import with mem0.configs.base (which
+        # imports LlmConfig back from this module).
+        from mem0.utils.factory import LlmFactory
+
         provider = values.data.get("provider")
-        if provider in (
-            "openai",
-            "ollama",
-            "anthropic",
-            "groq",
-            "together",
-            "aws_bedrock",
-            "litellm",
-            "azure_openai",
-            "openai_structured",
-            "azure_openai_structured",
-            "gemini",
-            "deepseek",
-            "minimax",
-            "xai",
-            "sarvam",
-            "lmstudio",
-            "vllm",
-            "langchain",
-        ):
+        # Reference the single source of truth in LlmFactory so that providers
+        # registered at runtime via LlmFactory.register_provider are also accepted.
+        if provider in LlmFactory.provider_to_class:
             return v
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")
