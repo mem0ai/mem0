@@ -10,26 +10,9 @@ class LlmConfig(BaseModel):
     @field_validator("config")
     def validate_config(cls, v, values):
         provider = values.data.get("provider")
-        if provider in (
-            "openai",
-            "ollama",
-            "anthropic",
-            "groq",
-            "together",
-            "aws_bedrock",
-            "litellm",
-            "azure_openai",
-            "openai_structured",
-            "azure_openai_structured",
-            "gemini",
-            "deepseek",
-            "minimax",
-            "xai",
-            "sarvam",
-            "lmstudio",
-            "vllm",
-            "langchain",
-        ):
+        from mem0.utils.factory import LlmFactory
+
+        if provider in LlmFactory.get_supported_providers():
             return v
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")

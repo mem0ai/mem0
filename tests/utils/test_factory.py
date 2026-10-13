@@ -60,3 +60,16 @@ def test_dict_config_not_mutated_by_kwargs():
         LlmFactory.create("openai", config, api_key="secret")
 
     assert config == {"model": "gpt-4o-mini"}
+
+
+def test_register_provider_allows_llm_config_validation():
+    from mem0.llms.configs import LlmConfig
+
+    custom_provider = "custom_test_llm"
+    try:
+        LlmFactory.register_provider(custom_provider, "some.module.CustomLLM")
+        config = LlmConfig(provider=custom_provider, config={"param": "value"})
+        assert config.provider == custom_provider
+    finally:
+        LlmFactory.provider_to_class.pop(custom_provider, None)
+
