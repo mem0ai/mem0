@@ -28,6 +28,8 @@ Get your API key (free): [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/da
 echo 'export MEM0_API_KEY="m0-your-key"' >> ~/.zshrc && source ~/.zshrc
 ```
 
+> **OpenCode Desktop note**: the Desktop app spawns its background service with PPID 1, which does **not** inherit your shell environment — an exported `MEM0_API_KEY` may never reach it. The plugin can still recover the key by reading your shell profile file directly, but the more reliable setup is to keep the key in a file and reference it from your OpenCode config, e.g. `"Authorization": "Token {file:secrets/mem0.key}"` in MCP server headers.
+
 Restart OpenCode.
 
 ## What's included

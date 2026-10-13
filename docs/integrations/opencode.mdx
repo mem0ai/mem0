@@ -5,7 +5,7 @@ description: "Add persistent memory to OpenCode with the Mem0 plugin: native SDK
 
 Add persistent memory to [**OpenCode**](https://opencode.ai) with the Mem0 plugin. Your agent forgets everything between sessions. Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
 
-<Info>Current package version: `0.3.0`.</Info>
+<Info>Current package version: `0.4.1`.</Info>
 
 Sidekick is available only in the [Claude Code plugin](/integrations/claude-code#sidekick-agent).
 
@@ -26,13 +26,19 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 ```
 </CodeGroup>
 
+<Note>
+The OpenCode Desktop app spawns its background service with PPID 1, which does **not** inherit your shell environment — a variable exported in `~/.zshrc` may never reach it. The plugin can still recover the key by reading your shell profile file directly, but the more reliable setup is to keep the key in a file and reference it from your OpenCode config, e.g. `"Authorization": "Token {file:secrets/mem0.key}"` in MCP server headers (see Option B below).
+</Note>
+
 ## Installation
 
 ### Option A: Plugin Install (Recommended)
 
 ```bash
-opencode plugin @mem0/opencode-plugin
+opencode plugin add @mem0/opencode-plugin
 ```
+
+> OpenCode V2 uses the `plugin add` subcommand. (On V1 the command was `opencode plugin @mem0/opencode-plugin`.)
 
 **Or let your agent do it**: paste this into OpenCode:
 
@@ -128,7 +134,7 @@ Automatic capture sends the selected user prompt with its full redacted text, wi
 
 - **No tools appearing**: Restart OpenCode after installing
 - **"Connection failed"**: Verify your key is set: `echo $MEM0_API_KEY`
-- **Plugin not loading**: Run `opencode plugin @mem0/opencode-plugin` again, then restart
+- **Plugin not loading**: Reinstall with `opencode plugin add @mem0/opencode-plugin`, restart, and check `opencode plugin list` shows the plugin with a version. `plugin list` showing `-` for version means the module was not loaded; check `~/.local/share/opencode/log/opencode.log` for a "failed to load plugin" WARN
 - **Hooks not firing**: Hooks require the plugin install (Option A). MCP-only installs don't include hooks.
 - **Wrong project name / memories not found**: The project id comes from your git remote; launch OpenCode from inside the repo (not your home directory). Check the resolved id with `/mem0-status`.
 
