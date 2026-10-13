@@ -22,8 +22,9 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
-from mem0.exceptions import LLMError, VectorStoreError
+from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.exceptions import VectorStoreError
 from mem0.memory.base import MemoryBase
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
@@ -926,11 +927,11 @@ class Memory(MemoryBase):
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         query_embedding = self.embedding_model.embed(parsed_messages, "search")
         existing_results = self.vector_store.search(
-            query=parsed_messages,
-            vectors=query_embedding,
-            top_k=10,
-            filters=search_filters,
-        )
+                query=parsed_messages,
+                vectors=query_embedding,
+                top_k=10,
+                filters=search_filters,
+            )
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
@@ -2599,20 +2600,24 @@ class AsyncMemory(MemoryBase):
 
         # === V3 PHASED BATCH PIPELINE (async) ===
 
-        # Phase 0: Context gathering
+        # Phase 0 & 1: Parallel context gathering and existing memory retrieval (async)
         session_scope = _build_session_scope(effective_filters)
-        last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
         parsed_messages = parse_messages(messages)
-
-        # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
-        existing_results = await asyncio.to_thread(
-            self.vector_store.search,
-            query=parsed_messages,
-            vectors=query_embedding,
-            top_k=10,
-            filters=search_filters,
+
+        async def _fetch_existing_memories():
+            query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+            return await asyncio.to_thread(
+                self.vector_store.search,
+                query=parsed_messages,
+                vectors=query_embedding,
+                top_k=10,
+                filters=search_filters,
+            )
+
+        last_messages, existing_results = await asyncio.gather(
+            asyncio.to_thread(self.db.get_last_messages, session_scope, 10),
+            _fetch_existing_memories(),
         )
 
         # Map UUIDs to integers (anti-hallucination)
