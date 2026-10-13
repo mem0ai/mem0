@@ -120,7 +120,8 @@ describe("resolveApiKey", () => {
     testCleanups.push(captureDeferredPluginCleanup());
 
     const logs: unknown[] = [];
-    const plugin = await Mem0Plugin(pluginContext(logs));
+    // V1 hosts reach the factory through the `server` key of the dual-shape default export.
+    const plugin = await Mem0Plugin.server(pluginContext(logs));
 
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({
@@ -144,7 +145,7 @@ describe("resolveApiKey", () => {
     testCleanups.push(captureDeferredPluginCleanup());
 
     const logs: unknown[] = [];
-    const plugin = await Mem0Plugin(pluginContext(logs));
+    const plugin = await Mem0Plugin.server(pluginContext(logs));
 
     expect(logs).toHaveLength(0);
     expect(Object.keys(plugin)).toContain("chat.message");

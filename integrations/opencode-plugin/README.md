@@ -2,15 +2,17 @@
 
 Persistent memory for [OpenCode](https://opencode.ai). Your agent remembers decisions, preferences, and learnings across sessions automatically.
 
-Current package version: `0.3.0`. This native TypeScript integration keeps its own tools and scopes while sharing redaction and lifecycle utilities with [agent-plugin-core](../agent-plugin-core/README.md).
+Current package version: `0.4.1`. This native TypeScript integration keeps its own tools and scopes while sharing redaction and lifecycle utilities with [agent-plugin-core](../agent-plugin-core/README.md). It supports both OpenCode V1 (via the `server` entrypoint) and OpenCode V2 (via the `setup` entrypoint).
 
 Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent).
 
 ## Install
 
 ```bash
-opencode plugin @mem0/opencode-plugin
+opencode plugin add @mem0/opencode-plugin
 ```
+
+> OpenCode V2 uses the `plugin add` subcommand. (On V1 the command was `opencode plugin @mem0/opencode-plugin`.)
 
 This adds the plugin to your `~/.config/opencode/opencode.json`. The plugin registers its memory tools and skills. No MCP server configuration is needed.
 
@@ -107,7 +109,7 @@ If the `mem0` tools respond, you're all set.
 |---------|-----|
 | No tools appearing | Restart OpenCode after installing |
 | 401 Unauthorized | Check that `MEM0_API_KEY` is set to a valid key without printing it |
-| Plugin not loading | Run `opencode plugin @mem0/opencode-plugin` again |
+| Plugin not loading | Reinstall with `opencode plugin add @mem0/opencode-plugin`, restart, and check `opencode plugin list` shows the plugin with a version. `plugin list` showing `-` for version means the module was not loaded; check `~/.local/share/opencode/log/opencode.log` for a "failed to load plugin" WARN |
 
 ## License
 

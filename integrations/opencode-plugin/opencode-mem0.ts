@@ -218,6 +218,19 @@ function resolveFilters(args: any, globalSearch: boolean, userId: string, appId:
   };
 }
 
+/**
+ * Skill directory discovery for the V2 `skill.transform` registration path
+ * (the V1 `config` hook keeps its own inline copy): the plugin ships its
+ * skills next to the bundle.
+ */
+function discoverSkillsDir(): string | undefined {
+  const here = import.meta.filename;
+  return [
+    resolve(dirname(dirname(here)), "opencode-skills"),
+    resolve(dirname(here), "opencode-skills"),
+  ].find(existsSync);
+}
+
 function extractUserText(input: any, output: any): string {
   const parts: any[] = output?.parts;
   if (Array.isArray(parts)) {
@@ -927,4 +940,769 @@ Identity context (resolved at plugin startup):
   }
 };
 
-export default Mem0Plugin;
+// ---------------------------------------------------------------------------
+// OpenCode V2 plugin (issue #7602)
+//
+// OpenCode V2's loader only accepts a default export shaped { id, effect | setup }
+// (see opencode packages/core/src/plugin/module.ts — the PluginModule schema whose
+// decode error is "Plugin must export a default definition with an id and an
+// effect or setup function"). A bare async function default — the V1 contract —
+// fails that decode with SchemaError(Expected object at ["default"]) and the
+// module is dropped SILENTLY (exit 0, empty `plugin list`, one WARN in the log).
+//
+// The V2 entrypoint below re-exposes the same memory behavior through the V2
+// registration APIs. V1 hosts keep working through the `server` key of the
+// dual-shape default export (the shape recommended by OpenCode's V1->V2
+// migration guide; V1 hosts need >= 1.18.29 for object entrypoints).
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal structural types for the V2 SDK surface used below. They mirror
+ * `@opencode/plugin` (npm, 2.x) so no runtime dependency on the V2 SDK is
+ * needed — the loader only checks these shapes structurally.
+ */
+interface V2Registration {
+  dispose: () => Promise<void>;
+}
+
+type V2HookRegistrar<Spec extends Record<string, any>> = <K extends keyof Spec>(
+  name: K,
+  callback: (input: Spec[K]) => Promise<void> | void,
+) => Promise<V2Registration>;
+
+/** opencode V2 `ctx.session.hook` payloads (packages/plugin/src/promise/session.ts). */
+interface V2SessionHooks {
+  prompt: {sessionID: string; messageID: string; prompt: {text?: string}};
+  context: {sessionID: string; system: Array<{type: "text"; text: string}>};
+  compaction: {sessionID: string; system: Array<{type: "text"; text: string}>};
+}
+
+/** opencode V2 `ctx.tool.hook` payloads (packages/plugin/src/promise/tool.ts). */
+interface V2ToolHooks {
+  "execute.before": {tool: string; input: unknown};
+  "execute.after": {tool: string; input: unknown; status?: string; result?: {content?: unknown; output?: unknown}};
+}
+
+/** opencode V2 `ctx.shell.hook` payloads (packages/plugin/src/promise/shell.ts). */
+interface V2ShellHooks {
+  "create.before": {command: string; env: Record<string, string | undefined>};
+}
+
+/** Structural stand-in for the V2 plugin Context (packages/plugin/src/promise/plugin.ts). */
+interface V2Context {
+  app: {name: string; version: string; channel: string};
+  session: {
+    hook: V2HookRegistrar<V2SessionHooks>;
+    prompt: (input: Record<string, unknown>) => Promise<unknown>;
+  };
+  tool: {
+    hook: V2HookRegistrar<V2ToolHooks>;
+    transform: (cb: (editor: {add: (tool: any) => void}) => void) => Promise<V2Registration>;
+  };
+  shell: {hook: V2HookRegistrar<V2ShellHooks>};
+  skill: {transform: (cb: (editor: {add: (skill: any) => void}) => void) => Promise<V2Registration>};
+  command: {transform: (cb: (editor: {add: (cmd: any) => void}) => void) => Promise<V2Registration>};
+}
+
+/** V2 tool definition (Tool.Info from packages/schema/src/tool.ts). */
+interface V2Tool {
+  name: string;
+  description: string;
+  input: Record<string, unknown>;
+  execute: (args: any, context: any) => Promise<{content: string}>;
+}
+
+/** V2 default-export module shape accepted by the V2 loader's `server` key path. */
+export interface Mem0PluginModule {
+  id: string;
+  setup: (ctx: V2Context) => Promise<void>;
+  server: Plugin;
+}
+
+function v2Log(level: "error" | "warn", message: string): void {
+  // V2 plugin contexts expose no client logging API; stderr is the honest channel.
+  console.error(`[mem0] ${level}: ${message}`);
+}
+
+/** V1 hooks ran shell commands through Bun's `$`; V2 gets a plain exec-based helper. */
+async function gitOut(args: string[]): Promise<string> {
+  const {execFile} = await import("child_process");
+  return new Promise((resolvePromise, reject) => {
+    execFile("git", args, {maxBuffer: 1024 * 1024}, (err, stdout) => {
+      if (err) reject(err);
+      else resolvePromise(stdout.toString());
+    });
+  });
+}
+
+async function getProjectIdV2(): Promise<string> {
+  if (process.env.MEM0_APP_ID) return process.env.MEM0_APP_ID;
+  try {
+    const project = parseProjectFromRemote(await gitOut(["remote", "get-url", "origin"]));
+    if (project) return project;
+  } catch {
+  }
+  try {
+    const top = (await gitOut(["rev-parse", "--show-toplevel"])).trim();
+    if (top) return basename(top);
+  } catch {
+  }
+  return basename(process.cwd());
+}
+
+async function getBranchV2(): Promise<string> {
+  try {
+    return (await gitOut(["branch", "--show-current"])).trim() || "main";
+  } catch {
+  }
+  return "main";
+}
+
+/** The 10 memory tools in the V2 Tool.Info shape (plain JSON Schema input). */
+function buildV2Tools(deps: {
+  mem0: MemoryClient;
+  userId: string;
+  appId: string;
+  branch: string;
+  sessionId: string;
+  globalSearch: boolean;
+  lifecycle: ReturnType<typeof createMemoryLifecycle>;
+  readScopeFilters: (args: any) => any;
+  apiKey: string;
+  stats: {adds: number; searches: number; messages: number};
+}): V2Tool[] {
+  const {mem0, userId, appId, branch, sessionId, globalSearch, lifecycle, readScopeFilters, apiKey, stats} = deps;
+  const stringSchema = {type: "string"} as const;
+  const optional = (description: string) => ({type: "string", description});
+  const objectSchema = (properties: Record<string, unknown>, required: string[]) => ({
+    type: "object",
+    properties,
+    required,
+    additionalProperties: false,
+  });
+
+  return [
+    {
+      name: "add_memory",
+      description: "Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something. Set infer to false to store the memory verbatim without LLM fact extraction.",
+      input: objectSchema({
+        text: {...stringSchema, description: "Memory text content"},
+        user_id: optional("User ID"),
+        app_id: optional("App/Project ID"),
+        agent_id: optional("Agent ID"),
+        metadata: {type: "object", additionalProperties: true, description: "Metadata key-value pairs"},
+        infer: {type: "boolean", description: "Set to false to store memory verbatim without LLM fact extraction"},
+        scope: optional('Write scope: "project" (this repo, default), "session" (this run), or "global" (user-wide, all projects). Use "global" only when explicitly asked.'),
+      }, ["text"]),
+      async execute(args) {
+        stats.adds++;
+        captureEvent("tool_use", {tool: "add_memory"}, apiKey, appId);
+        const effScope: Scope = resolveToolScope(args.scope ? asScope(args.scope) : undefined, loadDefaultScope());
+        const sp = scopeWriteParams(effScope, userId, appId, sessionId);
+        const finalUserId = args.agent_id ? args.user_id : (args.user_id ?? sp.user_id);
+        const finalAppId = args.app_id ?? sp.app_id;
+
+        const meta = args.metadata ?? {};
+        if (meta.confidence === undefined) meta.confidence = 0.7;
+        if (!meta.source) meta.source = "opencode";
+        if (!meta.type) meta.type = "task_learning";
+        if (!meta.session_id) meta.session_id = sessionId;
+        if (!meta.files) meta.files = ["*"];
+        if (!meta.branch) meta.branch = branch;
+
+        let infer = args.infer;
+        if (meta.confidence >= 1.0 && infer === undefined) {
+          infer = false;
+        }
+
+        const res = await mem0.add(
+          [{role: "user", content: lifecycle.prepareUserText(args.text)}],
+          {
+            user_id: finalUserId,
+            app_id: finalAppId,
+            run_id: sp.run_id,
+            agent_id: args.agent_id,
+            metadata: meta,
+            infer,
+          } as any,
+        );
+        return {content: JSON.stringify(res)};
+      },
+    },
+    {
+      name: "search_memories",
+      description: SEARCH_TOOL_DESCRIPTION,
+      input: objectSchema({
+        query: {...stringSchema, description: SEARCH_QUERY_DESCRIPTION},
+        user_id: optional("User ID"),
+        app_id: optional("App/Project ID"),
+        agent_id: optional("Agent ID"),
+        filters: {type: "object", additionalProperties: true, description: "Key-value filters (e.g. metadata or user/app filters)"},
+        limit: {type: "number", description: "Maximum number of results to return (top_k)"},
+        top_k: {type: "number", description: "Maximum number of results to return (alternative parameter)"},
+        scope: optional('Search scope: "project" (this repo, default), "session" (this run only), or "global" (across ALL your projects). Only use "global" when the user explicitly asks to search across projects.'),
+      }, ["query"]),
+      async execute(args) {
+        stats.searches++;
+        captureEvent("tool_use", {tool: "search_memories"}, apiKey, appId);
+        const topK = args.limit ?? args.top_k ?? 10;
+        const filters = readScopeFilters(args);
+        const res = await mem0.search(lifecycle.prepareUserText(args.query), {filters, topK});
+        return {content: JSON.stringify(res)};
+      },
+    },
+    {
+      name: "get_memories",
+      description: "List or browse stored memories without a search query -- useful for auditing what is remembered or paging through everything in a scope. To find memories relevant to a question, use search_memories instead (it ranks by semantic relevance).",
+      input: objectSchema({
+        user_id: optional("User ID"),
+        app_id: optional("App/Project ID"),
+        agent_id: optional("Agent ID"),
+        filters: {type: "object", additionalProperties: true, description: "Metadata/identity filters"},
+        page: {type: "number", description: "Page number"},
+        page_size: {type: "number", description: "Page size"},
+        scope: optional('Scope: "project" (default), "session", or "global" (across ALL your projects). Use "global" only when explicitly asked.'),
+      }, []),
+      async execute(args) {
+        captureEvent("tool_use", {tool: "get_memories"}, apiKey, appId);
+        const filters = readScopeFilters(args);
+        const res = await mem0.getAll({page: args.page, pageSize: args.page_size, filters});
+        return {content: JSON.stringify(res)};
+      },
+    },
+    {
+      name: "get_memory",
+      description: "Fetch one memory by its exact ID (e.g. an ID returned by search_memories or get_memories) to read its full content and metadata.",
+      input: objectSchema({
+        id: {...stringSchema, description: "The ID of the memory to retrieve"},
+      }, ["id"]),
+      async execute(args) {
+        captureEvent("tool_use", {tool: "get_memory"}, apiKey, appId);
+        const res = await mem0.get(args.id);
+        return {content: JSON.stringify(res)};
+      },
+    },
+    {
+      name: "update_memory",
+      description: "Update an existing memory in place when a stored fact has changed -- requires the memory ID. Preserves the ID and history, so prefer this over deleting and re-adding.",
+      input: objectSchema({
+        id: {...stringSchema, description: "The ID of the memory to update"},
+        text: {type: "string", description: "New text content for the memory"},
+        metadata: {type: "object", additionalProperties: true, description: "New metadata key-value pairs"},
+      }, ["id"]),
+      async execute(args) {
+        captureEvent("tool_use", {tool: "update_memory"}, apiKey, appId);
+        const res = await mem0.update(args.id, {
+          text: args.text === undefined ? undefined : lifecycle.prepareUserText(args.text),
+          metadata: args.metadata,
+        });
+        return {content: JSON.stringify(res)};
+      },
+    },
+    {
+      name: "delete_memory",
+      description: "Delete one or more memories by ID when they are wrong, obsolete, or the user asks to forget them. Irreversible -- only delete what is clearly no longer wanted.",
+      input: objectSchema({
+        id: {...stringSchema, description: "The ID of the memory to delete"},
+      }, ["id"]),
+      async execute(args) {
+        captureEvent("tool_use", {tool: "delete_memory"}, apiKey, appId);
+        const res = await mem0.delete(args.id);
+        return {content: JSON.stringify(res)};
+      },
+    },
+    {
+      name: "delete_all_memories",
+      description: "Delete ALL memories in the given scope. Destructive and irreversible -- only use when the user explicitly asks to wipe their memory. Never call speculatively.",
+      input: objectSchema({
+        user_id: optional("User ID whose memories to delete"),
+        app_id: optional("App ID whose memories to delete"),
+        agent_id: optional("Agent ID whose memories to delete"),
+        scope: optional('Scope to delete: "project" (default), "session", or "global" (user-wide). Use "global" only when explicitly asked.'),
+      }, []),
+      async execute(args) {
+        captureEvent("tool_use", {tool: "delete_all_memories"}, apiKey, appId);
+        const sp = args.scope ? scopeWriteParams(resolveToolScope(asScope(args.scope), loadDefaultScope()), userId, appId, sessionId) : null;
+        const res = await mem0.deleteAll({
+          user_id: sp ? sp.user_id : (args.agent_id ? args.user_id : (args.user_id ?? userId)),
+          app_id: sp ? sp.app_id : (args.app_id ?? appId),
+          run_id: sp?.run_id,
+          agent_id: args.agent_id,
+        } as any);
+        return {content: JSON.stringify(res)};
+      },
+    },
+    {
+      name: "delete_entities",
+      description: "Delete entire user/agent/app/run entities and every memory attached to them. Destructive and irreversible -- only on explicit user request to remove a whole user, agent, or project.",
+      input: objectSchema({
+        user_id: optional("User ID of the entity to delete"),
+        agent_id: optional("Agent ID of the entity to delete"),
+        app_id: optional("App/Project ID of the entity to delete"),
+        run_id: optional("Run ID of the entity to delete"),
+      }, []),
+      async execute(args) {
+        captureEvent("tool_use", {tool: "delete_entities"}, apiKey, appId);
+        const res = await mem0.deleteUsers({
+          userId: args.user_id,
+          agentId: args.agent_id,
+          appId: args.app_id,
+          runId: args.run_id,
+        });
+        return {content: JSON.stringify(res)};
+      },
+    },
+    {
+      name: "list_entities",
+      description: "List the user/agent/app/run entities that have memories. Use to discover which scopes exist before searching, listing, or deleting within a specific one.",
+      input: objectSchema({
+        page: {type: "number", description: "Page number"},
+        page_size: {type: "number", description: "Page size"},
+      }, []),
+      async execute(args) {
+        captureEvent("tool_use", {tool: "list_entities"}, apiKey, appId);
+        const res = await mem0.users({page: args.page, pageSize: args.page_size});
+        return {content: JSON.stringify(res)};
+      },
+    },
+    {
+      name: "get_event_status",
+      description: "Check whether an asynchronous memory write (add/update/delete) finished, using the event_id that call returned. Poll this when you need to confirm a write was persisted before relying on it.",
+      input: objectSchema({
+        event_id: {...stringSchema, description: "The ID of the event/async operation to check"},
+      }, ["event_id"]),
+      async execute(args) {
+        captureEvent("tool_use", {tool: "get_event_status"}, apiKey, appId);
+        const response = await mem0.client.get(`/v1/event/${args.event_id}/`);
+        return {content: JSON.stringify(response.data)};
+      },
+    },
+  ];
+}
+
+/**
+ * V2 setup: registers the migrated hooks, the memory tools, and the bundled
+ * skills/slash commands via the V2 context. Mirrors the V1 factory hook logic
+ * (kept intact above for V1 hosts) against the V2 payload shapes.
+ */
+const Mem0PluginV2 = {
+  id: "mem0",
+  setup: async (ctx: V2Context): Promise<void> => {
+    const apiKey = resolveApiKey(process.env, process.env.HOME || process.env.USERPROFILE || homedir());
+
+    if (!apiKey) {
+      v2Log(
+        "error",
+        "MEM0_API_KEY environment variable not set. Get one at https://app.mem0.ai/dashboard/api-keys",
+      );
+      return;
+    }
+
+    const mem0 = new MemoryClient({apiKey});
+    const userId = await getUserId();
+    const appId = await getProjectIdV2();
+    const branch = await getBranchV2();
+    const stats = {adds: 0, searches: 0, messages: 0};
+    const sessionId = generateSessionId();
+    const globalSearch = loadGlobalSearch();
+    const lifecycle = createMemoryLifecycle();
+    lifecycle.beginSession();
+
+    let initialized = false;
+    let memoryCount = 0;
+    let msgCount = 0;
+
+    const systemContext: string[] = [];
+
+    let sessionStopSent = false;
+    const emitSessionStop = () => {
+      if (sessionStopSent) return;
+      sessionStopSent = true;
+      captureEvent(
+        "session_stop",
+        {adds: stats.adds, searches: stats.searches, messages: stats.messages},
+        apiKey,
+        appId,
+      );
+    };
+    try {
+      process.on("beforeExit", emitSessionStop);
+    } catch {
+    }
+
+    Promise.resolve().then(() => autoSetupCategories(mem0, apiKey)).catch(() => {
+    });
+
+    function readScopeFilters(args: any): any {
+      if (args.scope) return scopeSearchFilters(resolveToolScope(asScope(args.scope), loadDefaultScope()), userId, appId, sessionId);
+      if (args.filters || args.agent_id) return resolveFilters(args, globalSearch, userId, appId);
+      const ds = loadDefaultScope();
+      return ds === "project"
+        ? resolveFilters(args, globalSearch, userId, appId)
+        : scopeSearchFilters(ds, userId, appId, sessionId);
+    }
+
+    const memoryFilters = () => (globalSearch ? {OR: [{user_id: "*"}]} : {AND: [{user_id: userId}, {app_id: appId}]});
+
+    // Skills + /mem0-* slash commands (V1 registered these via the `config` hook;
+    // V2 exposes dedicated transform editors).
+    const skillsDir = discoverSkillsDir();
+    if (skillsDir) {
+      const skillEntries: Array<{name: string; description: string; path: string; content: string}> = [];
+      for (const entry of readdirSync(skillsDir, {withFileTypes: true})) {
+        if (!entry.isDirectory()) continue;
+        const skillMd = resolve(skillsDir, entry.name, "SKILL.md");
+        if (!existsSync(skillMd)) continue;
+        let desc = `Mem0 ${entry.name} skill`;
+        let content = "";
+        try {
+          content = readFileSync(skillMd, "utf8");
+          const m = content.match(/^description:\s*(.+)$/m);
+          if (m) desc = m[1].trim();
+        } catch {
+        }
+        skillEntries.push({name: entry.name, description: desc, path: skillMd, content});
+      }
+
+      if (skillEntries.length > 0) {
+        await ctx.skill.transform((editor) => {
+          for (const skill of skillEntries) {
+            editor.add({
+              id: skill.name,
+              name: skill.name,
+              description: skill.description,
+              path: skill.path,
+              content: skill.content,
+            });
+          }
+        });
+
+        await ctx.command.transform((editor) => {
+          for (const skill of skillEntries) {
+            editor.add({
+              name: skill.name,
+              description: skill.description,
+              execute: async (input: {sessionID: string; prompt: Record<string, any>; delivery: unknown}) => {
+                await ctx.session.prompt({
+                  ...input.prompt,
+                  sessionID: input.sessionID,
+                  text: `Load and execute the \`${skill.name}\` skill.
+
+Use the mem0 memory tools (add_memory, search_memories, get_memories, get_memory, update_memory, delete_memory, delete_all_memories, delete_entities, list_entities, get_event_status) as instructed by the skill.
+
+Identity context (resolved at plugin startup):
+- user_id: ${userId}
+- app_id: ${appId}
+- session_id: ${sessionId}
+- branch: ${branch}`,
+                  delivery: input.delivery,
+                });
+              },
+            });
+          }
+        });
+      }
+    }
+
+    // Memory tools under the V2 tool registry.
+    const v2Tools = buildV2Tools({mem0, userId, appId, branch, sessionId, globalSearch, lifecycle, readScopeFilters, apiKey, stats});
+    await ctx.tool.transform((editor) => {
+      for (const t of v2Tools) editor.add(t);
+    });
+
+    // V1 chat.message -> V2 session "prompt"
+    await ctx.session.hook("prompt", async (evt) => {
+      try {
+        const userText = evt?.prompt?.text ?? "";
+        if (!userText || userText.length < 10) return;
+
+        const safeText = lifecycle.prepareUserText(userText);
+        msgCount++;
+        stats.messages++;
+
+        if (!initialized) {
+          initialized = true;
+          try {
+            const all = await mem0.getAll({filters: memoryFilters(), page: 1, pageSize: 1});
+            const a: any = all;
+            memoryCount =
+              typeof a?.count === "number"
+                ? a.count
+                : Array.isArray(a)
+                  ? a.length
+                  : Array.isArray(a?.results)
+                    ? a.results.length
+                    : 0;
+
+            if (globalSearch) {
+              systemContext.push(
+                `Global search is ON — searches return all memories across all users and projects. Writes still use user_id="${userId}", app_id="${appId}".`,
+              );
+            } else {
+              systemContext.push(
+                `Always include user_id="${userId}" and app_id="${appId}" in every search_memories filter and add_memory call.`,
+              );
+            }
+
+            if (memoryCount === 0) {
+              systemContext.push(
+                "New project with 0 memories. Capture decisions, conventions, and learnings as you work via the add_memory tool or the remember skill.",
+              );
+            }
+
+            if (memoryCount > 0) {
+              try {
+                const res = await mem0.search("recent session state decisions and learnings", {filters: memoryFilters(), topK: 5});
+                stats.searches++;
+                const memories = extractMemories(res);
+                if (memories.length > 0) {
+                  const memLines = memories.map((m) => `- ${m.memory}`).join("\n");
+                  systemContext.push(`Prior context from mem0:\n${memLines}`);
+                }
+              } catch {
+              }
+            }
+
+            systemContext.push(SCOPE_GUIDANCE);
+            const activeScope = loadDefaultScope();
+            if (activeScope !== "project") {
+              systemContext.push(
+                `Active default memory scope is "${activeScope}" (set via /mem0-scope). Memory tools use this when no explicit scope is given: "session" limits to this run (run_id="${sessionId}"); "global" spans all your projects (app_id="*"). Pass an explicit scope to override per call. delete_all_memories still requires an explicit scope="global" to delete user-wide.`,
+              );
+            }
+          } catch (err: any) {
+            v2Log("error", `Session init error: ${err?.message}`);
+          }
+
+          captureEvent("session_start", {memory_count: memoryCount}, apiKey, appId);
+        }
+
+        const hasRemember = NUDGE_RE.test(safeText);
+        if (hasRemember) {
+          systemContext.push(
+            "[MEMORY TRIGGER] User asked to remember something. Call add_memory with the user's statement, confidence=1.0, infer=false.",
+          );
+        }
+
+        const hasResume = RESUME_RE.test(safeText);
+        if (hasResume) {
+          try {
+            const resumeFilters = memoryFilters();
+            const [stateRes, decisionsRes] = await Promise.all([
+              mem0.search("session state current task", {filters: resumeFilters, topK: 3}),
+              mem0.search("recent decisions and learnings", {filters: resumeFilters, topK: 3}),
+            ]);
+            stats.searches += 2;
+            const all = [...extractMemories(stateRes), ...extractMemories(decisionsRes)];
+            const seen = new Set<string>();
+            const unique = all.filter((m) => {
+              if (seen.has(m.id)) return false;
+              seen.add(m.id);
+              return true;
+            });
+            if (unique.length > 0) {
+              const memLines = unique.map((m) => `- ${m.memory}`).join("\n");
+              systemContext.push(`Session resume context:\n${memLines}\n\nThese memories provide context for resuming work.`);
+            }
+          } catch {
+          }
+        }
+
+        if (!hasResume && memoryCount > 0) {
+          try {
+            const res = await mem0.search(safeText, {filters: memoryFilters(), topK: 5});
+            stats.searches++;
+            const memories = extractMemories(res);
+            if (memories.length > 0) {
+              const memLines = memories.map((m) => `- ${m.memory}`).join("\n");
+              systemContext.push(`Relevant memories:\n${memLines}`);
+            }
+          } catch {
+          }
+        }
+
+        if (msgCount % 3 === 0) {
+          Promise.resolve().then(async () => {
+            try {
+              await mem0.add([{role: "user", content: safeText}], {
+                user_id: userId,
+                app_id: appId,
+                metadata: {
+                  type: "auto_capture",
+                  source: "opencode",
+                  confidence: 0.7,
+                  session_id: sessionId,
+                  branch,
+                },
+                infer: true,
+              } as any);
+              stats.adds++;
+            } catch {
+            }
+          });
+        }
+
+        if (msgCount % 5 === 0 && stats.adds < Math.floor(msgCount / 3)) {
+          systemContext.push(
+            "After responding, store any new decisions, learnings, or preferences from this exchange via add_memory. Keep it to 1 sentence per memory.",
+          );
+        }
+
+        captureEvent("user_prompt", {remember_detected: hasRemember, resume_detected: hasResume}, apiKey, appId);
+      } catch (err: any) {
+        v2Log("error", `prompt hook failed: ${err?.message}`);
+      }
+    });
+
+    // V1 experimental.chat.messages.transform -> V2 session "context":
+    // the memory block rides in `system` right before the model request.
+    const MEMORY_MARKER = "## Mem0 Memory Context";
+    await ctx.session.hook("context", async (evt) => {
+      try {
+        if (systemContext.length === 0 || !Array.isArray(evt?.system)) return;
+        if (evt.system.some((p: any) => typeof p?.text === "string" && p.text.includes(MEMORY_MARKER))) return;
+        evt.system.push({type: "text", text: `${MEMORY_MARKER}\n\n${systemContext.join("\n\n")}`});
+      } catch (err: any) {
+        v2Log("error", `context hook failed: ${err?.message}`);
+      }
+    });
+
+    // V1 tool.execute.before -> V2 tool "execute.before"
+    await ctx.tool.hook("execute.before", async (evt) => {
+      try {
+        const toolName: string = evt?.tool ?? "";
+        if (WRITE_TOOLS.has(toolName)) {
+          const args: any = evt?.input ?? {};
+          const fp = String(args?.file_path ?? args?.filePath ?? "");
+          if (/MEMORY\.md|\.claude\/memory/i.test(fp)) {
+            throw new Error("Use the add_memory tool instead of writing to MEMORY.md");
+          }
+        }
+      } catch (err: any) {
+        if (/add_memory/.test(String(err?.message))) throw err;
+        v2Log("error", `execute.before hook failed: ${err?.message}`);
+      }
+    });
+
+    // V1 tool.execute.after -> V2 tool "execute.after"
+    await ctx.tool.hook("execute.after", async (evt) => {
+      try {
+        const toolName: string = evt?.tool ?? "";
+        if (evt?.status !== "completed") return;
+        const rawOutput = evt?.result?.content ?? evt?.result?.output;
+        const toolOutput = typeof rawOutput === "string" ? rawOutput : Array.isArray(rawOutput)
+          ? rawOutput.map((c: any) => (typeof c?.text === "string" ? c.text : "")).join("\n")
+          : "";
+
+        if (toolName === "bash" && toolOutput.length >= 50) {
+          const command: string = (evt?.input as any)?.command ?? "";
+          if (/git\s+(commit|merge|rebase)/.test(command)) return;
+
+          const hasStrongError = ERROR_STRONG_RE.test(toolOutput);
+          const multiErrors = (toolOutput.match(ERROR_MULTI_RE) ?? []).length;
+          if (!hasStrongError && multiErrors < 2) return;
+
+          const errorLine =
+            toolOutput
+              .split("\n")
+              .find((l: string) => /Error:|Exception:|panic:|FAIL:|fatal:/i.test(l))
+              ?.replace(/^\s+/, "")
+              .slice(0, 120) ?? "";
+
+          const traceFiles = [
+            ...new Set(
+              toolOutput.match(
+                /[a-zA-Z0-9_./-]+\.(py|ts|tsx|js|jsx|rs|go|rb|java|sh)(:\d+)?/g,
+              ) ?? [],
+            ),
+          ].slice(0, 5);
+
+          const errorQuery = errorLine.slice(0, 80);
+          if (errorQuery.length < 10) return;
+
+          captureEvent("bash_error", {error_detected: true}, apiKey, appId);
+
+          const res = await mem0.search(`error: ${errorQuery}`, {filters: memoryFilters(), topK: 6});
+          stats.searches++;
+          const unique = extractMemories(res);
+
+          let errCtx = `Error detected: \`${command.slice(0, 100)}\` produced:\n> ${errorLine}`;
+          if (traceFiles.length > 0) {
+            errCtx += `\nFiles in stack trace: ${traceFiles.join(", ")}`;
+          }
+          if (unique.length > 0) {
+            const lines = unique.map((m) => `- ${m.memory}`).join("\n");
+            errCtx += `\nPrior error memories:\n${lines}`;
+          }
+          errCtx += "\nStore resolved errors as anti_pattern or bug_fix memories for future reference.";
+          systemContext.push(errCtx);
+        }
+      } catch {
+      }
+    });
+
+    // V1 experimental.session.compacting -> V2 session "compaction"
+    await ctx.session.hook("compaction", async (evt) => {
+      try {
+        const compactSessionId = evt?.sessionID ?? sessionId;
+        captureEvent(
+          "pre_compact",
+          {adds: stats.adds, searches: stats.searches, messages: stats.messages},
+          apiKey,
+          appId,
+        );
+        const summaryContent = `Session compacting. Project: ${appId}. Branch: ${branch}. Session: ${compactSessionId}. Stats: ${stats.adds} memories stored, ${stats.searches} searches, ${stats.messages} messages.`;
+        Promise.resolve().then(async () => {
+          try {
+            await mem0.add([{role: "user", content: summaryContent}], {
+              user_id: userId,
+              app_id: appId,
+              metadata: {
+                type: "session_state",
+                source: "pre-compaction",
+                session_id: compactSessionId,
+                branch,
+              },
+              infer: true,
+            } as any);
+          } catch {
+          }
+        });
+
+        const res = await mem0.search("session state decisions learnings", {filters: memoryFilters(), topK: 10});
+        const memories = extractMemories(res);
+        if (memories.length > 0 && Array.isArray(evt?.system)) {
+          const lines = memories.map((m) => `- ${m.memory}`).join("\n");
+          evt.system.push({
+            type: "text",
+            text: `## Mem0 Memories (preserve across compaction)\n\n${lines}\n\nIMPORTANT: After compaction, store any key decisions or learnings using the add_memory tool.`,
+          });
+        }
+      } catch {
+      }
+    });
+
+    // V1 shell.env -> V2 shell "create.before"
+    await ctx.shell.hook("create.before", async (evt) => {
+      if (evt?.env) {
+        evt.env.MEM0_USER_ID = userId;
+        evt.env.MEM0_APP_ID = appId;
+        evt.env.MEM0_SESSION_ID = sessionId;
+        evt.env.MEM0_BRANCH = branch;
+        evt.env.MEM0_GLOBAL_SEARCH = globalSearch ? "true" : "false";
+      }
+    });
+  },
+};
+
+/**
+ * Dual-shape default export (OpenCode V1->V2 migration guide):
+ * - V2 hosts decode `{ id, setup }` and run `setup(ctx)`.
+ * - V1 hosts (>= 1.18.29) decode the `server` key and call `Mem0Plugin(ctx)`.
+ */
+const Mem0PluginModule: Mem0PluginModule = {
+  ...Mem0PluginV2,
+  server: Mem0Plugin,
+};
+
+export default Mem0PluginModule;
