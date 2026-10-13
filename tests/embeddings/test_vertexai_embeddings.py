@@ -163,7 +163,9 @@ def test_invalid_memory_action(mock_text_embedding_model, mock_config):
 
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
 def test_embed_batch_single_call(mock_text_embedding_model, mock_os_environ, mock_config):
-    mock_config.return_value.model = "gemini-embedding-001"
+    # text-embedding-005 accepts up to 250 inputs per request, so 2 texts fit in one call.
+    # (gemini-embedding-* only accepts 1 input per request; see test_embed_batch_default_model_sends_one_text_per_call.)
+    mock_config.return_value.model = "text-embedding-005"
     mock_config.return_value.embedding_dims = 256
 
     config = mock_config()
@@ -198,7 +200,9 @@ def test_embed_batch_empty_list(mock_text_embedding_model, mock_os_environ, mock
 
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
 def test_embed_batch_count_mismatch_raises(mock_text_embedding_model, mock_os_environ, mock_config):
-    mock_config.return_value.model = "gemini-embedding-001"
+    # Use a 250-cap model so both texts land in a single chunk/call, keeping the mismatch
+    # (1 embedding returned for that one call) triggered by that single call.
+    mock_config.return_value.model = "text-embedding-005"
     mock_config.return_value.embedding_dims = 256
 
     config = mock_config()
@@ -261,8 +265,8 @@ def test_embed_batch_invalid_memory_action_raises(mock_text_embedding_model, moc
 
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
 def test_embed_batch_chunking_triggers_two_api_calls(mock_text_embedding_model, mock_os_environ, mock_config):
-    """300 texts must produce exactly 2 get_embeddings calls (chunks of 250 and 50)."""
-    mock_config.return_value.model = "gemini-embedding-001"
+    """text-embedding-005 accepts up to 250 inputs/request: 300 texts -> 2 calls (chunks of 250 and 50)."""
+    mock_config.return_value.model = "text-embedding-005"
     mock_config.return_value.embedding_dims = 256
 
     config = mock_config()
@@ -277,4 +281,26 @@ def test_embed_batch_chunking_triggers_two_api_calls(mock_text_embedding_model, 
     result = embedder.embed_batch(texts)
 
     assert mock_text_embedding_model.from_pretrained.return_value.get_embeddings.call_count == 2
+    assert len(result) == 300
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_default_model_sends_one_text_per_call(mock_text_embedding_model, mock_os_environ, mock_config):
+    """gemini-embedding-001 (default) accepts 1 input/request: 300 texts -> 300 calls of 1 text each."""
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    def make_single_response(texts, output_dimensionality):
+        assert len(texts) == 1
+        return [Mock(values=[0.1, 0.2]) for _ in texts]
+
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.side_effect = make_single_response
+
+    texts = [f"text {i}" for i in range(300)]
+    result = embedder.embed_batch(texts)
+
+    assert mock_text_embedding_model.from_pretrained.return_value.get_embeddings.call_count == 300
     assert len(result) == 300
