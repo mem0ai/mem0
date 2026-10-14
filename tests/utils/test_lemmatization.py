@@ -65,3 +65,21 @@ class TestLemmatizeForBm25:
         tokens = result.split()
         for stop in ["this", "is", "a", "very", "of", "the"]:
             assert stop not in tokens
+
+    def test_alphanumeric_hyphenated_tokens_kept(self):
+        """Model names and version numbers (GPT-4, COVID-19) are single
+        hyphenated tokens and must stay in the BM25 index."""
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        result = lemmatize_for_bm25("I use GPT-4 and COVID-19 data")
+        tokens = result.split()
+        assert "gpt-4" in tokens
+        assert "covid-19" in tokens
+
+    def test_ing_form_of_hyphenated_token_kept(self):
+        """The -ing branch keeps hyphenated original forms as well."""
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        result = lemmatize_for_bm25("state-of-the-art tooling here")
+        tokens = result.split()
+        assert "state" in tokens and "art" in tokens
