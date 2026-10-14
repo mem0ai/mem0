@@ -481,6 +481,55 @@ class TestMiniMaxProvider:
 
 
 # ---------------------------------------------------------------------------
+# OpenAI provider (gpt-oss, GPT-5.6, GPT-6)
+# ---------------------------------------------------------------------------
+
+class TestOpenAIProvider:
+    """OpenAI models on Bedrock go through the Converse API, like MiniMax."""
+
+    @pytest.mark.parametrize(
+        ("model", "expected"),
+        [
+            ("us.openai.gpt-6-sol", "openai"),
+            ("global.openai.gpt-6-luna", "openai"),
+            ("openai.gpt-5.6-sol", "openai"),
+            ("openai.gpt-oss-120b-1:0", "gpt-oss"),
+        ],
+    )
+    def test_extract_provider(self, model, expected):
+        assert extract_provider(model) == expected
+
+    @pytest.mark.parametrize("model", ["us.openai.gpt-6-sol", "us.openai.gpt-6-luna", "us.openai.gpt-5.6-sol"])
+    def test_gpt_omits_temperature_and_top_p(self, mock_boto3, model):
+        # GPT-5.6 / GPT-6: "This model doesn't support the temperature field."
+        mock_boto3.converse.return_value = {
+            "output": {"message": {"content": [{"reasoningContent": {"redactedContent": b"rsn_"}}, {"text": "pong"}]}}
+        }
+        llm = _make_llm(model, mock_boto3, temperature=0.7, top_p=0.9, max_tokens=512)
+
+        result = llm.generate_response([
+            {"role": "system", "content": "Answer with one word."},
+            {"role": "user", "content": "ping"},
+        ])
+
+        assert result == "pong"
+        mock_boto3.invoke_model.assert_not_called()
+        _, kwargs = mock_boto3.converse.call_args
+        assert kwargs["inferenceConfig"] == {"maxTokens": 512}
+        assert kwargs["system"] == [{"text": "Answer with one word."}]
+
+    def test_gpt_oss_uses_converse_and_keeps_temperature(self, mock_boto3):
+        # gpt-oss InvokeModel needs a chat-completions body; the old {"prompt": ...} body got a 400.
+        mock_boto3.converse.return_value = _converse_response("pong")
+        llm = _make_llm("openai.gpt-oss-120b-1:0", mock_boto3, temperature=0.2)
+
+        assert llm.generate_response([{"role": "user", "content": "ping"}]) == "pong"
+        mock_boto3.invoke_model.assert_not_called()
+        _, kwargs = mock_boto3.converse.call_args
+        assert kwargs["inferenceConfig"]["temperature"] == 0.2
+
+
+# ---------------------------------------------------------------------------
 # _parse_response — legacy InvokeModel provider-specific parsing
 # ---------------------------------------------------------------------------
 
