@@ -1180,6 +1180,115 @@ class TestAddPipelineEntityEmbeddingCountGuard:
             "expected count-mismatch warning was not emitted"
         )
 
+class TestAddPipelineLinkedMemoryIds:
+    """The LLM is prompted to return ``linked_memory_ids`` (sequential indices into the
+    "Existing Memories" list we send it) on each extracted memory, but the add pipeline
+    previously never read that field back out of the response — ``uuid_mapping`` was built
+    for exactly this translation and then never consulted. (#4970)
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda texts, action: [[0.1, 0.2, 0.3] for _ in texts])
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+        mocker.patch("mem0.memory.main.capture_event")
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda texts, action: [[0.1, 0.2, 0.3] for _ in texts])
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+        mocker.patch("mem0.memory.main.capture_event")
+        return memory
+
+    @staticmethod
+    def _existing_match(real_id, text):
+        return SimpleNamespace(id=real_id, payload={"data": text, "hash": "unrelated-hash"})
+
+    def test_sync_linked_memory_ids_resolved_to_real_uuids(self, mock_memory):
+        """The LLM's "0" (an index into Existing Memories) must become the real memory_id
+        the vector store knows, not be stored verbatim and not be silently dropped."""
+        mock_memory.vector_store.search = Mock(
+            return_value=[self._existing_match("real-uuid-111", "User has a dog named Max")]
+        )
+        mock_memory.llm.generate_response.return_value = json.dumps(
+            {"memory": [{"text": "Max had a vet visit and is healthy", "linked_memory_ids": ["0"]}]}
+        )
+
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "Max had a vet visit, he's healthy."}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        inserted_payload = mock_memory.vector_store.insert.call_args.kwargs["payloads"][0]
+        assert inserted_payload["linked_memory_ids"] == ["real-uuid-111"], (
+            "linked_memory_ids was not translated from the LLM's placeholder index to the real memory ID"
+        )
+
+    def test_sync_unknown_linked_memory_id_is_dropped_not_trusted(self, mock_memory):
+        """An index the LLM invents that we never sent it must be ignored, not stored —
+        trusting it would let a hallucinated ID land in the database."""
+        mock_memory.vector_store.search = Mock(
+            return_value=[self._existing_match("real-uuid-111", "User has a dog named Max")]
+        )
+        mock_memory.llm.generate_response.return_value = json.dumps(
+            {"memory": [{"text": "User got a new job", "linked_memory_ids": ["7"]}]}
+        )
+
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I got a new job!"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        inserted_payload = mock_memory.vector_store.insert.call_args.kwargs["payloads"][0]
+        assert "linked_memory_ids" not in inserted_payload
+
+    @pytest.mark.asyncio
+    async def test_async_linked_memory_ids_resolved_to_real_uuids(self, mock_async_memory):
+        mock_async_memory.vector_store.search = Mock(
+            return_value=[self._existing_match("real-uuid-222", "User works at Shopify")]
+        )
+        mock_async_memory.llm.generate_response.return_value = json.dumps(
+            {"memory": [{"text": "User is switching teams at Shopify", "linked_memory_ids": ["0"]}]}
+        )
+
+        await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I'm switching teams at Shopify."}],
+            metadata={},
+            effective_filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        inserted_payload = mock_async_memory.vector_store.insert.call_args.kwargs["payloads"][0]
+        assert inserted_payload["linked_memory_ids"] == ["real-uuid-222"]
+
+
 class TestPartialInsertFailure:
     """Records the vector store rejects must never be reported as successful ADDs (#6911)."""
 

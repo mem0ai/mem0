@@ -10,7 +10,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import ValidationError
 
@@ -449,6 +449,18 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
         return date.fromisoformat(str(expiration_date)) < datetime.now(timezone.utc).date()
     except ValueError:
         return False
+
+
+def _resolve_linked_memory_ids(raw_linked_ids: Any, uuid_mapping: Dict[str, str]) -> List[str]:
+    """Translate the LLM's per-request sequential ``linked_memory_ids`` (e.g. "0", "1",
+    matching the anti-hallucination placeholders sent as "Existing Memories") into real
+    vector-store memory IDs. Any id the LLM returns that doesn't match a placeholder we
+    actually sent is dropped rather than trusted, since it would be a hallucination.
+    """
+    if not raw_linked_ids or not isinstance(raw_linked_ids, list):
+        return []
+    resolved = {uuid_mapping[str(raw_id)] for raw_id in raw_linked_ids if str(raw_id) in uuid_mapping}
+    return sorted(resolved)
 
 
 setup_config()
@@ -1037,6 +1049,10 @@ class Memory(MemoryBase):
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
+
+            resolved_links = _resolve_linked_memory_ids(mem.get("linked_memory_ids"), uuid_mapping)
+            if resolved_links:
+                mem_metadata["linked_memory_ids"] = resolved_links
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
@@ -2716,6 +2732,10 @@ class AsyncMemory(MemoryBase):
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
+
+            resolved_links = _resolve_linked_memory_ids(mem.get("linked_memory_ids"), uuid_mapping)
+            if resolved_links:
+                mem_metadata["linked_memory_ids"] = resolved_links
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
