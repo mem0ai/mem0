@@ -11,6 +11,7 @@ from mem0.configs.llms.deepseek import DeepSeekConfig
 from mem0.configs.llms.gemini import GeminiConfig
 from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.minimax import MinimaxConfig
+from mem0.configs.llms.nvidia import NvidiaConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.configs.llms.vllm import VllmConfig
@@ -53,6 +54,7 @@ class LlmFactory:
         "gemini": ("mem0.llms.gemini.GeminiLLM", GeminiConfig),
         "deepseek": ("mem0.llms.deepseek.DeepSeekLLM", DeepSeekConfig),
         "minimax": ("mem0.llms.minimax.MiniMaxLLM", MinimaxConfig),
+        "nvidia": ("mem0.llms.nvidia.NvidiaLLM", NvidiaConfig),
         "xai": ("mem0.llms.xai.XAILLM", XAIConfig),
         "sarvam": ("mem0.llms.sarvam.SarvamLLM", BaseLlmConfig),
         "lmstudio": ("mem0.llms.lmstudio.LMStudioLLM", LMStudioConfig),

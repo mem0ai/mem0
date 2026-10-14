@@ -127,6 +127,11 @@ jest.mock("../src/llms/minimax", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "minimax-llm", config })),
 }));
+jest.mock("../src/llms/nvidia", () => ({
+  NvidiaLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "nvidia-llm", config })),
+}));
 jest.mock("../src/llms/together", () => ({
   TogetherLLM: jest
     .fn()
@@ -304,6 +309,7 @@ describe("LLMFactory", () => {
     ["sarvam"],
     ["litellm"],
     ["minimax"],
+    ["nvidia"],
     ["together"],
     ["vllm"],
   ])("creates LLM for provider '%s'", (provider) => {
