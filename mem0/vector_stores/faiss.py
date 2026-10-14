@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import pickle
+import tempfile
 import uuid
 import warnings
 from pathlib import Path
@@ -158,6 +159,7 @@ class FAISS(VectorStoreBase):
         # Create directory if it doesn't exist
         if self.path:
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            self._recover_pending_save()
 
             # Try to load existing index if available
             index_path = f"{self.path}/{collection_name}.faiss"
@@ -168,6 +170,8 @@ class FAISS(VectorStoreBase):
             if os.path.exists(index_path) and (os.path.exists(json_docstore_path) or os.path.exists(pkl_docstore_path)):
                 # _load will prefer JSON over pickle and auto-migrate
                 self._load(index_path, pkl_docstore_path)
+                if self.index is None:
+                    self.create_col(collection_name)
             else:
                 self.create_col(collection_name)
 
@@ -221,20 +225,79 @@ class FAISS(VectorStoreBase):
             raise ValueError(f"Failed to load FAISS docstore: potentially malicious pickle file. {e}") from e
         except Exception as e:
             logger.warning(f"Failed to load FAISS index: {e}")
+            self._quarantine_corrupt_files(index_path, docstore_path)
+            self.index = None
             self.docstore = {}
             self.index_to_id = {}
+
+    def _save_transaction_path(self) -> str:
+        return os.path.join(self.path, f"{self.collection_name}.save.json")
+
+    def _recover_pending_save(self) -> None:
+        """Finish a save interrupted between replacing its paired files."""
+        if not self.path:
+            return
+
+        transaction_path = self._save_transaction_path()
+        if not os.path.exists(transaction_path):
+            return
+
+        with open(transaction_path, encoding="utf-8") as f:
+            transaction = json.load(f)
+
+        index_path = os.path.join(self.path, f"{self.collection_name}.faiss")
+        json_docstore_path = os.path.join(self.path, f"{self.collection_name}.json")
+        for key, destination in (("index", index_path), ("docstore", json_docstore_path)):
+            temp_name = transaction[key]
+            if os.path.basename(temp_name) != temp_name:
+                raise ValueError(f"Invalid FAISS save transaction path: {temp_name}")
+
+            temp_path = os.path.join(self.path, temp_name)
+            if os.path.exists(temp_path):
+                os.replace(temp_path, destination)
+            elif not os.path.exists(destination):
+                raise FileNotFoundError(f"Incomplete FAISS save transaction for {destination}")
+
+        os.remove(transaction_path)
+
+    def _quarantine_corrupt_files(self, index_path: str, docstore_path: str) -> None:
+        """Move failed persistence files aside before rebuilding the collection."""
+        json_docstore_path = docstore_path.replace(".pkl", ".json")
+        for file_path in (index_path, json_docstore_path, docstore_path):
+            if not os.path.exists(file_path):
+                continue
+
+            backup_path = f"{file_path}.corrupt"
+            suffix = 1
+            while os.path.exists(backup_path):
+                backup_path = f"{file_path}.corrupt.{suffix}"
+                suffix += 1
+
+            try:
+                os.replace(file_path, backup_path)
+            except OSError as e:
+                logger.warning(f"Could not back up corrupted file {file_path}: {e}")
 
     def _save(self):
         """Save FAISS index and docstore to disk using JSON format (secure)."""
         if not self.path or not self.index:
             return
 
+        self._recover_pending_save()
+        tmp_index_path = None
+        tmp_json_path = None
+        tmp_transaction_path = None
+        transaction_path = self._save_transaction_path()
         try:
             os.makedirs(self.path, exist_ok=True)
             index_path = f"{self.path}/{self.collection_name}.faiss"
             json_docstore_path = f"{self.path}/{self.collection_name}.json"
 
-            faiss.write_index(self.index, index_path)
+            index_fd, tmp_index_path = tempfile.mkstemp(
+                prefix=f"{self.collection_name}.", suffix=".faiss.tmp", dir=self.path
+            )
+            os.close(index_fd)
+            faiss.write_index(self.index, tmp_index_path)
 
             # Save docstore as JSON (safe format, no code execution risk)
             # JSON keys must be strings, so convert int keys to str
@@ -242,11 +305,40 @@ class FAISS(VectorStoreBase):
                 "docstore": self.docstore,
                 "index_to_id": {str(k): v for k, v in self.index_to_id.items()},
             }
-            with open(json_docstore_path, "w", encoding="utf-8") as f:
+            json_fd, tmp_json_path = tempfile.mkstemp(
+                prefix=f"{self.collection_name}.", suffix=".json.tmp", dir=self.path
+            )
+            os.close(json_fd)
+            with open(tmp_json_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
+
+            transaction_fd, tmp_transaction_path = tempfile.mkstemp(
+                prefix=f"{self.collection_name}.", suffix=".save.tmp", dir=self.path
+            )
+            with os.fdopen(transaction_fd, "w", encoding="utf-8") as f:
+                json.dump({"index": os.path.basename(tmp_index_path), "docstore": os.path.basename(tmp_json_path)}, f)
+            os.replace(tmp_transaction_path, transaction_path)
+            tmp_transaction_path = None
+
+            os.replace(tmp_index_path, index_path)
+            tmp_index_path = None
+            os.replace(tmp_json_path, json_docstore_path)
+            tmp_json_path = None
+            os.remove(transaction_path)
 
         except Exception as e:
             logger.warning(f"Failed to save FAISS index: {e}")
+        finally:
+            temp_paths = [tmp_transaction_path]
+            if not os.path.exists(transaction_path):
+                temp_paths.extend((tmp_index_path, tmp_json_path))
+
+            for temp_path in temp_paths:
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except OSError as e:
+                        logger.warning(f"Failed to remove temporary FAISS file {temp_path}: {e}")
 
     def _should_normalize(self) -> bool:
         """Whether vectors must be L2-normalized before indexing/searching.
