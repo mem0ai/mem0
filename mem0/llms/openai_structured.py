@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Dict, List, Optional
 
@@ -5,6 +6,7 @@ from openai import OpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
+from mem0.memory.utils import extract_json
 
 
 class OpenAIStructuredLLM(LLMBase):
@@ -18,23 +20,55 @@ class OpenAIStructuredLLM(LLMBase):
         base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
+    def _parse_response(self, response, tools):
+        """
+        Process the response based on whether tools are used or not.
+
+        Args:
+            response: The raw response from API.
+            tools: The list of tools provided in the request.
+
+        Returns:
+            str or dict: The processed response.
+        """
+        if tools:
+            processed_response = {
+                "content": response.choices[0].message.content,
+                "tool_calls": [],
+            }
+
+            if response.choices[0].message.tool_calls:
+                for tool_call in response.choices[0].message.tool_calls:
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call.function.name,
+                            "arguments": json.loads(extract_json(tool_call.function.arguments)),
+                        }
+                    )
+
+            return processed_response
+        else:
+            return response.choices[0].message.content
+
     def generate_response(
         self,
         messages: List[Dict[str, str]],
         response_format: Optional[str] = None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
-    ) -> str:
+    ):
         """
         Generate a response based on the given messages using OpenAI.
 
         Args:
             messages (List[Dict[str, str]]): A list of dictionaries, each containing a 'role' and 'content' key.
             response_format (Optional[str]): The desired format of the response. Defaults to None.
-
+            tools (Optional[List[Dict]]): The list of tools the model may call. Defaults to None.
+            tool_choice (str): Tool choice method. Defaults to "auto".
 
         Returns:
-            str: The generated response.
+            str or dict: The generated response. A string when no tools are passed, otherwise a dict with
+                "content" and "tool_calls" keys.
         """
         params = self._get_supported_params(messages=messages)
         params["model"] = self.config.model
@@ -46,4 +80,4 @@ class OpenAIStructuredLLM(LLMBase):
             params["tool_choice"] = tool_choice
 
         response = self.client.beta.chat.completions.parse(**params)
-        return response.choices[0].message.content
+        return self._parse_response(response, tools)
