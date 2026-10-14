@@ -226,12 +226,12 @@ def test_delete(faiss_instance, mock_faiss_index):
 
 def test_update(faiss_instance, mock_faiss_index):
     # Setup the docstore and index_to_id mapping
-    faiss_instance.docstore = {"id1": {"name": "vector1"}, "id2": {"name": "vector2"}}
+    faiss_instance.docstore = {"id1": {"name": "vector1", "data": "old"}, "id2": {"name": "vector2"}}
     faiss_instance.index_to_id = {0: "id1", 1: "id2"}
 
     # Test updating payload only
     faiss_instance.update(vector_id="id1", payload={"name": "updated_vector1"})
-    assert faiss_instance.docstore["id1"] == {"name": "updated_vector1"}
+    assert faiss_instance.docstore["id1"] == {"name": "updated_vector1", "data": "old"}
 
     # Test updating vector
     # This requires mocking the delete and insert methods

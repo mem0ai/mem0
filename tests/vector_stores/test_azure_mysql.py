@@ -148,6 +148,22 @@ def test_update(azure_mysql_instance):
     assert cursor.execute.called
 
 
+def test_payload_only_update_uses_json_set_and_binds_arbitrary_keys(azure_mysql_instance):
+    azure_mysql_instance.update(
+        vector_id="test_id",
+        vector=None,
+        payload={"key' OR 1=1 --": None},
+    )
+
+    conn = azure_mysql_instance.connection_pool.connection()
+    cursor = conn.cursor()
+    query, params = cursor.execute.call_args.args
+    assert "JSON_SET(COALESCE(payload, JSON_OBJECT())" in query
+    assert "key' OR 1=1" not in query
+    assert params[0] == '$."key\' OR 1=1 --"'
+    assert params[1] == "null"
+
+
 def test_get(azure_mysql_instance):
     """Test retrieving a vector by ID."""
     # Mock the database response

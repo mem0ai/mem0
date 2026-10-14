@@ -904,6 +904,26 @@ def test_update(oracle_db: OracleAIVectorSearch):
     assert got.payload.get("name") == "new"
 
 
+def test_payload_only_update_uses_json_transform_with_safe_paths():
+    cursor = MagicMock()
+    store = object.__new__(OracleAIVectorSearch)
+    store.collection_name = "test_collection"
+    store._get_cursor = MagicMock(return_value=nullcontext(cursor))
+
+    store.update("row-1", vector=None, payload={"key' OR 1=1 --": None, "category": "new"})
+
+    query, params = cursor.execute.call_args.args
+    assert "JSON_TRANSFORM(COALESCE(payload, JSON_OBJECT(RETURNING JSON))" in query
+    assert "key' OR 1=1" not in query
+    assert "key'' OR 1=1" in query
+    assert query.count("SET '") == 2
+    assert params == {"vector_id": "row-1", "payload_0": None, "payload_1": "new"}
+    assert [call.kwargs for call in cursor.setinputsizes.call_args_list] == [
+        {"payload_0": oracledb.DB_TYPE_JSON},
+        {"payload_1": oracledb.DB_TYPE_JSON},
+    ]
+
+
 def test_list_cols(oracle_db: OracleAIVectorSearch):
     tables = oracle_db.list_cols()
     target = oracle_db.collection_name.strip('"').upper()

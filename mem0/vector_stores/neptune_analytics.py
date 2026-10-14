@@ -46,6 +46,8 @@ class NeptuneAnalyticsVector(VectorStoreBase):
     a serverless graph analytics service that supports vector operations.
     """
 
+    supports_payload_patch = True
+
     _COLLECTION_PREFIX = "MEM0_VECTOR_"
     _FIELD_N = 'n'
     _FIELD_ID = '~id'
@@ -248,17 +250,14 @@ class NeptuneAnalyticsVector(VectorStoreBase):
                 prior_properties[self._FIELD_LABEL] = self.collection_name
 
         if payload:
-            # Replace payload
-            payload[self._FIELD_LABEL] = self.collection_name
-            payload["updated_at"] = str(int(time.time()))
-            para_payload = {
-                "properties": payload,
-                "vector_id": vector_id
-            }
+            properties = dict(payload)
+            properties[self._FIELD_LABEL] = self.collection_name
+            properties["updated_at"] = str(int(time.time()))
+            para_payload = {"properties": properties, "vector_id": vector_id}
             query_string_embedding = f"""
             MATCH (n :{self.collection_name})
                 WHERE id(n) = $vector_id
-                SET n = $properties
+                SET n {"+=" if vector is None else "="} $properties
             """
             self.execute_query(query_string_embedding, para_payload)
 

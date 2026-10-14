@@ -302,6 +302,16 @@ class TestElasticsearchDB(unittest.TestCase):
         result = self.es_db.get(vector_id="nonexistent")
         self.assertIsNone(result)
 
+    def test_payload_only_update_uses_atomic_metadata_patch(self):
+        self.es_db.update("id1", payload={"category": "new"})
+
+        self.client_mock.update.assert_called_once()
+        body = self.client_mock.update.call_args.kwargs["body"]
+        self.assertIn("script", body)
+        self.assertEqual(body["script"]["params"]["metadata"], {"category": "new"})
+        self.assertNotIn("vector", body["script"]["params"])
+        self.assertIn("putAll", body["script"]["source"])
+
     def test_list(self):
         # Mock search response with scores
         mock_response = {

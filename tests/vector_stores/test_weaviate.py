@@ -264,6 +264,14 @@ class TestWeaviateDB(unittest.TestCase):
         self.assertEqual(len(vector_updates), 1)
         self.assertNotIn("properties", vector_updates[0].kwargs)
 
+    def test_payload_only_update_sends_only_patch_properties(self):
+        valid_uuid = str(uuid.uuid4())
+        collection = self.client_mock.collections.get.return_value
+
+        self.weaviate_db.update(vector_id=valid_uuid, payload={"category": "new"})
+
+        collection.data.update.assert_called_once_with(uuid=valid_uuid, properties={"category": "new"})
+
 
 if __name__ == "__main__":
     unittest.main()

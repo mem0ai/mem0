@@ -125,6 +125,8 @@ class OutputData(BaseModel):
 
 
 class FAISS(VectorStoreBase):
+    supports_payload_patch = True
+
     def __init__(
         self,
         collection_name: str,
@@ -506,8 +508,12 @@ class FAISS(VectorStoreBase):
         current_payload = self.docstore[vector_id].copy()
 
         if payload is not None:
-            self.docstore[vector_id] = payload.copy()
-            current_payload = self.docstore[vector_id].copy()
+            if vector is None:
+                current_payload.update(payload)
+                self.docstore[vector_id] = current_payload.copy()
+            else:
+                self.docstore[vector_id] = payload.copy()
+                current_payload = self.docstore[vector_id].copy()
 
         if vector is not None:
             self.delete(vector_id)

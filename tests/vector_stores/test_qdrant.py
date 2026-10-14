@@ -374,6 +374,27 @@ class TestQdrant(unittest.TestCase):
             points=[vector_id],
         )
 
+    def test_payload_only_patch_preserves_existing_vector_and_other_payload(self):
+        vector_id = str(uuid.uuid4())
+        stored = {
+            "vector": {"": [0.1, 0.2], "bm25": {"indices": [0], "values": [1.0]}},
+            "payload": {"data": "original text", "user_id": "u1", "category": "old"},
+        }
+
+        def apply_qdrant_payload(**kwargs):
+            stored["payload"].update(kwargs["payload"])
+
+        self.client_mock.set_payload.side_effect = apply_qdrant_payload
+        self.qdrant.update(vector_id=vector_id, vector=None, payload={"category": "new"})
+
+        self.assertEqual(stored["vector"][""], [0.1, 0.2])
+        self.assertEqual(stored["vector"]["bm25"], {"indices": [0], "values": [1.0]})
+        self.assertEqual(stored["payload"]["data"], "original text")
+        self.assertEqual(stored["payload"]["user_id"], "u1")
+        self.assertEqual(stored["payload"]["category"], "new")
+        self.client_mock.upsert.assert_not_called()
+        self.client_mock.update_vectors.assert_not_called()
+
     def test_update_with_none_payload_uses_update_vectors(self):
         """Test that update with payload=None uses update_vectors instead of upsert."""
         vector_id = str(uuid.uuid4())

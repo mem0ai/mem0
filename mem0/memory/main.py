@@ -162,6 +162,17 @@ def _strip_identity_keys(
     return clean
 
 
+def _build_payload_patch(existing_payload: Dict[str, Any], updated_payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Return changed fields without resending text-derived values for an unchanged memory."""
+    unchanged_text_fields = {"data", "hash", "text_lemmatized"}
+    return {
+        key: value
+        for key, value in updated_payload.items()
+        if key not in unchanged_text_fields
+        if key not in existing_payload or existing_payload[key] != value
+    }
+
+
 def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) -> None:
     """Reject top-level entity parameters - must use filters instead."""
     invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
@@ -1873,9 +1884,6 @@ class Memory(MemoryBase):
             update_metadata["expiration_date"] = _normalize_expiration_date(expiration_date)
 
         existing_embeddings = {}
-        if text is not None:
-            existing_embeddings[text] = self.embedding_model.embed(text, "update")
-
         self._update_memory(memory_id, text, existing_embeddings, update_metadata)
         display_first_run_notice(self, "sync", "update")
         return {"message": "Memory updated successfully!"}
@@ -2079,15 +2087,21 @@ class Memory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        if data in existing_embeddings:
-            embeddings = existing_embeddings[data]
+        supports_payload_patch = getattr(self.vector_store, "supports_payload_patch", False) is True
+        if not text_changed and supports_payload_patch:
+            embeddings = None
+            payload_to_store = _build_payload_patch(existing_memory.payload, new_metadata)
         else:
-            embeddings = self.embedding_model.embed(data, "update")
+            if data in existing_embeddings:
+                embeddings = existing_embeddings[data]
+            else:
+                embeddings = self.embedding_model.embed(data, "update")
+            payload_to_store = new_metadata
 
         self.vector_store.update(
             vector_id=memory_id,
             vector=embeddings,
-            payload=new_metadata,
+            payload=payload_to_store,
         )
         logger.info(f"Updating memory with ID {memory_id=} with {data=}")
 
@@ -3551,10 +3565,6 @@ class AsyncMemory(MemoryBase):
             update_metadata["expiration_date"] = _normalize_expiration_date(expiration_date)
 
         existing_embeddings = {}
-        if text is not None:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, text, "update")
-            existing_embeddings[text] = embeddings
-
         await self._update_memory(memory_id, text, existing_embeddings, update_metadata)
         await display_first_run_notice_async(self, "async", "update")
         return {"message": "Memory updated successfully!"}
@@ -3797,16 +3807,22 @@ class AsyncMemory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        if data in existing_embeddings:
-            embeddings = existing_embeddings[data]
+        supports_payload_patch = getattr(self.vector_store, "supports_payload_patch", False) is True
+        if not text_changed and supports_payload_patch:
+            embeddings = None
+            payload_to_store = _build_payload_patch(existing_memory.payload, new_metadata)
         else:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
+            if data in existing_embeddings:
+                embeddings = existing_embeddings[data]
+            else:
+                embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
+            payload_to_store = new_metadata
 
         await asyncio.to_thread(
             self.vector_store.update,
             vector_id=memory_id,
             vector=embeddings,
-            payload=new_metadata,
+            payload=payload_to_store,
         )
         logger.info(f"Updating memory with ID {memory_id=} with {data=}")
 

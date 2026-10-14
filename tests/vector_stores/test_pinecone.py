@@ -101,6 +101,17 @@ def test_update_vector(pinecone_db):
     )
 
 
+def test_payload_only_update_uses_metadata_patch(pinecone_db):
+    pinecone_db.update("id1", payload={"category": "new"})
+
+    pinecone_db.index.update.assert_called_once_with(
+        id="id1",
+        set_metadata={"category": "new"},
+        namespace="test_namespace",
+    )
+    pinecone_db.index.upsert.assert_not_called()
+
+
 def test_get_vector_found(pinecone_db):
     # Looking at the _parse_output method, it expects a Vector object
     # or a list of dictionaries, not a dictionary with an 'id' field

@@ -2,6 +2,11 @@ from abc import ABC, abstractmethod
 
 
 class VectorStoreBase(ABC):
+    # Memory only sends sparse payloads to adapters that explicitly opt in.
+    # Implementations must atomically merge supplied payload keys and leave the
+    # stored vector and every omitted payload key unchanged when vector is None.
+    supports_payload_patch = False
+
     @abstractmethod
     def create_col(self, name, vector_size, distance):
         """Create a new collection."""
@@ -32,7 +37,12 @@ class VectorStoreBase(ABC):
 
     @abstractmethod
     def update(self, vector_id, vector=None, payload=None):
-        """Update a vector and its payload."""
+        """Update a vector and its payload.
+
+        Unless ``supports_payload_patch`` is enabled, ``payload`` uses the
+        adapter's existing full-update behavior. Opted-in adapters must merge
+        supplied payload keys atomically when ``vector`` is ``None``.
+        """
         pass
 
     @abstractmethod

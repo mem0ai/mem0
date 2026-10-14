@@ -1841,6 +1841,9 @@ class TestPGVector(unittest.TestCase):
         update_calls = [call for call in self.mock_cursor.execute.call_args_list 
                        if "UPDATE" in str(call) and "test_collection" in str(call) and "SET payload" in str(call)]
         self.assertTrue(len(update_calls) > 0)
+        self.assertIn("payload = COALESCE(payload, jsonb_build_object()) || %s::jsonb", str(update_calls[0].args[0]))
+        self.assertEqual(update_calls[0].args[1], (mock_json.return_value, "test-id-123"))
+        self.assertNotIn("SET vector", str(update_calls[0].args[0]))
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')

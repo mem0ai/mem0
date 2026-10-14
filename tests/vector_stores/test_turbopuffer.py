@@ -441,6 +441,31 @@ class TestUpdate:
         assert row["user_id"] == "u1"
         assert "upsert_rows" not in call_kwargs
 
+    def test_payload_only_patch_preserves_vector_and_omitted_fields(self, db):
+        stored = {
+            "id": "id1",
+            "vector": [0.1, 0.2, 0.3, 0.4],
+            "data": "original text",
+            "user_id": "u1",
+            "category": "old",
+        }
+
+        def apply_turbopuffer_patch(**kwargs):
+            for row_patch in kwargs["patch_rows"]:
+                stored.update({key: value for key, value in row_patch.items() if key != "id"})
+
+        db.namespace.write.side_effect = apply_turbopuffer_patch
+        db.update("id1", vector=None, payload={"category": "new"})
+
+        assert stored == {
+            "id": "id1",
+            "vector": [0.1, 0.2, 0.3, 0.4],
+            "data": "original text",
+            "user_id": "u1",
+            "category": "new",
+        }
+        assert "upsert_rows" not in db.namespace.write.call_args.kwargs
+
     def test_update_payload_does_not_overwrite_id(self, db):
         """Payload with an 'id' key must not overwrite the actual vector ID."""
         db.update("real_id", vector=None, payload={"id": "fake_id", "data": "test"})

@@ -23,6 +23,8 @@ class OutputData(BaseModel):
 
 
 class PineconeDB(VectorStoreBase):
+    supports_payload_patch = True
+
     def __init__(
         self,
         collection_name: str,
@@ -313,12 +315,20 @@ class PineconeDB(VectorStoreBase):
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
         """
+        if vector is None:
+            if payload:
+                self.index.update(
+                    id=str(vector_id),
+                    set_metadata=payload,
+                    namespace=self.namespace,
+                )
+            return
+
         item = {
             "id": str(vector_id),
         }
 
-        if vector is not None:
-            item["values"] = vector
+        item["values"] = vector
 
         if payload is not None:
             item["metadata"] = payload

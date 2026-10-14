@@ -223,6 +223,8 @@ def _build_filter_group(filters: Dict[str, Any], params: Dict[str, Any]) -> str:
 class OracleAIVectorSearch(VectorStoreBase):
     """Oracle AI Vector Search backend for mem0."""
 
+    supports_payload_patch = True
+
     def __init__(self, **kwargs: Any) -> None:
         self.config = OracleAIVectorSearchConfig(**kwargs)
         self.collection_name = self.config.collection_name
@@ -467,7 +469,7 @@ class OracleAIVectorSearch(VectorStoreBase):
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
         """
-        if vector is None and payload is None:
+        if vector is None and not payload:
             return
 
         with self._get_cursor(commit=True) as cursor:
@@ -477,9 +479,19 @@ class OracleAIVectorSearch(VectorStoreBase):
                 params["vector"] = array.array("f", vector)
                 cursor.setinputsizes(vector=oracledb.DB_TYPE_VECTOR)
             if payload is not None:
-                sets.append("payload = :payload")
-                params["payload"] = payload
-                cursor.setinputsizes(payload=oracledb.DB_TYPE_JSON)
+                if vector is None:
+                    for index, (key, value) in enumerate(payload.items()):
+                        path = ("$." + json.dumps(str(key), ensure_ascii=False)).replace("'", "''")
+                        sets.append(f"SET '{path}' = :payload_{index}")
+                        params[f"payload_{index}"] = value
+                        cursor.setinputsizes(**{f"payload_{index}": oracledb.DB_TYPE_JSON})
+                    if sets:
+                        sets[0] = "payload = JSON_TRANSFORM(COALESCE(payload, JSON_OBJECT(RETURNING JSON)), " + sets[0]
+                        sets[-1] += ")"
+                else:
+                    sets.append("payload = :payload")
+                    params["payload"] = payload
+                    cursor.setinputsizes(payload=oracledb.DB_TYPE_JSON)
             cursor.execute(f"UPDATE {self.collection_name} SET {', '.join(sets)} WHERE id = :vector_id", params)
 
     def get(self, vector_id: str) -> Optional[OutputData]:

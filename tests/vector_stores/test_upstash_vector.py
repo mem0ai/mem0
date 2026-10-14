@@ -303,6 +303,7 @@ def test_update_vector_with_embeddings_missing_data(upstash_instance_with_embedd
         vector=None,
         data=None,
         metadata={"name": "updated_vector"},
+        metadata_update_mode="PATCH",
         namespace="ns",
     )
 

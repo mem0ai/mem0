@@ -260,7 +260,22 @@ class TestOpenSearchDB(unittest.TestCase):
         update_args = self.client_mock.update.call_args[1]
         self.assertEqual(update_args["index"], "test_collection")
         self.assertEqual(update_args["id"], "doc1")
-        self.assertEqual(update_args["body"], {"doc": {"vector_field": vector, "payload": payload}})
+        self.assertEqual(
+            update_args["body"]["script"]["params"],
+            {"vector": vector, "payload": payload},
+        )
+        self.assertIn("putAll", update_args["body"]["script"]["source"])
+
+    def test_payload_only_update_uses_atomic_metadata_patch(self):
+        self.client_mock.search.return_value = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "id1"}}]}}
+
+        self.os_db.update("id1", vector=None, payload={"category": "new"})
+
+        body = self.client_mock.update.call_args.kwargs["body"]
+        self.assertIn("script", body)
+        self.assertEqual(body["script"]["params"]["payload"], {"category": "new"})
+        self.assertNotIn("vector", body["script"]["params"])
+        self.assertIn("putAll", body["script"]["source"])
 
     def test_list_cols(self):
         self.client_mock.indices.get_alias.return_value = {"test_collection": {}}

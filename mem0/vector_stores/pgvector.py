@@ -144,6 +144,8 @@ class OutputData(BaseModel):
 
 
 class PGVector(VectorStoreBase):
+    supports_payload_patch = True
+
     def __init__(
         self,
         dbname,
@@ -439,16 +441,23 @@ class PGVector(VectorStoreBase):
                 if PSYCOPG_VERSION == 3:
                     # psycopg3 uses psycopg.types.json.Json
                     cur.execute(
-                        sql.SQL("UPDATE {} SET payload = %s WHERE id = %s").format(self._col()),
+                        sql.SQL(
+                            "UPDATE {} SET payload = COALESCE(payload, jsonb_build_object()) || %s::jsonb WHERE id = %s"
+                        ).format(self._col())
+                        if vector is None
+                        else sql.SQL("UPDATE {} SET payload = %s WHERE id = %s").format(self._col()),
                         (Json(payload), vector_id),
                     )
                 else:
                     # psycopg2 uses psycopg2.extras.Json
                     cur.execute(
-                        sql.SQL("UPDATE {} SET payload = %s WHERE id = %s").format(self._col()),
+                        sql.SQL(
+                            "UPDATE {} SET payload = COALESCE(payload, jsonb_build_object()) || %s::jsonb WHERE id = %s"
+                        ).format(self._col())
+                        if vector is None
+                        else sql.SQL("UPDATE {} SET payload = %s WHERE id = %s").format(self._col()),
                         (Json(payload), vector_id),
                     )
-
 
     def get(self, vector_id: str) -> OutputData:
         """

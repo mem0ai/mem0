@@ -25,6 +25,8 @@ class OutputData(BaseModel):
 
 
 class MongoDB(VectorStoreBase):
+    supports_payload_patch = True
+
     VECTOR_TYPE = "vector"
     SIMILARITY_METRIC = "cosine"
 
@@ -305,13 +307,21 @@ class MongoDB(VectorStoreBase):
         update_fields = {}
         if vector is not None:
             update_fields["embedding"] = vector
-        if payload is not None:
+        if payload and vector is None:
+            update_fields["payload"] = {
+                "$mergeObjects": [
+                    {"$ifNull": ["$payload", {}]},
+                    {"$literal": payload},
+                ]
+            }
+        elif payload is not None:
             for key, value in payload.items():
                 update_fields[f"payload.{key}"] = value
 
         if update_fields:
             try:
-                result = self.collection.update_one({"_id": vector_id}, {"$set": update_fields})
+                update = [{"$set": update_fields}] if payload and vector is None else {"$set": update_fields}
+                result = self.collection.update_one({"_id": vector_id}, update)
                 if result.matched_count > 0:
                     logger.info(f"Updated document with ID '{vector_id}'.")
                 else:

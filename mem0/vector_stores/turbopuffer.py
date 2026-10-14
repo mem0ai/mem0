@@ -23,6 +23,8 @@ class OutputData(BaseModel):
 
 
 class TurbopufferDB(VectorStoreBase):
+    supports_payload_patch = True
+
     def __init__(
         self,
         collection_name: str,

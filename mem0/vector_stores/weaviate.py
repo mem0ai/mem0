@@ -29,6 +29,8 @@ class OutputData(BaseModel):
 
 
 class Weaviate(VectorStoreBase):
+    supports_payload_patch = True
+
     def __init__(
         self,
         collection_name: str,

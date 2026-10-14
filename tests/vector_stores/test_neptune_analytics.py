@@ -313,6 +313,10 @@ class _FakeNeptuneGraph:
                 return [{"success": False}]
             return [{"success": True}]
 
+        if "SET n += $properties" in query_string:
+            self.nodes[params["vector_id"]].update(params["properties"])
+            return []
+
         if "SET n = $properties" in query_string:
             self.nodes[params["vector_id"]] = dict(params["properties"])
             return []
@@ -374,6 +378,17 @@ class TestNeptuneAnalyticsUpdateRollback:
 
         updated = vec.get("A")
         assert updated.payload["data"] == "beta"
+
+    def test_payload_only_update_patches_properties(self, monkeypatch):
+        vec = self._make_vec(monkeypatch)
+        vec.insert(vectors=[[0.1, 0.2]], ids=["A"], payloads=[{"data": "alpha", "user_id": "u1"}])
+
+        vec.update("A", vector=None, payload={"category": "new"})
+
+        updated = vec.get("A")
+        assert updated.payload["data"] == "alpha"
+        assert updated.payload["user_id"] == "u1"
+        assert updated.payload["category"] == "new"
 
     def test_rolls_back_on_soft_upsert_failure(self, monkeypatch):
         """A soft {"success": False} row desyncs the payload from the embedding just as much as a

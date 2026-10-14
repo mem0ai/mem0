@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 class Qdrant(VectorStoreBase):
+    supports_payload_patch = True
+
     def __init__(
         self,
         collection_name: str,

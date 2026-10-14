@@ -36,6 +36,8 @@ def _validate_filter(key: str, value: Any) -> None:
 
 
 class ElasticsearchDB(VectorStoreBase):
+    supports_payload_patch = True
+
     def __init__(self, **kwargs):
         config = ElasticsearchConfig(**kwargs)
 
@@ -235,13 +237,26 @@ class ElasticsearchDB(VectorStoreBase):
 
     def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> None:
         """Update a vector and its payload."""
-        doc = {}
-        if vector is not None:
-            doc["vector"] = vector
+        script_lines = []
+        params = {}
         if payload is not None:
-            doc["metadata"] = payload
+            script_lines.extend(
+                [
+                    "if (ctx._source.metadata == null) { ctx._source.metadata = [:]; }",
+                    "ctx._source.metadata.putAll(params.metadata);",
+                ]
+            )
+            params["metadata"] = payload
+        if vector is not None:
+            script_lines.append("ctx._source.vector = params.vector;")
+            params["vector"] = vector
 
-        self.client.update(index=self.collection_name, id=vector_id, body={"doc": doc})
+        if script_lines:
+            self.client.update(
+                index=self.collection_name,
+                id=vector_id,
+                body={"script": {"lang": "painless", "source": " ".join(script_lines), "params": params}},
+            )
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """Retrieve a vector by ID."""

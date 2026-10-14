@@ -159,8 +159,9 @@ class TestAsyncUpdate:
         result = await mock_async_memory.update("test_id", "Updated memory")
 
         mock_async_memory._update_memory.assert_called_once_with(
-            "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, None
+            "test_id", "Updated memory", {}, None
         )
+        mock_async_memory.embedding_model.embed.assert_not_called()
         assert result["message"] == "Memory updated successfully!"
 
     @pytest.mark.asyncio
@@ -174,8 +175,9 @@ class TestAsyncUpdate:
         result = await mock_async_memory.update("test_id", "Updated memory", metadata=metadata)
 
         mock_async_memory._update_memory.assert_called_once_with(
-            "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, metadata
+            "test_id", "Updated memory", {}, metadata
         )
+        mock_async_memory.embedding_model.embed.assert_not_called()
         assert result["message"] == "Memory updated successfully!"
 
     @pytest.mark.asyncio
@@ -188,8 +190,9 @@ class TestAsyncUpdate:
         await mock_async_memory.update("test_id", "Updated memory", metadata={})
 
         mock_async_memory._update_memory.assert_called_once_with(
-            "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
+            "test_id", "Updated memory", {}, {}
         )
+        mock_async_memory.embedding_model.embed.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_async_update_data_is_deprecated_alias_for_text(self, mock_async_memory, mocker, caplog):
@@ -203,19 +206,22 @@ class TestAsyncUpdate:
 
         assert any("deprecated" in record.message for record in caplog.records)
         mock_async_memory._update_memory.assert_called_once_with(
-            "test_id", "via data", {"via data": [0.1, 0.2, 0.3]}, None
+            "test_id", "via data", {}, None
         )
+        mock_async_memory.embedding_model.embed.assert_not_called()
 
         # `text` takes precedence when both are passed
         mock_async_memory._update_memory.reset_mock()
         await mock_async_memory.update("test_id", text="preferred", data="ignored")
         mock_async_memory._update_memory.assert_called_once_with(
-            "test_id", "preferred", {"preferred": [0.1, 0.2, 0.3]}, None
+            "test_id", "preferred", {}, None
         )
+        mock_async_memory.embedding_model.embed.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_async_update_can_change_expiration_date_without_changing_text(self, mock_async_memory, mocker):
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory.vector_store.supports_payload_patch = True
         mock_async_memory.vector_store.get = Mock(
             return_value=Mock(
                 payload={
@@ -235,10 +241,164 @@ class TestAsyncUpdate:
 
         assert result["message"] == "Memory updated successfully!"
         payload = mock_async_memory.vector_store.update.call_args.kwargs["payload"]
-        assert payload["data"] == "Existing memory"
+        assert set(payload) == {"expiration_date", "updated_at"}
         assert payload["expiration_date"] == "2999-01-01"
+        assert mock_async_memory.vector_store.update.call_args.kwargs["vector"] is None
+        mock_async_memory.embedding_model.embed.assert_not_called()
         mock_async_memory._remove_memory_from_entity_store.assert_not_called()
         mock_async_memory._link_entities_for_memory.assert_not_called()
+
+
+def _existing_payload_for_update(text="Existing memory"):
+    return {
+        "data": text,
+        "hash": "old-hash",
+        "text_lemmatized": "existing memory",
+        "user_id": "test_user",
+        "category": "old",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "updated_at": "2026-01-02T00:00:00+00:00",
+    }
+
+
+def test_sync_update_metadata_only_patches_changed_payload_without_embedding(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.supports_payload_patch = True
+    memory.vector_store.get.return_value = SimpleNamespace(payload=_existing_payload_for_update())
+    memory.embedding_model.embed = Mock(return_value=[0.4, 0.5, 0.6])
+
+    result = memory.update("memory-id", metadata={"category": "new"})
+
+    assert result["message"] == "Memory updated successfully!"
+    memory.embedding_model.embed.assert_not_called()
+    update = memory.vector_store.update.call_args.kwargs
+    assert update["vector"] is None
+    assert set(update["payload"]) == {"category", "updated_at"}
+    assert update["payload"]["category"] == "new"
+    assert update["payload"]["updated_at"] != "2026-01-02T00:00:00+00:00"
+    assert memory.db.add_history.call_args.args[1:4] == ("Existing memory", "Existing memory", "UPDATE")
+
+
+def test_sync_update_same_text_does_not_embed_or_send_unchanged_fields(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.supports_payload_patch = True
+    memory.vector_store.get.return_value = SimpleNamespace(payload=_existing_payload_for_update())
+    memory.embedding_model.embed = Mock(return_value=[0.4, 0.5, 0.6])
+
+    memory.update("memory-id", text="Existing memory")
+
+    memory.embedding_model.embed.assert_not_called()
+    update = memory.vector_store.update.call_args.kwargs
+    assert update["vector"] is None
+    assert set(update["payload"]) == {"updated_at"}
+
+
+def test_sync_update_changed_text_embeds_once_and_sends_full_payload(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.supports_payload_patch = True
+    memory.vector_store.get.return_value = SimpleNamespace(payload=_existing_payload_for_update())
+    memory.embedding_model.embed = Mock(return_value=[0.4, 0.5, 0.6])
+
+    memory.update("memory-id", text="Changed memory")
+
+    memory.embedding_model.embed.assert_called_once_with("Changed memory", "update")
+    update = memory.vector_store.update.call_args.kwargs
+    assert update["vector"] == [0.4, 0.5, 0.6]
+    assert update["payload"]["data"] == "Changed memory"
+    assert update["payload"]["hash"] != "old-hash"
+    assert "text_lemmatized" in update["payload"]
+
+
+@pytest.mark.asyncio
+async def test_async_update_same_text_does_not_embed_or_send_unchanged_fields(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.supports_payload_patch = True
+    memory.vector_store.get.return_value = SimpleNamespace(payload=_existing_payload_for_update())
+    memory.embedding_model.embed = Mock(return_value=[0.4, 0.5, 0.6])
+
+    await memory.update("memory-id", data="Existing memory")
+
+    memory.embedding_model.embed.assert_not_called()
+    update = memory.vector_store.update.call_args.kwargs
+    assert update["vector"] is None
+    assert set(update["payload"]) == {"updated_at"}
+
+
+@pytest.mark.asyncio
+async def test_async_update_changed_text_embeds_once_and_sends_full_payload(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.supports_payload_patch = True
+    memory.vector_store.get.return_value = SimpleNamespace(payload=_existing_payload_for_update())
+    memory.embedding_model.embed = Mock(return_value=[0.4, 0.5, 0.6])
+
+    await memory.update("memory-id", text="Changed memory")
+
+    memory.embedding_model.embed.assert_called_once_with("Changed memory", "update")
+    update = memory.vector_store.update.call_args.kwargs
+    assert update["vector"] == [0.4, 0.5, 0.6]
+    assert update["payload"]["data"] == "Changed memory"
+    assert update["payload"]["hash"] != "old-hash"
+    assert "text_lemmatized" in update["payload"]
+
+
+def test_non_opted_in_store_keeps_full_update_behavior(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = SimpleNamespace(payload=_existing_payload_for_update())
+    memory.embedding_model.embed = Mock(return_value=[0.4, 0.5, 0.6])
+
+    memory.update("memory-id", metadata={"category": "new"})
+
+    memory.embedding_model.embed.assert_called_once_with("Existing memory", "update")
+    update = memory.vector_store.update.call_args.kwargs
+    assert update["vector"] == [0.4, 0.5, 0.6]
+    assert update["payload"]["data"] == "Existing memory"
+    assert update["payload"]["category"] == "new"
+
+
+def test_sync_update_missing_id_does_not_embed(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = None
+    memory.embedding_model.embed = Mock(return_value=[0.4, 0.5, 0.6])
+
+    with pytest.raises(ValueError, match="not found"):
+        memory.update("missing-id", text="Changed memory")
+
+    memory.embedding_model.embed.assert_not_called()
+
+
+def test_sync_update_invalid_stored_text_does_not_embed(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = SimpleNamespace(payload={"data": None})
+    memory.embedding_model.embed = Mock(return_value=[0.4, 0.5, 0.6])
+
+    with pytest.raises(ValueError, match="does not have text content"):
+        memory.update("memory-id", metadata={"category": "new"})
+
+    memory.embedding_model.embed.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_update_missing_id_does_not_embed(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = None
+    memory.embedding_model.embed = Mock(return_value=[0.4, 0.5, 0.6])
+
+    with pytest.raises(ValueError, match="not found"):
+        await memory.update("missing-id", text="Changed memory")
+
+    memory.embedding_model.embed.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_update_invalid_stored_text_does_not_embed(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = SimpleNamespace(payload={"data": None})
+    memory.embedding_model.embed = Mock(return_value=[0.4, 0.5, 0.6])
+
+    with pytest.raises(ValueError, match="does not have text content"):
+        await memory.update("memory-id", metadata={"category": "new"})
+
+    memory.embedding_model.embed.assert_not_called()
 
 
 @pytest.mark.asyncio

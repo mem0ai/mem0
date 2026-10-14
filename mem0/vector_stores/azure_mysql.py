@@ -37,6 +37,12 @@ def _validate_identifier(name: str, label: str = "identifier") -> str:
         )
     return name
 
+
+def _json_path_for_key(key: str) -> str:
+    """Build a JSON path for one literal top-level object key."""
+    return "$." + json.dumps(str(key), ensure_ascii=False)
+
+
 # Filter keys are interpolated into `JSON_EXTRACT(payload, '$.<key>')` strings,
 # so we whitelist identifier-safe keys and skip anything else (logged as a warning).
 _VALID_FILTER_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -49,6 +55,8 @@ class OutputData(BaseModel):
 
 
 class AzureMySQL(VectorStoreBase):
+    supports_payload_patch = True
+
     def __init__(
         self,
         host: str,
@@ -413,16 +421,31 @@ class AzureMySQL(VectorStoreBase):
             vector (List[float], optional): Updated vector
             payload (Dict, optional): Updated payload
         """
-        with self._get_cursor(commit=True) as cur:
-            if vector is not None:
+        set_clauses = []
+        params = []
+        if vector is not None:
+            set_clauses.append("vector = %s")
+            params.append(json.dumps(vector))
+        if payload is not None:
+            if vector is None:
+                if payload:
+                    json_set_args = []
+                    for key, value in payload.items():
+                        json_set_args.extend(["%s", "CAST(%s AS JSON)"])
+                        params.extend([_json_path_for_key(key), json.dumps(value, ensure_ascii=False)])
+                    set_clauses.append(
+                        f"payload = JSON_SET(COALESCE(payload, JSON_OBJECT()), {', '.join(json_set_args)})"
+                    )
+            else:
+                set_clauses.append("payload = %s")
+                params.append(json.dumps(payload))
+
+        if set_clauses:
+            params.append(vector_id)
+            with self._get_cursor(commit=True) as cur:
                 cur.execute(
-                    f"UPDATE `{self.collection_name}` SET vector = %s WHERE id = %s",
-                    (json.dumps(vector), vector_id),
-                )
-            if payload is not None:
-                cur.execute(
-                    f"UPDATE `{self.collection_name}` SET payload = %s WHERE id = %s",
-                    (json.dumps(payload), vector_id),
+                    f"UPDATE `{self.collection_name}` SET {', '.join(set_clauses)} WHERE id = %s",
+                    tuple(params),
                 )
 
     def get(self, vector_id: str) -> Optional[OutputData]:

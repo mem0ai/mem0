@@ -39,6 +39,8 @@ class OutputData(BaseModel):
 
 
 class UpstashVector(VectorStoreBase):
+    supports_payload_patch = True
+
     def __init__(
         self,
         collection_name: str,
@@ -239,13 +241,18 @@ class UpstashVector(VectorStoreBase):
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
         """
-        self.client.update(
-            id=str(vector_id),
-            vector=vector,
-            data=payload.get("data") if payload else None,
-            metadata=payload,
-            namespace=self.collection_name,
-        )
+        update_kwargs = {
+            "id": str(vector_id),
+            "vector": vector,
+            "data": payload.get("data") if payload else None,
+            "metadata": payload,
+            "namespace": self.collection_name,
+        }
+        if vector is None and payload is not None and "data" not in payload:
+            # Upstash otherwise overwrites metadata by default. PATCH avoids
+            # sending stale text fields and leaves the existing vector intact.
+            update_kwargs["metadata_update_mode"] = "PATCH"
+        self.client.update(**update_kwargs)
 
     def get(self, vector_id: int) -> Optional[OutputData]:
         """

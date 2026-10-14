@@ -59,6 +59,8 @@ class OutputData(BaseModel):
 
 
 class OpenSearchDB(VectorStoreBase):
+    supports_payload_patch = True
+
     def __init__(self, **kwargs):
         config = OpenSearchConfig(**kwargs)
 
@@ -339,16 +341,27 @@ class OpenSearchDB(VectorStoreBase):
 
         opensearch_id = hits[0]["_id"]  # The actual document ID in OpenSearch
 
-        # Prepare updated fields
-        doc = {}
+        script_lines = []
+        params = {}
         if vector is not None:
-            doc["vector_field"] = vector
+            script_lines.append("ctx._source.vector_field = params.vector;")
+            params["vector"] = vector
         if payload is not None:
-            doc["payload"] = payload
+            script_lines.extend(
+                [
+                    "if (ctx._source.payload == null) { ctx._source.payload = [:]; }",
+                    "ctx._source.payload.putAll(params.payload);",
+                ]
+            )
+            params["payload"] = payload
 
-        if doc:
+        if script_lines:
             try:
-                response = self.client.update(index=self.collection_name, id=opensearch_id, body={"doc": doc})
+                response = self.client.update(
+                    index=self.collection_name,
+                    id=opensearch_id,
+                    body={"script": {"lang": "painless", "source": " ".join(script_lines), "params": params}},
+                )
             except Exception as e:
                 logger.error(f"Error updating vector {vector_id}: {e}", exc_info=True)
                 raise

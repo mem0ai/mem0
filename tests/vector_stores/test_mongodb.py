@@ -219,16 +219,15 @@ def test_update(mongo_vector_fixture):
 
     mongo_vector.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload)
 
-    # Should use dot notation (payload.name) instead of full replacement (payload)
+    # A full text/vector update keeps the adapter's existing modifier path.
     mock_collection.update_one.assert_called_once_with(
         {"_id": vector_id}, {"$set": {"embedding": updated_vector, "payload.name": "updated_vector"}}
     )
 
 
-def test_update_payload_only_uses_dot_notation(mongo_vector_fixture):
+def test_update_payload_only_uses_atomic_top_level_merge(mongo_vector_fixture):
     """
-    Test that updating only the payload uses dot notation for each field,
-    preserving existing metadata fields not included in the update.
+    Test that a payload-only update merges supplied fields into existing metadata.
     """
     mongo_vector, mock_collection, _ = mongo_vector_fixture
 
@@ -239,16 +238,25 @@ def test_update_payload_only_uses_dot_notation(mongo_vector_fixture):
         payload={"data": "updated text", "hash": "def456", "updated_at": "2025-06-01"},
     )
 
-    set_arg = mock_collection.update_one.call_args[0][1]["$set"]
-
-    # Only the specified fields should be in $set, using dot notation
-    assert set_arg == {
-        "payload.data": "updated text",
-        "payload.hash": "def456",
-        "payload.updated_at": "2025-06-01",
-    }
-    # "payload" key itself should NOT appear (that would replace the whole document)
-    assert "payload" not in set_arg
+    update_pipeline = mock_collection.update_one.call_args.args[1]
+    assert update_pipeline == [
+        {
+            "$set": {
+                "payload": {
+                    "$mergeObjects": [
+                        {"$ifNull": ["$payload", {}]},
+                        {
+                            "$literal": {
+                                "data": "updated text",
+                                "hash": "def456",
+                                "updated_at": "2025-06-01",
+                            }
+                        },
+                    ]
+                }
+            }
+        }
+    ]
 
 
 def test_update_vector_only_does_not_touch_payload(mongo_vector_fixture):
