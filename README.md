@@ -3,6 +3,17 @@
     <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
   </a>
 </p>
+
+<p align="center">
+  <a href="https://luma.com/mem0-oxfm">
+    <img src="docs/images/halloween-happy-hour.png" width="450px" alt="Mem0 OSS Halloween Happy Hour: The People Who Read the Source. Tuesday, Oct 27, 5:00 PM, San Francisco. Costumes encouraged.">
+  </a>
+  <br>
+  <a href="https://luma.com/mem0-oxfm"><strong>🎃 Register here →</strong></a> · Contributors get priority
+</p>
+
+
+
 <p align="center" style="display: flex; justify-content: center; gap: 20px; align-items: center;">
   <a href="https://trendshift.io/repositories/11194" target="blank">
     <img src="https://trendshift.io/api/badge/repositories/11194" alt="mem0ai%2Fmem0 | Trendshift" width="250" height="55"/>
