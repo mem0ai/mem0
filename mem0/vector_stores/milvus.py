@@ -160,7 +160,10 @@ class MilvusDB(VectorStoreBase):
             if not self._SAFE_FILTER_KEY.match(key):
                 raise ValueError(f"Invalid filter key: {key!r}")
             if value == "*":
-                # Wildcard - match any value (MilvusDB doesn't have direct wildcard, so we skip this filter)
+                # "Any value" wildcard: the field must exist. Milvus treats a
+                # missing JSON key and an explicit null the same way, so exists
+                # matches the field-must-exist semantics of the other stores.
+                operands.append(f'(exists metadata["{key}"])')
                 continue
             elif isinstance(value, str):
                 escaped = value.replace("\\", "\\\\").replace('"', '\\"')
