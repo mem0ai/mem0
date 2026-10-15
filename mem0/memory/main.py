@@ -90,6 +90,28 @@ def _vector_store_list_rows(listed):
     return []
 
 
+def _close_owned_vector_store(vector_store) -> None:
+    """Close an embedded vector-store client owned by Mem0 (e.g. Qdrant path=...).
+
+    Only closes when the store marks itself owner (``is_local``); caller-supplied
+    clients are left alone. Never instantiates lazy stores to close them, and the
+    shared entity-store client needs no separate close (it is the same object).
+    The telemetry store is intentionally left open (process-wide lifetime).
+    """
+    if vector_store is None:
+        return
+    if not getattr(vector_store, "is_local", False):
+        return
+    client = getattr(vector_store, "client", None)
+    close = getattr(client, "close", None)
+    if not callable(close):
+        return
+    try:
+        close()
+    except Exception as e:
+        logger.warning(f"Failed to close vector store client: {e}")
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -2178,6 +2200,7 @@ class Memory(MemoryBase):
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
+        _close_owned_vector_store(getattr(self, "vector_store", None))
 
     def __enter__(self):
         return self
@@ -3900,6 +3923,7 @@ class AsyncMemory(MemoryBase):
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
+        _close_owned_vector_store(getattr(self, "vector_store", None))
 
     async def __aenter__(self):
         return self
