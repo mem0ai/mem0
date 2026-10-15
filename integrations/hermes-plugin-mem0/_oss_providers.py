@@ -23,7 +23,7 @@ VECTOR_PROVIDERS: dict[str, dict[str, Any]] = {
     "qdrant": {"label": "Qdrant", "default_config": {"path": lambda: str(get_hermes_home() / "mem0_qdrant")}, "pip_dep": "qdrant-client"},
     "pgvector": {
         "label": "PGVector",
-        "default_config": {"host": "localhost", "port": 5432, "user": os.getenv("USER", "postgres"), "dbname": "postgres"},
+        "default_config": {"host": "localhost", "port": 5432, "user": lambda: os.getenv("USER", "postgres"), "dbname": "postgres"},
         "pip_dep": "psycopg2-binary",
     },
 }

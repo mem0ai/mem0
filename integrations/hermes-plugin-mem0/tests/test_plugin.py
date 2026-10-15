@@ -284,3 +284,21 @@ def test_initialize_tolerates_non_numeric_sync_max_chars(plugin, monkeypatch):
     provider = plugin.Mem0MemoryProvider()
     provider.initialize("test-session")
     assert provider._sync_max_chars == plugin._SYNC_MSG_MAX_CHARS
+
+
+def test_pgvector_user_default_resolves_lazily(monkeypatch):
+    """#7640: pgvector ``user`` default must be resolved lazily (a callable, like qdrant's
+    ``path``), not evaluated at import time, so restricted import contexts don't crash."""
+    hc = types.ModuleType("hermes_constants")
+    hc.get_hermes_home = lambda: Path("/tmp")
+    monkeypatch.setitem(sys.modules, "hermes_constants", hc)
+    spec = importlib.util.spec_from_file_location("_oss_providers_under_test", ROOT / "_oss_providers.py")
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, module)
+    spec.loader.exec_module(module)
+    default_user = module.VECTOR_PROVIDERS["pgvector"]["default_config"]["user"]
+    assert callable(default_user), "pgvector user default must be lazy (callable), not evaluated at import"
+    monkeypatch.setenv("USER", "lazy_tester")
+    assert module.vector_default_config("pgvector")["user"] == "lazy_tester"
+    monkeypatch.delenv("USER", raising=False)
+    assert module.vector_default_config("pgvector")["user"] == "postgres"
