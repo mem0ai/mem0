@@ -221,7 +221,7 @@ def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[i
         ValueError: If threshold or top_k are invalid
     """
     if threshold is not None:
-        if not isinstance(threshold, (int, float)):
+        if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
             raise ValueError("threshold must be a valid number")
         if threshold < 0 or threshold > 1:
             raise ValueError(
