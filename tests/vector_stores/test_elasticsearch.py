@@ -295,12 +295,23 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(result.payload, {"key": "value"})
 
     def test_get_not_found(self):
-        # Mock get raising exception
-        self.client_mock.get.side_effect = Exception("Not found")
+        try:
+            from elasticsearch.exceptions import NotFoundError
+        except ImportError:
+            self.skipTest("elasticsearch NotFoundError not importable")
+            return
+        self.client_mock.get.side_effect = NotFoundError("Not found", {}, {})
 
         # Verify get returns None when document not found
         result = self.es_db.get(vector_id="nonexistent")
         self.assertIsNone(result)
+
+    def test_get_transport_error_raises(self):
+        # Auth/network/timeout failures must propagate, not map to None
+        self.client_mock.get.side_effect = Exception("connection refused")
+
+        with self.assertRaises(Exception):
+            self.es_db.get(vector_id="id1")
 
     def test_list(self):
         # Mock search response with scores

@@ -4,9 +4,16 @@ from typing import Any, Dict, List, Optional
 
 try:
     from elasticsearch import Elasticsearch
+    from elasticsearch.exceptions import NotFoundError
     from elasticsearch.helpers import bulk
 except ImportError:
-    raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
+    try:
+        from elasticsearch import Elasticsearch
+        from elasticsearch.helpers import bulk
+
+        NotFoundError = None
+    except ImportError:
+        raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
 from pydantic import BaseModel
 
@@ -247,6 +254,12 @@ class ElasticsearchDB(VectorStoreBase):
         """Retrieve a vector by ID."""
         try:
             response = self.client.get(index=self.collection_name, id=vector_id)
+        except Exception as e:
+            if NotFoundError is not None and isinstance(e, NotFoundError):
+                return None
+            logger.error(f"Elasticsearch get failed for id {vector_id}: {e}")
+            raise
+        try:
             return OutputData(
                 id=response["_id"],
                 score=1.0,  # Default score for direct get
@@ -257,9 +270,6 @@ class ElasticsearchDB(VectorStoreBase):
             return None
         except TypeError as e:
             logger.warning(f"Invalid response type from Elasticsearch: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error while parsing Elasticsearch response: {e}")
             return None
 
     def list_cols(self) -> List[str]:
