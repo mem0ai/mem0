@@ -10,6 +10,12 @@ license = { text = "Apache-2.0 AND MIT" }
 dependencies = [
     "mem0ai>=2.0.10,<3",
     "httpx>=0.27,<1",
+    # The OSS wizard offers Ollama for the LLM and the embedder. mem0ai only ships the `ollama`
+    # client under its own `llms` extra, while `mem0/embeddings/ollama.py` imports it as soon as
+    # the embedder is `ollama`, and Hermes installs a plugin from this file's `dependencies`
+    # (pm/plugin_declarations.py prefers a plugin's pyproject.toml over plugin.yaml). An opt-in
+    # extra cannot cover that: pm prunes a recorded extra unless the agent tree declares it.
+    "ollama>=0.3.0,<1",
 ]
 
 [project.optional-dependencies]

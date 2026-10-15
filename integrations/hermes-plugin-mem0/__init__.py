@@ -124,6 +124,15 @@ _PROMPT_BODY = (
 )
 
 
+_CONNECTIVITY_MARKERS = ("connection", "refused", "timeout", "timed out")
+
+
+def _looks_like_connectivity(error: object) -> bool:
+    """True when an error reads as a transport failure rather than a missing package or config bug."""
+    text = str(error).lower()
+    return any(marker in text for marker in _CONNECTIVITY_MARKERS)
+
+
 class Mem0MemoryProvider(MemoryProvider):
     """Mem0 memory with server-side extraction and semantic search (platform, self-hosted or OSS)."""
 
@@ -179,7 +188,11 @@ class Mem0MemoryProvider(MemoryProvider):
         try:
             from . import _backend
             if self._mode == "oss":
-                return _backend.OSSBackend(self._config.get("oss", {}))
+                oss_config = self._config.get("oss", {})
+                # Name a missing provider package before mem0 builds ``Memory``: mem0ai imports some
+                # SDKs lazily and, with no TTY, its install prompt raises ``EOFError`` instead.
+                _backend.require_provider_sdks(oss_config)
+                return _backend.OSSBackend(oss_config)
             return _backend.SelfHostedBackend(self._api_key, self._host) if self._host else _backend.PlatformBackend(self._api_key)
         except Exception as e:
             logger.error("Mem0 backend failed to initialize (%s mode): %s", self._mode, e)
@@ -195,9 +208,19 @@ class Mem0MemoryProvider(MemoryProvider):
                 self._consecutive_failures = 0
             return False
 
+    def _connectivity_hint(self, error: object, template: str = " Check that {vs} is running and reachable.") -> str:
+        """The vector-store hint only when the failure is connectivity-shaped.
+
+        A missing provider SDK or any other initialization error is not the store's fault, so
+        blaming it sends the reader after a healthy Qdrant/PGVector instance.
+        """
+        if _looks_like_connectivity(error):
+            return self._oss_hint(template, "unknown")
+        return ""
+
     def _format_error(self, prefix: str, exc: Exception) -> str:
         msg = f"{prefix}: {exc}"
-        if any(s in str(exc).lower() for s in ("connection", "refused", "timeout")):
+        if _looks_like_connectivity(exc):
             msg += self._oss_hint(" (check that {vs} is running)")
         return msg
 
@@ -375,8 +398,8 @@ class Mem0MemoryProvider(MemoryProvider):
 
     def handle_tool_call(self, tool_name: str, args: dict, **kwargs) -> str:
         if self._backend is None:
-            err = getattr(self, "_init_error", "unknown error")
-            return json.dumps({"error": f"Mem0 backend not initialized: {err}.{self._oss_hint(' Check that {vs} is running and reachable.')}"})
+            err = str(getattr(self, "_init_error", "unknown error")).rstrip(".")
+            return json.dumps({"error": f"Mem0 backend not initialized: {err}.{self._connectivity_hint(err)}"})
         if self._is_breaker_open():
             return json.dumps({"error": f"Mem0 temporarily unavailable (multiple consecutive failures). Will retry automatically.{self._oss_hint(' Check that your {vs} is running.')}"})
         if tool_name not in self._TOOL_HANDLERS:

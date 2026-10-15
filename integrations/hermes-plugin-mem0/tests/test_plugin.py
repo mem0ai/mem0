@@ -284,3 +284,65 @@ def test_initialize_tolerates_non_numeric_sync_max_chars(plugin, monkeypatch):
     provider = plugin.Mem0MemoryProvider()
     provider.initialize("test-session")
     assert provider._sync_max_chars == plugin._SYNC_MSG_MAX_CHARS
+def test_oss_missing_provider_sdks_are_named(plugin, monkeypatch):
+    backend = importlib.import_module(f"{plugin.__name__}._backend")
+    monkeypatch.setattr(backend, "find_spec", lambda name: None)
+    config = {
+        "llm": {"provider": "ollama", "config": {}},
+        "embedder": {"provider": "ollama", "config": {}},
+        "vector_store": {"provider": "qdrant", "config": {}},
+    }
+    assert ("embedder", "ollama") in backend.missing_provider_sdks(config)
+    assert ("vector store", "qdrant-client") in backend.missing_provider_sdks(config)
+    with pytest.raises(RuntimeError, match="ollama"):
+        backend.require_provider_sdks(config)
+
+
+def test_oss_present_provider_sdks_are_not_reported(plugin, monkeypatch):
+    backend = importlib.import_module(f"{plugin.__name__}._backend")
+    monkeypatch.setattr(backend, "find_spec", lambda name: types.SimpleNamespace())
+    config = {
+        "llm": {"provider": "ollama", "config": {}},
+        "embedder": {"provider": "ollama", "config": {}},
+        "vector_store": {"provider": "qdrant", "config": {}},
+    }
+    assert backend.missing_provider_sdks(config) == []
+    backend.require_provider_sdks(config)  # must not raise
+
+
+def test_oss_init_names_the_missing_package_instead_of_the_eof(plugin, monkeypatch):
+    """A provider SDK mem0ai imports lazily must surface as its own name, not "EOF when reading a line"."""
+    backend = importlib.import_module(f"{plugin.__name__}._backend")
+    monkeypatch.setattr(backend, "find_spec", lambda name: None)
+    monkeypatch.setattr(plugin, "_load_config", lambda: {
+        "mode": "oss",
+        "oss": {
+            "llm": {"provider": "ollama", "config": {}},
+            "embedder": {"provider": "ollama", "config": {}},
+            "vector_store": {"provider": "qdrant", "config": {}},
+        },
+    })
+    provider = plugin.Mem0MemoryProvider()
+    provider.initialize("test-session")
+    try:
+        payload = json.loads(provider.handle_tool_call("mem0_search", {"query": "fact"}))
+        assert "ollama" in payload["error"]
+        assert "EOF" not in payload["error"]
+        assert not payload["error"].endswith("..")
+    finally:
+        provider.shutdown()
+
+
+@pytest.mark.parametrize(
+    "error, expect_store_hint",
+    [("EOF when reading a line", False), ("Neither 'psycopg' nor 'psycopg2' library is available", False),
+     ("Connection refused", True)],
+)
+def test_init_error_blames_the_vector_store_only_on_connectivity(plugin, error, expect_store_hint):
+    provider = plugin.Mem0MemoryProvider()
+    provider._mode = "oss"
+    provider._config = {"oss": {"vector_store": {"provider": "qdrant"}}}
+    provider._init_error = error
+    payload = json.loads(provider.handle_tool_call("mem0_search", {"query": "fact"}))
+    assert error in payload["error"]
+    assert ("qdrant" in payload["error"]) is expect_store_hint

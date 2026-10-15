@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from contextlib import closing, nullcontext, suppress
 from copy import deepcopy
 from dataclasses import dataclass, field
+from importlib.util import find_spec
 from threading import RLock
 from typing import Any
 
@@ -21,6 +22,50 @@ def _add_kwargs(user_id: str, agent_id: str, infer: bool, metadata: dict | None)
 def _unwrap_results(response: Any) -> list:
     """Normalize API response — extract results list from dict or pass through."""
     return response.get("results", []) if isinstance(response, dict) else response if isinstance(response, list) else []
+
+
+def _missing_sdk(block: dict, registry: dict) -> str | None:
+    """The ``pip_dep`` the configured provider in *block* needs but this environment lacks."""
+    spec = registry.get(str(block.get("provider") or "").strip().lower(), {}).get("pip_dep")
+    if not spec:
+        return None
+    return None if find_spec(spec.replace("-", "_").split("[")[0]) else spec
+
+
+def missing_provider_sdks(oss_config: dict) -> list[tuple[str, str]]:
+    """``(kind, package)`` for every configured OSS provider whose package is not importable."""
+    from ._oss_providers import EMBEDDER_PROVIDERS, LLM_PROVIDERS, VECTOR_PROVIDERS
+
+    return [
+        (kind, spec)
+        for kind, block, registry in (
+            ("LLM", oss_config.get("llm", {}), LLM_PROVIDERS),
+            ("embedder", oss_config.get("embedder", {}), EMBEDDER_PROVIDERS),
+            ("vector store", oss_config.get("vector_store", {}), VECTOR_PROVIDERS),
+        )
+        if (spec := _missing_sdk(block, registry))
+    ]
+
+
+def require_provider_sdks(oss_config: dict) -> None:
+    """Raise when a configured OSS provider's package is missing, naming that package.
+
+    mem0ai imports some provider SDKs itself, lazily: ``mem0/embeddings/ollama.py`` does
+    ``from ollama import Client`` and, when that fails, calls a bare ``input()`` install prompt.
+    In a process without a TTY (the Hermes desktop app, the gateway) that raises ``EOFError``,
+    so the user sees "EOF when reading a line" instead of the missing package. Check the
+    providers we are about to configure, before mem0 builds ``Memory``.
+    """
+    missing = missing_provider_sdks(oss_config)
+    if not missing:
+        return
+    raise RuntimeError(
+        "Missing required package(s): "
+        + ", ".join(f"{spec} (for the {kind} provider)" for kind, spec in missing)
+        + ". These are declared in this plugin's pyproject.toml and installed by Hermes on "
+        "install/enable/update, so reinstall the plugin or add the package to the Hermes "
+        "environment instead of answering mem0's interactive install prompt."
+    )
 
 
 class Mem0Backend(ABC):
