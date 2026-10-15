@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Optional
+from typing import List, Optional, Union
 
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import (
@@ -95,6 +95,7 @@ class Qdrant(VectorStoreBase):
         if self._bm25_encoder is None:
             try:
                 from fastembed import SparseTextEmbedding
+
                 self._bm25_encoder = SparseTextEmbedding(model_name="Qdrant/bm25")
                 logger.info("BM25 encoder loaded (fastembed Qdrant/bm25)")
             except ImportError:
@@ -175,9 +176,7 @@ class Qdrant(VectorStoreBase):
         for field in common_fields:
             try:
                 self.client.create_payload_index(
-                    collection_name=self.collection_name,
-                    field_name=field,
-                    field_schema="keyword"
+                    collection_name=self.collection_name, field_name=field, field_schema="keyword"
                 )
                 logger.info(f"Created index for {field} in collection {self.collection_name}")
             except Exception as e:
@@ -257,25 +256,22 @@ class Qdrant(VectorStoreBase):
     @staticmethod
     def _is_datetime_range(range_kwargs: dict) -> bool:
         """Check if all values in range kwargs are ISO datetime strings."""
-        return all(
-            isinstance(v, str) and Qdrant._ISO_DATETIME_RE.match(v)
-            for v in range_kwargs.values()
-        )
+        return all(isinstance(v, str) and Qdrant._ISO_DATETIME_RE.match(v) for v in range_kwargs.values())
 
-    def _build_field_condition(self, key: str, value) -> Optional[FieldCondition]:
+    def _build_field_condition(self, key: str, value) -> Optional[Union[FieldCondition, List[FieldCondition]]]:
         """
-        Build a single FieldCondition from a key-value filter pair.
+        Build Qdrant FieldCondition(s) from a key-value filter pair.
 
         Supports the enhanced filter syntax documented at
         https://docs.mem0.ai/open-source/features/metadata-filtering
 
         Args:
             key (str): The payload field name.
-            value: A scalar for simple equality, or a dict with one operator key.
+            value: A scalar for simple equality, or a dict with operator keys.
 
         Returns:
-            Optional[FieldCondition]: The Qdrant field condition, or None if the
-            value is the wildcard '*' (match any / field exists — skip filter).
+            Optional[Union[FieldCondition, List[FieldCondition]]]: The Qdrant field condition(s),
+            or None if the value is the wildcard '*' (match any / field exists — skip filter).
         """
         if not isinstance(value, dict):
             if value == "*":
@@ -289,6 +285,12 @@ class Qdrant(VectorStoreBase):
             return FieldCondition(key=key, match=MatchValue(value=value))
 
         ops = set(value.keys())
+        supported = {"eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"}
+        if (ops - supported) or not ops:
+            raise ValueError(
+                f"Unsupported filter operator(s) for field '{key}': {ops}. Supported operators: {supported}"
+            )
+
         range_ops = {"gt", "gte", "lt", "lte"}
         non_range_ops = ops - range_ops
 
@@ -304,37 +306,30 @@ class Qdrant(VectorStoreBase):
                 try:
                     return FieldCondition(key=key, range=DatetimeRange(**range_kwargs))
                 except (ValueError, TypeError) as e:
-                    raise ValueError(
-                        f"Invalid datetime value in range filter for field '{key}': {e}"
-                    ) from e
+                    raise ValueError(f"Invalid datetime value in range filter for field '{key}': {e}") from e
             return FieldCondition(key=key, range=Range(**range_kwargs))
-        elif "eq" in value:
-            return FieldCondition(key=key, match=MatchValue(value=value["eq"]))
-        elif "ne" in value:
-            return FieldCondition(key=key, match=MatchExcept(**{"except": [value["ne"]]}))
-        elif "in" in value:
-            return FieldCondition(key=key, match=MatchAny(any=value["in"]))
-        elif "nin" in value:
-            return FieldCondition(key=key, match=MatchExcept(**{"except": value["nin"]}))
-        elif "contains" in value or "icontains" in value:
-            # MatchText: with a full-text index, tokenized matching (all words must appear).
-            # Without a full-text index, exact substring match.
-            op = "icontains" if "icontains" in value else "contains"
-            text = value[op]
-            if op == "icontains":
-                logger.debug(
-                    "icontains on field '%s': Qdrant MatchText case sensitivity depends on "
-                    "full-text index configuration. Without a full-text index this behaves "
-                    "as a case-sensitive substring match (same as 'contains').",
-                    key,
-                )
-            return FieldCondition(key=key, match=MatchText(text=text))
-        else:
-            supported = {"eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"}
-            raise ValueError(
-                f"Unsupported filter operator(s) for field '{key}': {ops}. "
-                f"Supported operators: {supported}"
+
+        conditions = []
+        if "eq" in value:
+            conditions.append(FieldCondition(key=key, match=MatchValue(value=value["eq"])))
+        if "ne" in value:
+            conditions.append(FieldCondition(key=key, match=MatchExcept(**{"except": [value["ne"]]})))
+        if "in" in value:
+            conditions.append(FieldCondition(key=key, match=MatchAny(any=value["in"])))
+        if "nin" in value:
+            conditions.append(FieldCondition(key=key, match=MatchExcept(**{"except": value["nin"]})))
+        if "contains" in value:
+            conditions.append(FieldCondition(key=key, match=MatchText(text=value["contains"])))
+        if "icontains" in value:
+            logger.debug(
+                "icontains on field '%s': Qdrant MatchText case sensitivity depends on "
+                "full-text index configuration. Without a full-text index this behaves "
+                "as a case-sensitive substring match (same as 'contains').",
+                key,
             )
+            conditions.append(FieldCondition(key=key, match=MatchText(text=value["icontains"])))
+
+        return conditions[0] if len(conditions) == 1 else conditions
 
     def _create_filter(self, filters: dict) -> Optional[Filter]:
         """
@@ -372,15 +367,11 @@ class Qdrant(VectorStoreBase):
         for key, value in normalized.items():
             if key in ("AND", "OR", "NOT"):
                 if not isinstance(value, list):
-                    raise ValueError(
-                        f"{key} filter value must be a list of filter dicts, "
-                        f"got {type(value).__name__}"
-                    )
+                    raise ValueError(f"{key} filter value must be a list of filter dicts, got {type(value).__name__}")
                 for i, item in enumerate(value):
                     if not isinstance(item, dict):
                         raise ValueError(
-                            f"{key} filter list item at index {i} must be a dict, "
-                            f"got {type(item).__name__}: {item!r}"
+                            f"{key} filter list item at index {i} must be a dict, got {type(item).__name__}: {item!r}"
                         )
 
             if key == "AND":
@@ -399,9 +390,24 @@ class Qdrant(VectorStoreBase):
                     if built:
                         must_not.append(built)
             else:
-                condition = self._build_field_condition(key, value)
-                if condition is not None:
-                    must.append(condition)
+                range_ops = {"gt", "gte", "lt", "lte"}
+                if isinstance(value, dict) and (set(value.keys()) & range_ops) and (set(value.keys()) - range_ops):
+                    range_kwargs = {op: value[op] for op in range_ops if op in value}
+                    cond = self._build_field_condition(key, range_kwargs)
+                    if cond is not None:
+                        must.append(cond)
+                    non_range_dict = {op: value[op] for op in value if op not in range_ops}
+                    cond = self._build_field_condition(key, non_range_dict)
+                    if isinstance(cond, list):
+                        must.extend(cond)
+                    elif cond is not None:
+                        must.append(cond)
+                else:
+                    condition = self._build_field_condition(key, value)
+                    if isinstance(condition, list):
+                        must.extend(condition)
+                    elif condition is not None:
+                        must.append(condition)
 
         if not any([must, should, must_not]):
             return None
@@ -438,8 +444,7 @@ class Qdrant(VectorStoreBase):
         """Batch search using Qdrant's query_batch_points for efficiency."""
         query_filter = self._create_filter(filters) if filters else None
         requests = [
-            models.QueryRequest(query=vec, filter=query_filter, limit=top_k, with_payload=True)
-            for vec in vectors_list
+            models.QueryRequest(query=vec, filter=query_filter, limit=top_k, with_payload=True) for vec in vectors_list
         ]
         try:
             results = self.client.query_batch_points(
