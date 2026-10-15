@@ -1,6 +1,6 @@
 {
   "id": "mem0",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "homepage": "https://docs.mem0.ai/integrations/cursor",
   "native": {
     "pluginRoot": "${CURSOR_PLUGIN_ROOT}",
