@@ -65,3 +65,14 @@ class TestLemmatizeForBm25:
         tokens = result.split()
         for stop in ["this", "is", "a", "very", "of", "the"]:
             assert stop not in tokens
+
+    def test_hyphenated_and_underscored_tokens(self):
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        result = lemmatize_for_bm25("I use GPT-4 and COVID-19 data with gpt-4o and mixtral-8x7b")
+        tokens = result.split()
+        assert "gpt-4" in tokens
+        assert "covid-19" in tokens
+        assert "gpt-4o" in tokens
+        assert "mixtral-8x7b" in tokens
+

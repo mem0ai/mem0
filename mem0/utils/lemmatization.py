@@ -39,12 +39,12 @@ def lemmatize_for_bm25(text: str) -> str:
             continue
 
         lemma = token.lemma_
-        if lemma.isalnum():
-            tokens.append(lemma)
+        if lemma.isalnum() or lemma.replace("-", "").replace("_", "").isalnum():
+            tokens.append(lemma.lower())
 
         # Also add original if it ends in -ing and differs from lemma.
         # This handles noun/verb ambiguity (meeting/meet, attending/attend).
-        if token.text.endswith("ing") and token.text != lemma and token.text.isalnum():
-            tokens.append(token.text)
+        if token.text.endswith("ing") and token.text != lemma and (token.text.isalnum() or token.text.replace("-", "").replace("_", "").isalnum()):
+            tokens.append(token.text.lower())
 
     return " ".join(tokens)
