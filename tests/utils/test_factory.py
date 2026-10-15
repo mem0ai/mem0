@@ -60,3 +60,24 @@ def test_dict_config_not_mutated_by_kwargs():
         LlmFactory.create("openai", config, api_key="secret")
 
     assert config == {"model": "gpt-4o-mini"}
+
+
+def test_llm_config_accepts_registered_provider():
+    from mem0.llms.configs import LlmConfig
+
+    provider_name = "test_custom_provider"
+    try:
+        LlmFactory.register_provider(provider_name, "mypkg.CustomLLM")
+        llm_config = LlmConfig(provider=provider_name, config={})
+        assert llm_config.provider == provider_name
+    finally:
+        LlmFactory.provider_to_class.pop(provider_name, None)
+
+
+def test_llm_config_rejects_unsupported_provider():
+    import pytest
+    from mem0.llms.configs import LlmConfig
+
+    with pytest.raises(ValueError, match="Unsupported LLM provider: unknown_provider"):
+        LlmConfig(provider="unknown_provider", config={})
+
