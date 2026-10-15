@@ -13,6 +13,7 @@ export interface Mem0ConfigSettings {
   agent_id?: string;
   run_id?: string;
   metadata?: Record<string, any>;
+  expiration_date?: string;
   filters?: Record<string, any>;
   infer?: boolean;
   page?: number;
