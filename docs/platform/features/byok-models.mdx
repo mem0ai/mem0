@@ -10,41 +10,41 @@ With BYOK, every LLM call that writes your memories runs on a model you choose, 
   <Card title="Best value">
     **MiMo-V2.6-Flash** · Open weights
 
-    93.8% accuracy · $3.24 per 1,000 adds · 28.0 s latency (p95)
+    93.0% accuracy · $3.24 per 1,000 adds · 28.0 s latency (p95)
   </Card>
   <Card title="Best on OpenAI">
     **GPT-6 Luna** · Closed
 
-    93.5% accuracy · $3.55 per 1,000 adds · 15.2 s latency (p95)
+    92.6% accuracy · $3.55 per 1,000 adds · 15.2 s latency (p95)
   </Card>
   <Card title="Best quality">
     **Claude Opus 5.5** · Closed
 
-    94.2% accuracy · $158.55 per 1,000 adds · 18.1 s latency (p95)
+    93.5% accuracy · $158.55 per 1,000 adds · 18.1 s latency (p95)
   </Card>
 </CardGroup>
 
 <Frame>
-  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 adds on a log scale, one ring per model, each labelled with its accuracy. MiMo-V2.6-Flash sits at the far left at $3.24 and 93.8%; Claude Opus 5.5 at the far right at $158.55 and 94.2%. A dashed gray line marks Mem0's free tier at 92.9%. A shaded region holds the models above the free tier under $25 per 1,000 adds." />
+  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 adds on a log scale, one ring per model, each labelled with its accuracy. MiMo-V2.6-Flash sits at the far left at $3.24 and 93.0%; Claude Opus 5.5 at the far right at $158.55 and 93.5%. A dashed gray line marks Mem0's free tier at 92.5%. A shaded region holds the models above the free tier under $25 per 1,000 adds." />
 </Frame>
 
 | Model | Weights | Available on BYOK via | Accuracy | $ per 1,000 adds | Latency p95 |
 |---|---|---|---|---|---|
-| Claude Sonnet 5.5 | Closed | Anthropic, OpenRouter | 94.3% | $78.44 | 10.4 s |
-| Claude Opus 5.5 | Closed | Anthropic, OpenRouter | 94.2% | $158.55 | 18.1 s |
-| GLM-5.3 Flash | Open | OpenRouter | 94.0% | $7.25 | 86.5 s |
-| MiMo-V2.6-Flash | Open | OpenRouter | 93.8% | $3.24 | 28.0 s |
-| DeepSeek V4.1 Flash | Open | OpenRouter | 93.5% | $5.34 | 18.5 s |
-| GPT-5 mini | Closed | OpenAI, Azure OpenAI, OpenRouter | 93.5% | $17.82 | 37.7 s |
-| GPT-6 Luna | Closed | OpenAI, Azure OpenAI, OpenRouter | 93.5% | $3.55 | 15.2 s |
-| Claude Haiku 5.5 | Closed | Anthropic, OpenRouter | 93.1% | $4.93 | 17.7 s |
-| Gemini 3.8 Flash | Closed | OpenRouter | 93.0% | $48.08 | 36.0 s |
-| GPT-5.4 nano | Closed | OpenAI, Azure OpenAI, OpenRouter | 92.7% | $6.06 | 9.9 s |
-| GPT-4o-mini | Closed | OpenAI, Azure OpenAI, OpenRouter | 92.4% | $4.25 | 11.9 s |
-| Gemma 4 31B | Open | OpenRouter | 91.5% | $3.57 | 18.5 s |
-| Gemini 3.5 Flash-Lite | Closed | OpenRouter | 91.2% | $7.08 | 6.1 s |
+| Claude Opus 5.5 | Closed | Anthropic, OpenRouter | 93.5% | $158.55 | 18.1 s |
+| Claude Sonnet 5.5 | Closed | Anthropic, OpenRouter | 93.4% | $78.44 | 10.4 s |
+| MiMo-V2.6-Flash | Open | OpenRouter | 93.0% | $3.24 | 28.0 s |
+| GLM-5.3 Flash | Open | OpenRouter | 93.0% | $7.25 | 86.5 s |
+| DeepSeek V4.1 Flash | Open | OpenRouter | 92.9% | $5.34 | 18.5 s |
+| GPT-6 Luna | Closed | OpenAI, Azure OpenAI, OpenRouter | 92.6% | $3.55 | 15.2 s |
+| GPT-5 mini | Closed | OpenAI, Azure OpenAI, OpenRouter | 92.6% | $17.82 | 37.7 s |
+| Claude Haiku 5.5 | Closed | Anthropic, OpenRouter | 92.3% | $4.93 | 17.7 s |
+| Gemini 3.8 Flash | Closed | OpenRouter | 92.0% | $48.08 | 36.0 s |
+| GPT-5.4 nano | Closed | OpenAI, Azure OpenAI, OpenRouter | 91.6% | $6.06 | 9.9 s |
+| GPT-4o-mini | Closed | OpenAI, Azure OpenAI, OpenRouter | 91.3% | $4.25 | 11.9 s |
+| Gemma 4 31B | Open | OpenRouter | 90.6% | $3.57 | 18.5 s |
+| Gemini 3.5 Flash-Lite | Closed | OpenRouter | 89.9% | $7.08 | 6.1 s |
 
-Mem0's free tier scores 92.9% and needs no key. Eight models are tied at the top, between 93.1% and 94.3%.
+Mem0's free tier scores 92.5% and needs no key. Seven models are tied at the top, between 92.6% and 93.5%.
 
 ## Set up BYOK
 
@@ -56,7 +56,7 @@ Mem0's free tier scores 92.9% and needs no key. Eight models are tied at the top
 ## How we tested
 
 - Only the model that writes memories changes: extraction, temporal, categorization and summary all run on it.
-- An LLM answers each question from the 200 memories Mem0 ranks highest (top_200), and an LLM judge grades it against LoCoMo's reference answer. Search, answering and grading are the same for every model.
+- An LLM answers each question from the 200 memories Mem0 ranks highest (top_200), and an LLM judge grades it against LoCoMo's reference answer. Accuracy is averaged over two runs: the first, and a second that gives every question the model missed one more try. Search, answering and grading are the same for every model.
 - Cost is estimated from each model's calls at list prices, per 1,000 LoCoMo adds (about 8 messages each).
 - Latency is the p95 time from an add call until its memories are saved: 19 of every 20 adds are faster. Temporal and summary run after that, in the background. Adds that a provider's rate limit made Mem0 retry are left out: those depend on your provider and plan. Results from October 2026.
 
