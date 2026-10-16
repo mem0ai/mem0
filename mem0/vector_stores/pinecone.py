@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class OutputData(BaseModel):
     id: Optional[str]  # memory id
-    score: Optional[float]  # distance
+    score: Optional[float]  # similarity score (higher = more similar)
     payload: Optional[Dict]  # metadata
 
 
@@ -257,6 +257,13 @@ class PineconeDB(VectorStoreBase):
         response = self.index.query(**query_params, namespace=self.namespace)
 
         results = self._parse_output(response.matches)
+        if self.metric == "euclidean":
+            # Euclidean indexes report squared L2 distance (lower = closer). Map it to
+            # a bounded higher-is-better score, as VectorStoreBase.search requires.
+            # cosine and dotproduct already return similarity, so they pass through.
+            for result in results:
+                if result.score is not None:
+                    result.score = 1.0 / (1.0 + result.score)
         return results
 
     def keyword_search(self, query, top_k=5, filters=None):

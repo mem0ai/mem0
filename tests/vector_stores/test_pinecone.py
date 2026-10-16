@@ -93,6 +93,36 @@ def test_search_vectors(pinecone_db):
     assert results[0].score == 0.9
 
 
+def test_search_euclidean_returns_similarity_not_distance(pinecone_db):
+    # A euclidean index reports squared L2 distance in `score` (0 = identical,
+    # larger = farther) and returns matches nearest-first. Memory treats score
+    # as similarity (higher = better, gated by threshold), so the nearest match
+    # must end up with the highest score.
+    pinecone_db.metric = "euclidean"
+    pinecone_db.index.query.return_value.matches = [
+        {"id": "identical", "score": 0.0, "metadata": {}},
+        {"id": "close", "score": 0.02, "metadata": {}},
+        {"id": "opposite", "score": 4.0, "metadata": {}},
+    ]
+
+    results = pinecone_db.search("test query", [0.1] * 128, top_k=3)
+    scores = {r.id: r.score for r in results}
+
+    assert scores["identical"] == pytest.approx(1.0)
+    assert scores["identical"] > scores["close"] > scores["opposite"]
+    assert all(0.0 < s <= 1.0 for s in scores.values())
+
+
+@pytest.mark.parametrize("metric", ["cosine", "dotproduct"])
+def test_search_similarity_metrics_pass_score_through(pinecone_db, metric):
+    pinecone_db.metric = metric
+    pinecone_db.index.query.return_value.matches = [{"id": "id1", "score": 0.42, "metadata": {}}]
+
+    results = pinecone_db.search("test query", [0.1] * 128, top_k=1)
+
+    assert results[0].score == 0.42
+
+
 def test_update_vector(pinecone_db):
     pinecone_db.update("id1", vector=[0.5] * 128, payload={"name": "updated"})
     pinecone_db.index.upsert.assert_called_with(
