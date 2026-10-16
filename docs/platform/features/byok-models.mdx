@@ -10,13 +10,23 @@ With BYOK, every LLM call that writes your memories runs on a model you choose, 
   **Read more:** every model's accuracy, cost and latency, with a calculator for your monthly volume, is in the [full evaluation](https://mem0.ai/blog/bring-your-own-key-accuracy-cost-latency-by-model).
 </Info>
 
+## Which model to use
+
+Each pick serves a different goal: **Best value** gives the most accuracy for the price, **Best on OpenAI** has the top accuracy and the lowest price among OpenAI models, and **Best quality** is the most accurate model we tested.
+
 <Frame>
   <img src="/images/platform/byok-picks.png" alt="The three picks. Best value: MiMo-V2.6-Flash, open weights, on OpenRouter: 93.0% accuracy, $3.24 per 1,000 adds, 28.0 s latency at p95. Best on OpenAI: GPT-6 Luna, closed, on OpenAI, Azure OpenAI, OpenRouter: 92.6% accuracy, $3.55 per 1,000 adds, 15.2 s latency at p95. Best quality: Claude Opus 5.5, closed, on Anthropic, OpenRouter: 93.5% accuracy, $158.55 per 1,000 adds, 18.1 s latency at p95." />
 </Frame>
 
+## Results
+
+Accuracy against cost for every model we tested. The green line marks the best accuracy available at each price, and the gray dashed line is Mem0's default model, at 92.5%.
+
 <Frame>
   <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 adds on a log scale, one ring per model, each labelled with its accuracy. MiMo-V2.6-Flash sits at the far left at $3.24 and 93.0%; Claude Opus 5.5 at the far right at $158.55 and 93.5%. A dashed gray line marks Mem0's default model (free tier) at 92.5%. A shaded region holds the models above it for under $25 per 1,000 adds, and a dashed green line joins the models no cheaper model beats." />
 </Frame>
+
+Every model we tested, sorted by accuracy:
 
 | Model | Accuracy | $ per 1,000 adds | Latency p95 |
 |---|---|---|---|
@@ -34,7 +44,7 @@ With BYOK, every LLM call that writes your memories runs on a model you choose, 
 | Gemma 4 31B | 90.6% | $3.57 | 18.5 s |
 | Gemini 3.5 Flash-Lite | 89.9% | $7.08 | 6.1 s |
 
-For comparison, Mem0's default model scores 92.5%. Every model is available on OpenRouter; the GPT models are also on OpenAI and Azure OpenAI, and the Claude models on Anthropic.
+Every model is available on OpenRouter; the GPT models are also on OpenAI and Azure OpenAI, and the Claude models on Anthropic.
 
 ## Set up BYOK
 
