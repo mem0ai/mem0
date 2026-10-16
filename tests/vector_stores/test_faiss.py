@@ -185,7 +185,9 @@ def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_
     }
     faiss_instance.index_to_id = {0: "id1", 1: "id2", 2: "id3", 3: "id4"}
 
-    # top_k=2 with filters -> fetch_k = 4; the index returns all four candidates.
+    # With filters the search scans the whole index (ntotal) rather than a fixed
+    # multiple of top_k, so the two matching vectors are still surfaced.
+    mock_faiss_index.ntotal = 4
     search_scores = np.array([[0.9, 0.8, 0.7, 0.6]])
     search_indices = np.array([[0, 1, 2, 3]])
     mock_faiss_index.search.return_value = (search_scores, search_indices)
@@ -754,3 +756,64 @@ class TestCosineNormalization:
 
             assert results[0].id == "x"
             assert results[0].score == pytest.approx(1.0, abs=1e-5)
+
+
+class TestFAISSFilterRecall:
+    """Regression tests for filtered-search recall.
+
+    search() applies filters *after* the ANN lookup. It previously fetched only
+    ``top_k * 2`` candidates, so a scoped user whose vectors ranked below that
+    cutoff got silently under-returned (or nothing) even though enough matching
+    memories existed. With an exhaustive IndexFlat the search now scans the
+    whole index when filtering.
+    """
+
+    def test_filtered_search_returns_matches_ranked_beyond_two_top_k(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = FAISS(
+                collection_name="recall_col",
+                path=os.path.join(temp_dir, "recall"),
+                distance_strategy="euclidean",
+                embedding_model_dims=2,
+            )
+            # 15 "bob" memories clustered next to the query at the origin, plus 5
+            # "alice" memories much farther away. Every alice vector ranks below
+            # the old top_k*2 = 10 cutoff.
+            store.insert(
+                vectors=[[0.01 * (i + 1), 0.0] for i in range(15)],
+                payloads=[{"user_id": "bob", "data": f"bob {i}"} for i in range(15)],
+                ids=[f"bob-{i}" for i in range(15)],
+            )
+            store.insert(
+                vectors=[[10.0 + i, 0.0] for i in range(5)],
+                payloads=[{"user_id": "alice", "data": f"alice {i}"} for i in range(5)],
+                ids=[f"alice-{i}" for i in range(5)],
+            )
+
+            results = store.search(
+                query="", vectors=[0.0, 0.0], top_k=5, filters={"user_id": "alice"}
+            )
+
+            assert len(results) == 5
+            assert all(r.payload["user_id"] == "alice" for r in results)
+
+    def test_filtered_search_still_respects_top_k(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = FAISS(
+                collection_name="recall_col2",
+                path=os.path.join(temp_dir, "recall2"),
+                distance_strategy="euclidean",
+                embedding_model_dims=2,
+            )
+            store.insert(
+                vectors=[[0.01 * (i + 1), 0.0] for i in range(10)],
+                payloads=[{"user_id": "alice", "data": f"alice {i}"} for i in range(10)],
+                ids=[f"alice-{i}" for i in range(10)],
+            )
+
+            results = store.search(
+                query="", vectors=[0.0, 0.0], top_k=3, filters={"user_id": "alice"}
+            )
+
+            assert len(results) == 3
+            assert all(r.payload["user_id"] == "alice" for r in results)
