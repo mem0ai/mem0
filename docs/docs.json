@@ -312,6 +312,11 @@
                     ]
                   },
                   {
+                    "group": "Memory Sources",
+                    "icon": "desktop",
+                    "pages": ["integrations/screenpipe"]
+                  },
+                  {
                     "group": "Agent Frameworks",
                     "icon": "robot",
                     "pages": [
@@ -642,6 +647,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/cookbooks/integrations/screenpipe-memory-source",
+      "destination": "/integrations/screenpipe"
+    },
     {
       "source": "/open-source/features/reranking",
       "destination": "/open-source/features/reranker-search"

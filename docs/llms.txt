@@ -246,6 +246,9 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 
 - [Integrations Overview](https://docs.mem0.ai/integrations) [Both]: Use when surveying every available integration.
 
+### Memory Sources
+- [Screenpipe](https://docs.mem0.ai/integrations/screenpipe) [Platform]: Use when importing reviewed screen and meeting context from Screenpipe into persistent Mem0 memories.
+
 ### Agent Frameworks
 - [LangChain](https://docs.mem0.ai/integrations/langchain) [Platform]: Use when the user is on LangChain.
 - [LangGraph](https://docs.mem0.ai/integrations/langgraph) [Platform]: Use when building stateful multi-actor LangGraph apps.
