@@ -1,13 +1,13 @@
 ---
 title: "Choosing a Model for BYOK"
-description: "Accuracy, cost and latency of the models you can use to write Mem0 memories on your own key."
+description: "Accuracy, cost and latency of the models we evaluated for BYOK, and which to choose."
 icon: "key"
 ---
 
-With BYOK, every LLM call that writes your memories runs on a model you choose, billed to your key. On [LoCoMo](https://github.com/snap-research/locomo), a public benchmark of 10 long conversations and 1,540 questions about them, we tested the most used and most capable models that work with BYOK, open-weight and closed. The results below show how accurate each model's memories are, what they cost and how long an add takes.
+With BYOK, memory extraction runs on a model you choose, billed to your own key. On [LoCoMo](https://github.com/snap-research/locomo), a public benchmark of 10 long conversations and 1,540 questions about them, we tested the most used and most capable models that work with BYOK, open-weight and closed. The results below show how accurate each model's memories are, what they cost and how long extraction takes.
 
 <Info>
-  **Read more:** every model's accuracy, cost and latency, with a calculator for your monthly volume, is in the [full evaluation](https://mem0.ai/blog/bring-your-own-key-accuracy-cost-latency-by-model).
+  **Read more:** accuracy by question type and a calculator for your monthly volume are in the [full evaluation](https://mem0.ai/blog/bring-your-own-key-accuracy-cost-latency-by-model).
 </Info>
 
 ## Which model to use
@@ -15,7 +15,7 @@ With BYOK, every LLM call that writes your memories runs on a model you choose, 
 Each pick serves a different goal: **Best value** gives the most accuracy for the price, **Best on OpenAI** has the top accuracy and the lowest price among OpenAI models, and **Best quality** is the most accurate model we tested.
 
 <Frame>
-  <img src="/images/platform/byok-picks.png" alt="The three picks. Best value: MiMo-V2.6-Flash, open weights, on OpenRouter: 93.0% accuracy, $3.24 per 1,000 adds, 28.0 s latency at p95. Best on OpenAI: GPT-6 Luna, closed, on OpenAI, Azure OpenAI, OpenRouter: 92.6% accuracy, $3.55 per 1,000 adds, 15.2 s latency at p95. Best quality: Claude Opus 5.5, closed, on Anthropic, OpenRouter: 93.5% accuracy, $158.55 per 1,000 adds, 18.1 s latency at p95." />
+  <img src="/images/platform/byok-picks.png" alt="The three picks. Best value: MiMo-V2.6-Flash, open weights, on OpenRouter: 93.0% accuracy, $3.24 per 1,000 add requests, 28.0 s latency at p95. Best on OpenAI: GPT-6 Luna, closed, on OpenAI, Azure OpenAI, OpenRouter: 92.6% accuracy, $3.55 per 1,000 add requests, 15.2 s latency at p95. Best quality: Claude Opus 5.5, closed, on Anthropic, OpenRouter: 93.5% accuracy, $158.55 per 1,000 add requests, 18.1 s latency at p95." />
 </Frame>
 
 ## Results
@@ -23,12 +23,12 @@ Each pick serves a different goal: **Best value** gives the most accuracy for th
 Accuracy against cost for every model we tested. The green line marks the best accuracy available at each price, and the gray dashed line is Mem0's default model, at 92.5%.
 
 <Frame>
-  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 adds on a log scale, one ring per model, each labelled with its accuracy. MiMo-V2.6-Flash sits at the far left at $3.24 and 93.0%; Claude Opus 5.5 at the far right at $158.55 and 93.5%. A dashed gray line marks Mem0's default model (free tier) at 92.5%. A shaded region holds the models above it for under $25 per 1,000 adds, and a dashed green line joins the models no cheaper model beats." />
+  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 add requests on a log scale, one ring per model, each labelled with its accuracy. MiMo-V2.6-Flash sits at the far left at $3.24 and 93.0%; Claude Opus 5.5 at the far right at $158.55 and 93.5%. A dashed gray line marks Mem0's default model (free tier) at 92.5%. A shaded region holds the models above it for under $25 per 1,000 add requests, and a dashed green line marks the best accuracy available at each price." />
 </Frame>
 
 Every model we tested, sorted by accuracy:
 
-| Model | Accuracy | $ per 1,000 adds | Latency p95 |
+| Model | Accuracy | $ per 1,000 add requests | Latency p95 |
 |---|---|---|---|
 | Claude Opus 5.5 | 93.5% | $158.55 | 18.1 s |
 | Claude Sonnet 5.5 | 93.4% | $78.44 | 10.4 s |
@@ -51,14 +51,15 @@ Every model is available on OpenRouter; the GPT models are also on OpenAI and Az
 1. As an organization owner, open **Settings → BYOK** in the [Mem0 dashboard](https://app.mem0.ai/dashboard/settings?tab=org-llm).
 2. Pick a provider: OpenAI, Anthropic, OpenRouter or Azure OpenAI.
 3. Paste your API key and enter the model. On OpenRouter, use the model's full ID, such as `xiaomi/mimo-v2.6-flash`. Azure OpenAI also needs your endpoint URL and deployment name.
-4. Click **Save provider**. Mem0 writes your memories with that model from then on. **Disable provider** switches back to Mem0's default model.
+4. Click **Save provider**. Mem0 extracts your memories with that model from then on. **Disable provider** switches back to Mem0's default model.
 
 ## How we tested
 
-- Every model took the same test, and only the model changed: it makes every LLM call in an add.
+- Every model took the same test, and only the model extracting memories changed.
 - Accuracy is the share of LoCoMo's questions answered correctly from each model's memories, graded against LoCoMo's reference answers and averaged over two runs.
-- Cost is estimated from each model's calls at list prices, per 1,000 LoCoMo adds (about 8 messages each).
-- Latency is the p95 time from an add call until its memories can be found: 19 of every 20 adds finish within that time. Adds slowed by a provider's rate limit are left out: that wait depends on your provider and plan. Results from October 2026.
+- Cost is estimated from each model's calls at list prices, per 1,000 add requests of about 8 messages each.
+- Latency is the p95 time from an add request until its memories can be found: 19 of every 20 requests finish within that time. It also depends on your provider and plan.
+- Results from October 2026.
 
 <Card title="Read the full evaluation" icon="newspaper" href="https://mem0.ai/blog/bring-your-own-key-accuracy-cost-latency-by-model">
   Every model's accuracy, cost and latency, accuracy by question type, and a calculator for your monthly volume.
