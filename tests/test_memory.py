@@ -1005,6 +1005,48 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
     }
 
 
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_all_accepts_flat_list_shape(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Regression test for https://github.com/mem0ai/mem0/issues/7546.
+
+    Vector stores now return a flat List[OutputData] from list() instead of a
+    nested list. delete_all must iterate the flat list directly (the old code
+    did `list(...)[0]`, which would grab a single memory from a flat list).
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    memory = AsyncMemory(MemoryConfig())
+
+    mem1 = MagicMock()
+    mem1.id = "mem-1"
+    mem1.payload = {"data": "one", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
+    mem2 = MagicMock()
+    mem2.id = "mem-2"
+    mem2.payload = {"data": "two", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
+
+    # Flat list shape: the corrected contract of vector_store.list().
+    mock_vector_store.list.side_effect = [[mem1, mem2], []]
+
+    mock_vector_store.get.side_effect = lambda vector_id: {"mem-1": mem1, "mem-2": mem2}[vector_id]
+    mock_vector_store.delete.return_value = True
+
+    result = await memory.delete_all(user_id="test-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert mock_vector_store.delete.call_count == 2
+    deleted_ids = {c.kwargs.get("vector_id", c.args[0] if c.args else None) for c in mock_vector_store.delete.call_args_list}
+    assert deleted_ids == {"mem-1", "mem-2"}
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')

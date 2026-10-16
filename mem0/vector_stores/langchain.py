@@ -204,10 +204,10 @@ class Langchain(VectorStoreBase):
 
                 # Convert the result to the expected format
                 if result and isinstance(result, dict):
-                    return [self._parse_output(result)]
+                    return self._parse_output(result)
                 return []
         except Exception as e:
-            logger.error(f"Error listing vectors from Chroma: {e}")
+            logger.error(f"Error listing vectors from LangChain: {e}")
             return []
 
     def reset(self):

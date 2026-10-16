@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.vector_stores.chroma import ChromaDbConfig
-from mem0.vector_stores.chroma import ChromaDB
+from mem0.vector_stores.chroma import ChromaDB, OutputData
 
 
 @pytest.fixture
@@ -200,9 +200,10 @@ def test_list_vectors(chromadb_instance):
 
     chromadb_instance.collection.get.assert_called_once_with(where=None, limit=2)
 
-    assert len(results[0]) == 2
-    assert results[0][0].id == "id1"
-    assert results[0][1].id == "id2"
+    assert len(results) == 2
+    assert all(isinstance(r, OutputData) for r in results)
+    assert results[0].id == "id1"
+    assert results[1].id == "id2"
 
 
 def test_list_vectors_with_filters(chromadb_instance):
@@ -221,10 +222,11 @@ def test_list_vectors_with_filters(chromadb_instance):
     expected_where = {"$and": [{"user_id": {"$eq": "alice"}}, {"agent_id": {"$eq": "agent1"}}, {"run_id": {"$eq": "run1"}}]}
     chromadb_instance.collection.get.assert_called_once_with(where=expected_where, limit=2)
 
-    assert len(results[0]) == 1
-    assert results[0][0].payload["user_id"] == "alice"
-    assert results[0][0].payload["agent_id"] == "agent1"
-    assert results[0][0].payload["run_id"] == "run1"
+    assert len(results) == 1
+    assert isinstance(results[0], OutputData)
+    assert results[0].payload["user_id"] == "alice"
+    assert results[0].payload["agent_id"] == "agent1"
+    assert results[0].payload["run_id"] == "run1"
 
 
 def test_list_vectors_with_single_filter(chromadb_instance):
@@ -243,8 +245,9 @@ def test_list_vectors_with_single_filter(chromadb_instance):
     expected_where = {"user_id": {"$eq": "alice"}}
     chromadb_instance.collection.get.assert_called_once_with(where=expected_where, limit=2)
 
-    assert len(results[0]) == 1
-    assert results[0][0].payload["user_id"] == "alice"
+    assert len(results) == 1
+    assert isinstance(results[0], OutputData)
+    assert results[0].payload["user_id"] == "alice"
 
 
 def test_generate_where_clause_multiple_filters():
