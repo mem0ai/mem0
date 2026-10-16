@@ -1936,7 +1936,7 @@ class Memory(MemoryBase):
         while True:
             memories = _vector_store_list_rows(
                 self.vector_store.list(filters=filters, top_k=DELETE_ALL_BATCH_SIZE)
-            )[0]
+)
             if not memories:
                 break
             batch_ids = tuple(sorted(str(memory.id) for memory in memories))
