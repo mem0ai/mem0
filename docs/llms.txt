@@ -209,6 +209,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Custom Instructions](https://docs.mem0.ai/platform/features/custom-instructions) [Platform]: Use when tailoring what Mem0 extracts and stores on Platform.
 - [Memory Decay](https://docs.mem0.ai/platform/features/memory-decay) [Platform]: Use when search results should boost recently-reinforced memories and dampen stale ones. Opt in per project; applies at search time and never filters candidates out.
 - [Dream](https://docs.mem0.ai/platform/features/dream) [Platform]: Use when long-lived user memory should stay coherent on its own - synthesizing recurring patterns, superseding outdated facts, and merging duplicates in the background. Synthesis is opt-in (Pro+); Supersede and Merge are always on.
+- [Choosing a Model for BYOK](https://docs.mem0.ai/platform/features/byok-models) [Platform]: Use when choosing which LLM writes memories on your own key (BYOK) - accuracy, cost per 1,000 adds and latency for each model, plus setup.
 - [Advanced Memory Operations](https://docs.mem0.ai/platform/advanced-memory-operations) [Platform]: Use when basic CRUD is not enough - batch ops, complex filters, workflows.
 
 ### Features - Data Management
