@@ -88,7 +88,7 @@
                           "platform/features/custom-instructions",
                           "platform/features/memory-decay",
                           "platform/features/dream",
-                          "platform/features/byok-models"
+                          "platform/features/byok"
                         ]
                       },
                       {
