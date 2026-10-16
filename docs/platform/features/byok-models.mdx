@@ -8,14 +8,14 @@ With BYOK, every LLM call that writes your memories runs on a model you choose, 
 
 <CardGroup cols={3}>
   <Card title="Best value">
-    **GPT-6 Luna** · Closed
-
-    93.5% accuracy · $3.55 per 1,000 adds · 15.2 s latency (p95)
-  </Card>
-  <Card title="Cheapest">
     **MiMo-V2.6-Flash** · Open weights
 
     93.8% accuracy · $3.24 per 1,000 adds · 28.0 s latency (p95)
+  </Card>
+  <Card title="Best on OpenAI">
+    **GPT-6 Luna** · Closed
+
+    93.5% accuracy · $3.55 per 1,000 adds · 15.2 s latency (p95)
   </Card>
   <Card title="Best quality">
     **Claude Opus 5.5** · Closed
@@ -25,7 +25,7 @@ With BYOK, every LLM call that writes your memories runs on a model you choose, 
 </CardGroup>
 
 <Frame>
-  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of memory accuracy against cost per 1,000 adds on a log scale, one ring per model, each labelled with its accuracy. MiMo-V2.6-Flash sits at the far left at $3.24 and 93.8%; Claude Opus 5.5 at the far right at $158.55 and 94.2%. A dashed gray line marks Mem0's free tier at 92.9%. A shaded region holds the models above the free tier under $25 per 1,000 adds, and a dashed green line joins the models no cheaper model beats." />
+  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 adds on a log scale, one ring per model, each labelled with its accuracy. MiMo-V2.6-Flash sits at the far left at $3.24 and 93.8%; Claude Opus 5.5 at the far right at $158.55 and 94.2%. A dashed gray line marks Mem0's free tier at 92.9%. A shaded region holds the models above the free tier under $25 per 1,000 adds." />
 </Frame>
 
 | Model | Weights | Available on BYOK via | Accuracy | $ per 1,000 adds | Latency p95 |
