@@ -595,6 +595,37 @@ class TestFAISSSecurityIntegration:
                     # Should have loaded from JSON, not pickle
                     assert faiss_store.docstore == {"id1": {"source": "json"}}
 
+    @pytest.mark.parametrize("index_is_corrupt", [False, True])
+    def test_load_failure_recreates_empty_index(self, index_is_corrupt):
+        """A failed load must not leave the index and mappings out of sync."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            faiss_path = os.path.join(temp_dir, "test_faiss")
+            os.makedirs(faiss_path)
+            with open(os.path.join(faiss_path, "broken.json"), "w") as f:
+                f.write("{")
+
+            faiss_store = FAISS.__new__(FAISS)
+            faiss_store.collection_name = "broken"
+            faiss_store.path = faiss_path
+            faiss_store.distance_strategy = "euclidean"
+            faiss_store.embedding_model_dims = 3
+            faiss_store.index = None
+            faiss_store.docstore = {"old": {}}
+            faiss_store.index_to_id = {0: "old"}
+
+            stale_index, empty_index = Mock(ntotal=1), Mock(ntotal=0)
+            read_error = ValueError("bad index") if index_is_corrupt else None
+            with (
+                patch("mem0.vector_stores.faiss.faiss.read_index", return_value=stale_index, side_effect=read_error),
+                patch("mem0.vector_stores.faiss.faiss.IndexFlatL2", return_value=empty_index),
+                patch("mem0.vector_stores.faiss.faiss.write_index"),
+            ):
+                faiss_store._load(os.path.join(faiss_path, "broken.faiss"), os.path.join(faiss_path, "broken.pkl"))
+
+            assert faiss_store.index is empty_index
+            assert faiss_store.docstore == {}
+            assert faiss_store.index_to_id == {}
+
     def test_faiss_blocks_malicious_pickle_on_load(self):
         """FAISS should block loading of malicious pickle files."""
         with tempfile.TemporaryDirectory() as temp_dir:
