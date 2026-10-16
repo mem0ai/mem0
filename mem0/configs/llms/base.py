@@ -26,6 +26,7 @@ class BaseLlmConfig(ABC):
         reasoning_effort: Optional[str] = None,
         http_client_proxies: Optional[Union[Dict, str]] = None,
         is_reasoning_model: Optional[bool] = None,
+        max_retries: int = 0,
     ):
         """
         Initialize a base configuration class instance for the LLM.
@@ -63,6 +64,11 @@ class BaseLlmConfig(ABC):
                 deployments with custom/versioned model names (e.g. Azure
                 "gpt-5.4-nano-2026-03-17") that the name-based heuristic cannot
                 recognize. Defaults to None
+            max_retries: Number of retries on transient provider errors
+                (rate-limit / network / timeout / 5xx) using exponential
+                backoff with jitter. 0 (default) disables mem0-level retries and
+                preserves existing behavior. Only applied by providers wired for
+                retries. Defaults to 0
         """
         self.model = model
         self.temperature = temperature
@@ -74,5 +80,8 @@ class BaseLlmConfig(ABC):
         self.vision_details = vision_details
         self.reasoning_effort = reasoning_effort
         self.is_reasoning_model = is_reasoning_model
+        if isinstance(max_retries, bool) or not isinstance(max_retries, int) or max_retries < 0:
+            raise ValueError(f"max_retries must be a non-negative int, got {max_retries!r}")
+        self.max_retries = max_retries
         self.http_client_proxies = http_client_proxies
         self.http_client = build_http_client(http_client_proxies)
