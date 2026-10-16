@@ -4,7 +4,7 @@ description: "Accuracy, cost and latency of the models you can use to write Mem0
 icon: "key"
 ---
 
-With BYOK, every LLM call that writes your memories runs on a model you choose, billed to your key. We ran each model through Mem0's add pipeline on LoCoMo (1,540 questions) to show how accurate its memories are, what they cost and how long an add takes.
+With BYOK, every LLM call that writes your memories runs on a model you choose, billed to your key. On [LoCoMo](https://github.com/snap-research/locomo), a public benchmark of 10 long conversations and 1,540 questions about them, we tested the most used and most capable models that work with BYOK, open-weight and closed. The results below show how accurate each model's memories are, what they cost and how long an add takes.
 
 <Info>
   **Read more:** every model's accuracy, cost and latency, with a calculator for your monthly volume, is in the [full evaluation](https://mem0.ai/blog/bring-your-own-key-accuracy-cost-latency-by-model).
@@ -29,7 +29,7 @@ With BYOK, every LLM call that writes your memories runs on a model you choose, 
 </CardGroup>
 
 <Frame>
-  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 adds on a log scale, one ring per model, each labelled with its accuracy. MiMo-V2.6-Flash sits at the far left at $3.24 and 93.0%; Claude Opus 5.5 at the far right at $158.55 and 93.5%. A dashed gray line marks Mem0's free tier at 92.5%. A shaded region holds the models above the free tier under $25 per 1,000 adds, and a dashed green line joins the models no cheaper model beats." />
+  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 adds on a log scale, one ring per model, each labelled with its accuracy. MiMo-V2.6-Flash sits at the far left at $3.24 and 93.0%; Claude Opus 5.5 at the far right at $158.55 and 93.5%. A dashed gray line marks Mem0's default model (free tier) at 92.5%. A shaded region holds the models above it for under $25 per 1,000 adds, and a dashed green line joins the models no cheaper model beats." />
 </Frame>
 
 | Model | Weights | Available on BYOK via | Accuracy | $ per 1,000 adds | Latency p95 |
@@ -48,19 +48,19 @@ With BYOK, every LLM call that writes your memories runs on a model you choose, 
 | Gemma 4 31B | Open | OpenRouter | 90.6% | $3.57 | 18.5 s |
 | Gemini 3.5 Flash-Lite | Closed | OpenRouter | 89.9% | $7.08 | 6.1 s |
 
-Mem0's default model scores 92.5%. The models tied at the top score between 92.6% and 93.5%.
+For comparison, Mem0's default model scores 92.5%.
 
 ## Set up BYOK
 
-1. In the [Mem0 dashboard](https://app.mem0.ai/dashboard/settings?tab=org-llm), open **Settings → BYOK**.
+1. As an organization owner, open **Settings → BYOK** in the [Mem0 dashboard](https://app.mem0.ai/dashboard/settings?tab=org-llm).
 2. Pick a provider: OpenAI, Anthropic, OpenRouter or Azure OpenAI.
-3. Paste your API key and enter the model. On OpenRouter, use the model's full ID, such as `openai/gpt-5-mini`. Azure OpenAI also needs your endpoint URL and deployment name.
+3. Paste your API key and enter the model. On OpenRouter, use the model's full ID, such as `xiaomi/mimo-v2.6-flash`. Azure OpenAI also needs your endpoint URL and deployment name.
 4. Click **Save provider**. Mem0 writes your memories with that model from then on. **Disable provider** switches back to Mem0's default model.
 
 ## How we tested
 
-- Only the model changes: it makes every LLM call in an add.
-- An LLM answers each question from the 200 memories Mem0 ranks highest (top_200), and an LLM judge grades it against LoCoMo's reference answer. Accuracy is averaged over two runs: the first, and a second that gives every question the model missed one more try. Search, answering and grading are the same for every model.
+- Every model took the same test, and only the model changed: it makes every LLM call in an add.
+- Accuracy is the share of LoCoMo's questions answered correctly from each model's memories, graded against LoCoMo's reference answers and averaged over two runs.
 - Cost is estimated from each model's calls at list prices, per 1,000 LoCoMo adds (about 8 messages each).
 - Latency is the p95 time from an add call until its memories can be found: 19 of every 20 adds finish within that time. Adds slowed by a provider's rate limit are left out: that wait depends on your provider and plan. Results from October 2026.
 
