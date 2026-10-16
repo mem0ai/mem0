@@ -44,7 +44,7 @@ With BYOK, every LLM call that writes your memories runs on a model you choose, 
 | Gemma 4 31B | Open | OpenRouter | 90.6% | $3.57 | 18.5 s |
 | Gemini 3.5 Flash-Lite | Closed | OpenRouter | 89.9% | $7.08 | 6.1 s |
 
-Mem0's free tier scores 92.5% and needs no key. Seven models are tied at the top, between 92.6% and 93.5%.
+Mem0's default model scores 92.5%. The models tied at the top score between 92.6% and 93.5%.
 
 ## Set up BYOK
 
@@ -58,7 +58,7 @@ Mem0's free tier scores 92.5% and needs no key. Seven models are tied at the top
 - Only the model changes: it makes every LLM call in an add.
 - An LLM answers each question from the 200 memories Mem0 ranks highest (top_200), and an LLM judge grades it against LoCoMo's reference answer. Accuracy is averaged over two runs: the first, and a second that gives every question the model missed one more try. Search, answering and grading are the same for every model.
 - Cost is estimated from each model's calls at list prices, per 1,000 LoCoMo adds (about 8 messages each).
-- Latency is the p95 time from an add call until its memories are saved: 19 of every 20 adds are faster. Adds slowed by a provider's rate limit are left out: that wait depends on your provider and plan. Results from October 2026.
+- Latency is the p95 time from an add call until its memories can be found: 19 of every 20 adds finish within that time. Adds slowed by a provider's rate limit are left out: that wait depends on your provider and plan. Results from October 2026.
 
 <Card title="Read the full evaluation" icon="newspaper" href="https://mem0.ai/blog/bring-your-own-key-accuracy-cost-latency-by-model">
   Every model's accuracy, cost and latency, accuracy by question type, and a calculator for your monthly volume.
