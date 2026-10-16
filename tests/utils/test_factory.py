@@ -60,3 +60,31 @@ def test_dict_config_not_mutated_by_kwargs():
         LlmFactory.create("openai", config, api_key="secret")
 
     assert config == {"model": "gpt-4o-mini"}
+
+
+def test_registered_provider_passes_llm_config_validation():
+    """Regression test for https://github.com/mem0ai/mem0/issues/7625.
+
+    A provider registered via LlmFactory.register_provider() must pass
+    LlmConfig validation; the validator must not reject it with
+    "Unsupported LLM provider". The registration is removed afterwards so
+    the class-level registry is not polluted for other tests.
+    """
+    import pytest
+    from pydantic import ValidationError
+
+    from mem0.llms.configs import LlmConfig
+
+    LlmFactory.register_provider("test_custom_llm", "some.module.CustomLLM")
+    try:
+        # The registered custom provider must validate ...
+        assert LlmConfig(provider="test_custom_llm", config={}).provider == "test_custom_llm"
+        # ... while built-ins keep working ...
+        assert LlmConfig(provider="openai", config={}).provider == "openai"
+        # ... and genuinely unknown providers are still rejected.
+        with pytest.raises(ValidationError, match="Unsupported LLM provider"):
+            LlmConfig(provider="not_a_real_provider", config={})
+    finally:
+        del LlmFactory.provider_to_class["test_custom_llm"]
+
+    assert "test_custom_llm" not in LlmFactory.get_supported_providers()
