@@ -4,7 +4,7 @@ description: "Compare models for BYOK on accuracy, cost and latency, and pick th
 icon: "key"
 ---
 
-With BYOK, memory extraction runs on a model you choose, billed to your own key. On [LoCoMo](https://github.com/snap-research/locomo), a public benchmark of 10 long conversations and 1,540 questions about them, we tested the most used and most capable models that work with BYOK, open-weight and closed. The results below show how accurate each model's memories are, what they cost and how long extraction takes.
+With BYOK, memory extraction runs on a model you choose, billed to your own key. On [LoCoMo](https://github.com/snap-research/locomo), a public benchmark of 10 long conversations and 1,540 questions about them, we tested the most used, most capable and cheapest well-known models that work with BYOK, open-weight and closed. The results below show how accurate each model's memories are, what they cost and how long extraction takes.
 
 <Info>
   **Read more:** a calculator for your monthly volume is in the [full evaluation](https://mem0.ai/blog/bring-your-own-key-accuracy-cost-latency-by-model).
@@ -12,18 +12,18 @@ With BYOK, memory extraction runs on a model you choose, billed to your own key.
 
 ## Which model to use
 
-Each pick serves a different goal: **Best value** gives the most accuracy for the price, **Best on OpenAI** has the top accuracy and the lowest price among OpenAI models, and **Best quality** is the most accurate model we tested.
+Each pick serves a different goal: **Best value** balances accuracy and price, **Best under $1** is the most accurate model under $1 per 1,000 add requests and **Best quality** the highest accuracy.
 
 <Frame>
-  <img src="/images/platform/byok-picks.png" alt="The three picks. Best value: MiMo-V2.6-Flash, open weights, on OpenRouter: 93.0% accuracy, $3.24 per 1,000 add requests, 28.0 s latency at p95. Best on OpenAI: GPT-6 Luna, closed, on OpenAI, Azure OpenAI, OpenRouter: 92.6% accuracy, $3.55 per 1,000 add requests, 15.2 s latency at p95. Best quality: Claude Opus 5.5, closed, on Anthropic, OpenRouter: 93.5% accuracy, $158.55 per 1,000 add requests, 18.1 s latency at p95." />
+  <img src="/images/platform/byok-picks.png" alt="The three picks. Best value: DeepSeek V4.1 Flash, open weights, on OpenRouter: 92.9% accuracy, $5.34 per 1,000 add requests, 18.5 s latency at p95. Best under $1: Amazon Nova Micro, closed, on OpenRouter: 88.0% accuracy, $0.86 per 1,000 add requests, 10.2 s latency at p95. Best quality: Claude Opus 5.5, closed, on Anthropic, OpenRouter: 93.5% accuracy, $158.55 per 1,000 add requests, 18.1 s latency at p95." />
 </Frame>
 
 ## Results
 
-Accuracy against cost for every model we tested. The green line marks the best accuracy available at each price, and the gray dashed line is Mem0's default model, at 92.5%.
+Accuracy against cost for every model we tested. The green line marks the best accuracy available at each price, the gold area holds the models under $2 per 1,000 add requests, and the gray dashed line is Mem0's default model, at 92.5%.
 
 <Frame>
-  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 add requests on a log scale, one ring per model, each labelled with its accuracy. MiMo-V2.6-Flash sits at the far left at $3.24 and 93.0%; Claude Opus 5.5 at the far right at $158.55 and 93.5%. A dashed gray line marks Mem0's default model (free tier) at 92.5%. A shaded region holds the models above it for under $25 per 1,000 add requests, and a dashed green line marks the best accuracy available at each price." />
+  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 add requests on a log scale, one ring per model, each labelled with its accuracy. Mistral Nemo sits at the far left at $0.68 and 84.1%; Claude Opus 5.5 at the far right at $158.55 and 93.5%. A dashed gray line marks Mem0's default model (free tier) at 92.5%. A green shaded region holds the models above it for under $25 per 1,000 add requests, a gold one the models under $2 per 1,000 add requests, and a dashed green line marks the best accuracy available at each price. Tags mark our picks: best value, DeepSeek V4.1 Flash; best under $1, Amazon Nova Micro; best quality, Claude Opus 5.5." />
 </Frame>
 
 Every model we tested, sorted by accuracy:
@@ -32,7 +32,6 @@ Every model we tested, sorted by accuracy:
 |---|---|---|---|
 | Claude Opus 5.5 | 93.5% | $158.55 | 18.1 s |
 | Claude Sonnet 5.5 | 93.4% | $78.44 | 10.4 s |
-| MiMo-V2.6-Flash | 93.0% | $3.24 | 28.0 s |
 | GLM-5.3 Flash | 93.0% | $7.25 | 86.5 s |
 | DeepSeek V4.1 Flash | 92.9% | $5.34 | 18.5 s |
 | GPT-6 Luna | 92.6% | $3.55 | 15.2 s |
@@ -43,6 +42,11 @@ Every model we tested, sorted by accuracy:
 | GPT-4o-mini | 91.3% | $4.25 | 11.9 s |
 | Gemma 4 31B | 90.6% | $3.57 | 18.5 s |
 | Gemini 3.5 Flash-Lite | 89.9% | $7.08 | 6.1 s |
+| Amazon Nova Lite | 89.3% | $1.82 | 9.3 s |
+| Amazon Nova Micro | 88.0% | $0.86 | 10.2 s |
+| Gemma 3 4B | 86.8% | $1.19 | 19.6 s |
+| GPT-4.1 nano | 85.5% | $1.54 | 15.9 s |
+| Mistral Nemo | 84.1% | $0.68 | 9.8 s |
 
 Every model is available on OpenRouter; the GPT models are also on OpenAI and Azure OpenAI, and the Claude models on Anthropic.
 
@@ -50,14 +54,14 @@ Every model is available on OpenRouter; the GPT models are also on OpenAI and Az
 
 1. As an organization owner, open **Settings → BYOK** in the [Mem0 dashboard](https://app.mem0.ai/dashboard/settings?tab=org-llm).
 2. Pick a provider: OpenAI, Anthropic, OpenRouter or Azure OpenAI.
-3. Paste your API key and enter the model. On OpenRouter, use the model's full ID, such as `xiaomi/mimo-v2.6-flash`. Azure OpenAI also needs your endpoint URL and deployment name.
+3. Paste your API key and enter the model. On OpenRouter, use the model's full ID, such as `deepseek/deepseek-v4.1-flash`. Azure OpenAI also needs your endpoint URL and deployment name.
 4. Click **Save provider**. Mem0 extracts your memories with that model from then on. **Disable provider** switches back to Mem0's default model.
 
 ## How we tested
 
 - Every model took the same test, and only the model extracting memories changed.
 - Accuracy is the share of LoCoMo's questions answered correctly from each model's memories, graded against LoCoMo's reference answers and averaged over two runs.
-- Cost is estimated from each model's calls at list prices, per 1,000 add requests of about 8 messages each.
+- Cost is estimated from each model's calls, per 1,000 add requests of about 8 messages each.
 - Latency is the p95 time from an add request until its memories can be found: 19 of every 20 requests finish within that time. It also depends on your provider and plan.
 - Results from October 2026.
 
