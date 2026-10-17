@@ -1525,7 +1525,7 @@ class Memory(MemoryBase):
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
-                # Reranking failed, but we over-fetched for it — trim back to limit.
+                # Reranking failed, but we over-fetched for it, so trim back to limit.
                 original_memories = original_memories[:limit]
 
         if temporal_usage_notice:
@@ -1667,7 +1667,7 @@ class Memory(MemoryBase):
         # When feeding a reranker, return the whole over-fetched pool instead of
         # truncating to `limit`, so the reranker can rescue candidates the
         # first-stage scorer ranked below `limit`. This does NOT re-widen the DB
-        # fetch — `internal_limit` is still computed from the original `limit`.
+        # fetch: `internal_limit` is still computed from the original `limit`.
         return_k = internal_limit if rerank_pool else limit
         semantic_results = self.vector_store.search(
             query=query, vectors=embeddings, top_k=internal_limit, filters=filters
@@ -3229,7 +3229,7 @@ class AsyncMemory(MemoryBase):
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
-                # Reranking failed, but we over-fetched for it — trim back to limit.
+                # Reranking failed, but we over-fetched for it, so trim back to limit.
                 original_memories = original_memories[:limit]
 
         if temporal_usage_notice:
@@ -3370,7 +3370,7 @@ class AsyncMemory(MemoryBase):
         # When feeding a reranker, return the whole over-fetched pool instead of
         # truncating to `limit`, so the reranker can rescue candidates the
         # first-stage scorer ranked below `limit`. This does NOT re-widen the DB
-        # fetch — `internal_limit` is still computed from the original `limit`.
+        # fetch: `internal_limit` is still computed from the original `limit`.
         return_k = internal_limit if rerank_pool else limit
         semantic_results = await asyncio.to_thread(
             self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters

@@ -1335,123 +1335,96 @@ class TestAsyncPartialInsertFailure:
         mock_async_memory.db.save_messages.assert_called_once()
 
 
-def test_search_rerank_uses_full_candidate_pool(mocker):
-    """Regression: search(rerank=True) must hand the reranker the full candidate
-    pool (more than ``limit``), not the already-truncated top-``limit`` set.
+def _stub_rerank_search(mocker, memory, pool_size=40):
+    """Fake only the vector store, so search() runs the real _search_vector_store
+    and score_and_rank. Memory ``m{i}`` has semantic score ``0.9 - i * 0.01``,
+    so the first-stage scorer ranks ``m{pool_size - 1}`` last.
+    """
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.extract_entities", return_value=[])
+    mocker.patch("mem0.memory.main.lemmatize_for_bm25", side_effect=lambda text: text)
+    memory.vector_store.search.return_value = [
+        SimpleNamespace(id=f"m{i}", score=0.9 - i * 0.01, payload={"data": f"memory {i}", "user_id": "u"})
+        for i in range(pool_size)
+    ]
+    memory.vector_store.keyword_search.return_value = None
+    # Cross-encoder stand-in: it knows the last-ranked memory is the right answer.
+    last_id = f"m{pool_size - 1}"
+    memory.reranker = mocker.MagicMock()
+    memory.reranker.rerank.side_effect = lambda q, docs, k: sorted(docs, key=lambda d: d["id"] != last_id)[:k]
 
-    ``_search_vector_store`` over-fetches a candidate pool but ``score_and_rank``
-    truncates it to ``limit`` before returning, so the reranker only ever saw the
-    final ``limit`` items. That let reranking reorder the final results but never
-    surface a relevant memory the first-stage scorer ranked below ``limit`` --
-    defeating the two-stage retrieve-then-rerank design.
+
+def test_search_rerank_can_rescue_candidate_ranked_below_limit(mocker):
+    """Regression for #6448: search(rerank=True) must hand the reranker the
+    over-fetched candidate pool, not the top-``limit`` that score_and_rank
+    already truncated, or reranking can only reorder and never improve recall.
     """
     memory = _build_memory_instance(mocker, Memory)
-    mocker.patch("mem0.memory.main.capture_event")
-    mocker.patch("mem0.memory.main.detect_temporal_usage_from_search", return_value=None)
-    mocker.patch("mem0.memory.main.detect_scale_threshold_from_top_k", return_value=None)
-    mocker.patch("mem0.memory.main.display_first_run_notice")
+    _stub_rerank_search(mocker, memory)
 
-    POOL_AVAILABLE = 40
-    FINAL_LIMIT = 5
+    results = memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True)["results"]
 
-    # Faithfully model _search_vector_store: it over-fetches internal_limit =
-    # max(limit*4, 60) from the store, then score_and_rank returns that whole
-    # pool when rerank_pool=True, else truncates to ``limit``. Critically, the
-    # over-fetch is computed from the ORIGINAL limit passed in — so passing a
-    # pre-widened limit here (the double-widening bug) would over-fetch again.
-    def fake_search_vector_store(query, filters, limit, *args, rerank_pool=False, **kwargs):
-        internal_limit = max(limit * 4, 60)
-        return_k = internal_limit if rerank_pool else limit
-        return [
-            {"id": str(i), "memory": f"doc{i}", "score": 1.0 - i * 0.01}
-            for i in range(min(return_k, POOL_AVAILABLE))
-        ]
-
-    memory._search_vector_store = mocker.MagicMock(side_effect=fake_search_vector_store)
-
-    # Reranker narrows whatever pool it receives down to the final limit.
-    memory.reranker = mocker.MagicMock()
-    memory.reranker.rerank.side_effect = lambda query, memories, limit: memories[:limit]
-
-    results = memory.search("q", filters={"user_id": "u"}, top_k=FINAL_LIMIT, rerank=True)
-
-    # _search_vector_store must be called with the ORIGINAL limit (not a
-    # pre-widened one) plus rerank_pool=True, so the over-fetch happens exactly
-    # once — guards against the double-widening regression.
-    call = memory._search_vector_store.call_args
-    passed_limit = call.args[2] if len(call.args) > 2 else call.kwargs["limit"]
-    assert passed_limit == FINAL_LIMIT
-    assert call.kwargs.get("rerank_pool") is True
-    # The reranker must have received the full pool (> final limit)...
-    reranked_input = memory.reranker.rerank.call_args[0][1]
-    assert len(reranked_input) > FINAL_LIMIT
-    # ...and been asked to narrow it to the final limit.
-    assert memory.reranker.rerank.call_args[0][2] == FINAL_LIMIT
-    # Final results still respect the requested limit.
-    assert len(results["results"]) == FINAL_LIMIT
+    assert len(results) == 5
+    assert results[0]["id"] == "m39"
+    assert len(memory.reranker.rerank.call_args.args[1]) == 40
+    assert memory.reranker.rerank.call_args.args[2] == 5
 
 
-def test_search_rerank_failure_still_respects_limit(mocker):
-    """When reranking is enabled we over-fetch a candidate pool; if the rerank
-    call fails, the fallback must trim back to ``limit`` rather than leaking the
-    whole over-fetched pool to the caller.
+def test_search_rerank_over_fetches_from_store_once(mocker):
+    """The pool must be widened once from the caller's limit, not widened again
+    from an already-widened limit (max(limit * 4, 60) for top_k=5 is 60).
     """
     memory = _build_memory_instance(mocker, Memory)
-    mocker.patch("mem0.memory.main.capture_event")
-    mocker.patch("mem0.memory.main.detect_temporal_usage_from_search", return_value=None)
-    mocker.patch("mem0.memory.main.detect_scale_threshold_from_top_k", return_value=None)
-    mocker.patch("mem0.memory.main.display_first_run_notice")
+    _stub_rerank_search(mocker, memory)
 
-    FINAL_LIMIT = 5
+    memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True)
 
-    def fake_search_vector_store(query, filters, limit, *args, rerank_pool=False, **kwargs):
-        internal_limit = max(limit * 4, 60)
-        return_k = internal_limit if rerank_pool else limit
-        return [{"id": str(i), "memory": f"doc{i}", "score": 1.0 - i * 0.01} for i in range(return_k)]
+    memory.vector_store.search.assert_called_once()
+    assert memory.vector_store.search.call_args.kwargs["top_k"] == 60
 
-    memory._search_vector_store = mocker.MagicMock(side_effect=fake_search_vector_store)
-    memory.reranker = mocker.MagicMock()
+
+def test_search_rerank_failure_trims_pool_back_to_limit(mocker):
+    """If the reranker raises, the over-fetched pool must not leak to the caller."""
+    memory = _build_memory_instance(mocker, Memory)
+    _stub_rerank_search(mocker, memory)
     memory.reranker.rerank.side_effect = RuntimeError("rerank API down")
 
-    results = memory.search("q", filters={"user_id": "u"}, top_k=FINAL_LIMIT, rerank=True)
+    results = memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True)["results"]
 
-    # Over-fetched pool (> limit) minus a failed rerank must trim back to limit,
-    # not leak the whole pool.
-    assert len(results["results"]) == FINAL_LIMIT
+    assert [r["id"] for r in results] == ["m0", "m1", "m2", "m3", "m4"]
+
+
+def test_search_without_rerank_still_truncates_to_limit(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    _stub_rerank_search(mocker, memory)
+
+    results = memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=False)["results"]
+
+    assert [r["id"] for r in results] == ["m0", "m1", "m2", "m3", "m4"]
+    memory.reranker.rerank.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_async_search_rerank_uses_full_candidate_pool(mocker):
-    """Async counterpart of test_search_rerank_uses_full_candidate_pool."""
+async def test_async_search_rerank_can_rescue_candidate_ranked_below_limit(mocker):
+    """Async counterpart of test_search_rerank_can_rescue_candidate_ranked_below_limit."""
     memory = _build_memory_instance(mocker, AsyncMemory)
-    mocker.patch("mem0.memory.main.capture_event")
-    mocker.patch("mem0.memory.main.detect_temporal_usage_from_search", return_value=None)
-    mocker.patch("mem0.memory.main.detect_scale_threshold_from_top_k", return_value=None)
-    mocker.patch("mem0.memory.main.display_first_run_notice_async")
+    _stub_rerank_search(mocker, memory)
 
-    POOL_AVAILABLE = 40
-    FINAL_LIMIT = 5
+    results = (await memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True))["results"]
 
-    async def fake_search_vector_store(query, filters, limit, *args, rerank_pool=False, **kwargs):
-        internal_limit = max(limit * 4, 60)
-        return_k = internal_limit if rerank_pool else limit
-        return [
-            {"id": str(i), "memory": f"doc{i}", "score": 1.0 - i * 0.01}
-            for i in range(min(return_k, POOL_AVAILABLE))
-        ]
+    assert len(results) == 5
+    assert results[0]["id"] == "m39"
+    assert len(memory.reranker.rerank.call_args.args[1]) == 40
+    memory.vector_store.search.assert_called_once()
+    assert memory.vector_store.search.call_args.kwargs["top_k"] == 60
 
-    memory._search_vector_store = mocker.MagicMock(side_effect=fake_search_vector_store)
-    memory.reranker = mocker.MagicMock()
-    memory.reranker.rerank.side_effect = lambda query, memories, limit: memories[:limit]
 
-    results = await memory.search("q", filters={"user_id": "u"}, top_k=FINAL_LIMIT, rerank=True)
+@pytest.mark.asyncio
+async def test_async_search_rerank_failure_trims_pool_back_to_limit(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    _stub_rerank_search(mocker, memory)
+    memory.reranker.rerank.side_effect = RuntimeError("rerank API down")
 
-    # Original limit passed once, rerank_pool set → no double-widening.
-    call = memory._search_vector_store.call_args
-    passed_limit = call.args[2] if len(call.args) > 2 else call.kwargs["limit"]
-    assert passed_limit == FINAL_LIMIT
-    assert call.kwargs.get("rerank_pool") is True
-    reranked_input = memory.reranker.rerank.call_args[0][1]
-    assert len(reranked_input) > FINAL_LIMIT
-    assert memory.reranker.rerank.call_args[0][2] == FINAL_LIMIT
-    assert len(results["results"]) == FINAL_LIMIT
+    results = (await memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True))["results"]
+
+    assert [r["id"] for r in results] == ["m0", "m1", "m2", "m3", "m4"]
