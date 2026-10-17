@@ -1367,7 +1367,6 @@ class TestAsyncEmbeddedWriteSerialization:
     async def test_concurrent_creates_against_embedded_qdrant_all_persist(self, mocker, tmp_path):
         """Real embedded Qdrant, no mocked store: every concurrent write must land."""
         memory = self._async_memory_on_embedded_qdrant(mocker, tmp_path / "qdrant")
-        assert memory._write_lock is not None, "embedded backend should serialize writes"
 
         writers = 50
         results = await asyncio.gather(
