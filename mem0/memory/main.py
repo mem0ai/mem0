@@ -3894,7 +3894,7 @@ class AsyncMemory(MemoryBase):
             Recreates the vector store with a new client
         """
         logger.warning("Resetting all memories")
-        await asyncio.to_thread(self.vector_store.delete_col)
+        await self._store_write(self.vector_store.delete_col)
 
         gc.collect()
 
@@ -3911,7 +3911,7 @@ class AsyncMemory(MemoryBase):
 
         if self._entity_store is not None:
             try:
-                await asyncio.to_thread(self._entity_store.reset)
+                await self._store_write(self._entity_store.reset)
             except Exception as e:
                 logger.warning(f"Failed to reset entity store: {e}")
             self._entity_store = None

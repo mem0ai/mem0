@@ -1417,6 +1417,39 @@ class TestAsyncEmbeddedWriteSerialization:
 
         assert max_in_flight == 1, f"writes overlapped: {max_in_flight} concurrent store calls"
 
+    @pytest.mark.asyncio
+    async def test_reset_waits_for_in_flight_writes(self, mocker, tmp_path):
+        """reset() drops the collection, so it must not overlap a concurrent write."""
+        memory = self._async_memory_on_embedded_qdrant(mocker, tmp_path / "qdrant")
+        mocker.patch("mem0.memory.main.SQLiteManager", MagicMock())
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.display_first_run_notice_async")
+
+        in_flight = 0
+        max_in_flight = 0
+
+        def tracked(*args, **kwargs):
+            nonlocal in_flight, max_in_flight
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            time.sleep(0.01)
+            in_flight -= 1
+
+        store = mocker.MagicMock(spec=["insert", "delete_col"])
+        store.insert.side_effect = tracked
+        store.delete_col.side_effect = tracked
+        memory.vector_store = store
+        memory.db = MagicMock()
+        mocker.patch("mem0.memory.main.VectorStoreFactory.create", return_value=store)
+
+        await asyncio.gather(
+            *[memory._create_memory(f"m{i}", {f"m{i}": [0.1] * 8}, {"user_id": "u1"}) for i in range(6)],
+            memory.reset(),
+        )
+
+        store.delete_col.assert_called_once()
+        assert max_in_flight == 1, f"reset overlapped a write: {max_in_flight} concurrent store calls"
+
     @pytest.mark.parametrize(
         "store, expect_lock",
         [
