@@ -107,16 +107,16 @@ Three things decide which model fits:
 - **Cost:** what your provider charges for the calls behind one add.
 - **Latency:** how long it takes from sending an add until its memories show up in search.
 
-We measured these on [LoCoMo](https://github.com/snap-research/locomo), a public benchmark of long conversations, for a limited set of popular models. Your own data can give different results. Based on what we measured, these are our picks:
+We measured these on [LoCoMo](https://github.com/snap-research/locomo), a public benchmark of long conversations, for a limited set of popular models. Your own data can give different results. Based on what we measured, these are our picks: **Best value** balances accuracy and price, **Best under $1** is the most accurate model under $1 per 1,000 add requests, and **Best quality** has the highest accuracy.
 
 <Frame>
-  <img src="/images/platform/byok-picks.png" alt="The three picks. Best value: MiMo-V2.6-Flash, open weights, on OpenRouter: 93.0% accuracy, $3.24 per 1,000 add requests, 28.0 s latency at p95. Best on OpenAI: GPT-6 Luna, closed, on OpenAI, Azure OpenAI, OpenRouter: 92.6% accuracy, $3.55 per 1,000 add requests, 15.2 s latency at p95. Best quality: Claude Opus 5.5, closed, on Anthropic, OpenRouter: 93.5% accuracy, $158.55 per 1,000 add requests, 18.1 s latency at p95." />
+  <img src="/images/platform/byok-picks.png" alt="The three picks. Best value: DeepSeek V4.1 Flash, open weights, on OpenRouter: 92.9% accuracy, $5.34 per 1,000 add requests, 18.5 s latency at p95. Best under $1: Amazon Nova Micro, closed, on OpenRouter: 88.0% accuracy, $0.86 per 1,000 add requests, 10.2 s latency at p95. Best quality: Claude Opus 5.5, closed, on Anthropic, OpenRouter: 93.5% accuracy, $158.55 per 1,000 add requests, 18.1 s latency at p95." />
 </Frame>
 
-Accuracy against cost for every model we tested. The green line marks the best accuracy available at each price, and the gray dashed line is Mem0's default model, at 92.5%.
+Accuracy against cost for every model we tested. The green line marks the best accuracy available at each price, the gold area holds the models under $2 per 1,000 add requests, and the gray dashed line is Mem0's default model, at 92.5%.
 
 <Frame>
-  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 add requests on a log scale, one ring per model, each labelled with its accuracy. MiMo-V2.6-Flash sits at the far left at $3.24 and 93.0%; Claude Opus 5.5 at the far right at $158.55 and 93.5%. A dashed gray line marks Mem0's default model (free tier) at 92.5%. A shaded region holds the models above it for under $25 per 1,000 add requests, and a dashed green line marks the best accuracy available at each price." />
+  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 add requests on a log scale, one ring per model, each labelled with its accuracy. Mistral Nemo sits at the far left at $0.68 and 84.1%; Claude Opus 5.5 at the far right at $158.55 and 93.5%. A dashed gray line marks Mem0's default model (free tier) at 92.5%. A green shaded region holds the models above it for under $25 per 1,000 add requests, a gold one the models under $2 per 1,000 add requests, and a dashed green line marks the best accuracy available at each price. Tags mark our picks: best value, DeepSeek V4.1 Flash; best under $1, Amazon Nova Micro; best quality, Claude Opus 5.5." />
 </Frame>
 
 The [full evaluation](https://mem0.ai/blog/bring-your-own-key-accuracy-cost-latency-by-model) has every model's accuracy, cost and latency, and a calculator for your monthly volume.
