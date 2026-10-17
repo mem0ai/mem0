@@ -458,7 +458,7 @@ results = reranker.search("What are my preferences?", "alice")
 
 1. **Use Specific Prompts**: Tailor prompts to your domain and use case
 2. **Set Temperature to 0**: Ensure consistent scoring across runs
-3. **Limit Top-K**: Don't rerank too many candidates to control costs
+3. **Limit Top-K**: The LLM reranker makes one LLM call per candidate, one after another. In the Python SDK, `search(rerank=True)` hands it up to `max(top_k * 4, 60)` candidates (80 at the default `top_k=20`), so a reranked search costs up to that many calls
 4. **Implement Fallbacks**: Always have a backup plan for API failures
 5. **Monitor Costs**: Track API usage, especially with expensive models
 6. **Cache Results**: Consider caching reranking results for repeated queries
