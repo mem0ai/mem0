@@ -754,3 +754,15 @@ class TestCosineNormalization:
 
             assert results[0].id == "x"
             assert results[0].score == pytest.approx(1.0, abs=1e-5)
+
+
+def test_list_cols_finds_collections_in_store_path(tmp_path):
+    from mem0.vector_stores.faiss import FAISS
+    store_path = str(tmp_path / "mem0_store")
+    store1 = FAISS(collection_name="users", path=store_path, embedding_model_dims=4)
+    store1.insert([[0.1, 0.2, 0.3, 0.4]], ids=["u1"])
+    store2 = FAISS(collection_name="messages", path=store_path, embedding_model_dims=4)
+    store2.insert([[0.5, 0.6, 0.7, 0.8]], ids=["m1"])
+    cols = store1.list_cols()
+    assert "users" in cols
+    assert "messages" in cols
