@@ -144,7 +144,7 @@ def test_list_vectors(upstash_instance):
         filter='age = 30 AND name = "John"',
         include_metadata=True,
         namespace="ns",
-        top_k=100,
+        top_k=15,
     )
 
     handler.fetch_next.assert_has_calls([call(100), call(100), call(100)])
@@ -469,3 +469,62 @@ def test_env_var_only_config_builds_provider(monkeypatch):
         UpstashVector(**dumped)
 
     mock_index.assert_called_once_with("https://example.upstash.io", "tok_123")
+
+
+def test_list_slices_results_to_top_k(upstash_instance):
+    """Regression test for #6560.
+
+    list() must honor its top_k argument: it forwards top_k to the initial
+    resumable_query and slices the accumulated results to top_k before
+    returning. Previously it hardcoded top_k=100 in the resumable_query call
+    and never sliced, so list(top_k=5) returned up to 100 rows and the limit
+    passed through from get_all() was silently ignored.
+    """
+    mock_result = [
+        QueryResult(id=f"id{i}", score=None, vector=None, metadata={"name": f"vector{i}"}, data=None)
+        for i in range(8)
+    ]
+    handler = MagicMock()
+
+    upstash_instance.client.info.return_value.dimension = 10
+    upstash_instance.client.resumable_query.return_value = (mock_result, handler)
+    handler.fetch_next.side_effect = [[]]
+
+    [results] = upstash_instance.list(top_k=5)
+
+    upstash_instance.client.resumable_query.assert_called_once_with(
+        vector=[1.0] * 10,
+        filter="",
+        include_metadata=True,
+        namespace="ns",
+        top_k=5,
+    )
+    assert len(results) == 5
+    assert [r.id for r in results] == ["id0", "id1", "id2", "id3", "id4"]
+
+
+def test_list_does_not_overshoot_top_k(upstash_instance):
+    """Regression test for #6560: list(top_k=N) must never return more than N
+    rows even when pages overshoot. Previously the loop fetched in pages of
+    100 and never sliced, so list(top_k=250) returned ~300 rows.
+    """
+    page = [
+        QueryResult(id=f"id{i}", score=None, vector=None, metadata={"name": f"v{i}"}, data=None)
+        for i in range(100)
+    ]
+    handler = MagicMock()
+    upstash_instance.client.info.return_value.dimension = 10
+    upstash_instance.client.resumable_query.return_value = (list(page), handler)
+    # 100 + 100 + 100 = 300 before the loop breaks at len >= 250.
+    handler.fetch_next.side_effect = [list(page), list(page), []]
+
+    [results] = upstash_instance.list(top_k=250)
+
+    upstash_instance.client.resumable_query.assert_called_once_with(
+        vector=[1.0] * 10,
+        filter="",
+        include_metadata=True,
+        namespace="ns",
+        top_k=250,
+    )
+    assert len(results) == 250
