@@ -553,9 +553,10 @@ class FAISS(VectorStoreBase):
 
         try:
             collections = []
-            path = Path(self.path).parent
-            for file in path.glob("*.faiss"):
-                collections.append(file.stem)
+            path = Path(self.path)
+            if path.exists():
+                for file in path.glob("*.faiss"):
+                    collections.append(file.stem)
             return collections
         except Exception as e:
             logger.warning(f"Failed to list collections: {e}")
