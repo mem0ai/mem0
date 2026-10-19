@@ -57,6 +57,24 @@ def test_create_col(faiss_instance, mock_faiss_index):
             mock_index_flat_ip.assert_called_once_with(faiss_instance.embedding_model_dims)
 
 
+def test_list_cols():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = os.path.join(temp_dir, "faiss_store")
+        store = FAISS(collection_name="col1", path=path, embedding_model_dims=2)
+        store.insert([[0.1, 0.2]], payloads=[{"data": "x"}], ids=["id1"])
+
+        store.create_col("col2")
+        store.insert([[0.3, 0.4]], payloads=[{"data": "y"}], ids=["id2"])
+
+        cols = store.list_cols()
+        assert sorted(cols) == ["col1", "col2"]
+
+
+def test_list_cols_no_path():
+    store = FAISS(collection_name="in_memory", path=None, embedding_model_dims=2)
+    assert store.list_cols() == ["in_memory"]
+
+
 def test_insert(faiss_instance, mock_faiss_index):
     # Prepare test data
     vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
