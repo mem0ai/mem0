@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from typing import Dict, List, Optional, Union
+from urllib.parse import urlparse
 
 from openai import OpenAI
 
@@ -82,6 +83,29 @@ class OpenAILLM(LLMBase):
         else:
             return response.choices[0].message.content
 
+    def _apply_cache_routing(self, params: Dict) -> None:
+        """Send the opt-in cache-routing key: xAI's x-grok-conv-id header, or OpenAI's prompt_cache_key field.
+
+        In "auto" mode the key is sent only to hosts known to accept it (api.x.ai and its subdomains, e.g.
+        regional endpoints; api.openai.com); other OpenAI-compatible hosts get nothing unless the mode is forced.
+        """
+        key = getattr(self.config, "cache_routing_key", None)
+        if not key:
+            return
+        mode = getattr(self.config, "cache_routing", "auto")
+        if mode == "auto":
+            host = (urlparse(str(self.client.base_url)).hostname or "").lower()
+            if host == "api.x.ai" or host.endswith(".api.x.ai"):
+                mode = "x-grok-conv-id"
+            elif host == "api.openai.com":
+                mode = "prompt_cache_key"
+            else:
+                return
+        if mode == "x-grok-conv-id":
+            params["extra_headers"] = {**(params.get("extra_headers") or {}), "x-grok-conv-id": key}
+        else:
+            params["extra_body"] = {**(params.get("extra_body") or {}), "prompt_cache_key": key}
+
     def generate_response(
         self,
         messages: List[Dict[str, str]],
@@ -132,6 +156,7 @@ class OpenAILLM(LLMBase):
             # reject unknown fields, so `store` must be opt-in, not opt-out.
             if self.config.store is not None:
                 params["store"] = self.config.store
+            self._apply_cache_routing(params)
 
         if response_format:
             params["response_format"] = response_format

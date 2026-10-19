@@ -31,6 +31,9 @@ class OpenAIConfig(BaseLlmConfig):
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
         store: Optional[bool] = None,
+        # Provider-side prompt-cache routing
+        cache_routing_key: Optional[str] = None,
+        cache_routing: str = "auto",
         # Response monitoring callback
         response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
     ):
@@ -62,6 +65,14 @@ class OpenAIConfig(BaseLlmConfig):
                 want the value forwarded to the OpenAI API. Leaving it None
                 avoids leaking the field into OpenAI-compatible backends that
                 reject unknown fields (Gemini, Groq, vLLM, etc.).
+            cache_routing_key: Stable key (e.g. one per user or conversation) that
+                routes requests sharing a prompt prefix to the same cache. Opt-in;
+                defaults to None (nothing sent).
+            cache_routing: How the key is sent. "auto" (default): the
+                ``x-grok-conv-id`` header for xAI hosts (api.x.ai and its
+                subdomains), the ``prompt_cache_key`` body field for
+                api.openai.com, and nothing for any other host. Set
+                "x-grok-conv-id" or "prompt_cache_key" to force a mode.
             response_callback: Optional callback for monitoring LLM responses.
         """
         # Initialize base parameters
@@ -87,6 +98,10 @@ class OpenAIConfig(BaseLlmConfig):
         self.site_url = site_url
         self.app_name = app_name
         self.store = store
+        if cache_routing not in ("auto", "x-grok-conv-id", "prompt_cache_key"):
+            raise ValueError(f"Unsupported cache_routing: {cache_routing!r}")
+        self.cache_routing_key = cache_routing_key
+        self.cache_routing = cache_routing
 
         # Response monitoring
         self.response_callback = response_callback
