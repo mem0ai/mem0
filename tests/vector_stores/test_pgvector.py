@@ -4,6 +4,7 @@ import unittest
 import uuid
 from unittest.mock import MagicMock, patch
 
+from mem0.memory.main import Memory
 from mem0.vector_stores.pgvector import (
     PGVector,
     _build_filter_conditions,
@@ -2525,3 +2526,121 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_in_accepts_list_value(self):
         conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
         self.assertEqual(params, ["user_id", ["alice", "bob"]])
+
+
+class TestNestedLogicalFilters(unittest.TestCase):
+    """Nested AND/OR/NOT groups must become grouped SQL, not metadata lookups.
+
+    ``Memory._process_metadata_filters()`` flattens a top-level ``AND`` and
+    renames only *top-level* ``OR``/``NOT`` to ``$or``/``$not``. A logical group
+    nested inside an ``AND`` therefore reaches the store under its bare name
+    (``"OR"``/``"NOT"``/``"AND"``) carrying a list value, which pgvector reads as
+    ``payload->>'OR' = ANY(...)`` against a stringified dict and never matches --
+    so the documented "Complex nested logic" example returns zero rows.
+
+    Refs mem0 issue #7664 and docs/open-source/features/metadata-filtering.mdx,
+    which lists pgvector as supporting nested ``AND``/``OR``/``NOT``.
+    """
+
+    LOGICAL_KEYS = ("OR", "NOT", "AND")
+
+    def assert_no_logical_key_leaked(self, params):
+        for key in self.LOGICAL_KEYS:
+            self.assertNotIn(
+                key,
+                params,
+                f"logical key {key!r} reached SQL as a metadata column",
+            )
+
+    def test_docs_nested_example_translates_to_grouped_sql(self):
+        """The exact filter from the docs must group, not degrade to payload->>'OR'."""
+        filters = {
+            "user_id": "alice",
+            "AND": [
+                {"OR": [{"category": "work"}, {"category": "personal"}]},
+                {"priority": {"gte": 5}},
+                {"NOT": [{"status": "archived"}]},
+            ],
+        }
+        processed = Memory.__new__(Memory)._process_metadata_filters(filters)
+        conditions, params = _build_filter_conditions(processed)
+
+        self.assert_no_logical_key_leaked(params)
+        self.assertEqual(len(conditions), 4)
+
+        # (category = work OR category = personal)
+        or_group = conditions[1]
+        self.assertTrue(or_group.startswith("("))
+        self.assertIn(" OR ", or_group)
+        self.assertNotIn("ANY", or_group)
+        self.assertEqual(params[2:6], ["category", "work", "category", "personal"])
+
+        # NOT (status = archived)
+        self.assertTrue(conditions[3].startswith("NOT ("))
+        self.assertEqual(params[-2:], ["status", "archived"])
+
+    def test_bare_or_and_not_keys_with_list_value_are_logical(self):
+        conditions, params = _build_filter_conditions(
+            {"OR": [{"category": "work"}, {"category": "personal"}]}
+        )
+        self.assertEqual(len(conditions), 1)
+        self.assertIn(" OR ", conditions[0])
+        self.assertNotIn("ANY", conditions[0])
+        self.assertEqual(params, ["category", "work", "category", "personal"])
+
+        conditions, params = _build_filter_conditions({"NOT": [{"status": "archived"}]})
+        self.assertEqual(len(conditions), 1)
+        self.assertTrue(conditions[0].startswith("NOT ("))
+        self.assertEqual(params, ["status", "archived"])
+
+        conditions, params = _build_filter_conditions(
+            {"user_id": "alice", "AND": [{"priority": {"gte": 5}}, {"status": "active"}]}
+        )
+        self.assert_no_logical_key_leaked(params)
+        self.assertEqual(len(conditions), 3)
+        self.assertEqual(params, ["user_id", "alice", "priority", 5.0, "status", "active"])
+
+    def test_deeply_nested_group_stays_grouped(self):
+        conditions, params = _build_filter_conditions(
+            {
+                "$or": [
+                    {"AND": [{"category": "work"}, {"priority": {"gte": 5}}]},
+                    {"category": "personal"},
+                ]
+            }
+        )
+        self.assert_no_logical_key_leaked(params)
+        self.assertEqual(len(conditions), 1)
+        self.assertIn(" OR ", conditions[0])
+        self.assertNotIn("ANY", conditions[0])
+        self.assertEqual(params, ["category", "work", "priority", 5.0, "category", "personal"])
+
+    def test_scalar_logical_named_field_stays_equality(self):
+        """A metadata field genuinely named OR/NOT must keep equality semantics."""
+        conditions, params = _build_filter_conditions({"OR": "vip"})
+        self.assertEqual(conditions, ["payload->>%s = %s"])
+        self.assertEqual(params, ["OR", "vip"])
+
+        conditions, params = _build_filter_conditions({"NOT": "draft"})
+        self.assertEqual(conditions, ["payload->>%s = %s"])
+        self.assertEqual(params, ["NOT", "draft"])
+
+    def test_list_valued_ordinary_field_still_uses_any(self):
+        """List values on ordinary keys keep the ANY shorthand."""
+        conditions, params = _build_filter_conditions({"tags": ["a", "b"]})
+        self.assertEqual(conditions, ["payload->>%s = ANY(%s)"])
+        self.assertEqual(params, ["tags", ["a", "b"]])
+
+    def test_list_of_scalars_under_logical_name_keeps_any(self):
+        """A logical name holding plain values must not be recursed into as groups."""
+        conditions, params = _build_filter_conditions({"OR": ["a", "b"]})
+        self.assertEqual(conditions, ["payload->>%s = ANY(%s)"])
+        self.assertEqual(params, ["OR", ["a", "b"]])
+
+        conditions, params = _build_filter_conditions({"$or": ["a", "b"]})
+        self.assertEqual(conditions, ["payload->>%s = ANY(%s)"])
+        self.assertEqual(params, ["$or", ["a", "b"]])
+
+        conditions, params = _build_filter_conditions({"NOT": ["a"]})
+        self.assertEqual(conditions, ["payload->>%s = ANY(%s)"])
+        self.assertEqual(params, ["NOT", ["a"]])

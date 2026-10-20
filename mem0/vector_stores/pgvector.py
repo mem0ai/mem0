@@ -55,8 +55,30 @@ def _build_filter_conditions(filters):
     if not filters:
         return conditions, params
 
+    # ``Memory._process_metadata_filters()`` flattens a top-level ``AND`` and
+    # renames only *top-level* ``OR``/``NOT`` to ``$or``/``$not``. A logical group
+    # nested inside an ``AND`` therefore reaches this store under its bare name
+    # (``"OR"``/``"NOT"``/``"AND"``) carrying a list value, which would otherwise be
+    # read as ``payload->>'OR' = ANY(...)`` against a stringified dict and never
+    # match. Accept both the bare and ``$``-prefixed spellings -- as the Qdrant
+    # store already does -- so nested groups stay grouped. Only a list value is
+    # read as logical, so a metadata field genuinely named OR/NOT/AND keeps its
+    # equality/ANY semantics. Refs mem0 issue #7664.
+    or_keys = ("$or", "OR")
+    not_keys = ("$not", "NOT")
+    and_keys = ("$and", "AND")
+
+    def is_logical_group(value):
+        """A logical group is a non-empty list of condition dicts.
+
+        Requiring dict elements keeps a metadata field genuinely named OR/NOT/AND
+        that happens to hold a list of plain values on the ANY shorthand instead of
+        recursing into scalars.
+        """
+        return isinstance(value, list) and bool(value) and all(isinstance(item, dict) for item in value)
+
     for key, value in filters.items():
-        if key == "$or":
+        if key in or_keys and is_logical_group(value):
             or_groups = []
             for or_filter in value:
                 sub_conds, sub_params = _build_filter_conditions(or_filter)
@@ -67,7 +89,7 @@ def _build_filter_conditions(filters):
                 conditions.append("(" + " OR ".join(or_groups) + ")")
             continue
 
-        if key == "$not":
+        if key in not_keys and is_logical_group(value):
             not_groups = []
             for not_filter in value:
                 sub_conds, sub_params = _build_filter_conditions(not_filter)
@@ -76,6 +98,16 @@ def _build_filter_conditions(filters):
                     params.extend(sub_params)
             if not_groups:
                 conditions.append("NOT (" + " OR ".join(not_groups) + ")")
+            continue
+
+        if key in and_keys and is_logical_group(value):
+            # The caller already joins every condition with AND, so each element
+            # of an explicit AND group is appended as its own condition. OR/NOT
+            # sub-groups already carry their own parentheses.
+            for and_filter in value:
+                sub_conds, sub_params = _build_filter_conditions(and_filter)
+                conditions.extend(sub_conds)
+                params.extend(sub_params)
             continue
 
         if value == "*":
