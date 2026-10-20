@@ -1,40 +1,50 @@
 """Exercise MiniMax requests through the real SDK serializers without network access."""
 
+import importlib
 import json
 
-import httpx
 import pytest
 
 from mem0.utils.factory import LlmFactory
 
 
+@pytest.fixture
+def capture_transport(monkeypatch):
+    def capture(llm, response_body):
+        requests = []
+
+        def send(request, **kwargs):
+            requests.append(request)
+            # Match the SDK's HTTP implementation (httpx or httpx2).
+            http = importlib.import_module(type(request).__module__.split(".")[0])
+            return http.Response(200, request=request, json=response_body)
+
+        monkeypatch.setattr(llm.client._client, "send", send)
+        return requests
+
+    return capture
+
+
 @pytest.mark.parametrize("base_url", [None, "https://api.minimaxi.com/v1", "https://custom.example/v1"])
 @pytest.mark.parametrize("model", [None, "MiniMax-M3.1-Flash", "MiniMax-M3", "MiniMax-M2.7", "saved-custom-model"])
-def test_minimax_serialized_request(monkeypatch, base_url, model):
+def test_minimax_serialized_request(monkeypatch, capture_transport, base_url, model):
     monkeypatch.delenv("MINIMAX_API_BASE", raising=False)
-    requests = []
-
-    def send(client, request, **kwargs):
-        requests.append(request)
-        return httpx.Response(
-            200,
-            request=request,
-            json={
-                "id": "chat-test",
-                "object": "chat.completion",
-                "created": 0,
-                "model": model or "MiniMax-M3.1-Flash",
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": "OK"}, "finish_reason": "stop"}],
-            },
-        )
-
-    monkeypatch.setattr(httpx.Client, "send", send)
     config = {"api_key": "test-key"}
     if model is not None:
         config["model"] = model
     if base_url is not None:
         config["minimax_base_url"] = base_url
     llm = LlmFactory.create("minimax", config)
+    requests = capture_transport(
+        llm,
+        {
+            "id": "chat-test",
+            "object": "chat.completion",
+            "created": 0,
+            "model": model or "MiniMax-M3.1-Flash",
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": "OK"}, "finish_reason": "stop"}],
+        },
+    )
     messages = [{"role": "system", "content": "Remember facts."}, {"role": "user", "content": "Hello"}]
     tools = [{"type": "function", "function": {"name": "remember", "parameters": {"type": "object"}}}]
     try:
@@ -56,14 +66,7 @@ def test_minimax_serialized_request(monkeypatch, base_url, model):
 
 
 @pytest.mark.parametrize("effort", ["low", "medium", "high", "xhigh", "max"])
-def test_minimax_preserves_effort_and_history(monkeypatch, effort):
-    payloads = []
-
-    def send(client, request, **kwargs):
-        payloads.append(json.loads(request.content))
-        return httpx.Response(200, request=request, json={"choices": [{"message": {"content": "OK"}}]})
-
-    monkeypatch.setattr(httpx.Client, "send", send)
+def test_minimax_preserves_effort_and_history(capture_transport, effort):
     messages = [
         {"role": "user", "content": [{"type": "image_url", "image_url": {"url": "https://example.com/image.png"}}]},
         {
@@ -74,6 +77,7 @@ def test_minimax_preserves_effort_and_history(monkeypatch, effort):
         {"role": "user", "content": "Recall it"},
     ]
     llm = LlmFactory.create("minimax", {"api_key": "test-key"})
+    requests = capture_transport(llm, {"choices": [{"message": {"content": "OK"}}]})
     try:
         assert (
             llm.generate_response(messages, reasoning_effort=effort, extra_body={"thinking": {"type": "adaptive"}})
@@ -81,37 +85,36 @@ def test_minimax_preserves_effort_and_history(monkeypatch, effort):
         )
     finally:
         llm.client.close()
-    assert payloads[0]["model"] == "MiniMax-M3.1-Flash"
-    assert payloads[0]["messages"] == messages
-    assert payloads[0]["reasoning_effort"] == effort
-    assert payloads[0]["thinking"] == {"type": "adaptive"}
+    payload = json.loads(requests[0].content)
+    assert payload["model"] == "MiniMax-M3.1-Flash"
+    assert payload["messages"] == messages
+    assert payload["reasoning_effort"] == effort
+    assert payload["thinking"] == {"type": "adaptive"}
 
 
 @pytest.mark.parametrize("host", ["api.minimax.io", "api.minimaxi.com"])
 @pytest.mark.parametrize("model", ["MiniMax-M3.1-Flash", "MiniMax-M3"])
-def test_minimax_anthropic_endpoint(monkeypatch, host, model):
+def test_minimax_anthropic_endpoint(capture_transport, host, model):
     pytest.importorskip("anthropic")
-    requests = []
-
-    def send(client, request, **kwargs):
-        requests.append(request)
-        return httpx.Response(
-            200,
-            request=request,
-            json={
-                "id": "msg-test",
-                "type": "message",
-                "role": "assistant",
-                "model": model,
-                "content": [{"type": "text", "text": "OK"}],
-                "stop_reason": "end_turn",
-                "usage": {"input_tokens": 1, "output_tokens": 1},
-            },
-        )
-
-    monkeypatch.setattr(httpx.Client, "send", send)
     llm = LlmFactory.create(
-        "anthropic", {"api_key": "test-key", "model": model, "anthropic_base_url": f"https://{host}/anthropic"}
+        "anthropic",
+        {
+            "api_key": "test-key",
+            "model": model,
+            "anthropic_base_url": f"https://{host}/anthropic",
+        },
+    )
+    requests = capture_transport(
+        llm,
+        {
+            "id": "msg-test",
+            "type": "message",
+            "role": "assistant",
+            "model": model,
+            "content": [{"type": "text", "text": "OK"}],
+            "stop_reason": "end_turn",
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        },
     )
     try:
         assert llm.generate_response([{"role": "user", "content": "Hello"}]) == "OK"
