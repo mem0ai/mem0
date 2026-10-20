@@ -63,8 +63,8 @@ If the test request finds one of these problems, Mem0 doesn't save the key:
 | The provider couldn't find that model or deployment. Double-check the Model name and try again. | The model ID is misspelled, your account can't use that model, or the Azure deployment doesn't exist on that resource. |
 | Could not reach the endpoint. Double-check the Endpoint URL and try again. | The Azure OpenAI **Endpoint URL** is misspelled, doesn't exist, or isn't reachable. |
 | The Endpoint URL responded unexpectedly (HTTP …). Double-check the Endpoint URL and try again. | The Azure OpenAI **Endpoint URL** doesn't point to an Azure OpenAI resource. |
-| Could not reach OpenAI. Try again in a moment. | Mem0 couldn't connect to your provider, which the message names. This is usually brief. |
-| OpenAI responded unexpectedly (HTTP …). Try again in a moment. | Your provider, which the message names, returned an error Mem0 didn't expect. |
+| Could not reach the provider. Try again in a moment. | Mem0 couldn't connect to your provider. This is usually brief. |
+| The provider responded unexpectedly (HTTP …). Try again in a moment. | Your provider returned an error Mem0 didn't expect. |
 
 Some problems don't stop the save, because they can be fixed on your provider's side without changing anything in Mem0. In that case Mem0 saves the key and shows a warning at the top of the tab that names your provider. For example, with an OpenAI key:
 
