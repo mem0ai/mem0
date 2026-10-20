@@ -485,7 +485,12 @@ class _AsyncOSSProject:
 
 
 class Memory(MemoryBase):
-    def __init__(self, config: MemoryConfig = MemoryConfig()):
+    def __init__(self, config: Optional[MemoryConfig] = None):
+        # Build the default config lazily: a MemoryConfig() default argument
+        # would be evaluated at import time, importing the default vector-store
+        # provider's SDK (qdrant_client) on every `import mem0`. See #7677.
+        if config is None:
+            config = MemoryConfig()
         self.config = config
 
         self.embedding_model = EmbedderFactory.create(
@@ -2191,7 +2196,12 @@ class Memory(MemoryBase):
 
 
 class AsyncMemory(MemoryBase):
-    def __init__(self, config: MemoryConfig = MemoryConfig()):
+    def __init__(self, config: Optional[MemoryConfig] = None):
+        # Build the default config lazily: a MemoryConfig() default argument
+        # would be evaluated at import time, importing the default vector-store
+        # provider's SDK (qdrant_client) on every `import mem0`. See #7677.
+        if config is None:
+            config = MemoryConfig()
         self.config = config
 
         self.embedding_model = EmbedderFactory.create(
