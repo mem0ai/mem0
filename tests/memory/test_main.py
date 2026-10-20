@@ -1,7 +1,10 @@
 import json
 import logging
+import subprocess
+import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
@@ -1333,3 +1336,25 @@ class TestAsyncPartialInsertFailure:
             )
 
         mock_async_memory.db.save_messages.assert_called_once()
+
+
+def test_import_mem0_does_not_import_the_default_vector_store():
+    """A bare import must not pull in qdrant_client for users of other providers."""
+    repo_root = Path(__file__).resolve().parents[2]
+    script = (
+        "import importlib.util, sys\n"
+        "assert importlib.util.find_spec('qdrant_client') is not None, "
+        "'qdrant_client must be installed for this test'\n"
+        "import mem0\n"
+        "print('qdrant_client' in sys.modules)\n"
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "False"
