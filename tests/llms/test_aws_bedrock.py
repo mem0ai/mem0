@@ -508,6 +508,77 @@ class TestParseResponseLegacy:
         assert result == "hello from ai21"
 
 
+class TestParseResponseLegacyAmazon:
+    """Legacy Amazon models (Titan) answer with results[0].outputText. The
+    amazon branch used to read a top-level "completion" field that Titan
+    never sends, so every Titan response parsed as an empty string and
+    generate_response() silently yielded "".
+    """
+
+    def test_titan_output_text_is_returned(self, mock_boto3):
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({
+            "inputTextTokenCount": 3,
+            "results": [{"tokenCount": 5, "outputText": "Hi from Titan", "completionReason": "FINISH"}],
+        }).encode())
+        result = llm._parse_response({"body": body}, tools=None)
+        assert result == "Hi from Titan"
+
+    def test_titan_generate_response_returns_text(self, mock_boto3):
+        import io
+        import json
+        mock_boto3.invoke_model.return_value = {
+            "body": io.BytesIO(json.dumps({"results": [{"outputText": "Hi from Titan"}]}).encode())
+        }
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+
+        assert llm.generate_response(MESSAGES) == "Hi from Titan"
+
+    def test_titan_uses_first_result(self, mock_boto3):
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({
+            "results": [{"outputText": "first"}, {"outputText": "second"}],
+        }).encode())
+        result = llm._parse_response({"body": body}, tools=None)
+        assert result == "first"
+
+    def test_titan_falls_back_to_completion_field(self, mock_boto3):
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({"completion": "legacy completion"}).encode())
+        result = llm._parse_response({"body": body}, tools=None)
+        assert result == "legacy completion"
+
+    def test_titan_without_results_returns_empty_string(self, mock_boto3):
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({"inputTextTokenCount": 3}).encode())
+        result = llm._parse_response({"body": body}, tools=None)
+        assert result == ""
+
+    def test_titan_empty_results_list_returns_empty_string(self, mock_boto3):
+        llm = _make_llm("amazon.titan-text-express-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({"results": []}).encode())
+        result = llm._parse_response({"body": body}, tools=None)
+        assert result == ""
+
+    def test_nova_branch_still_parses_content(self, mock_boto3):
+        llm = _make_llm("amazon.nova-3-mini-20241119-v1:0", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({"content": [{"text": "nova answer"}]}).encode())
+        result = llm._parse_response({"body": body}, tools=None)
+        assert result == "nova answer"
+
+
 class TestAnthropicConverseContentParsing:
     """The Anthropic Converse branch must not assume content[0] is the text
     block: Claude reasoning models emit a reasoningContent block before the

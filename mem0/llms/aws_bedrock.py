@@ -406,7 +406,15 @@ class AWSBedrockLLM(LLMBase):
                     elif "completion" in response_json:
                         return response_json["completion"]
                 else:
-                    # Legacy Amazon models
+                    # Legacy Amazon models (e.g. Titan) answer with the text in
+                    # results[0].outputText. They never send a top-level
+                    # "completion" field, so reading only that returned "" for
+                    # every valid response.
+                    results = response_json.get("results")
+                    if isinstance(results, list) and results:
+                        first = results[0]
+                        if isinstance(first, dict) and first.get("outputText"):
+                            return first["outputText"]
                     return response_json.get("completion", "")
             elif self.provider == "meta":
                 return response_json.get("generation", "")
