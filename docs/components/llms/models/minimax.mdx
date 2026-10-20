@@ -5,6 +5,14 @@ description: "Configure MiniMax as an LLM provider in Mem0 with API key setup an
 
 The `minimax` provider uses MiniMax's OpenAI-compatible API. Set the `MINIMAX_API_KEY` environment variable before using it. You can also set `MINIMAX_API_BASE` to override the API endpoint; it defaults to `https://api.minimax.io/v1`.
 
+## Models
+
+- `MiniMax-M3.1-Flash` is the default text model when `model` is omitted.
+- `MiniMax-M3` is available by setting `model` explicitly.
+- Saved and custom model IDs, including `MiniMax-M2.7`, are preserved.
+
+The provider does not inject thinking, reasoning-effort, or service-tier settings. Existing message and media handling is unchanged.
+
 ## Usage
 
 <CodeGroup>
@@ -19,7 +27,7 @@ config = {
     "llm": {
         "provider": "minimax",
         "config": {
-            "model": "MiniMax-M3",  # default model
+            "model": "MiniMax-M3.1-Flash",  # default model
             "temperature": 0.2,
             "max_tokens": 2000,
             "top_p": 1.0
@@ -45,7 +53,7 @@ const config = {
     provider: 'minimax',
     config: {
       apiKey: process.env.MINIMAX_API_KEY || '',
-      model: 'MiniMax-M3',
+      model: 'MiniMax-M3.1-Flash',
       temperature: 0.2,
       maxTokens: 2000,
       topP: 1.0,
@@ -81,7 +89,7 @@ config = {
     "llm": {
         "provider": "minimax",
         "config": {
-            "model": "MiniMax-M2.7",
+            "model": "MiniMax-M3.1-Flash",
             "minimax_base_url": "https://api.minimaxi.com/v1",
             "api_key": "your-api-key"  # alternatively to using environment variable
         }
@@ -94,7 +102,7 @@ const config = {
   llm: {
     provider: 'minimax',
     config: {
-      model: 'MiniMax-M2.7',
+      model: 'MiniMax-M3.1-Flash',
       baseURL: 'https://api.minimaxi.com/v1',
       apiKey: 'your-api-key', // alternatively to using the environment variable
     },
@@ -111,7 +119,7 @@ config = {
     "llm": {
         "provider": "anthropic",
         "config": {
-            "model": "MiniMax-M3",
+            "model": "MiniMax-M3.1-Flash",
             "anthropic_base_url": "https://api.minimax.io/anthropic",
             "api_key": "your-api-key"
         }
@@ -124,7 +132,7 @@ const config = {
   llm: {
     provider: 'anthropic',
     config: {
-      model: 'MiniMax-M3',
+      model: 'MiniMax-M3.1-Flash',
       baseURL: 'https://api.minimax.io/anthropic',
       apiKey: 'your-api-key',
     },

@@ -61,10 +61,10 @@ def test_minimax_llm_config_base_url():
 
 
 def test_minimax_llm_default_model(mock_minimax_client):
-    """Default model is MiniMax-M3 when not specified."""
+    """Default model is MiniMax-M3.1-Flash when not specified."""
     config = MinimaxConfig(temperature=0.7, max_tokens=100, api_key="api_key")
     llm = MiniMaxLLM(config)
-    assert llm.config.model == "MiniMax-M3"
+    assert llm.config.model == "MiniMax-M3.1-Flash"
 
 
 def test_minimax_llm_env_api_key():
