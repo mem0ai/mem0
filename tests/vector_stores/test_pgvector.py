@@ -2653,3 +2653,98 @@ class TestNestedLogicalFilters(unittest.TestCase):
         conditions, params = _build_filter_conditions({"NOT": ["a"]})
         self.assertEqual(conditions, ["payload->>%s = ANY(%s)"])
         self.assertEqual(params, ["NOT", ["a"]])
+
+    def test_and_group_nested_inside_or_stays_grouped(self):
+        """Regression for issue #7664: an ``AND`` nested inside ``OR``.
+
+        The reporter's known-answer check on main returned 1 row instead of 3
+        because ``AND`` reached pgvector as a literal column and degraded to
+        ``payload->>'AND' = ANY(...)`` against a stringified dict.
+        """
+        filters = {
+            "user_id": "alice",
+            "OR": [
+                {"AND": [{"category": "work"}, {"priority": {"gte": 5}}]},
+                {"category": "travel"},
+            ],
+        }
+        processed = Memory.__new__(Memory)._process_metadata_filters(filters)
+        conditions, params = _build_filter_conditions(processed)
+
+        self.assert_no_logical_key_leaked(params)
+        # user_id, plus one parenthesised OR group carrying the inner AND.
+        self.assertEqual(len(conditions), 2)
+        self.assertTrue(conditions[1].startswith("("))
+        self.assertIn(" OR ", conditions[1])
+        self.assertIn(" AND ", conditions[1])
+        self.assertNotIn("ANY", conditions[1])
+        self.assertEqual(
+            params[2:],
+            ["category", "work", "priority", 5.0, "category", "travel"],
+        )
+
+    def test_or_group_nested_inside_not_stays_grouped(self):
+        """Regression for issue #7664: an ``OR`` nested inside ``NOT``.
+
+        On main the inner ``OR`` was kept as a literal key, so the ``NOT``
+        matched nothing and every row came back (5 instead of 3).
+        """
+        filters = {
+            "user_id": "alice",
+            "NOT": [{"OR": [{"status": "archived"}, {"category": "travel"}]}],
+        }
+        processed = Memory.__new__(Memory)._process_metadata_filters(filters)
+        conditions, params = _build_filter_conditions(processed)
+
+        self.assert_no_logical_key_leaked(params)
+        self.assertEqual(len(conditions), 2)
+        self.assertTrue(conditions[1].startswith("NOT ("))
+        self.assertIn(" OR ", conditions[1])
+        self.assertNotIn("ANY", conditions[1])
+        self.assertEqual(params[2:], ["status", "archived", "category", "travel"])
+
+    def test_logical_group_at_every_depth_combines_with_siblings(self):
+        """``AND`` under ``OR`` under ``NOT`` must not flatten any level."""
+        filters = {
+            "NOT": [
+                {
+                    "OR": [
+                        {"AND": [{"category": "work"}, {"priority": {"gte": 9}}]},
+                        {"category": "travel"},
+                    ]
+                }
+            ]
+        }
+        processed = Memory.__new__(Memory)._process_metadata_filters(filters)
+        conditions, params = _build_filter_conditions(processed)
+
+        self.assert_no_logical_key_leaked(params)
+        self.assertEqual(len(conditions), 1)
+        self.assertTrue(conditions[0].startswith("NOT ("))
+        self.assertIn(" OR ", conditions[0])
+        self.assertIn(" AND ", conditions[0])
+        self.assertNotIn("ANY", conditions[0])
+        self.assertEqual(
+            params,
+            ["category", "work", "priority", 9.0, "category", "travel"],
+        )
+
+    def test_async_memory_twin_translates_identically(self):
+        """``AsyncMemory`` carries a byte-identical copy of the translator.
+
+        Both classes emit the same bare-name groups, so the store-side fix has
+        to hold for both entry points; assert they stay in step.
+        """
+        from mem0.memory.main import AsyncMemory
+
+        filters = {
+            "user_id": "alice",
+            "NOT": [{"OR": [{"status": "archived"}, {"category": "travel"}]}],
+        }
+        sync_processed = Memory.__new__(Memory)._process_metadata_filters(filters)
+        async_processed = AsyncMemory.__new__(AsyncMemory)._process_metadata_filters(filters)
+
+        self.assertEqual(sync_processed, async_processed)
+        self.assert_no_logical_key_leaked(
+            _build_filter_conditions(async_processed)[1],
+        )
