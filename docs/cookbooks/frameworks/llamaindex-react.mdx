@@ -76,29 +76,27 @@ order_food_tool = FunctionTool.from_defaults(fn=order_food)
 Initialize the agent with tools and memory.
 
 ```python
-from llama_index.core.agent import FunctionCallingAgent
+from llama_index.core.agent.workflow import FunctionAgent
 
-agent = FunctionCallingAgent.from_tools(
-    [call_tool, email_tool, order_food_tool],
+agent = FunctionAgent(
+    tools=[call_tool, email_tool, order_food_tool],
     llm=llm,
-    memory=memory_from_client,
     verbose=True,
 )
 ```
 
-Start the chat.
+Start the chat. `FunctionAgent.run` is async, so call it with `await` inside a coroutine (or `asyncio.run(...)` from a script).
 
 <Note>The agent will use Mem0 to store the relevant memories from the chat.</Note>
 
 **Input**
 ```python
-response = agent.chat("Hi, My name is David")
+response = await agent.run("Hi, My name is David", memory=memory_from_client)
 print(response)
 ```
 
 **Output**
 ```text
-> Running step bf44a75a-a920-4cf3-944e-b6e6b5695043. Step input: Hi, My name is David
 Added user message to memory: Hi, My name is David
 === LLM Response ===
 Hello, David! How can I assist you today?
@@ -106,13 +104,12 @@ Hello, David! How can I assist you today?
 
 **Input**
 ```python
-response = agent.chat("I love to eat pizza on weekends")
+response = await agent.run("I love to eat pizza on weekends", memory=memory_from_client)
 print(response)
 ```
 
 **Output**
 ```text
-> Running step 845783b0-b85b-487c-baee-8460ebe8b38d. Step input: I love to eat pizza on weekends
 Added user message to memory: I love to eat pizza on weekends
 === LLM Response ===
 Pizza is a great choice for the weekend! If you'd like, I can help you order some. Just let me know what kind of pizza you prefer!
@@ -120,13 +117,12 @@ Pizza is a great choice for the weekend! If you'd like, I can help you order som
 
 **Input**
 ```python
-response = agent.chat("My preferred way of communication is email")
+response = await agent.run("My preferred way of communication is email", memory=memory_from_client)
 print(response)
 ```
 
 **Output**
 ```text
-> Running step 345842f0-f8a0-42ea-a1b7-612265d72a92. Step input: My preferred way of communication is email
 Added user message to memory: My preferred way of communication is email
 === LLM Response ===
 Got it! If you need any assistance or have any requests, feel free to let me know, and I can communicate with you via email.
@@ -136,19 +132,18 @@ Got it! If you need any assistance or have any requests, feel free to let me kno
 
 **Input**
 ```python
-agent = FunctionCallingAgent.from_tools(
-    [call_tool, email_tool, order_food_tool],
+agent = FunctionAgent(
+    tools=[call_tool, email_tool, order_food_tool],
     # memory is not provided
     llm=llm,
     verbose=True,
 )
-response = agent.chat("I am feeling hungry, order me something and send me the bill")
+response = await agent.run("I am feeling hungry, order me something and send me the bill")
 print(response)
 ```
 
 **Output**
 ```text
-> Running step e89eb75d-75e1-4dea-a8c8-5c3d4b77882d. Step input: I am feeling hungry, order me something and send me the bill
 Added user message to memory: I am feeling hungry, order me something and send me the bill
 === LLM Response ===
 Please let me know your name and the dish you'd like to order, and I'll take care of it for you!
@@ -160,20 +155,18 @@ Please let me know your name and the dish you'd like to order, and I'll take car
 
 **Input**
 ```python
-agent = FunctionCallingAgent.from_tools(
-    [call_tool, email_tool, order_food_tool],
+agent = FunctionAgent(
+    tools=[call_tool, email_tool, order_food_tool],
     llm=llm,
-    # memory is provided
-    memory=memory_from_client,
     verbose=True,
 )
-response = agent.chat("I am feeling hungry, order me something and send me the bill")
+# memory is provided per run; Mem0Memory is a BaseMemory
+response = await agent.run("I am feeling hungry, order me something and send me the bill", memory=memory_from_client)
 print(response)
 ```
 
 Output
 ```text
-> Running step 5e473db9-3973-4cb1-a5fd-860be0ab0006. Step input: I am feeling hungry, order me something and send me the bill
 Added user message to memory: I am feeling hungry, order me something and send me the bill
 === Calling Function ===
 Calling function: order_food with args: {"name": "David", "dish": "pizza"}
@@ -183,7 +176,6 @@ Ordering pizza for David
 Calling function: email_fn with args: {"name": "David"}
 === Function Output ===
 Emailing... David
-> Running step 38080544-6b37-4bb2-aab2-7670100d926e. Step input: None
 === LLM Response ===
 I've ordered a pizza for you, and the bill has been sent to your email. Enjoy your meal! If there's anything else you need, feel free to let me know.
 ```
