@@ -61,11 +61,10 @@ def _build_filter_conditions(filters):
     # (``"OR"``/``"NOT"``/``"AND"``) carrying a list value, which would otherwise be
     # read as ``payload->>'OR' = ANY(...)`` against a stringified dict and never
     # match. Accept both the bare and ``$``-prefixed spellings -- as the Qdrant
-    # store already does -- so nested groups stay grouped. Only a list value is
-    # read as logical, so a metadata field genuinely named OR/NOT/AND keeps its
-    # equality/ANY semantics. Refs mem0 issue #7664.
-    or_keys = ("$or", "OR")
-    not_keys = ("$not", "NOT")
+    # store already does -- so nested groups stay grouped. Only non-empty lists
+    # of condition dicts under bare keys are logical; scalar/list metadata named
+    # OR/NOT/AND keeps its equality/ANY semantics. Existing $or/$not behavior,
+    # including empty groups and malformed input, remains unchanged.
     and_keys = ("$and", "AND")
 
     def is_logical_group(value):
@@ -78,7 +77,7 @@ def _build_filter_conditions(filters):
         return isinstance(value, list) and bool(value) and all(isinstance(item, dict) for item in value)
 
     for key, value in filters.items():
-        if key in or_keys and is_logical_group(value):
+        if key == "$or" or (key == "OR" and is_logical_group(value)):
             or_groups = []
             for or_filter in value:
                 sub_conds, sub_params = _build_filter_conditions(or_filter)
@@ -89,7 +88,7 @@ def _build_filter_conditions(filters):
                 conditions.append("(" + " OR ".join(or_groups) + ")")
             continue
 
-        if key in not_keys and is_logical_group(value):
+        if key == "$not" or (key == "NOT" and is_logical_group(value)):
             not_groups = []
             for not_filter in value:
                 sub_conds, sub_params = _build_filter_conditions(not_filter)

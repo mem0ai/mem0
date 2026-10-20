@@ -2544,6 +2544,19 @@ class TestNestedLogicalFilters(unittest.TestCase):
 
     LOGICAL_KEYS = ("OR", "NOT", "AND")
 
+    def test_empty_prefixed_groups_preserve_existing_noop(self):
+        for key in ("$or", "$not"):
+            with self.subTest(key=key):
+                conditions, params = _build_filter_conditions({"user_id": "alice", key: []})
+                self.assertEqual(conditions, ["payload->>%s = %s"])
+                self.assertEqual(params, ["user_id", "alice"])
+
+    def test_invalid_prefixed_groups_keep_rejecting_scalars(self):
+        for key in ("$or", "$not"):
+            with self.subTest(key=key):
+                with self.assertRaises(AttributeError):
+                    _build_filter_conditions({key: ["a", "b"]})
+
     def assert_no_logical_key_leaked(self, params):
         for key in self.LOGICAL_KEYS:
             self.assertNotIn(
@@ -2636,10 +2649,6 @@ class TestNestedLogicalFilters(unittest.TestCase):
         conditions, params = _build_filter_conditions({"OR": ["a", "b"]})
         self.assertEqual(conditions, ["payload->>%s = ANY(%s)"])
         self.assertEqual(params, ["OR", ["a", "b"]])
-
-        conditions, params = _build_filter_conditions({"$or": ["a", "b"]})
-        self.assertEqual(conditions, ["payload->>%s = ANY(%s)"])
-        self.assertEqual(params, ["$or", ["a", "b"]])
 
         conditions, params = _build_filter_conditions({"NOT": ["a"]})
         self.assertEqual(conditions, ["payload->>%s = ANY(%s)"])
