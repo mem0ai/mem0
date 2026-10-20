@@ -1547,11 +1547,17 @@ def _extract_count(info: Any) -> Optional[int]:
     model_dump = getattr(info, "model_dump", None)
     if callable(model_dump):
         try:
-            value = _extract_count(model_dump())
-            if value is not None:
-                return value
+            dumped = model_dump()
         except Exception:
             return None
+        # Only a mapping is a valid recursion target. An object whose
+        # model_dump() returns another object (a mock, a lazy proxy) sends
+        # this into unbounded recursion, and the RecursionError is swallowed
+        # here, so the caller only ever sees a silent None.
+        if isinstance(dumped, dict):
+            value = _extract_count(dumped)
+            if value is not None:
+                return value
 
     for attr in ("count", "points_count", "vectors_count", "indexed_vectors_count", "num_docs"):
         value = _coerce_nonnegative_int(getattr(info, attr, None), None)

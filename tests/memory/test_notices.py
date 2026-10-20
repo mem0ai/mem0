@@ -1450,6 +1450,72 @@ def test_scale_threshold_provider_count_helpers_are_safe():
     assert notices._extract_count({"count": -1}) is None
 
 
+def test_extract_count_does_not_descend_into_non_dict_model_dump():
+    """A model_dump() that hands back another model_dump()-bearing object must
+    not be followed: the old code recursed until the recursion limit and the
+    swallowed RecursionError hid the cost behind a plain None."""
+
+    class SelfReturning:
+        def __init__(self):
+            self.calls = 0
+
+        def model_dump(self):
+            self.calls += 1
+            return self
+
+    info = SelfReturning()
+    assert notices._extract_count(info) is None
+    assert info.calls == 1
+
+
+def test_extract_count_does_not_descend_into_mutually_recursive_model_dumps():
+    class Node:
+        def __init__(self):
+            self.calls = 0
+            self.peer = None
+
+        def model_dump(self):
+            self.calls += 1
+            return self.peer
+
+    first, second = Node(), Node()
+    first.peer = second
+    second.peer = first
+
+    assert notices._extract_count(first) is None
+    assert first.calls == 1
+    assert second.calls == 0
+
+
+def test_extract_count_reads_count_from_model_dump_mapping():
+    class Info:
+        def model_dump(self):
+            return {"count": 42}
+
+    assert notices._extract_count(Info()) == 42
+
+
+def test_extract_count_keeps_own_attributes_when_model_dump_is_not_a_mapping():
+    class Dumped:
+        count = 999
+
+    class Info:
+        count = 5
+
+        def model_dump(self):
+            return Dumped()
+
+    assert notices._extract_count(Info()) == 5
+
+
+def test_extract_count_returns_none_when_model_dump_raises():
+    class Info:
+        def model_dump(self):
+            raise RuntimeError("dump unavailable")
+
+    assert notices._extract_count(Info()) is None
+
+
 def test_scale_threshold_props_do_not_include_raw_user_inputs(notice_harness):
     _, telemetry = notice_harness
     configure_flag(telemetry, "displayed", scale_payload(top_k_copy="safe copy {top_k}"))
