@@ -424,10 +424,25 @@ class TestOpenSearchDB(unittest.TestCase):
 
     @patch("mem0.vector_stores.opensearch.logger")
     def test_search_error_logs_with_exc_info(self, mock_logger):
-        """Search error logging should include exc_info for full stack trace."""
+        """Search errors should log with exc_info and re-raise (not swallow as [])."""
         self.client_mock.search.side_effect = Exception("Search failed")
-        results = self.os_db.search(query="", vectors=[[0.1] * 1536], top_k=5)
-        self.assertEqual(results, [])
+        with self.assertRaises(Exception):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], top_k=5)
+        mock_logger.error.assert_called_once()
+        call_kwargs = mock_logger.error.call_args
+        self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
+
+    @patch("mem0.vector_stores.opensearch.logger")
+    def test_keyword_search_error_logs_and_degrades(self, mock_logger):
+        """Keyword search errors should log with exc_info and degrade to None (not raise).
+
+        keyword_search() is a best-effort augmentation for search(); raising here
+        would crash the whole search() call on a keyword-only failure (regression
+        per maintainer review on #6519).
+        """
+        self.client_mock.search.side_effect = Exception("Keyword search failed")
+        result = self.os_db.keyword_search(query="test", top_k=5)
+        self.assertIsNone(result)
         mock_logger.error.assert_called_once()
         call_kwargs = mock_logger.error.call_args
         self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
@@ -594,3 +609,98 @@ class TestOpenSearchFilterValidation(unittest.TestCase):
         results = self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice"})
         self.assertEqual(results, [])
         self.client_mock.search.assert_called_once()
+
+
+class TestOpenSearchCustomFilters(TestOpenSearchFilterValidation):
+    """Custom (non-identity) filter keys must be honored, not silently dropped."""
+
+    def setUp(self):
+        super().setUp()
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+
+    def _search_body(self):
+        return self.client_mock.search.call_args[1]["body"]
+
+    def test_search_honors_custom_filter_key(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "category": "billing"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"term": {"payload.user_id.keyword": "alice"}}, clauses)
+        self.assertIn({"term": {"payload.category.keyword": "billing"}}, clauses)
+
+    def test_keyword_search_honors_custom_filter_key(self):
+        self.os_db.keyword_search(query="report", filters={"category": "billing"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"term": {"payload.category.keyword": "billing"}}, clauses)
+
+    def test_list_honors_custom_filter_key(self):
+        self.os_db.list(filters={"category": "billing"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"term": {"payload.category.keyword": "billing"}}, clauses)
+
+    def test_non_string_filter_values_use_plain_field(self):
+        """Non-string identity/scalar values must match against the plain payload field, not .keyword."""
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"age": 30, "archived": False})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"term": {"payload.age": 30}}, clauses)
+        self.assertIn({"term": {"payload.archived": False}}, clauses)
+
+    def test_custom_filter_keys_still_validated(self):
+        with self.assertRaises(ValueError):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"bad key!": "x"})
+
+    def test_search_ignores_or_operator_filter(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "$or": [{"a": 1}]})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
+
+    def test_search_ignores_operator_shaped_filter_value(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "score": {"gte": 5}})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
+
+    def test_search_translates_wildcard_filter_value_to_exists(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "category": "*"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(
+            clauses,
+            [
+                {"term": {"payload.user_id.keyword": "alice"}},
+                {"exists": {"field": "payload.category"}},
+            ],
+        )
+
+    def test_list_ignores_or_operator_filter(self):
+        self.os_db.list(filters={"user_id": "alice", "$or": [{"a": 1}]})
+        self.client_mock.search.assert_called_once()
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
+
+
+class TestOpenSearchWildcardFilters(TestOpenSearchFilterValidation):
+    """The "*" wildcard means "any value" (a documented Platform pattern) and
+    must build an exists query — as opensearch.ts does — for every key,
+    including the identity keys, instead of a literal term match on "*"."""
+
+    def setUp(self):
+        super().setUp()
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+
+    def _search_body(self):
+        return self.client_mock.search.call_args[1]["body"]
+
+    def test_identity_key_wildcard_builds_exists_query(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"agent_id": "*"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"exists": {"field": "payload.agent_id"}}, clauses)
+        self.assertNotIn({"term": {"payload.agent_id.keyword": "*"}}, clauses)
+
+    def test_custom_key_wildcard_builds_exists_query(self):
+        self.os_db.list(filters={"category": "*"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"exists": {"field": "payload.category"}}, clauses)
+
+    def test_wildcard_combines_with_term_filters(self):
+        self.os_db.keyword_search(query="q", filters={"user_id": "u1", "topic": "*"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"term": {"payload.user_id.keyword": "u1"}}, clauses)
+        self.assertIn({"exists": {"field": "payload.topic"}}, clauses)

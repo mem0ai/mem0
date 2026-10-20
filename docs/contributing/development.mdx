@@ -14,7 +14,8 @@ Follow the steps below for a smooth contribution process.
 <Note>
   For the complete contributor checklist, see
   [CONTRIBUTING.md](https://github.com/mem0ai/mem0/blob/main/CONTRIBUTING.md) in
-  the repository root.
+  the repository root. By participating you agree to our
+  [Code of Conduct](https://github.com/mem0ai/mem0/blob/main/CODE_OF_CONDUCT.md).
 </Note>
 
 ## Before You Start
@@ -30,7 +31,28 @@ change, avoid duplicate work, and agree on the approach before you write code.
   or [feature request](https://github.com/mem0ai/mem0/issues/new?template=feature_request.yml).
 - For anything beyond a trivial fix, wait for a maintainer to confirm the approach.
 
-Every pull request must link to an issue using `Closes #<issue-number>`.
+Every pull request must link to an issue using `Closes #<issue-number>`, and that
+issue must carry the `accepted` label. A maintainer applies `accepted` once we
+agree the change is worth making. Pull requests that do not link an accepted
+issue are closed automatically, with instructions to reopen once the label is
+applied. Documentation-only changes are exempt.
+
+<Note>
+  Closed does not mean rejected. Getting the label and reopening takes about a
+  minute, and the check reruns on reopen.
+</Note>
+
+### Show Your Work
+
+Both issue forms ask how you verified the problem: what you ran, the real output
+you saw, and why it is a bug rather than expected behavior. Reports without that
+are hard to act on and usually sit unanswered.
+
+They also ask whether AI was involved. That question is about how the problem was
+found and confirmed, not about how the text was written: drafting the write-up
+with a model is fine. The same applies to pull requests, where the AI disclosure
+covers the code in the diff. We ask because it tells reviewers where to look, not
+because it counts against you.
 
 ### 2. Sign the Contributor License Agreement (CLA)
 
@@ -54,6 +76,33 @@ link to sign: it takes less than a minute and only needs to be done once.
    PR template.
 
 For detailed guidance on pull requests, refer to [GitHub's documentation](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
+
+---
+
+## Installing from Source
+
+If you just want to run the latest, unreleased SDK code instead of the published `mem0ai` package, for example to try out a fix before it ships, or to depend on a fork, install directly from a local clone rather than setting up the full contributor environment below.
+
+### Python SDK
+
+```bash
+git clone https://github.com/mem0ai/mem0.git
+cd mem0
+pip install -e .
+```
+
+This installs `mem0ai` in editable mode, so edits under `mem0/` take effect immediately without reinstalling. Add an extra if you need one, e.g. `pip install -e ".[vector-stores]"` (see `pyproject.toml` for the full list). If you are contributing to the SDK itself and need every optional dependency for the test suite, use `hatch` instead, see [Dependency Management](#dependency-management).
+
+### TypeScript SDK
+
+```bash
+git clone https://github.com/mem0ai/mem0.git
+cd mem0/mem0-ts
+pnpm install
+pnpm run build
+```
+
+This builds `mem0-ts/dist` (CJS + ESM). To use it from another local project, add it as a `file:` dependency pointing at `mem0-ts`, or run `pnpm link --global` inside `mem0-ts` and `pnpm link --global mem0ai` in the consuming project.
 
 ---
 

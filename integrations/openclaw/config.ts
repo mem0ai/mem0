@@ -148,6 +148,7 @@ const ALLOWED_KEYS = [
   "mode",
   "apiKey",
   "anonymousTelemetryId",
+  "keyFingerprint",
   "baseUrl",
   "userId",
   "userEmail",

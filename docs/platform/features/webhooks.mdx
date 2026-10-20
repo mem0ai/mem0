@@ -51,6 +51,7 @@ console.log(webhook);
   "webhook_id": "wh_123",
   "name": "Memory Logger",
   "url": "https://your-app.com/webhook",
+  "owner": "john",
   "event_types": ["memory_add"],
   "project": "default-project",
   "is_active": true,
@@ -63,7 +64,7 @@ console.log(webhook);
 
 ### Get Webhooks
 
-Retrieve all webhooks for your project:
+Retrieve all webhooks for your project. Each webhook includes an `owner` field: the username of the account that created it. This is set automatically and cannot be changed via the API.
 
 <CodeGroup>
 
@@ -168,6 +169,10 @@ Mem0 supports the following event types for webhooks:
 - `memory_update`: Triggered when an existing memory is updated.
 - `memory_delete`: Triggered when a memory is deleted.
 - `memory_categorize`: Triggered when a memory is categorized.
+- `ingest_job_completed`: Triggered when an ingest job finishes successfully.
+- `ingest_job_partially_completed`: Triggered when an ingest job finishes with some items failed.
+- `ingest_job_failed`: Triggered when an ingest job fails entirely.
+- `ingest_job_cancelled`: Triggered when an ingest job is cancelled.
 
 ## Webhook Payload
 

@@ -22,7 +22,16 @@ function sourceFiles(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
-      if (entry !== "tests" && entry !== "__tests__") sourceFiles(full, acc);
+      // examples/ are dev scripts and community/ is the separate @mem0/community
+      // package — neither ships in files:["dist"] nor is reachable via the mem0ai/oss
+      // barrel, so a static import there cannot crash a Memory() consumer.
+      if (
+        entry !== "tests" &&
+        entry !== "__tests__" &&
+        entry !== "examples" &&
+        entry !== "community"
+      )
+        sourceFiles(full, acc);
     } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts")) {
       acc.push(full);
     }

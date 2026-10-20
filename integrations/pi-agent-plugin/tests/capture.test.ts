@@ -59,4 +59,10 @@ describe("extractConversation", () => {
   it("returns empty array for empty input", () => {
     expect(extractConversation([])).toEqual([]);
   });
+
+  it("redacts credentials before automatic capture", () => {
+    expect(extractConversation([
+      { role: "user", content: "api_key=do-not-store-this" },
+    ])).toEqual([{ role: "user", content: "api_key=[REDACTED]" }]);
+  });
 });

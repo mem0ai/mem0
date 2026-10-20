@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 784" width="860" role="img" aria-labelledby="seq-title seq-desc">
+  <title id="seq-title">Mem0 Plugin Architecture</title>
+  <desc id="seq-desc">Sequence diagram showing the full Claude Code plugin: lifecycle hooks, first-prompt memory recall, capture events, background extraction via detached worker, and on-demand skills and search tool.</desc>
+
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+    </marker>
+    <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#eb6c36"/>
+    </marker>
+    <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/>
+    </marker>
+    <marker id="arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polyline points="0 0, 8 3, 0 6" fill="none" stroke="#4f5d75" stroke-width="1.2"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+  <!-- LIFELINES -->
+  <line x1="108" y1="76" x2="108" y2="720" stroke="rgba(45,49,66,0.12)" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="320" y1="76" x2="320" y2="720" stroke="rgba(45,49,66,0.12)" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="540" y1="76" x2="540" y2="720" stroke="rgba(45,49,66,0.12)" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="740" y1="76" x2="740" y2="720" stroke="rgba(45,49,66,0.12)" stroke-width="1" stroke-dasharray="3,3"/>
+
+  <!-- PHASE 1: SESSION INIT -->
+  <text x="32" y="100" fill="#7a8399" font-size="9" font-style="italic">Session init</text>
+
+  <rect x="164" y="104" width="84" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="206" y="114" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">SESSION-START</text>
+  <line x1="112" y1="128" x2="316" y2="128" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- PHASE 2: CAPTURE & RECALL -->
+  <text x="32" y="160" fill="#7a8399" font-size="9" font-style="italic">Capture and recall</text>
+
+  <rect x="162" y="168" width="88" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="206" y="178" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">USER-PROMPT</text>
+  <line x1="112" y1="192" x2="316" y2="192" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- OPT fragment -->
+  <rect x="260" y="212" width="520" height="148" rx="4" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1" stroke-opacity="0.4"/>
+  <rect x="260" y="212" width="36" height="16" rx="2" fill="#f5f5f5" stroke="#eb6c36" stroke-width="1" stroke-opacity="0.4"/>
+  <text x="278" y="224" fill="#eb6c36" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.12em">OPT</text>
+  <text x="308" y="236" fill="#7a8399" font-size="8" font-family="monospace" letter-spacing="0.04em">[first prompt]</text>
+
+  <rect x="472" y="248" width="108" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="526" y="258" fill="#2e5aa8" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">SEARCH MEMORIES</text>
+  <line x1="324" y1="272" x2="736" y2="272" stroke="#2e5aa8" stroke-width="1" marker-end="url(#arrow-link)"/>
+
+  <rect x="480" y="280" width="80" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="520" y="290" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">≤5 MEMORIES</text>
+  <line x1="736" y1="304" x2="324" y2="304" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+
+  <rect x="148" y="316" width="120" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="208" y="326" fill="#eb6c36" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">CONTEXT INJECTED</text>
+  <line x1="316" y1="348" x2="112" y2="348" stroke="#eb6c36" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow-accent)"/>
+
+  <rect x="176" y="380" width="60" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="206" y="390" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">POST-TOOL</text>
+  <line x1="112" y1="404" x2="316" y2="404" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <rect x="156" y="416" width="100" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="206" y="426" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">SIDEKICK-START</text>
+  <line x1="112" y1="440" x2="316" y2="440" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <rect x="184" y="452" width="48" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="208" y="462" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">STOP</text>
+  <line x1="112" y1="476" x2="316" y2="476" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <text x="332" y="466" fill="#7a8399" font-size="8" font-style="italic">repeats each exchange</text>
+
+  <!-- PHASE 3: BACKGROUND EXTRACTION -->
+  <text x="32" y="508" fill="#7a8399" font-size="9" font-style="italic">Background extraction</text>
+
+  <rect x="380" y="516" width="96" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="428" y="526" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">HAND_OFF_FLUSH</text>
+  <line x1="324" y1="540" x2="536" y2="540" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow-open)"/>
+  <text x="332" y="556" fill="#7a8399" font-size="8" font-style="italic">periodic, idle (5 min), or session-end</text>
+
+  <rect x="620" y="568" width="28" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="634" y="578" fill="#2e5aa8" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">ADD</text>
+  <line x1="544" y1="592" x2="736" y2="592" stroke="#2e5aa8" stroke-width="1" marker-end="url(#arrow-link)"/>
+  <rect x="564" y="596" width="160" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="644" y="606" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle">agent_id + user_id + app_id + run_id</text>
+
+  <rect x="616" y="616" width="48" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="640" y="626" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">STORED</text>
+  <line x1="736" y1="640" x2="544" y2="640" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+
+  <!-- PHASE 4: ON-DEMAND -->
+  <text x="32" y="672" fill="#7a8399" font-size="9" font-style="italic">On-demand (skills + tool)</text>
+
+  <rect x="136" y="680" width="144" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="208" y="690" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.04em">/MEM0:SEARCH, FORGET</text>
+  <line x1="112" y1="704" x2="316" y2="704" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+  <rect x="468" y="680" width="108" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="522" y="690" fill="#2e5aa8" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.04em">SEARCH / DELETE</text>
+  <line x1="324" y1="704" x2="736" y2="704" stroke="#2e5aa8" stroke-width="1" marker-end="url(#arrow-link)"/>
+
+  <!-- ACTIVATION BARS -->
+  <rect x="316" y="124" width="8" height="232" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+  <rect x="316" y="400" width="8" height="84" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+  <rect x="316" y="536" width="8" height="12" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+  <rect x="316" y="700" width="8" height="12" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+  <rect x="736" y="268" width="8" height="40" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+  <rect x="536" y="536" width="8" height="108" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+  <rect x="736" y="588" width="8" height="56" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+  <rect x="736" y="700" width="8" height="12" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+
+  <!-- ACTOR BOXES -->
+  <rect x="48" y="36" width="120" height="40" rx="6" fill="#ececec" stroke="#2d3142" stroke-width="1"/>
+  <text x="108" y="60" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">Claude Code</text>
+
+  <rect x="268" y="36" width="104" height="40" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+  <rect x="276" y="42" width="44" height="12" rx="2" fill="transparent" stroke="#eb6c36" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="298" y="51" fill="#eb6c36" font-size="7" font-family="monospace" text-anchor="middle" letter-spacing="0.08em">PLUGIN</text>
+  <text x="320" y="64" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">Mem0</text>
+
+  <rect x="476" y="36" width="128" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+  <rect x="484" y="42" width="52" height="12" rx="2" fill="transparent" stroke="#4f5d75" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="510" y="51" fill="#7a8399" font-size="7" font-family="monospace" text-anchor="middle" letter-spacing="0.08em">DETACHED</text>
+  <text x="540" y="64" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">flush_worker</text>
+
+  <rect x="680" y="36" width="120" height="40" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.3)" stroke-width="1"/>
+  <rect x="688" y="42" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.3)" stroke-width="0.8"/>
+  <text x="702" y="51" fill="#7a8399" font-size="7" font-family="monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+  <text x="740" y="64" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">Mem0 Platform</text>
+</svg>

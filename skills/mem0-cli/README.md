@@ -1,12 +1,12 @@
 # Mem0 CLI Skill for Claude
 
-Manage memories from the terminal using the [Mem0 CLI](https://docs.mem0.ai/cli). This skill teaches Claude how to use every `mem0` command, flag, and output mode -- for both the Node.js and Python implementations.
+Manage memories from the terminal using the [Mem0 CLI](https://docs.mem0.ai/platform/cli). This skill teaches Claude how to use every `mem0` command, flag, and output mode -- for both the Node.js and Python implementations.
 
 ## What This Skill Does
 
 When installed, Claude can:
 
-- **Run mem0 commands** correctly in your terminal (add, search, list, get, update, delete, import, config, init, status, entity, event)
+- **Run mem0 commands** correctly in your terminal (add, search, list, get, update, delete, import, config, init, identify, whoami, status, entity, event, agent-rush, version, help)
 - **Construct complex invocations** with the right flags, scoping, filters, and output formats
 - **Pipe and script** mem0 commands in shell workflows, CI/CD pipelines, and agent loops
 - **Debug issues** like missing API keys, entity scoping conflicts, and async processing delays
@@ -84,7 +84,7 @@ skills/mem0-cli/
 
 - [Mem0 Platform Dashboard](https://app.mem0.ai?utm_source=oss&utm_medium=skill-mem0-cli-readme)
 - [Mem0 Documentation](https://docs.mem0.ai)
-- [Mem0 CLI Docs](https://docs.mem0.ai/cli)
+- [Mem0 CLI Docs](https://docs.mem0.ai/platform/cli)
 - [Mem0 GitHub](https://github.com/mem0ai/mem0)
 
 ## Skill Graph

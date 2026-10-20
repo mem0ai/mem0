@@ -1,0 +1,18 @@
+{
+  "mem0": {
+    "PreInvocation": [
+      { "type": "command", "command": "python3 ./hooks/adapter.py PreInvocation", "timeout": 5 }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "python3 ./hooks/adapter.py PostToolUse", "timeout": 3 }
+        ]
+      }
+    ],
+    "Stop": [
+      { "type": "command", "command": "python3 ./hooks/adapter.py Stop", "timeout": 5 }
+    ]
+  }
+}

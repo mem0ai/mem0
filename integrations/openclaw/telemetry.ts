@@ -1,301 +1,157 @@
-/**
- * Plugin telemetry — anonymous usage tracking via PostHog.
- *
- * Sends fire-and-forget events to PostHog using native fetch().
- * Events are batched and flushed every 5 seconds or when the queue
- * reaches 10 events, whichever comes first.
- *
- * Disable with: MEM0_TELEMETRY=false
- */
-
 import { createHash, randomUUID } from "node:crypto";
-import { readPluginAuth, writePluginAuth, getBaseUrl, clearAnonymousTelemetryId } from "./cli/config-file.ts";
+
+import { createTelemetry } from "../agent-plugin-core/typescript/src/telemetry.ts";
+import {
+  clearAnonymousTelemetryId,
+  clearResolvedAccount,
+  getBaseUrl,
+  readPluginAuth,
+  writePluginAuth,
+} from "./cli/config-file.ts";
 
 declare const __OPENCLAW_PLUGIN_VERSION__: string;
 export const PLUGIN_VERSION: string = __OPENCLAW_PLUGIN_VERSION__;
 
-const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
-const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
+let cachedAnonymousId: string | undefined;
+let aliasCheckDone = false;
+let resolutionAttemptedFor = "";
+let currentDistinctId = "";
 
-const FLUSH_INTERVAL_MS = 5_000;
-const FLUSH_THRESHOLD = 10;
-
-let eventQueue: Record<string, unknown>[] = [];
-let flushTimer: ReturnType<typeof setInterval> | undefined;
-
-let _cachedAnonymousId: string | undefined;
-let _aliasCheckDone = false;
-
-/**
- * Return a persistent per-machine anonymous ID, generating one if needed.
- *
- * Stored in ~/.openclaw/openclaw.json under the plugin's `anonymousTelemetryId`
- * field so repeat sessions on the same machine share one PostHog identity
- * instead of collapsing into a single shared fallback string. The result is
- * cached in module memory after the first read so we don't re-touch disk on
- * every queued event.
- */
-function getOrCreateAnonymousId(): string {
-  if (_cachedAnonymousId) return _cachedAnonymousId;
-  try {
-    const auth = readPluginAuth();
-    if (auth.anonymousTelemetryId) {
-      _cachedAnonymousId = auth.anonymousTelemetryId;
-      return _cachedAnonymousId;
-    }
-  } catch {
-    /* ignore */
-  }
-  const newId = `openclaw-anon-${randomUUID().replace(/-/g, "")}`;
-  try {
-    writePluginAuth({ anonymousTelemetryId: newId });
-  } catch {
-    /* ignore — return generated id anyway */
-  }
-  _cachedAnonymousId = newId;
-  return newId;
+function enabled(): boolean {
+  const value = (globalThis as any).__mem0_telemetry_override ?? process.env.MEM0_TELEMETRY;
+  return value === undefined || !["false", "0", "no", "off"].includes(String(value).toLowerCase());
 }
 
-/**
- * If we just resolved to a real identity but a stored anonymous id exists,
- * build a one-shot PostHog $identify event so the pre-signup history gets
- * stitched onto the authenticated profile. Returns null when no aliasing is
- * needed (already done, or no anon id on disk, or still anonymous).
- *
- * Caller is responsible for pushing the returned event onto eventQueue ahead
- * of the regular event.
- */
-function maybeBuildIdentifyEvent(
-  distinctId: string,
-): Record<string, unknown> | null {
-  if (_aliasCheckDone) return null;
-  if (!distinctId || distinctId.startsWith("openclaw-anon-")) return null;
+function anonymousId(): string {
+  if (cachedAnonymousId) return cachedAnonymousId;
   try {
-    const auth = readPluginAuth();
-    const storedAnon = auth.anonymousTelemetryId;
-    if (!storedAnon) {
-      _aliasCheckDone = true;
-      return null;
-    }
-    const identifyEvent = {
-      event: "$identify",
-      distinct_id: distinctId,
-      properties: {
-        $anon_distinct_id: storedAnon,
-        $lib: "posthog-node",
-      },
-    };
-    // Clear the anonymous ID from config after aliasing (don't write empty string)
-    try {
-      clearAnonymousTelemetryId();
-    } catch {
-      /* ignore — alias may double-fire next session, harmless */
-    }
-    _aliasCheckDone = true;
-    _cachedAnonymousId = undefined;
-    return identifyEvent;
+    const stored = readPluginAuth().anonymousTelemetryId;
+    if (stored) return (cachedAnonymousId = stored);
   } catch {
-    return null;
+    // First run or unreadable config.
   }
-}
-
-let _emailResolutionAttempted = false;
-
-/**
- * If we have an apiKey but no cached userEmail, do a one-shot /v1/ping/
- * call to resolve the email and cache it. This runs async as a side-effect;
- * the current event ships with md5(apiKey) but subsequent events (including
- * those flushed by the beforeExit handler in the same process) will use
- * the resolved email.
- */
-function maybeResolveEmail(apiKey: string): void {
-  if (_emailResolutionAttempted) return;
-  _emailResolutionAttempted = true;
-
-  const baseUrl = getBaseUrl().replace(/\/+$/, "");
-  fetch(`${baseUrl}/v1/ping/`, {
-    method: "GET",
-    headers: {
-      Authorization: `Token ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    signal: AbortSignal.timeout(5_000),
-  })
-    .then((res) => res.json())
-    .then((data: any) => {
-      const email = data?.user_email;
-      if (email) {
-        try {
-          writePluginAuth({ userEmail: email });
-        } catch {
-          /* ignore */
-        }
-        const oldId = createHash("sha256").update(apiKey).digest("hex");
-        const newId = createHash("sha256").update(email).digest("hex");
-        for (const ev of eventQueue) {
-          if (ev.distinct_id === oldId) {
-            ev.distinct_id = newId;
-          }
-        }
-      }
-    })
-    .catch(() => {
-      /* silently swallow — md5(apiKey) is used as fallback */
-    });
-}
-
-let _telemetryEnabled: boolean | undefined;
-function isTelemetryEnabled(): boolean {
-  if (_telemetryEnabled !== undefined) return _telemetryEnabled;
+  const created = `openclaw-anon-${randomUUID().replace(/-/g, "")}`;
   try {
-    const val = (globalThis as any).__mem0_telemetry_override;
-    if (val !== undefined) {
-      const s = String(val).toLowerCase();
-      _telemetryEnabled = s !== "false" && s !== "0" && s !== "no";
-    } else {
-      _telemetryEnabled = true;
-    }
+    writePluginAuth({ anonymousTelemetryId: created });
   } catch {
-    _telemetryEnabled = true;
+    // An unwritable config must not break the plugin.
   }
-  return _telemetryEnabled;
+  return (cachedAnonymousId = created);
 }
 
-/**
- * Return a stable anonymous identifier for the current user.
- *
- * Priority: cached userEmail (from /v1/ping/) > MD5(apiKey) >
- * persistent per-machine anonymous ID.
- */
-function getDistinctId(apiKey?: string): string {
+/** SHA-256 prefix of the key an account was resolved for. */
+function keyFingerprint(apiKey?: string): string {
+  return apiKey ? createHash("sha256").update(apiKey).digest("hex").slice(0, 16) : "";
+}
+
+function distinctId(apiKey?: string): string {
   try {
     const auth = readPluginAuth();
     if (auth.userEmail) {
-      return createHash("sha256").update(auth.userEmail).digest("hex");
+      // Only when it belongs to the key in hand. Without this check a cached
+      // email was used forever: switch to a different account and every event
+      // kept reporting under the previous one, with nothing to notice it by.
+      if (auth.keyFingerprint === keyFingerprint(apiKey)) {
+        return createHash("sha256").update(auth.userEmail).digest("hex");
+      }
+      // Only a REAL key that disagrees means the account changed. Without the
+      // apiKey guard the comparison is `undefined === ""` for any call that
+      // simply omits the key, so a capture with no context wiped a perfectly
+      // good account out of openclaw.json.
+      //
+      // A row with an email and NO fingerprint is the legacy shape, from an
+      // install predating this field. Clearing it here deleted a real account
+      // before anything had replaced it, and if the re-resolve then failed
+      // because the user was offline the email was gone from disk for good. The
+      // Python core refuses the same trade: verify, and keep what you have until
+      // the verification succeeds. resolveEmail below overwrites both fields
+      // when it does, so there is nothing to clear first.
+      if (apiKey && auth.keyFingerprint) clearResolvedAccount();
     }
   } catch {
-    /* ignore */
+    // Fall through to the API key or anonymous identity.
   }
-  if (apiKey) {
-    return createHash("sha256").update(apiKey).digest("hex");
+  return apiKey ? createHash("sha256").update(apiKey).digest("hex") : anonymousId();
+}
+
+const telemetry = createTelemetry({
+  host: "openclaw",
+  source: "OPENCLAW",
+  version: PLUGIN_VERSION,
+  distinctId: () => currentDistinctId,
+  enabled,
+});
+
+function identifyAnonymous(id: string): void {
+  if (aliasCheckDone || id.startsWith("openclaw-anon-")) return;
+  try {
+    const anonymous = readPluginAuth().anonymousTelemetryId;
+    aliasCheckDone = true;
+    if (!anonymous) return;
+    telemetry.capture("$identify", { $anon_distinct_id: anonymous });
+    clearAnonymousTelemetryId();
+    cachedAnonymousId = undefined;
+  } catch {
+    // Aliasing is best effort.
   }
-  return getOrCreateAnonymousId();
 }
 
-function ensureFlushTimer(): void {
-  if (flushTimer) return;
-  flushTimer = setInterval(flushEvents, FLUSH_INTERVAL_MS);
-  if (typeof flushTimer === "object" && "unref" in flushTimer) {
-    flushTimer.unref();
-  }
+function resolveEmail(apiKey: string): void {
+  // Latched per key, not once per process. A single boolean meant a key changed
+  // mid-session was never looked up, so the fallback identity stuck until restart.
+  const fingerprint = keyFingerprint(apiKey);
+  if (resolutionAttemptedFor === fingerprint) return;
+  resolutionAttemptedFor = fingerprint;
+  const releaseLatch = () => {
+    // A failed lookup must not pin the fallback identity for the rest of the
+    // process. Released so the next capture tries again.
+    if (resolutionAttemptedFor === fingerprint) resolutionAttemptedFor = "";
+  };
+  fetch(`${getBaseUrl().replace(/\/+$/, "")}/v1/ping/`, {
+    method: "GET",
+    headers: { Authorization: `Token ${apiKey}`, "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(5_000),
+  })
+    .then((response) => response.json())
+    .then((data: any) => {
+      if (!data?.user_email) return;
+      writePluginAuth({ userEmail: data.user_email, keyFingerprint: fingerprint });
+      const oldId = createHash("sha256").update(apiKey).digest("hex");
+      const newId = createHash("sha256").update(data.user_email).digest("hex");
+      for (const event of telemetry.queueForTesting()) {
+        if (event.distinct_id === oldId) event.distinct_id = newId;
+      }
+    })
+    .catch(() => {
+      // The API-key hash remains a stable fallback, and the next capture retries.
+      releaseLatch();
+    });
 }
 
-let _exitHandlerInstalled = false;
-
-/**
- * Install a one-time `beforeExit` handler that drains queued events on
- * process exit. Without this, short-lived CLI invocations (e.g. one
- * `openclaw mem0 status` call) exit before the unref'd flushTimer fires
- * and before FLUSH_THRESHOLD is hit, dropping every queued event silently.
- *
- * Returning a Promise from a `beforeExit` handler keeps the event loop
- * alive until that Promise resolves, so the awaited fetch actually has
- * time to land at PostHog.
- */
-function ensureExitHandler(): void {
-  if (_exitHandlerInstalled) return;
-  _exitHandlerInstalled = true;
-  process.on("beforeExit", async () => {
-    if (eventQueue.length === 0) return;
-    const batch = eventQueue;
-    eventQueue = [];
-    const body = JSON.stringify({ api_key: POSTHOG_API_KEY, batch });
-    try {
-      await fetch(POSTHOG_HOST, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": String(Buffer.byteLength(body)),
-        },
-        body,
-        signal: AbortSignal.timeout(3_000),
-      });
-    } catch {
-      /* silently swallow */
-    }
-  });
-}
-
-function flushEvents(): void {
-  if (eventQueue.length === 0) return;
-  const batch = eventQueue;
-  eventQueue = [];
-
-  const body = JSON.stringify({ api_key: POSTHOG_API_KEY, batch });
-  fetch(POSTHOG_HOST, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Content-Length": String(Buffer.byteLength(body)),
-    },
-    body,
-    signal: AbortSignal.timeout(3_000),
-  }).catch(() => {
-    /* silently swallow */
-  });
-}
-
-/**
- * Capture a PostHog event (non-blocking, never throws).
- */
 export function captureEvent(
   eventName: string,
   properties: Record<string, unknown> = {},
-  ctx?: { apiKey?: string; mode?: string; skillsActive?: boolean },
+  context?: { apiKey?: string; mode?: string; skillsActive?: boolean },
 ): void {
-  if (!isTelemetryEnabled()) return;
-
+  if (!enabled()) return;
   try {
-    const distinctId = getDistinctId(ctx?.apiKey);
-
-    let hasEmail = false;
-    try { hasEmail = !!readPluginAuth().userEmail; } catch { /* ignore */ }
-    if (ctx?.apiKey && !hasEmail && !distinctId.startsWith("openclaw-anon-")) {
-      maybeResolveEmail(ctx.apiKey);
+    currentDistinctId = distinctId(context?.apiKey);
+    let resolvedForThisKey = false;
+    try {
+      const auth = readPluginAuth();
+      resolvedForThisKey =
+        Boolean(auth.userEmail) && auth.keyFingerprint === keyFingerprint(context?.apiKey);
+    } catch {
+      // Resolve it below when possible.
     }
-
-    // First authenticated event after a previous anonymous session: queue a
-    // $identify ahead of the regular event so PostHog merges the anonymous
-    // history onto the authenticated profile in the same batch flush.
-    const identifyEvent = maybeBuildIdentifyEvent(distinctId);
-    if (identifyEvent) {
-      eventQueue.push(identifyEvent);
-    }
-
-    eventQueue.push({
-      event: eventName,
-      distinct_id: distinctId,
-      properties: {
-        source: "OPENCLAW",
-        language: "node",
-        plugin_version: PLUGIN_VERSION,
-        node_version: process.version,
-        os: process.platform,
-        mode: ctx?.mode,
-        skills_active: ctx?.skillsActive,
-        $process_person_profile: false,
-        $lib: "posthog-node",
-        ...properties,
-      },
+    if (context?.apiKey && !resolvedForThisKey) resolveEmail(context.apiKey);
+    identifyAnonymous(currentDistinctId);
+    telemetry.capture(eventName, {
+      mode: context?.mode,
+      skills_active: context?.skillsActive,
+      ...properties,
     });
-
-    ensureFlushTimer();
-    ensureExitHandler();
-
-    if (eventQueue.length >= FLUSH_THRESHOLD) {
-      flushEvents();
-    }
   } catch {
-    /* silently swallow */
+    // Telemetry must never affect plugin behavior.
   }
 }

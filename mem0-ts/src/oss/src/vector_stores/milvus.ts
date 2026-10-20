@@ -235,6 +235,13 @@ export class Milvus implements VectorStore {
       if (!Milvus.SAFE_FILTER_KEY.test(key)) {
         throw new Error(`Invalid filter key: ${JSON.stringify(key)}`);
       }
+      if (value === "*") {
+        // Wildcard - match any value. Milvus has no direct wildcard, so skip
+        // the clause rather than emitting a literal `== "*"` that matches
+        // nothing. Mirrors the Python provider (#6187) and the chroma/pinecone
+        // stores.
+        continue;
+      }
       if (typeof value === "string") {
         // Escape backslashes before quotes so a value can't break out of the
         // string literal (order matters, exactly as in the Python provider).
@@ -252,13 +259,13 @@ export class Milvus implements VectorStore {
   }
 
   /**
-   * Text fed to the BM25 sparse index for a payload. Prefers the lemmatized
-   * text, falls back to the raw memory `data`, and truncates to the VarChar
-   * limit (mirrors the Python provider).
+   * Text fed to the BM25 sparse index for a payload. Prefers `textLemmatized`,
+   * then `text_lemmatized`, then raw `data`; truncates to the VarChar limit.
    */
   private bm25Text(payload?: Record<string, any>): string {
     if (!payload) return "";
-    const raw = payload.text_lemmatized || payload.data || "";
+    const raw =
+      payload.textLemmatized || payload.text_lemmatized || payload.data || "";
     return String(raw).slice(0, 65535);
   }
 

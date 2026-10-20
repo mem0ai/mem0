@@ -333,6 +333,25 @@ class TestMemoryLifecycle:
             # db attribute not set at all
             m.close()  # should not raise due to hasattr guard
 
+    def test_context_manager_returns_self_and_closes(self):
+        """with-block should yield the instance and close() it on exit."""
+        m = self._make_mock_memory()
+        db = m.db
+        with m as ctx:
+            assert ctx is m
+        db.close.assert_called_once_with()
+        assert m.db is None
+
+    def test_context_manager_closes_on_exception(self):
+        """Exceptions from the with-body should propagate after close()."""
+        m = self._make_mock_memory()
+        db = m.db
+        with pytest.raises(RuntimeError, match="boom"):
+            with m:
+                raise RuntimeError("boom")
+        db.close.assert_called_once_with()
+        assert m.db is None
+
 
 class TestAsyncMemoryLifecycle:
     """Verify AsyncMemory.close() and async context manager support."""
@@ -356,6 +375,27 @@ class TestAsyncMemoryLifecycle:
         with patch.object(AsyncMemory, "__init__", lambda self: None):
             m = AsyncMemory.__new__(AsyncMemory)
             m.close()  # should not raise
+
+    @pytest.mark.asyncio
+    async def test_async_context_manager_returns_self_and_closes(self):
+        """async with-block should yield the instance and close() it on exit."""
+        m = self._make_mock_async_memory()
+        db = m.db
+        async with m as ctx:
+            assert ctx is m
+        db.close.assert_called_once_with()
+        assert m.db is None
+
+    @pytest.mark.asyncio
+    async def test_async_context_manager_closes_on_exception(self):
+        """Exceptions from the async with-body should propagate after close()."""
+        m = self._make_mock_async_memory()
+        db = m.db
+        with pytest.raises(RuntimeError, match="boom"):
+            async with m:
+                raise RuntimeError("boom")
+        db.close.assert_called_once_with()
+        assert m.db is None
 
 
 class TestTelemetryEnvVar:

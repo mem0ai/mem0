@@ -6,11 +6,11 @@ Practical recipes for using the mem0 CLI in scripts, pipelines, and agent loops.
 
 ## Piping Content via Stdin
 
-The CLI reads from stdin when no text argument is provided and input is piped (not a TTY). This works with `add`, `search`, and `update`.
+The CLI reads from stdin when no text argument is provided and stdin is a pipe or a redirected file. This works with `add`, `search`, and `update`. It never reads stdin in `--json`/`--agent` mode for `add`, and Python also skips it there for `search` and `update`, so pass the text as an argument in agent mode.
 
 **Stdin detection method:**
-- Python: `not sys.stdin.isatty()`
-- Node: `!process.stdin.isTTY`
+- Python: `os.fstat(sys.stdin.fileno())` is a FIFO or a regular file
+- Node: `fs.fstatSync(0)` is a FIFO or a regular file
 
 ### Add from pipe
 
@@ -69,7 +69,7 @@ The file should be a JSON array where each item has a `memory`, `text`, or `cont
 ]
 ```
 
-CLI-provided `--user-id` overrides per-item `user_id` values.
+Items may also carry `agent_id`. CLI-provided `--user-id` and `--agent-id` (or configured defaults) override per-item values. A single JSON object is treated as a one-item array, and items without `memory`, `text`, or `content` are counted as failed.
 
 ### Import with JSON output
 
@@ -82,21 +82,24 @@ Output:
 {
   "status": "success",
   "command": "import",
-  "data": { "added": 42, "failed": 0, "duration_s": 3.14 },
-  "duration_ms": 3140
+  "duration_ms": 3140,
+  "scope": { "user_id": "alice" },
+  "data": { "added": 42, "failed": 0 }
 }
 ```
+
+This is the Python CLI output. The Node CLI omits `scope` and writes the `Importing memories... n/n` progress line to stdout before the JSON, so its output cannot be piped to `jq`.
 
 ---
 
 ## Agent Mode for LLM Consumption
 
-Use `--json` or `--agent` to get structured JSON output suitable for LLM tool calling or agent frameworks. Spinners and progress always go to stderr, keeping stdout clean.
+Use `--json` or `--agent` to get structured JSON output suitable for LLM tool calling or agent frameworks. Spinners and progress always go to stderr, keeping stdout clean. Put the flag before the subcommand so it works in both the Python and Node CLIs.
 
 ### Search with agent mode
 
 ```bash
-mem0 search "preferences" --user-id alice --agent
+mem0 --agent search "preferences" --user-id alice
 ```
 
 Output (stdout):
@@ -107,7 +110,6 @@ Output (stdout):
   "duration_ms": 187,
   "scope": { "user_id": "alice" },
   "count": 2,
-  "error": null,
   "data": [
     { "id": "mem-abc", "memory": "User prefers dark mode", "score": 0.95, "created_at": "2025-01-15T10:00:00Z", "categories": ["preferences"] },
     { "id": "mem-def", "memory": "User likes monospace fonts", "score": 0.82, "created_at": "2025-01-15T10:01:00Z", "categories": ["preferences"] }
@@ -118,7 +120,7 @@ Output (stdout):
 ### Add with agent mode
 
 ```bash
-mem0 add "Uses Python 3.12" --user-id alice --json
+mem0 --json add "Uses Python 3.12" --user-id alice
 ```
 
 ### Error handling in agent mode
@@ -126,7 +128,7 @@ mem0 add "Uses Python 3.12" --user-id alice --json
 Errors also return valid JSON with `"status": "error"`:
 
 ```bash
-mem0 search "test" --user-id alice --api-key invalid --agent
+mem0 --agent search "test" --user-id alice --api-key invalid
 ```
 
 Output:
@@ -134,7 +136,7 @@ Output:
 {
   "status": "error",
   "command": "search",
-  "error": "Authentication failed. Your API key may be invalid or expired.",
+  "error": "Invalid or expired API key.",
   "data": null
 }
 ```
@@ -143,30 +145,30 @@ Output:
 
 ## JSON Output + jq
 
-Use `--output json` (or `-o json`) for raw JSON output, then pipe to `jq` for processing.
+Use `--output json` (or `-o json`) for JSON output, then pipe to `jq` for processing. `search`, `get`, `add`, `update`, and `delete` print the raw API response. `list`, `status`, and `import` print the standard envelope instead, so read the results from `.data`. Piping `import` to `jq` works only with the Python CLI (Node writes its progress line to stdout ahead of the JSON).
 
 ### Extract just memory text
 
 ```bash
-mem0 list --user-id alice --output json | jq '.[] | .memory'
+mem0 list --user-id alice --output json | jq '.data[] | .memory'
 ```
 
 ### Get memory IDs
 
 ```bash
-mem0 list --user-id alice -o json | jq '.[].id'
+mem0 list --user-id alice -o json | jq '.data[].id'
 ```
 
 ### Count memories
 
 ```bash
-mem0 list --user-id alice -o json | jq 'length'
+mem0 list --user-id alice -o json | jq '.count'
 ```
 
 ### Filter by category in jq
 
 ```bash
-mem0 list --user-id alice -o json | jq '[.[] | select(.categories[]? == "preferences")]'
+mem0 list --user-id alice -o json | jq '[.data[] | select(.categories[]? == "preferences")]'
 ```
 
 ### Extract search scores
@@ -183,7 +185,7 @@ mem0 search "tools" --user-id alice -o json | jq '.[] | {memory, score}'
 
 ```bash
 # Get IDs, then delete each one
-mem0 list --user-id alice -o json | jq -r '.[].id' | while read id; do
+mem0 list --user-id alice -o json | jq -r '.data[].id' | while read id; do
   mem0 delete "$id" --force
 done
 ```
@@ -199,7 +201,7 @@ done < memories.txt
 ### Copy memories between users
 
 ```bash
-mem0 list --user-id alice -o json | jq -r '.[].memory' | while IFS= read -r mem; do
+mem0 list --user-id alice -o json | jq -r '.data[].memory' | while IFS= read -r mem; do
   mem0 add "$mem" --user-id bob
 done
 ```
@@ -216,7 +218,7 @@ mem0 list --user-id alice -o json > alice_memories.json
 page=1
 while true; do
   result=$(mem0 list --user-id alice -o json --page "$page" --page-size 100)
-  count=$(echo "$result" | jq 'length')
+  count=$(echo "$result" | jq '.count')
   if [ "$count" -eq 0 ]; then
     break
   fi
@@ -271,7 +273,7 @@ mem0 add "CI run started" --user-id ci-bot
 
 ```bash
 test_summary=$(cat test-results.txt | head -20)
-mem0 add "$test_summary" --agent-id ci-bot --metadata '{"type":"test-results"}' --categories "ci,testing"
+mem0 add "$test_summary" --agent-id ci-bot --metadata '{"type":"test-results"}'
 ```
 
 ---
@@ -282,11 +284,11 @@ The CLI reads from stdin only when ALL of these conditions are met:
 
 1. No text argument was provided on the command line.
 2. For `add`: no `--messages` and no `--file` flag.
-3. For `update`: no `--metadata` flag.
-4. stdin is piped (not a TTY).
+3. stdin is a pipe or a redirected file (a plain non-TTY such as `/dev/null` does not count).
+4. The CLI is not in `--json`/`--agent` mode (`add` in both CLIs, `search` and `update` in Python).
 
 **This means:**
-- `mem0 add --user-id alice` in an interactive terminal will NOT hang waiting for input. It will print a usage error.
+- `mem0 add --user-id alice` in an interactive terminal will NOT hang waiting for input. It exits 1 with "No content provided".
 - `echo "text" | mem0 add --user-id alice` will read "text" from stdin.
 - `mem0 add "explicit text" --user-id alice` will use the explicit text, even if stdin is piped.
 
@@ -303,8 +305,7 @@ The CLI reads from stdin only when ALL of these conditions are met:
 ```bash
 set -e  # Exit on error
 
-# This will exit the script if the API key is invalid
-mem0 status > /dev/null 2>&1
+mem0 status -o json | jq -e '.data.connected' > /dev/null
 
 # Add with error check
 if mem0 add "test memory" --user-id alice 2>/dev/null; then
@@ -317,10 +318,16 @@ fi
 
 ### Capture memory ID from add
 
+Default adds are asynchronous and return an `event_id`. Use `--no-infer` for a synchronous add whose `.data[0].id` is the memory id.
+
 ```bash
-# Use agent mode to get structured output
-result=$(mem0 add "new fact" --user-id alice --agent 2>/dev/null)
-memory_id=$(echo "$result" | jq -r '.data[0].id // empty')
+event_id=$(mem0 --agent add "new fact" --user-id alice 2>/dev/null | jq -r '.data[0].event_id // empty')
+for _ in $(seq 30); do
+  status=$(mem0 --agent event status "$event_id" | jq -r '.data.status')
+  [ "$status" = "SUCCEEDED" ] || [ "$status" = "FAILED" ] && break
+  sleep 2
+done
+memory_id=$(mem0 --agent event status "$event_id" | jq -r '.data.results[0].id // empty')
 if [ -n "$memory_id" ]; then
   echo "Created memory: $memory_id"
 fi
@@ -330,7 +337,7 @@ fi
 
 ```bash
 # Only add if search returns no results
-count=$(mem0 search "dark mode" --user-id alice --agent 2>/dev/null | jq '.count // 0')
+count=$(mem0 --agent search "dark mode" --user-id alice 2>/dev/null | jq '.count // 0')
 if [ "$count" -eq 0 ]; then
   mem0 add "User prefers dark mode" --user-id alice
 fi
@@ -358,7 +365,7 @@ mem0 list
 
 ### Timeout handling
 
-The CLI uses a 30-second timeout for all API requests. For long-running scripts, handle timeouts:
+The CLI uses a 30-second timeout for normal API requests (the key-validation ping uses 5 seconds and `init` uses 5, 10 and 30 seconds). For long-running scripts, handle timeouts:
 
 ```bash
 if ! mem0 search "query" --user-id alice -o json 2>/dev/null; then
@@ -382,13 +389,13 @@ Or use the event system to poll for completion:
 
 ```bash
 # Add and capture event ID from agent output
-result=$(mem0 add "new preference" --user-id alice --agent 2>/dev/null)
+result=$(mem0 --agent add "new preference" --user-id alice 2>/dev/null)
 event_id=$(echo "$result" | jq -r '.data[0].event_id // empty')
 
 if [ -n "$event_id" ]; then
   # Poll until processing completes
   while true; do
-    status=$(mem0 event status "$event_id" --agent 2>/dev/null | jq -r '.data.status')
+    status=$(mem0 --agent event status "$event_id" 2>/dev/null | jq -r '.data.status')
     if [ "$status" = "SUCCEEDED" ] || [ "$status" = "FAILED" ]; then
       break
     fi
@@ -413,16 +420,16 @@ shift 2
 
 case "$ACTION" in
   recall)
-    mem0 search "$*" --user-id "$USER_ID" --agent 2>/dev/null
+    mem0 --agent search "$*" --user-id "$USER_ID" 2>/dev/null
     ;;
   remember)
-    mem0 add "$*" --user-id "$USER_ID" --agent 2>/dev/null
+    mem0 --agent add "$*" --user-id "$USER_ID" 2>/dev/null
     ;;
   forget)
-    mem0 delete --all --user-id "$USER_ID" --force --agent 2>/dev/null
+    mem0 --agent delete --all --user-id "$USER_ID" --force 2>/dev/null
     ;;
   history)
-    mem0 list --user-id "$USER_ID" --agent 2>/dev/null
+    mem0 --agent list --user-id "$USER_ID" 2>/dev/null
     ;;
   *)
     echo '{"status":"error","error":"Unknown action: '"$ACTION"'"}' >&2

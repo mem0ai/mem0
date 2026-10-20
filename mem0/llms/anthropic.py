@@ -149,4 +149,11 @@ class AnthropicLLM(LLMBase):
                 elif block.type == "tool_use":
                     result["tool_calls"].append({"name": block.name, "arguments": block.input})
             return result
-        return response.content[0].text
+
+        # Thinking-enabled responses put a thinking block before the text
+        # block, and a response can carry no text block at all, so find the
+        # text block like the tools branch above instead of indexing content[0].
+        for block in response.content:
+            if block.type == "text":
+                return block.text
+        return ""

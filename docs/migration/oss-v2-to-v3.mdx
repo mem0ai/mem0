@@ -1,6 +1,6 @@
 ---
 title: "Open Source: Migrating to the New Memory Algorithm"
-description: "Guide for self-hosted Mem0 users to upgrade to the new memory algorithm with ADD-only extraction, hybrid search, and entity linking."
+description: "Guide for self-hosted Mem0 users to upgrade to the new memory algorithm with ADD-only extraction, hybrid search, and entity-aware retrieval."
 icon: "arrow-right"
 iconType: "solid"
 ---
@@ -15,7 +15,8 @@ The new Mem0 release redesigns both extraction and retrieval, and cleans up the 
 
 - **Extraction**: Single-pass ADD-only (one LLM call, no UPDATE/DELETE)
 - **Retrieval**: Multi-signal hybrid search (semantic + BM25 keyword + entity matching)
-- **Entity linking**: Automatic entity extraction and cross-memory linking
+- **Entity matching**: Automatic entity extraction feeds a third scoring signal in hybrid search, boosting memories that share entities with the query
+- **Graph memory moved to Platform**: The external graph store integration is removed from OSS; graph memory is now a built-in, always-on [Mem0 Platform feature](/platform/features/graph-memory)
 - **SDK cleanup**: Deprecated parameters removed, naming conventions standardized
 - **API surface aligned with Platform**: Entity IDs now follow the same convention across OSS and Platform: top-level kwargs for `add()` / `delete_all()`, inside `filters` for `search()` / `get_all()`
 
@@ -37,7 +38,7 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 | `add()` events | Returns `ADD`, `UPDATE`, `DELETE` | Returns `ADD` only | Update code expecting UPDATE/DELETE |
 | Custom extraction prompt | `custom_fact_extraction_prompt` | `custom_instructions` | Rename in config |
 | Custom update prompt | `custom_update_memory_prompt` | Deprecated | Use `custom_instructions` instead |
-| Graph memory | `enable_graph` + `graph_store` in config | Removed | Graph store support has been removed entirely |
+| Graph memory | `enable_graph` + `graph_store` in config | Removed | Graph memory is removed from OSS. It's a built-in, always-on [Mem0 Platform feature](/platform/features/graph-memory) |
 | Qdrant client | `>=1.9.1` | `>=1.12.0` | Update dependency |
 | Upstash client | `>=0.1.0` | `>=0.6.0` | Update dependency |
 
@@ -53,8 +54,8 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 | `messages` in `add()` | Could be `null` / `undefined` | Required: throws on null/undefined | Always pass a string or array |
 | Payload key for lemmatized text | `text_lemmatized` (snake_case) | `textLemmatized` (camelCase) | TS-only internal field. If you share a vector store collection between Python and TS SDKs, lemma-based BM25 will not resolve across languages: keep collections language-scoped. |
 | Custom prompt | `customPrompt` | `customInstructions` | Rename in config |
-| Graph memory | `enableGraph` + `graphStore` in config | Removed | Graph store support has been removed entirely |
-| Default graph config | Neo4j default config applied | No default graph config | Graph store config is no longer used |
+| Graph memory | `enableGraph` + `graphStore` in config | Removed | Graph memory is removed from OSS. It's a built-in, always-on [Mem0 Platform feature](/platform/features/graph-memory) |
+| Default graph config | Neo4j default config applied | No default graph config | Graph store config is no longer read; OSS has no built-in graph config to fall back to |
 
 ### Python Client SDK
 
@@ -104,7 +105,7 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 </Tabs>
 
 <Info>
-The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extraction and keyword lemmatization. Without it, Mem0 still works but falls back to semantic-only search (no entity linking, no BM25 lemmatization).
+The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extraction and keyword lemmatization. Without it, Mem0 still works but falls back to semantic-only search (no entity matching, no BM25 lemmatization).
 </Info>
 
 <Warning>
@@ -135,7 +136,7 @@ pip install fastembed
     config = {
         "custom_instructions": "Focus on user preferences",  # [OK] New name
         # custom_update_memory_prompt removed: use custom_instructions
-        # enable_graph and graph_store removed: graph store support has been removed
+        # enable_graph and graph_store removed: graph memory is now a Mem0 Platform feature
     }
     ```
   </Tab>
@@ -154,7 +155,7 @@ pip install fastembed
     // After
     const config = {
       customInstructions: "Focus on user preferences",  // [OK] New name
-      // enableGraph and graphStore removed: graph store support has been removed
+      // enableGraph and graphStore removed: graph memory is now a Mem0 Platform feature
     };
     ```
   </Tab>
@@ -320,35 +321,31 @@ pip install "qdrant-client>=1.12.0"
 pip install "upstash-vector>=0.6.0"
 ```
 
-### 6. Entity Store Setup
+### 6. Entity Matching Store Setup
 
-The new algorithm automatically creates a parallel entity store collection named `{your_collection}_entities`. No manual setup is required: it's created on first use.
+The new algorithm automatically creates a parallel collection named `{your_collection}_entities` to power entity matching, the third signal in hybrid search. No manual setup is required: it's created on first use. This is separate from and unrelated to graph memory, which is a Mem0 Platform feature.
 
 <Warning>
 Make sure your vector store user/credentials have permission to create new collections. If you're using a managed vector database with restricted permissions, pre-create the `{collection_name}_entities` collection with the same embedding dimensions as your main collection.
 </Warning>
 
-## Graph Memory: Now Built-In
+## Graph Memory: Platform Only
 
-External graph **store** support has been removed from the open-source SDK and replaced by **built-in graph memory** (entity linking), which runs natively with no external dependencies.
+Graph memory is removed from the open-source SDK. It is not being replaced by an OSS equivalent: graph memory is a **Mem0 Platform** feature, built in and always on, with no external graph database required. See [Graph Memory](/platform/features/graph-memory) for what it does on Platform.
 
-**What was removed:**
+**What was removed from OSS:**
 - `enable_graph` / `enableGraph` config flag
-- `graph_store` / `graphStore` configuration block (Neo4j, Memgraph, Kuzu, Apache AGE, Neptune)
-- All external graph store code paths (~4000 lines)
-
-**What replaces it:**
-
-Mem0 now builds the graph itself. It extracts entities (proper nouns, quoted text, compound noun phrases) from every memory during the add pipeline and stores them in a parallel collection (`{collection}_entities`) inside your existing vector store. Memories that share an entity are linked, and at search time entities from the query are matched against this collection to boost connected memories. The boost is folded into the combined `score` on each result.
+- `graph_store` / `graphStore` configuration block
+- All external graph store drivers (Neo4j, Memgraph, Kuzu, Apache AGE, Neptune) and their code paths (~4000 lines)
 
 **Migration:**
 - Remove `enable_graph` / `enableGraph` from your config
 - Remove the `graph_store` / `graphStore` block: it is no longer read
 - Uninstall external graph drivers (neo4j, memgraph, etc.) if you were using them only for Mem0
-- No data migration is required. Built-in graph memory activates automatically on the next `add()` call.
+- If you need graph memory, use [Mem0 Platform](/platform/features/graph-memory) instead of self-hosted OSS
 
 <Warning>
-The old `relations` field on search results (populated by the external graph store) is no longer returned. Entity connections are now applied through retrieval ranking rather than exposed as a separate, directly traversable structure. If your application read or traversed the `relations` array, you will need to redesign that part against the new API.
+The old `relations` field on search results (populated by the external graph store) is no longer returned in OSS. OSS has no graph memory replacement, so there is nothing to populate this field with. If your application read or traversed the `relations` array, either move to Mem0 Platform to keep that data or redesign that part against the new OSS retrieval API.
 </Warning>
 
 ## How the New Algorithm Works
@@ -362,7 +359,7 @@ Input conversation
     → Batch embed extracted memories
     → Hash-based deduplication (MD5, prevents exact duplicates)
     → Batch insert into vector store
-    → Entity extraction + linking
+    → Entity extraction (for entity matching)
 ```
 
 The previous algorithm used two LLM calls: one to extract candidate facts, one to decide ADD/UPDATE/DELETE actions against existing memories. The new algorithm collapses this into a single call that only adds. The model spends its capacity on understanding the input rather than diffing against existing state.
@@ -375,7 +372,7 @@ Query
     → Parallel scoring:
         1. Semantic search (vector similarity)
         2. BM25 keyword search (normalized term matching)
-        3. Entity matching (entity graph boost)
+        3. Entity matching (entity overlap boost)
     → Score fusion → Top-K selection
 ```
 
@@ -408,8 +405,8 @@ The new features degrade gracefully when optional dependencies are missing:
 | Missing Dependency | Impact | Search Still Works? |
 |---|---|---|
 | spaCy (`mem0ai[nlp]`) | No entity extraction, no BM25 lemmatization | Yes (semantic-only) |
-| `fastembed` (Qdrant) | No BM25 keyword search | Yes (semantic + entity) |
-| Entity store unavailable | No entity boosting | Yes (semantic + BM25) |
+| `fastembed` (Qdrant) | No BM25 keyword search | Yes (semantic + entity matching) |
+| Entity matching store unavailable | No entity matching boost | Yes (semantic + BM25) |
 
 You always get semantic search. Hybrid search features layer on top when available.
 
@@ -449,13 +446,13 @@ These parameters have been removed across all SDKs. Remove them from your code:
 
 **Config:** `custom_update_memory_prompt` → deprecated, use `custom_instructions`
 
-**Config:** `enable_graph` + `graph_store` → removed (graph store support removed entirely)
+**Config:** `enable_graph` + `graph_store` → removed (graph memory is now a [Mem0 Platform feature](/platform/features/graph-memory))
 
 ### TypeScript OSS: Removed/renamed parameters
 
 **Config:** `customPrompt` → renamed to `customInstructions`
 
-**Config:** `enableGraph` + `graphStore` → removed (graph store support removed entirely)
+**Config:** `enableGraph` + `graphStore` → removed (graph memory is now a [Mem0 Platform feature](/platform/features/graph-memory))
 
 **search():** `limit` → renamed to `topK`
 
@@ -521,9 +518,9 @@ If spaCy is not installed at all, install the NLP extras:
 pip install "mem0ai[nlp]"
 ```
 
-### Entity store collection creation fails
+### Entity matching store collection creation fails
 
-The entity store tries to create a `{collection_name}_entities` collection automatically. If your vector database has restricted permissions, pre-create this collection with the same embedding dimensions as your main collection.
+The entity matching store tries to create a `{collection_name}_entities` collection automatically. If your vector database has restricted permissions, pre-create this collection with the same embedding dimensions as your main collection.
 
 ### Score values are different from before
 

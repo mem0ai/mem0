@@ -40,14 +40,15 @@ beforeEach(() => {
 });
 
 describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
-  it("extracts port from HTTPS URL with explicit port", () => {
-    new Qdrant({
+  it("extracts port from HTTPS URL with explicit port", async () => {
+    const store = new Qdrant({
       url: "https://my-cluster.us-west-1-0.aws.cloud.qdrant.io:6333",
       apiKey: "test-key",
       collectionName: "test",
       embeddingModelDims: 768,
       dimension: 768,
     });
+    await store.initialize();
 
     expect(capturedParams).toBeDefined();
     expect(capturedParams!.url).toBe(
@@ -57,47 +58,50 @@ describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
     expect(capturedParams!.apiKey).toBe("test-key");
   });
 
-  it("extracts port from HTTP URL with explicit port", () => {
-    new Qdrant({
+  it("extracts port from HTTP URL with explicit port", async () => {
+    const store = new Qdrant({
       url: "http://localhost:6333",
       collectionName: "test",
       embeddingModelDims: 768,
       dimension: 768,
     });
+    await store.initialize();
 
     expect(capturedParams).toBeDefined();
     expect(capturedParams!.url).toBe("http://localhost:6333");
     expect(capturedParams!.port).toBe(6333);
   });
 
-  it("defaults to port 6333 when HTTPS URL has no explicit port", () => {
-    new Qdrant({
+  it("defaults to port 6333 when HTTPS URL has no explicit port", async () => {
+    const store = new Qdrant({
       url: "https://my-cluster.cloud.qdrant.io",
       apiKey: "test-key",
       collectionName: "test",
       embeddingModelDims: 768,
       dimension: 768,
     });
+    await store.initialize();
 
     expect(capturedParams).toBeDefined();
     expect(capturedParams!.url).toBe("https://my-cluster.cloud.qdrant.io");
     expect(capturedParams!.port).toBe(6333);
   });
 
-  it("defaults to port 6333 when HTTP URL has no explicit port", () => {
-    new Qdrant({
+  it("defaults to port 6333 when HTTP URL has no explicit port", async () => {
+    const store = new Qdrant({
       url: "http://localhost",
       collectionName: "test",
       embeddingModelDims: 768,
       dimension: 768,
     });
+    await store.initialize();
 
     expect(capturedParams).toBeDefined();
     expect(capturedParams!.port).toBe(6333);
   });
 
-  it("host+port config overrides URL-extracted port", () => {
-    new Qdrant({
+  it("host+port config overrides URL-extracted port", async () => {
+    const store = new Qdrant({
       url: "https://my-cluster.cloud.qdrant.io:6333",
       host: "custom-host",
       port: 9999,
@@ -106,28 +110,28 @@ describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
       embeddingModelDims: 768,
       dimension: 768,
     });
+    await store.initialize();
 
     expect(capturedParams).toBeDefined();
     expect(capturedParams!.host).toBe("custom-host");
     expect(capturedParams!.port).toBe(9999);
   });
 
-  it("handles invalid URL gracefully without crashing", () => {
-    expect(() => {
-      new Qdrant({
-        url: "not-a-valid-url",
-        collectionName: "test",
-        embeddingModelDims: 768,
-        dimension: 768,
-      });
-    }).not.toThrow();
+  it("handles invalid URL gracefully without crashing", async () => {
+    const store = new Qdrant({
+      url: "not-a-valid-url",
+      collectionName: "test",
+      embeddingModelDims: 768,
+      dimension: 768,
+    });
+    await expect(store.initialize()).resolves.not.toThrow();
 
     expect(capturedParams).toBeDefined();
     expect(capturedParams!.url).toBe("not-a-valid-url");
     expect(capturedParams!.port).toBe(6333);
   });
 
-  it("does not pass port when using pre-configured client", () => {
+  it("does not pass port when using pre-configured client", async () => {
     const mockClient: any = {
       createCollection: jest.fn().mockResolvedValue(undefined),
       getCollection: jest.fn().mockResolvedValue({
@@ -141,12 +145,13 @@ describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
       deleteCollection: jest.fn().mockResolvedValue(undefined),
     };
 
-    new Qdrant({
+    const store = new Qdrant({
       client: mockClient,
       collectionName: "test",
       embeddingModelDims: 768,
       dimension: 768,
     });
+    await store.initialize();
 
     // QdrantClient constructor should NOT have been called
     expect(
@@ -154,14 +159,15 @@ describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("defaults to 6333 when HTTPS URL uses default port 443", () => {
-    new Qdrant({
+  it("defaults to 6333 when HTTPS URL uses default port 443", async () => {
+    const store = new Qdrant({
       url: "https://my-cluster.cloud.qdrant.io:443",
       apiKey: "test-key",
       collectionName: "test",
       embeddingModelDims: 768,
       dimension: 768,
     });
+    await store.initialize();
 
     // 443 is default for HTTPS, so URL.port returns empty string — we default to 6333
     expect(capturedParams).toBeDefined();

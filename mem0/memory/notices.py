@@ -1,16 +1,101 @@
 import asyncio
+import hashlib
 import json
+import logging
+import os
 import re
 import sys
 import threading
+import time
+import urllib.error
+import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from mem0.memory import telemetry as telemetry_module
 from mem0.memory.setup import _load_config, _write_config
 
+_logger = logging.getLogger(__name__)
 
 FLAG_KEY = "mem0-oss-notices"
+
+_REMOTE_CONFIG_URL = (
+    "https://raw.githubusercontent.com/mem0ai/mem0/main/mem0/memory/oss_notices_config.json"
+)
+_BUNDLED_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "oss_notices_config.json")
+_CONFIG_TTL_SECONDS = 3600
+_CONFIG_FETCH_TIMEOUT_SECONDS = telemetry_module.FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS
+
+_cached_config = None
+_cached_config_ts = 0.0
+_config_fetch_lock = threading.Lock()
+
+
+class StaticFlagResult:
+    """Drop-in replacement for PostHog's evaluate_flags return value."""
+
+    def __init__(self, variant, payload):
+        self._variant = variant
+        self._payload = payload
+
+    def get_flag(self, key):
+        return self._variant
+
+    def get_flag_payload(self, key):
+        return self._payload
+
+    def _get_event_properties(self):
+        return {
+            f"$feature/{FLAG_KEY}": self._variant,
+            "$active_feature_flags": [FLAG_KEY],
+        }
+
+
+def _load_bundled_config():
+    try:
+        with open(_BUNDLED_CONFIG_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return {"version": 1, "variant_split": 0.5, "notices": {}}
+
+
+def _fetch_remote_config():
+    try:
+        req = urllib.request.Request(_REMOTE_CONFIG_URL, headers={"User-Agent": "mem0-oss"})
+        with urllib.request.urlopen(req, timeout=_CONFIG_FETCH_TIMEOUT_SECONDS) as resp:
+            return json.loads(resp.read())
+    except Exception:
+        _logger.debug("Failed to fetch remote notice config, using bundled fallback")
+        return None
+
+
+def _get_notice_config():
+    global _cached_config, _cached_config_ts
+    now = time.monotonic()
+    if _cached_config is not None and (now - _cached_config_ts) < _CONFIG_TTL_SECONDS:
+        return _cached_config
+
+    with _config_fetch_lock:
+        if _cached_config is not None and (now - _cached_config_ts) < _CONFIG_TTL_SECONDS:
+            return _cached_config
+        remote = _fetch_remote_config()
+        if remote is not None and isinstance(remote, dict) and "notices" in remote:
+            _cached_config = remote
+        else:
+            _cached_config = _load_bundled_config()
+        _cached_config_ts = time.monotonic()
+        return _cached_config
+
+
+def _evaluate_notice_flags(user_id):
+    config = _get_notice_config()
+    split = config.get("variant_split", 0.5)
+    hash_key = f"{FLAG_KEY}.{user_id}variant"
+    bucket = int(hashlib.sha1(hash_key.encode()).hexdigest()[:15], 16) / float(0xFFFFFFFFFFFFFFF)
+    variant = DISPLAYED_VARIANT if bucket < split else HOLDOUT_VARIANT
+    payload = {"notices": config.get("notices", {})}
+    return StaticFlagResult(variant, payload)
+
 NOTICE_ID = "first_run"
 TEMPORAL_FEATURE_NOTICE_ID = "temporal_stub"
 TEMPORAL_USAGE_NOTICE_ID = "temporal_usage"
@@ -88,10 +173,10 @@ def display_first_run_notice(memory_instance, sync_type: str, trigger_function: 
     variant = None
     try:
         telemetry = telemetry_module._get_oss_telemetry()
-        if telemetry is None or telemetry.posthog is None or not telemetry.user_id:
+        if telemetry is None or not telemetry.user_id:
             return
 
-        flags = telemetry.posthog.evaluate_flags(telemetry.user_id, flag_keys=[FLAG_KEY])
+        flags = _evaluate_notice_flags(telemetry.user_id)
         variant = flags.get_flag(FLAG_KEY)
         _update_first_run_variant(variant)
 
@@ -168,10 +253,10 @@ def display_temporal_usage_notice(
 
     try:
         telemetry = telemetry_module._get_oss_telemetry()
-        if telemetry is None or telemetry.posthog is None or not telemetry.user_id:
+        if telemetry is None or not telemetry.user_id:
             return
 
-        flags = telemetry.posthog.evaluate_flags(telemetry.user_id, flag_keys=[FLAG_KEY])
+        flags = _evaluate_notice_flags(telemetry.user_id)
         variant = flags.get_flag(FLAG_KEY)
         if variant in (None, False):
             return
@@ -302,10 +387,10 @@ def display_decay_usage_notice(
 
     try:
         telemetry = telemetry_module._get_oss_telemetry()
-        if telemetry is None or telemetry.posthog is None or not telemetry.user_id:
+        if telemetry is None or not telemetry.user_id:
             return
 
-        flags = telemetry.posthog.evaluate_flags(telemetry.user_id, flag_keys=[FLAG_KEY])
+        flags = _evaluate_notice_flags(telemetry.user_id)
         variant = flags.get_flag(FLAG_KEY)
         if variant in (None, False):
             return
@@ -480,10 +565,10 @@ def display_scale_threshold_notice(
 
     try:
         telemetry = telemetry_module._get_oss_telemetry()
-        if telemetry is None or telemetry.posthog is None or not telemetry.user_id:
+        if telemetry is None or not telemetry.user_id:
             return
 
-        flags = telemetry.posthog.evaluate_flags(telemetry.user_id, flag_keys=[FLAG_KEY])
+        flags = _evaluate_notice_flags(telemetry.user_id)
         variant = flags.get_flag(FLAG_KEY)
         if variant in (None, False):
             return
@@ -596,10 +681,10 @@ def display_performance_slow_query_notice(
 
     try:
         telemetry = telemetry_module._get_oss_telemetry()
-        if telemetry is None or telemetry.posthog is None or not telemetry.user_id:
+        if telemetry is None or not telemetry.user_id:
             return
 
-        flags = telemetry.posthog.evaluate_flags(telemetry.user_id, flag_keys=[FLAG_KEY])
+        flags = _evaluate_notice_flags(telemetry.user_id)
         variant = flags.get_flag(FLAG_KEY)
         if variant in (None, False):
             return
@@ -749,10 +834,10 @@ def _get_feature_error_message(
 
     try:
         telemetry = telemetry_module._get_oss_telemetry()
-        if telemetry is None or telemetry.posthog is None or not telemetry.user_id:
+        if telemetry is None or not telemetry.user_id:
             return plain_error
 
-        flags = telemetry.posthog.evaluate_flags(telemetry.user_id, flag_keys=[FLAG_KEY])
+        flags = _evaluate_notice_flags(telemetry.user_id)
         variant = flags.get_flag(FLAG_KEY)
         if variant in (None, False):
             return plain_error

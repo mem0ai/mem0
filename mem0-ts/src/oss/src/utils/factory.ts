@@ -1,4 +1,5 @@
 import { OpenAIEmbedder } from "../embeddings/openai";
+import { AWSBedrockEmbedder } from "../embeddings/aws_bedrock";
 import { OllamaEmbedder } from "../embeddings/ollama";
 import { LMStudioEmbedder } from "../embeddings/lmstudio";
 import { TogetherEmbedder } from "../embeddings/together";
@@ -70,12 +71,15 @@ import { TurbopufferDB } from "../vector_stores/turbopuffer";
 import { Milvus } from "../vector_stores/milvus";
 import { MongoDB } from "../vector_stores/mongodb";
 import { WeaviateDB } from "../vector_stores/weaviate";
+import { OracleAIVectorSearch } from "../vector_stores/oracledb";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
     switch (provider.toLowerCase()) {
       case "openai":
         return new OpenAIEmbedder(config);
+      case "aws_bedrock":
+        return new AWSBedrockEmbedder(config);
       case "ollama":
         return new OllamaEmbedder(config);
       case "lmstudio":
@@ -202,6 +206,8 @@ export class VectorStoreFactory {
         return new MongoDB(config as any);
       case "weaviate":
         return new WeaviateDB(config as any);
+      case "oracledb":
+        return new OracleAIVectorSearch(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }
@@ -244,7 +250,7 @@ export class RerankerFactory {
       llmProvider = nested.provider || config.provider || "openai";
       llmConfig = { ...(nested.config || {}) };
       if (llmConfig.model === undefined) {
-        llmConfig.model = config.model ?? "gpt-4o-mini";
+        llmConfig.model = config.model ?? "gpt-5-mini";
       }
       if (llmConfig.temperature === undefined) {
         llmConfig.temperature = config.temperature ?? 0.0;
@@ -258,7 +264,7 @@ export class RerankerFactory {
     } else {
       llmProvider = config.provider || "openai";
       llmConfig = {
-        model: config.model ?? "gpt-4o-mini",
+        model: config.model ?? "gpt-5-mini",
         temperature: config.temperature ?? 0.0,
         maxTokens: config.maxTokens ?? 100,
       };

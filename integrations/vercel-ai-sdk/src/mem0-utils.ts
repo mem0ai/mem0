@@ -1,3 +1,10 @@
+declare const __MEM0_PROVIDER_VERSION__: string | undefined;
+
+// Replaced at build time by tsup `define`. The fallback only applies when the
+// source is run unbundled, such as in tests.
+const PROVIDER_VERSION =
+  typeof __MEM0_PROVIDER_VERSION__ !== "undefined" ? __MEM0_PROVIDER_VERSION__ : "dev";
+
 import { LanguageModelV3Prompt } from '@ai-sdk/provider';
 import { Mem0ConfigSettings } from './mem0-types';
 import { loadApiKey } from '@ai-sdk/provider-utils';
@@ -277,7 +284,11 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
             method: 'POST',
             headers: {
                 Authorization: `Token ${apiKey}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                // Surface attribution. Set-once by contract: this wrapper is the
+                // outermost layer on these raw fetch calls.
+                'X-Mem0-Source': 'VERCEL_AI_SDK',
+                'X-Mem0-Client': `mem0-vercel-ai-provider/${PROVIDER_VERSION}`
             },
             body: JSON.stringify(body),
         };
@@ -331,7 +342,11 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
             method: 'POST',
             headers: {
                 Authorization: `Token ${apiKey}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                // Surface attribution. Set-once by contract: this wrapper is the
+                // outermost layer on these raw fetch calls.
+                'X-Mem0-Source': 'VERCEL_AI_SDK',
+                'X-Mem0-Client': `mem0-vercel-ai-provider/${PROVIDER_VERSION}`
             },
             body: JSON.stringify(body),
         };

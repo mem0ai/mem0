@@ -19,7 +19,9 @@ from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.cohere import CohereRerankerConfig
 from mem0.configs.rerankers.huggingface import HuggingFaceRerankerConfig
 from mem0.configs.rerankers.llm import LLMRerankerConfig
-from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
+from mem0.configs.rerankers.sentence_transformer import (
+    SentenceTransformerRerankerConfig,
+)
 from mem0.configs.rerankers.zero_entropy import ZeroEntropyRerankerConfig
 from mem0.embeddings.mock import MockEmbeddings
 
@@ -86,7 +88,7 @@ class LlmFactory:
             config = config_class(**kwargs)
         elif isinstance(config, dict):
             # Merge dict config with kwargs
-            config.update(kwargs)
+            config = {**config, **kwargs}
             config = config_class(**config)
         elif isinstance(config, BaseLlmConfig):
             # Convert base config to provider-specific config if needed
@@ -201,6 +203,7 @@ class VectorStoreFactory:
         "cassandra": "mem0.vector_stores.cassandra.CassandraDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
         "turbopuffer": "mem0.vector_stores.turbopuffer.TurbopufferDB",
+        "oracledb": "mem0.vector_stores.oracledb.OracleAIVectorSearch",
     }
 
     @classmethod
