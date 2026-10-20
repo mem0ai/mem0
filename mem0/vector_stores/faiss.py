@@ -427,8 +427,14 @@ class FAISS(VectorStoreBase):
         Returns:
             bool: True if payload passes filters, False otherwise.
         """
-        if not filters or not payload:
+        if not filters:
             return True
+        # A payload without metadata must fail a scoped filter, the same way a
+        # payload that lacks the key does. Returning True here made an empty
+        # payload pass every user_id / agent_id / run_id check, so a filtered
+        # search or list returned rows that belong to no scope at all.
+        if not payload:
+            return False
 
         for key, value in filters.items():
             if key not in payload:

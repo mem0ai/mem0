@@ -285,6 +285,41 @@ def test_list(faiss_instance):
         assert result.payload["category"] == "A"
 
 
+def test_list_excludes_rows_without_metadata_when_filtered(faiss_instance):
+    # Regression for #7256: a row stored without metadata must not survive a
+    # scoped filter. `_apply_filters` returned True for a falsy payload, so a
+    # filtered list() returned rows that belong to no user_id at all.
+    faiss_instance.docstore = {
+        "id_alice": {"name": "alice memory", "user_id": "alice"},
+        "id_anonymous": {},
+    }
+
+    results = faiss_instance.list(filters={"user_id": "alice"})
+
+    assert [row.id for row in results[0]] == ["id_alice"]
+
+
+def test_apply_filters_rejects_falsy_payload(faiss_instance):
+    # Regression for #7256: an empty or missing payload must fail a scoped
+    # filter, exactly like a payload that lacks the key.
+    assert faiss_instance._apply_filters({}, {"user_id": "alice"}) is False
+    assert faiss_instance._apply_filters(None, {"user_id": "alice"}) is False
+    assert faiss_instance._apply_filters({}, {"user_id": ["alice", "bob"]}) is False
+
+
+def test_apply_filters_without_filters_passes_everything(faiss_instance):
+    # No filters means no scope to enforce, so every payload passes.
+    assert faiss_instance._apply_filters({}, {}) is True
+    assert faiss_instance._apply_filters({"user_id": "alice"}, None) is True
+    assert faiss_instance._apply_filters({}, None) is True
+
+
+def test_apply_filters_matches_payload_against_filters(faiss_instance):
+    assert faiss_instance._apply_filters({"user_id": "alice"}, {"user_id": "alice"}) is True
+    assert faiss_instance._apply_filters({"user_id": "bob"}, {"user_id": "alice"}) is False
+    assert faiss_instance._apply_filters({"user_id": "bob"}, {"user_id": ["alice", "bob"]}) is True
+
+
 def test_list_uninitialized_index_returns_nested_list(faiss_instance):
     # Regression for the List[List[OutputData]] contract: callers (e.g.
     # Memory.delete_all) do `vector_store.list(filters=...)[0]`, so an
