@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.exceptions import LLMError, VectorStoreError
+from mem0.exceptions import EmbeddingErrorClass, LLMError, VectorStoreError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -1180,6 +1180,7 @@ class TestAddPipelineEntityEmbeddingCountGuard:
             "expected count-mismatch warning was not emitted"
         )
 
+
 class TestPartialInsertFailure:
     """Records the vector store rejects must never be reported as successful ADDs (#6911)."""
 
@@ -1333,3 +1334,259 @@ class TestAsyncPartialInsertFailure:
             )
 
         mock_async_memory.db.save_messages.assert_called_once()
+
+
+class TestAddPipelineMemoryEmbeddingCountGuard:
+    """A misbehaving embedder returning fewer vectors than the extracted memory
+    texts must surface the loss, not drop the unmatched texts silently.
+
+    `dict(zip(mem_texts, mem_embeddings_list))` truncates to the shorter side, so a
+    short `embed_batch` return dropped the tail memories with no signal to operators.
+    The add path now logs a count-mismatch warning (mirroring the entity-embedding
+    guard above) so the loss is observable; caller-visible surfacing is tracked
+    separately.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @staticmethod
+    def _short_memory_embed_batch(texts, memory_action="add"):
+        # The extracted memory texts come back short (1 vector for 2); any other
+        # batch (e.g. entities) embeds normally.
+        if any(t in ("fact one", "fact two") for t in texts):
+            return [[0.1] * 10]
+        return [[0.1] * 10 for _ in texts]
+
+    def test_sync_short_memory_embeddings_warn_not_silent(self, mock_memory, mocker, caplog):
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(side_effect=self._short_memory_embed_batch)
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        failed = []
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "two facts"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+            failed=failed,
+        )
+
+        # The aligned memory persists; the unmatched text is surfaced under `failed`
+        # as a provider error rather than silently dropped.
+        assert len(result) == 1
+        assert len(failed) == 1
+        assert failed[0]["error_class"] == EmbeddingErrorClass.PROVIDER
+        assert "fact" in failed[0]["text"]
+
+    @pytest.mark.asyncio
+    async def test_async_short_memory_embeddings_warn_not_silent(self, mock_async_memory, mocker, caplog):
+        mock_async_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(side_effect=self._short_memory_embed_batch)
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        failed = []
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "two facts"}],
+            metadata={},
+            effective_filters={"user_id": "u1"},
+            infer=True,
+            failed=failed,
+        )
+
+        assert len(result) == 1
+        assert len(failed) == 1
+        assert failed[0]["error_class"] == EmbeddingErrorClass.PROVIDER
+        assert "fact" in failed[0]["text"]
+
+    def test_infer_false_invalid_embed_recorded_in_failed(self, mock_memory):
+        mock_memory.embedding_model = Mock()
+        # A NaN vector is structurally invalid: surface it, don't persist it.
+        mock_memory.embedding_model.embed = Mock(return_value=[float("nan")] * 10)
+
+        failed = []
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "a raw fact"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=False,
+            failed=failed,
+        )
+
+        assert result == []
+        assert len(failed) == 1
+        assert failed[0]["error_class"] == EmbeddingErrorClass.VALIDATION
+
+    def test_infer_true_nan_vector_recorded_as_validation(self, mock_memory, mocker):
+        mock_memory.llm.generate_response.return_value = '{"memory": [{"text": "fact one"}]}'
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[float("nan")] * 10])
+        mock_memory.embedding_model.embed = Mock(return_value=[float("nan")] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        failed = []
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "a fact"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+            failed=failed,
+        )
+
+        assert len(result) == 0
+        assert len(failed) == 1
+        assert failed[0]["error_class"] == EmbeddingErrorClass.VALIDATION
+
+    def test_insert_failure_recorded_in_failed_and_dropped_from_results(self, mock_memory, mocker):
+        # Two facts: the batch insert fails for both, and the per-item fallback
+        # recovers "fact one" but not "fact two" — a total-batch failure with one
+        # persisted survivor, distinct from #6911's all-fail-and-raise case above.
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1] * 10, [0.2] * 10])
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        real_insert = mock_memory.vector_store.insert
+
+        def flaky_insert(vectors, ids, payloads):
+            if len(ids) > 1:
+                raise RuntimeError("batch insert rejected")
+            if payloads[0]["data"] == "fact two":
+                raise RuntimeError("store down")
+            return real_insert(vectors=vectors, ids=ids, payloads=payloads)
+
+        mock_memory.vector_store.insert = Mock(side_effect=flaky_insert)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        failed = []
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "two facts"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+            failed=failed,
+        )
+
+        # "fact one" persisted and is reported; "fact two" never stored, surfaced
+        # under failed as internal_error and dropped from results.
+        assert [r["memory"] for r in result] == ["fact one"]
+        assert len(failed) == 1
+        assert failed[0]["text"] == "fact two"
+        assert failed[0]["error_class"] == EmbeddingErrorClass.INTERNAL
+        assert "insert" in failed[0]["error"]
+
+    def test_add_labels_failed_entries_with_cross_sdk_wire_fields(self, mock_memory, mocker):
+        # add() attaches error_code + remediation to every failed entry, matching the
+        # TS SDK's machine-keyed fields (mem0ai#6794).
+        def fake_add(*args, failed=None, **kwargs):
+            failed.append({"text": "d", "error_class": EmbeddingErrorClass.VALIDATION, "error": "dimension 3 != expected 10"})
+            failed.append({"text": "n", "error_class": EmbeddingErrorClass.VALIDATION, "error": "non-finite component (NaN/Inf)"})
+            failed.append({"text": "p", "error_class": EmbeddingErrorClass.PROVIDER, "error": "429 rate limit"})
+            failed.append({"text": "a", "error_class": EmbeddingErrorClass.PROVIDER, "error": "401 unauthorized", "_status": 401})
+            failed.append({"text": "i", "error_class": EmbeddingErrorClass.INTERNAL, "error": "boom"})
+            return []
+
+        mock_memory._add_to_vector_store = Mock(side_effect=fake_add)
+        mocker.patch("mem0.memory.main.detect_temporal_usage_from_metadata", return_value=None)
+        mocker.patch("mem0.memory.main.detect_scale_threshold_from_add_result", return_value=None)
+        mocker.patch("mem0.memory.main.display_first_run_notice")
+        mocker.patch("mem0.memory.main.capture_event")
+
+        failed = mock_memory.add(messages=[{"role": "user", "content": "hi"}], user_id="u1")["failed"]
+        by_text = {f["text"]: f for f in failed}
+        assert (by_text["d"]["error_code"], by_text["d"]["remediation"]) == ("EMBED_002", "reconfigure")
+        assert (by_text["n"]["error_code"], by_text["n"]["remediation"]) == ("EMBED_002", "escalate")
+        assert (by_text["p"]["error_code"], by_text["p"]["remediation"]) == ("EMBED_001", "retry")
+        assert (by_text["a"]["error_code"], by_text["a"]["remediation"]) == ("EMBED_003", "escalate")
+        assert (by_text["i"]["error_code"], by_text["i"]["remediation"]) == ("EMBED_004", "escalate")
+
+    def test_failed_entries_carry_source_index(self, mock_memory, mocker):
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        # 1 vector for 2 texts: the second text is the short-batch drop, at index 1.
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1] * 10])
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        failed = []
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "two facts"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+            failed=failed,
+        )
+
+        assert failed[0]["index"] == 1
+
+    def test_infer_false_index_survives_dropped_tool_call_turn(self, mock_memory):
+        # The caller's array has a content-less assistant tool-call at position 1;
+        # parse_vision_messages drops it, so post-parse positions shift. failed[]
+        # must still report the CALLER's position (2), not the post-parse one (1).
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(side_effect=[[0.1] * 10, [float("nan")] * 10])
+
+        caller_messages = [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "tool_calls": [{"function": {"name": "f"}}]},
+            {"role": "user", "content": "second"},
+        ]
+        from mem0.memory.utils import parse_vision_messages
+
+        parsed, source_indices = parse_vision_messages(caller_messages, return_source_indices=True)
+        assert len(parsed) == 2
+
+        failed = []
+        mock_memory._add_to_vector_store(
+            messages=parsed,
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=False,
+            failed=failed,
+            source_indices=source_indices,
+        )
+
+        assert len(failed) == 1
+        assert failed[0]["index"] == 2
+        assert failed[0]["text"] == "second"
