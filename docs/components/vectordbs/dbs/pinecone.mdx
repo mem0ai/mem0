@@ -160,7 +160,7 @@ config = {
         "provider": "pinecone",
         "config": {
             "collection_name": "memory_index",
-            "embedding_model_dims": 1536,  # For OpenAI's text-embedding-ada-002
+            "embedding_model_dims": 1536,  # For OpenAI's text-embedding-3-small
             "namespace": "my-namespace",  # Optional: custom namespace
             "pod_config": {
                 "environment": "gcp-starter",
@@ -178,7 +178,7 @@ const config = {
     provider: 'pinecone',
     config: {
       collectionName: 'memory_index',
-      embeddingModelDims: 1536, // For OpenAI's text-embedding-ada-002
+      embeddingModelDims: 1536, // For OpenAI's text-embedding-3-small
       namespace: 'my-namespace', // Optional: custom namespace
       podConfig: {
         environment: 'gcp-starter',
