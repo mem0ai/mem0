@@ -1333,3 +1333,98 @@ class TestAsyncPartialInsertFailure:
             )
 
         mock_async_memory.db.save_messages.assert_called_once()
+
+
+def _stub_rerank_search(mocker, memory, pool_size=40):
+    """Fake only the vector store, so search() runs the real _search_vector_store
+    and score_and_rank. Memory ``m{i}`` has semantic score ``0.9 - i * 0.01``,
+    so the first-stage scorer ranks ``m{pool_size - 1}`` last.
+    """
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.extract_entities", return_value=[])
+    mocker.patch("mem0.memory.main.lemmatize_for_bm25", side_effect=lambda text: text)
+    memory.vector_store.search.return_value = [
+        SimpleNamespace(id=f"m{i}", score=0.9 - i * 0.01, payload={"data": f"memory {i}", "user_id": "u"})
+        for i in range(pool_size)
+    ]
+    memory.vector_store.keyword_search.return_value = None
+    # Cross-encoder stand-in: it knows the last-ranked memory is the right answer.
+    last_id = f"m{pool_size - 1}"
+    memory.reranker = mocker.MagicMock()
+    memory.reranker.rerank.side_effect = lambda q, docs, k: sorted(docs, key=lambda d: d["id"] != last_id)[:k]
+
+
+def test_search_rerank_can_rescue_candidate_ranked_below_limit(mocker):
+    """Regression for #6448: search(rerank=True) must hand the reranker the
+    over-fetched candidate pool, not the top-``limit`` that score_and_rank
+    already truncated, or reranking can only reorder and never improve recall.
+    """
+    memory = _build_memory_instance(mocker, Memory)
+    _stub_rerank_search(mocker, memory)
+
+    results = memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True)["results"]
+
+    assert len(results) == 5
+    assert results[0]["id"] == "m39"
+    assert len(memory.reranker.rerank.call_args.args[1]) == 40
+    assert memory.reranker.rerank.call_args.args[2] == 5
+
+
+def test_search_rerank_over_fetches_from_store_once(mocker):
+    """The pool must be widened once from the caller's limit, not widened again
+    from an already-widened limit (max(limit * 4, 60) for top_k=5 is 60).
+    """
+    memory = _build_memory_instance(mocker, Memory)
+    _stub_rerank_search(mocker, memory)
+
+    memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True)
+
+    memory.vector_store.search.assert_called_once()
+    assert memory.vector_store.search.call_args.kwargs["top_k"] == 60
+
+
+def test_search_rerank_failure_trims_pool_back_to_limit(mocker):
+    """If the reranker raises, the over-fetched pool must not leak to the caller."""
+    memory = _build_memory_instance(mocker, Memory)
+    _stub_rerank_search(mocker, memory)
+    memory.reranker.rerank.side_effect = RuntimeError("rerank API down")
+
+    results = memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True)["results"]
+
+    assert [r["id"] for r in results] == ["m0", "m1", "m2", "m3", "m4"]
+
+
+def test_search_without_rerank_still_truncates_to_limit(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    _stub_rerank_search(mocker, memory)
+
+    results = memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=False)["results"]
+
+    assert [r["id"] for r in results] == ["m0", "m1", "m2", "m3", "m4"]
+    memory.reranker.rerank.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_search_rerank_can_rescue_candidate_ranked_below_limit(mocker):
+    """Async counterpart of test_search_rerank_can_rescue_candidate_ranked_below_limit."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    _stub_rerank_search(mocker, memory)
+
+    results = (await memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True))["results"]
+
+    assert len(results) == 5
+    assert results[0]["id"] == "m39"
+    assert len(memory.reranker.rerank.call_args.args[1]) == 40
+    memory.vector_store.search.assert_called_once()
+    assert memory.vector_store.search.call_args.kwargs["top_k"] == 60
+
+
+@pytest.mark.asyncio
+async def test_async_search_rerank_failure_trims_pool_back_to_limit(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    _stub_rerank_search(mocker, memory)
+    memory.reranker.rerank.side_effect = RuntimeError("rerank API down")
+
+    results = (await memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True))["results"]
+
+    assert [r["id"] for r in results] == ["m0", "m1", "m2", "m3", "m4"]
