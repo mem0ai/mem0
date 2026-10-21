@@ -42,11 +42,16 @@ _core_dir: Path = Path(__file__).resolve().parent
 
 
 def read_hook_input() -> dict:
+    """Read the hook payload as UTF-8 whatever the console code page is."""
+    stream = getattr(sys.stdin, "buffer", None)
     try:
-        value = json.load(sys.stdin)
-        return value if isinstance(value, dict) else {}
-    except (json.JSONDecodeError, OSError):
+        if stream is None:
+            value = json.load(sys.stdin)
+        else:
+            value = json.loads(stream.read().decode("utf-8"))
+    except (AttributeError, OSError, ValueError):
         return {}
+    return value if isinstance(value, dict) else {}
 
 
 def default_record_stop(store: EvidenceStore, hook_input: dict):

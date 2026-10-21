@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
@@ -4634,3 +4635,104 @@ def test_delayed_handoff_survives_failed_atomic_rewrite(isolated_env, monkeypatc
 def test_json_secret_redaction_handles_escaped_quotes():
     value = json.dumps({"password": 'prefix"private suffix'})
     assert json.loads(memory_core.redact(value)) == {"password": "[REDACTED]"}
+
+
+def test_transient_database_error_does_not_quarantine_a_healthy_database(isolated_env, monkeypatch):
+    """A locked (or full) database is not a damaged one.
+
+    The evidence store used to move the file aside on any sqlite3 error, so a
+    transient lock turned a healthy database into a ``.corrupt-<epoch>`` file
+    and threw the queued evidence away.
+    """
+    database = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "evidence.sqlite3"
+    database.parent.mkdir(parents=True, exist_ok=True)
+    real_connect = sqlite3.connect
+    connection = real_connect(database)
+    connection.execute("CREATE TABLE events (id INTEGER PRIMARY KEY, payload TEXT)")
+    connection.execute("INSERT INTO events (payload) VALUES ('keep me')")
+    connection.commit()
+    connection.close()
+
+    def locked_connect(*args, **kwargs):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(memory_core.sqlite3, "connect", locked_connect)
+    monkeypatch.setattr(memory_core.time, "sleep", lambda *_: None)
+
+    with pytest.raises(sqlite3.OperationalError):
+        memory_core.EvidenceStore()
+
+    assert database.exists()
+    assert not list(database.parent.glob("evidence.sqlite3.corrupt-*"))
+    connection = real_connect(database)
+    assert connection.execute("SELECT payload FROM events").fetchone() == ("keep me",)
+    connection.close()
+
+
+def test_damaged_database_is_still_quarantined(isolated_env):
+    """A file that is not a database at all is still moved aside."""
+    database = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "evidence.sqlite3"
+    database.parent.mkdir(parents=True, exist_ok=True)
+    database.write_bytes(b"this is not a database")
+
+    store = memory_core.EvidenceStore()
+    store.close()
+
+    quarantined = list(database.parent.glob("evidence.sqlite3.corrupt-*"))
+    assert quarantined, "the unreadable file should be moved aside"
+    assert quarantined[0].read_bytes() == b"this is not a database"
+
+
+def test_cache_plugin_api_key_does_not_rewrite_an_unchanged_key(isolated_env, monkeypatch):
+    """Rewriting the key file on every hook races itself on Windows, where
+    another hook process may still have the file open."""
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_API_KEY", "m0-plugin-key")
+    assert memory_core.cache_plugin_api_key() is True
+
+    replacements = []
+    real_replace = os.replace
+
+    def counting_replace(source, target):
+        replacements.append((source, target))
+        return real_replace(source, target)
+
+    monkeypatch.setattr(memory_core.os, "replace", counting_replace)
+    assert memory_core.cache_plugin_api_key() is True
+    assert replacements == []
+
+
+def test_cache_plugin_api_key_survives_a_locked_key_file(isolated_env, monkeypatch):
+    """A PermissionError from the rewrite must not drop the hook event."""
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_API_KEY", "m0-plugin-key")
+    assert memory_core.cache_plugin_api_key() is True
+
+    def locked_replace(source, target):
+        raise PermissionError("another process is using this file")
+
+    monkeypatch.setattr(memory_core.os, "replace", locked_replace)
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_API_KEY", "m0-plugin-key-2")
+    assert memory_core.cache_plugin_api_key() is False
+    key_path = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "api-key"
+    assert key_path.read_text(encoding="utf-8") == "m0-plugin-key"
+
+
+def test_read_hook_input_decodes_utf8_regardless_of_the_console_codepage(monkeypatch):
+    """Windows pipes stdin through the ANSI codepage, so UTF-8 JSON arrives
+    mangled and bytes like 0x81 become lone surrogates."""
+    import hook_runner
+    payload = {"session_id": "s1", "message": "café 中文"}
+    encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+    class WindowsPipe:
+        """Stdin as Windows presents it: the text layer is cp1252."""
+
+        def read(self):
+            return encoded.decode("cp1252", errors="replace")
+
+        @property
+        def buffer(self):
+            return io.BytesIO(encoded)
+
+    monkeypatch.setattr(hook_runner.sys, "stdin", WindowsPipe())
+
+    assert hook_runner.read_hook_input() == payload

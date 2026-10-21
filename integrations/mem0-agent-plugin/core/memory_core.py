@@ -30,6 +30,8 @@ import telemetry
 
 DEFAULT_API_URL = "https://api.mem0.ai"
 PLUGIN_VERSION = "0.3.3"
+_OPEN_ATTEMPTS = 3
+_OPEN_RETRY_SECONDS = 0.2
 
 _harness_name: str = "generic"
 _harness_env_prefix: str = "MEM0_PLUGIN"
@@ -394,6 +396,14 @@ def api_key() -> str:
         return ""
 
 
+def _cached_api_key(path: Path) -> str:
+    """Read the cached key, or an empty string when it is not there."""
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
 def cache_plugin_api_key() -> bool:
     """Bridge host's hook-only sensitive config into plugin-owned storage."""
     configured = (
@@ -408,17 +418,25 @@ def cache_plugin_api_key() -> bool:
     directory = data_dir()
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / "api-key"
+    if _cached_api_key(path) == configured:
+        # Rewriting an unchanged file races the other plugin processes that
+        # may still hold it open on Windows.
+        return True
     temporary = directory / f"api-key.{os.getpid()}.tmp"
-    descriptor = os.open(
-        temporary,
-        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-        0o600,
-    )
     try:
+        descriptor = os.open(
+            temporary,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            0o600,
+        )
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(configured)
         os.replace(temporary, path)
         os.chmod(path, 0o600)
+    except OSError:
+        # Another process can hold the file open on Windows. Keep the cached
+        # key and let the hook continue instead of dropping the event.
+        return _cached_api_key(path) == configured
     finally:
         try:
             temporary.unlink()
@@ -559,7 +577,13 @@ class EvidenceStore:
         self.path = path or directory / "evidence.sqlite3"
         try:
             self._open()
+        except sqlite3.OperationalError:
+            # A lock or an I/O hiccup says nothing about the file itself, so a
+            # healthy database must never be moved aside because of one.
+            self._open_with_retry()
         except sqlite3.DatabaseError:
+            if not self._database_is_damaged():
+                raise
             self._quarantine()
             self._open()
 
@@ -573,6 +597,38 @@ class EvidenceStore:
         except sqlite3.DatabaseError:
             self.conn.close()
             raise
+
+    def _open_with_retry(self) -> None:
+        """Retry an open that failed for a transient reason."""
+        for attempt in range(_OPEN_ATTEMPTS):
+            try:
+                self._open()
+                return
+            except sqlite3.OperationalError:
+                if attempt + 1 == _OPEN_ATTEMPTS:
+                    raise
+                time.sleep(_OPEN_RETRY_SECONDS)
+
+    def _database_is_damaged(self) -> bool:
+        """Report whether the database file itself is unreadable."""
+        if not self.path.exists():
+            return False
+        try:
+            connection = sqlite3.connect(self.path)
+        except sqlite3.Error:
+            return False
+        try:
+            rows = connection.execute("PRAGMA quick_check").fetchall()
+        except sqlite3.OperationalError:
+            # The file is busy, which says nothing about its contents.
+            return False
+        except sqlite3.DatabaseError:
+            return True
+        except sqlite3.Error:
+            return False
+        finally:
+            connection.close()
+        return any(str(row[0]).strip().lower() != "ok" for row in rows)
 
     def _quarantine(self) -> None:
         """Move an unreadable database aside so capture restarts cleanly."""
