@@ -263,3 +263,55 @@ def test_create_filter_in_operator(pinecone_db):
 def test_create_filter_ne_operator(pinecone_db):
     result = pinecone_db._create_filter({"status": {"ne": "deleted"}})
     assert result == {"status": {"$ne": "deleted"}}
+
+
+def test_create_filter_or_becomes_pinecone_or_list(pinecone_db):
+    # Memory._process_metadata_filters() turns OR into "$or": [ {...}, ... ].
+    # Pinecone needs "$or" to be a list of translated filter objects.
+    result = pinecone_db._create_filter(
+        {"user_id": "u1", "$or": [{"category": "food"}, {"category": {"in": ["travel"]}}]}
+    )
+    assert result == {
+        "$and": [
+            {"user_id": {"$eq": "u1"}},
+            {"$or": [{"category": {"$eq": "food"}}, {"category": {"$in": ["travel"]}}]},
+        ]
+    }
+
+
+def test_create_filter_not_negates_each_condition(pinecone_db):
+    # Pinecone has no list-valued $not, so NOT [c1, c2] must become
+    # "neither c1 nor c2" expressed with negated comparison operators.
+    result = pinecone_db._create_filter(
+        {"user_id": "u1", "$not": [{"category": "work"}, {"priority": {"in": ["low"]}}]}
+    )
+    assert result == {
+        "$and": [
+            {"user_id": {"$eq": "u1"}},
+            {"category": {"$ne": "work"}},
+            {"priority": {"$nin": ["low"]}},
+        ]
+    }
+
+
+def test_create_filter_not_of_range_uses_de_morgan(pinecone_db):
+    # NOT (18 <= age <= 65)  ==  age < 18  OR  age > 65
+    result = pinecone_db._create_filter({"$not": [{"age": {"gte": 18, "lte": 65}}]})
+    assert result == {"$or": [{"age": {"$lt": 18}}, {"age": {"$gt": 65}}]}
+
+
+def test_create_filter_accepts_unprefixed_logical_keys(pinecone_db):
+    result = pinecone_db._create_filter({"OR": [{"a": 1}, {"b": 2}], "NOT": [{"c": 3}]})
+    assert result == {"$and": [{"$or": [{"a": {"$eq": 1}}, {"b": {"$eq": 2}}]}, {"c": {"$ne": 3}}]}
+
+
+def test_create_filter_not_rejects_operator_it_cannot_negate(pinecone_db):
+    with pytest.raises(ValueError, match="contains"):
+        pinecone_db._create_filter({"$not": [{"data": {"contains": "tea"}}]})
+
+
+def test_search_sends_translated_or_filter(pinecone_db):
+    pinecone_db.index.query.return_value.matches = []
+    pinecone_db.search("q", [0.1] * 128, top_k=5, filters={"user_id": "u1", "$or": [{"a": 1}, {"b": 2}]})
+    sent = pinecone_db.index.query.call_args.kwargs["filter"]
+    assert sent == {"$and": [{"user_id": {"$eq": "u1"}}, {"$or": [{"a": {"$eq": 1}}, {"b": {"$eq": 2}}]}]}
