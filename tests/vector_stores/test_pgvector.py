@@ -1,4 +1,5 @@
 import importlib
+import logging
 import sys
 import unittest
 import uuid
@@ -229,6 +230,122 @@ class TestPGVector(unittest.TestCase):
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
         self.assertIs(pgvector.connection_pool, explicit_pool)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_ensure_collection_warns_on_dim_mismatch(self, mock_get_cursor, mock_connection_pool):
+        """Should warn when the existing table's vector dim differs from the config."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+
+        # Existing collection with a 1536-dim vector column (atttypmod = 1540).
+        self.mock_cursor.fetchall.return_value = [("test_collection",)]
+        self.mock_cursor.fetchone.return_value = (1540,)
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4
+        )
+
+        with self.assertLogs("mem0.vector_stores.pgvector", level="WARNING") as logs:
+            pgvector._ensure_collection()
+
+        self.assertTrue(any("vector(1536)" in m and "embedding_model_dims=3" in m for m in logs.output))
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_ensure_collection_silent_when_dims_match(self, mock_get_cursor, mock_connection_pool):
+        """Should not warn when the existing table's vector dim matches the config."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+
+        # Existing table whose vector dim matches the configured 3.
+        self.mock_cursor.fetchall.return_value = [("test_collection",)]
+        self.mock_cursor.fetchone.return_value = (7,)  # 3 + 4
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4
+        )
+
+        logs = self._capture_warnings(pgvector._ensure_collection)
+
+        self.assertFalse(any("vector(" in m for m in logs))
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_ensure_collection_silent_when_introspection_fails(self, mock_get_cursor, mock_connection_pool):
+        """Should not raise when the dim introspection query fails (permissions etc.)."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+
+        self.mock_cursor.fetchall.return_value = [("test_collection",)]
+        self.mock_cursor.fetchone.side_effect = Exception("permission denied")
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4
+        )
+
+        # Should not raise and not warn.
+        logs = self._capture_warnings(pgvector._ensure_collection)
+
+        self.assertFalse(any("vector(" in m for m in logs))
+
+    def _capture_warnings(self, fn):
+        """Run ``fn`` and return the WARNING-level log messages it emits."""
+        records = []
+        handler = logging.Handler()
+        handler.emit = records.append
+        logger = logging.getLogger("mem0.vector_stores.pgvector")
+        old_level = logger.level
+        logger.addHandler(handler)
+        logger.setLevel(logging.WARNING)
+        try:
+            fn()
+        finally:
+            logger.removeHandler(handler)
+            logger.setLevel(old_level)
+        return [r.getMessage() for r in records]
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
