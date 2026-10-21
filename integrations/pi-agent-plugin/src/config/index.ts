@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { mem0CliApiKey } from "../../../agent-plugin-core/typescript/src/credentials.ts";
 import type { Mem0Config } from "../types.ts";
 
 const AGENT_ROOT = path.join(os.homedir(), ".pi", "agent");
@@ -35,6 +36,9 @@ export function loadConfig(): Mem0Config {
 
   if (process.env.MEM0_API_KEY) {
     config.apiKey = process.env.MEM0_API_KEY;
+  }
+  if (!config.apiKey) {
+    config.apiKey = mem0CliApiKey(os.homedir());
   }
   if (process.env.MEM0_USER_ID) {
     config.userId = process.env.MEM0_USER_ID;

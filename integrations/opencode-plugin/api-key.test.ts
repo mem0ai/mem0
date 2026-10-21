@@ -102,6 +102,16 @@ describe("resolveApiKey", () => {
     expect(resolveApiKey({}, dir)).toBe("m0-later");
   });
 
+  test("falls back to the key mem0 init saved", () => {
+    const dir = home();
+    mkdirSync(join(dir, ".mem0"));
+    writeFileSync(join(dir, ".mem0", "config.json"), JSON.stringify({platform: {api_key: "m0-cli-key"}}));
+    expect(resolveApiKey({}, dir)).toBe("m0-cli-key");
+
+    writeFileSync(join(dir, ".zshrc"), "export MEM0_API_KEY=m0-from-profile\n");
+    expect(resolveApiKey({}, dir)).toBe("m0-from-profile");
+  });
+
   test("ignores unsupported files and invalid assignments", () => {
     const dir = home();
     writeFileSync(join(dir, ".env"), "MEM0_API_KEY=unsupported\n");
