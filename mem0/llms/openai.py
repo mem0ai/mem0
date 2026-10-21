@@ -12,6 +12,12 @@ from mem0.memory.utils import extract_json
 
 
 class OpenAILLM(LLMBase):
+    @staticmethod
+    def _is_gemma_model(model: Optional[str]) -> bool:
+        """Return whether an OpenAI-compatible model is part of the Gemma family."""
+        base_model = (model or "").lower().rsplit("/", 1)[-1]
+        return base_model.startswith(("gemma", "google.gemma"))
+
     def __init__(self, config: Optional[Union[BaseLlmConfig, OpenAIConfig, Dict]] = None):
         # Convert to OpenAIConfig if needed
         if config is None:
@@ -105,6 +111,11 @@ class OpenAILLM(LLMBase):
         """
         params = self._get_supported_params(messages=messages, **kwargs)
         
+        # Some OpenAI-compatible Gemma endpoints reject the legacy max_tokens
+        # field instead of ignoring it. Let the endpoint apply its default.
+        if self._is_gemma_model(self.config.model):
+            params.pop("max_tokens", None)
+
         params.update({
             "model": self.config.model,
             "messages": messages,
