@@ -17,7 +17,7 @@ cd docs && mintlify dev
 | `open-source/` | Self-hosted SDK guides |
 | `platform/` | Hosted platform guides |
 | `integrations/` | One page per integration |
-| `core-concepts/` | Memory model, graph memory, scoping |
+| `core-concepts/` | Memory model, memory operations, evaluation |
 | `cookbooks/` | End-to-end recipes |
 | `contributing/` | Contributor guides |
 | `docs.json` | Navigation tree |

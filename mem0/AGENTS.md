@@ -1,6 +1,6 @@
 # Python SDK (`mem0/`)
 
-The `mem0ai` package on PyPI. Memory core plus five pluggable provider categories.
+The `mem0ai` package on PyPI. Memory core plus four pluggable provider categories.
 
 ## Commands
 
@@ -38,7 +38,6 @@ mem0/
 ├── llms/            24 providers
 ├── embeddings/      15 providers
 ├── vector_stores/   30 providers
-├── graphs/          4 providers
 └── reranker/        5 providers
 ```
 
@@ -51,7 +50,6 @@ Every category follows the same shape: a `base.py` with the abstract class, one 
 | LLMs | 24 | OpenAI, Anthropic, AWS Bedrock, Azure OpenAI, Gemini, Groq, Ollama, Together, DeepSeek, vLLM, LiteLLM, LM Studio, xAI |
 | Vector stores | 30 | Qdrant, Pinecone, Chroma, Weaviate, Milvus, MongoDB, Redis, Elasticsearch, pgvector, Supabase, Faiss, S3 Vectors |
 | Embeddings | 15 | OpenAI, Azure OpenAI, Gemini, HuggingFace, FastEmbed, Together, AWS Bedrock, Ollama, Vertex AI |
-| Graph stores | 4 | Neo4j, Memgraph, Kuzu, Apache AGE |
 | Rerankers | 5 | Cohere, HuggingFace, LLM-based, Sentence Transformer, Zero Entropy |
 
 ### Adding a provider
@@ -102,4 +100,4 @@ Changing any of these signatures means updating `docs/` in the same PR.
 
 ## Graph memory
 
-An optional layer on top of vector memory for relationship-aware retrieval, configured through the `graph` section of `MemoryConfig`. It supplements vector search rather than replacing it.
+Graph memory (`enable_graph`, `graph_store`) was removed from the OSS SDK in v3 and is now a Mem0 Platform feature; see [`docs/migration/oss-v2-to-v3.mdx`](../docs/migration/oss-v2-to-v3.mdx). Relationship-aware retrieval in OSS comes from the entity store: `Memory` extracts entities with spaCy, links them to memories in a separate vector-store collection, and uses those links to boost search results.
