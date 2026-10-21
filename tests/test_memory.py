@@ -88,11 +88,13 @@ def test_list_memories(memory_client):
     assert data2 in memories
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_collection_name_preserved_after_reset(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_collection_name_preserved_after_reset(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
     mock_vector_factory.return_value = mock_vector_store
@@ -113,15 +115,23 @@ def test_collection_name_preserved_after_reset(mock_sqlite, mock_llm_factory, mo
     assert memory.collection_name == test_collection_name
     assert memory.config.vector_store.config.collection_name == test_collection_name
 
-    reset_calls = [call for call in mock_vector_factory.call_args_list if len(mock_vector_factory.call_args_list) > 2]
-    if reset_calls:
-        reset_config = reset_calls[-1][0][1]
-        assert reset_config.collection_name == test_collection_name, f"Reset used wrong collection name: {reset_config.collection_name}"
+    # reset() recreates the main store and (routing through the lazy entity
+    # store) may also create the entity collection ("<name>_entities"). The
+    # main collection name must still be recreated verbatim.
+    created_collection_names = [
+        call.args[1].collection_name
+        for call in mock_vector_factory.call_args_list
+        if len(call.args) > 1 and hasattr(call.args[1], "collection_name")
+    ]
+    if created_collection_names:
+        assert test_collection_name in created_collection_names, (
+            f"Reset did not recreate the main collection '{test_collection_name}'; saw {created_collection_names}"
+        )
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
 def test_memory_reset_clears_messages_table(mock_llm_factory, mock_vector_factory, mock_embedder_factory, tmp_path):
     """Regression: Memory.reset() must clear the messages table, not just history."""
     mock_embedder_factory.return_value = MagicMock()
@@ -144,10 +154,12 @@ def test_memory_reset_clears_messages_table(mock_llm_factory, mock_vector_factor
 
 
 @pytest.mark.asyncio
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-async def test_async_memory_reset_clears_messages_table(mock_llm_factory, mock_vector_factory, mock_embedder_factory, tmp_path):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+async def test_async_memory_reset_clears_messages_table(
+    mock_llm_factory, mock_vector_factory, mock_embedder_factory, tmp_path
+):
     """Regression: AsyncMemory.reset() must clear the messages table, not just history."""
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_factory.return_value = MagicMock()
@@ -170,10 +182,10 @@ async def test_async_memory_reset_clears_messages_table(mock_llm_factory, mock_v
     assert hist_count == 0, "history must be empty after AsyncMemory.reset()"
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """Test that search operations handle memory objects with missing 'data' key gracefully."""
     mock_embedder_factory.return_value = MagicMock()
@@ -183,6 +195,7 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -204,11 +217,11 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     assert result[0]["memory"] == "content"
 
 
-@patch('mem0.memory.main.extract_entities', return_value=[])
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.memory.main.extract_entities", return_value=[])
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_search_explain_includes_score_details(
     mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, _mock_extract_entities
 ):
@@ -228,6 +241,7 @@ def test_search_explain_includes_score_details(
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     memory = MemoryClass(MemoryConfig())
 
     result = memory.search("test query", filters={"user_id": "test"}, explain=True)
@@ -240,11 +254,13 @@ def test_search_explain_includes_score_details(
     assert details["threshold"] == 0.1
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_get_all_handles_nested_list_from_chroma(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_get_all_handles_nested_list_from_chroma(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Test that get_all() handles nested list return from Chroma/Milvus.
 
@@ -258,6 +274,7 @@ def test_get_all_handles_nested_list_from_chroma(mock_sqlite, mock_llm_factory, 
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -278,10 +295,10 @@ def test_get_all_handles_nested_list_from_chroma(mock_sqlite, mock_llm_factory, 
     assert result[2]["memory"] == "I live in California"
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_get_all_handles_tuple_from_qdrant(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     Test that get_all() handles tuple return from Qdrant.
@@ -296,6 +313,7 @@ def test_get_all_handles_tuple_from_qdrant(mock_sqlite, mock_llm_factory, mock_v
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -312,11 +330,13 @@ def test_get_all_handles_tuple_from_qdrant(mock_sqlite, mock_llm_factory, mock_v
     assert result[1]["memory"] == "Memory 2"
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_get_all_handles_flat_list_from_postgres(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Test that get_all() handles flat list return from PostgreSQL.
 
@@ -330,6 +350,7 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -346,10 +367,10 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
     assert result[1]["memory"] == "Memory 2"
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_read_apis_surface_attributed_to(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     attributed_to is written to the payload on add (and the extraction prompt marks it
@@ -365,6 +386,7 @@ def test_read_apis_surface_attributed_to(mock_sqlite, mock_llm_factory, mock_vec
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     memory = MemoryClass(MemoryConfig())
     memory.embedding_model = mock_embedder
 
@@ -391,11 +413,13 @@ def test_read_apis_surface_attributed_to(mock_sqlite, mock_llm_factory, mock_vec
 
 
 @pytest.mark.asyncio
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-async def test_async_read_apis_surface_attributed_to(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+async def test_async_read_apis_surface_attributed_to(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """AsyncMemory get/get_all/search must surface attributed_to, same as the sync path."""
     mock_embedder = MagicMock()
     mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
@@ -406,6 +430,7 @@ async def test_async_read_apis_surface_attributed_to(mock_sqlite, mock_llm_facto
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import AsyncMemory
+
     memory = AsyncMemory(MemoryConfig())
     memory.embedding_model = mock_embedder
 
@@ -431,10 +456,10 @@ async def test_async_read_apis_surface_attributed_to(mock_sqlite, mock_llm_facto
     assert "attributed_to" not in (searched[0].get("metadata") or {})
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_add_infer_with_malformed_llm_facts(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     Repro for: 'list' object has no attribute 'replace' on infer=true.
@@ -444,9 +469,11 @@ def test_add_infer_with_malformed_llm_facts(mock_sqlite, mock_llm_factory, mock_
     the embedding model's .replace() call crashes with AttributeError.
     """
     mock_embedder = MagicMock()
-    mock_embedder.embed.side_effect = lambda text, action: (_ for _ in ()).throw(
-        AttributeError("'dict' object has no attribute 'replace'")
-    ) if not isinstance(text, str) else [0.1, 0.2, 0.3]
+    mock_embedder.embed.side_effect = lambda text, action: (
+        (_ for _ in ()).throw(AttributeError("'dict' object has no attribute 'replace'"))
+        if not isinstance(text, str)
+        else [0.1, 0.2, 0.3]
+    )
     mock_embedder_factory.return_value = mock_embedder
 
     mock_vector_store = MagicMock()
@@ -454,12 +481,14 @@ def test_add_infer_with_malformed_llm_facts(mock_sqlite, mock_llm_factory, mock_
     mock_vector_factory.return_value = mock_vector_store
 
     # LLM returns malformed facts: dicts instead of strings
-    malformed_response = json.dumps({
-        "facts": [
-            {"fact": "User likes Python"},
-            {"text": "User is a developer"},
-        ]
-    })
+    malformed_response = json.dumps(
+        {
+            "facts": [
+                {"fact": "User likes Python"},
+                {"text": "User is a developer"},
+            ]
+        }
+    )
     mock_llm = MagicMock()
     mock_llm.generate_response.return_value = malformed_response
     mock_llm_factory.return_value = mock_llm
@@ -467,6 +496,7 @@ def test_add_infer_with_malformed_llm_facts(mock_sqlite, mock_llm_factory, mock_
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -504,11 +534,13 @@ def test_normalize_facts_filters_empty_strings():
     assert normalize_facts(["", "valid", ""]) == ["valid"]
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_delete_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_delete_nonexistent_memory_raises_error(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Test that delete() raises ValueError when memory_id does not exist
     and does not attempt to delete from the vector store.
@@ -523,6 +555,7 @@ def test_delete_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, m
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -535,11 +568,13 @@ def test_delete_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, m
 
 
 @pytest.mark.asyncio
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-async def test_async_delete_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+async def test_async_delete_nonexistent_memory_raises_error(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Test that async delete() raises ValueError when memory_id does not exist
     and does not attempt to delete from the vector store.
@@ -555,6 +590,7 @@ async def test_async_delete_nonexistent_memory_raises_error(mock_sqlite, mock_ll
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import AsyncMemory
+
     config = MemoryConfig()
     memory = AsyncMemory(config)
 
@@ -564,11 +600,13 @@ async def test_async_delete_nonexistent_memory_raises_error(mock_sqlite, mock_ll
     mock_vector_store.delete.assert_not_called()
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_update_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_update_nonexistent_memory_raises_error(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Test that _update_memory() raises ValueError when memory_id does not exist.
 
@@ -582,6 +620,7 @@ def test_update_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, m
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -594,11 +633,13 @@ def test_update_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, m
 
 
 @pytest.mark.asyncio
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-async def test_async_update_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+async def test_async_update_nonexistent_memory_raises_error(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Test that async _update_memory() raises ValueError when memory_id does not exist.
 
@@ -613,6 +654,7 @@ async def test_async_update_nonexistent_memory_raises_error(mock_sqlite, mock_ll
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import AsyncMemory
+
     config = MemoryConfig()
     memory = AsyncMemory(config)
 
@@ -622,11 +664,13 @@ async def test_async_update_nonexistent_memory_raises_error(mock_sqlite, mock_ll
     mock_vector_store.update.assert_not_called()
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_update_propagates_vector_store_failure(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_update_propagates_vector_store_failure(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """A backing-store failure while fetching the memory during update must
     surface as the original error, not be masked as a 'provide a valid
     memory_id' ValueError. The REST layer relies on this so an outage maps to
@@ -638,6 +682,7 @@ def test_update_propagates_vector_store_failure(mock_sqlite, mock_llm_factory, m
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -650,11 +695,13 @@ def test_update_propagates_vector_store_failure(mock_sqlite, mock_llm_factory, m
 
 
 @pytest.mark.asyncio
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-async def test_async_update_propagates_vector_store_failure(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+async def test_async_update_propagates_vector_store_failure(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """Async twin: a backing-store failure during update re-raises the original
     error instead of masking it as a ValueError."""
     mock_embedder_factory.return_value = MagicMock()
@@ -664,6 +711,7 @@ async def test_async_update_propagates_vector_store_failure(mock_sqlite, mock_ll
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import AsyncMemory
+
     config = MemoryConfig()
     memory = AsyncMemory(config)
 
@@ -675,10 +723,10 @@ async def test_async_update_propagates_vector_store_failure(mock_sqlite, mock_ll
     mock_vector_store.update.assert_not_called()
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     Regression test for issue #3723: adding with infer=False should not trigger duplicate embedding calls.
@@ -702,6 +750,7 @@ def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     memory = MemoryClass(MemoryConfig())
 
     memory.add("foo", user_id="test_user", infer=False)
@@ -710,11 +759,13 @@ def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_
     mock_vector_store.insert.assert_called_once()
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_add_infer_true_caches_embedding_on_llm_rewrite(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Regression test for issue #3723 (infer=True path): when the LLM rewrites a fact during the
     ADD action, the embedding should be computed once and cached, not computed again inside _create_memory.
@@ -733,9 +784,7 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
 
     # V3 single-call extraction: LLM returns extracted memories directly
     mock_llm = MagicMock()
-    mock_llm.generate_response.return_value = json.dumps(
-        {"memory": [{"text": "The user enjoys Python"}]}
-    )
+    mock_llm.generate_response.return_value = json.dumps({"memory": [{"text": "The user enjoys Python"}]})
     mock_llm_factory.return_value = mock_llm
 
     # embed_batch is used in Phase 3 for all extracted memories
@@ -744,6 +793,7 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     memory = MemoryClass(MemoryConfig())
 
     memory.add("I like Python", user_id="test_user", infer=True)
@@ -755,11 +805,13 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
     mock_vector_store.insert.assert_called_once()
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_update_infer_true_caches_embedding_on_llm_rewrite(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Regression test for issue #3723 (infer=True path): V3 is ADD-only, so this test verifies
     that the single-call extraction pipeline embeds via embed_batch, not individual embed calls.
@@ -790,9 +842,7 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
 
     # V3 single-call extraction: LLM returns extracted memories directly
     mock_llm = MagicMock()
-    mock_llm.generate_response.return_value = json.dumps(
-        {"memory": [{"text": "The user loves Python"}]}
-    )
+    mock_llm.generate_response.return_value = json.dumps({"memory": [{"text": "The user loves Python"}]})
     mock_llm_factory.return_value = mock_llm
 
     # embed_batch is used in Phase 3 for all extracted memories
@@ -801,6 +851,7 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     memory = MemoryClass(MemoryConfig())
 
     memory.add("I love Python now", user_id="test_user", infer=True)
@@ -812,11 +863,13 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
     mock_vector_store.insert.assert_called_once()
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.main.SQLiteManager')
-def test_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+def test_delete_memory_history_has_timestamps(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Test that deleting a memory records created_at and updated_at in history.
 
@@ -830,6 +883,7 @@ def test_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, moc
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -850,11 +904,13 @@ def test_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, moc
     datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.main.SQLiteManager')
-def test_delete_memory_normalizes_non_utc_created_at(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+def test_delete_memory_normalizes_non_utc_created_at(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """Test that non-UTC created_at timestamps are normalized to UTC on delete."""
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
@@ -863,6 +919,7 @@ def test_delete_memory_normalizes_non_utc_created_at(mock_sqlite, mock_llm_facto
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -881,10 +938,10 @@ def test_delete_memory_normalizes_non_utc_created_at(mock_sqlite, mock_llm_facto
     assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"  # normalized to UTC
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.main.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
 def test_delete_memory_missing_created_at(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """Test that delete works when created_at is absent from the payload (pre-existing memories)."""
     mock_embedder_factory.return_value = MagicMock()
@@ -894,6 +951,7 @@ def test_delete_memory_missing_created_at(mock_sqlite, mock_llm_factory, mock_ve
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     config = MemoryConfig()
     memory = MemoryClass(config)
 
@@ -914,11 +972,13 @@ def test_delete_memory_missing_created_at(mock_sqlite, mock_llm_factory, mock_ve
 
 
 @pytest.mark.asyncio
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.main.SQLiteManager')
-async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+async def test_async_delete_memory_history_has_timestamps(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Test that async deleting a memory records created_at and updated_at in history.
 
@@ -932,6 +992,7 @@ async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import AsyncMemory
+
     config = MemoryConfig()
     memory = AsyncMemory(config)
 
@@ -953,11 +1014,13 @@ async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_
 
 
 @pytest.mark.asyncio
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.main.SQLiteManager')
-async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+async def test_async_delete_all_continues_on_partial_failure(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """async delete_all must not abort when a single memory fails to delete.
 
     Without return_exceptions=True, asyncio.gather raises on the first error
@@ -970,6 +1033,7 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import AsyncMemory
+
     config = MemoryConfig()
     memory = AsyncMemory(config)
 
@@ -1005,10 +1069,10 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
     }
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 class TestProcessMetadataFiltersMerge:
     """Regression tests for issue #3952: multiple operators on the same key must be merged."""
 
@@ -1018,76 +1082,88 @@ class TestProcessMetadataFiltersMerge:
         mock_llm_factory.return_value = MagicMock()
         mock_sqlite.return_value = MagicMock()
         from mem0.memory.main import Memory as MemoryClass
+
         return MemoryClass(MemoryConfig())
 
-    def test_multiple_operators_same_key_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    def test_multiple_operators_same_key_merged(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         """Filters like created_at: {gte: X, lte: Y} must preserve both operators."""
         memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
-        result = memory._process_metadata_filters({
-            "created_at": {"gte": 1000, "lte": 2000}
-        })
+        result = memory._process_metadata_filters({"created_at": {"gte": 1000, "lte": 2000}})
         assert result == {"created_at": {"gte": 1000, "lte": 2000}}
 
-    def test_single_operator_still_works(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    def test_single_operator_still_works(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         """Single operator filters must continue to work."""
         memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
-        result = memory._process_metadata_filters({
-            "created_at": {"gte": 1000}
-        })
+        result = memory._process_metadata_filters({"created_at": {"gte": 1000}})
         assert result == {"created_at": {"gte": 1000}}
 
-    def test_multiple_keys_with_multiple_operators(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    def test_multiple_keys_with_multiple_operators(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         """Multiple keys each with multiple operators."""
         memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
-        result = memory._process_metadata_filters({
-            "created_at": {"gte": 1000, "lte": 2000},
-            "score": {"gt": 0.5, "lt": 0.9},
-        })
+        result = memory._process_metadata_filters(
+            {
+                "created_at": {"gte": 1000, "lte": 2000},
+                "score": {"gt": 0.5, "lt": 0.9},
+            }
+        )
         assert result == {
             "created_at": {"gte": 1000, "lte": 2000},
             "score": {"gt": 0.5, "lt": 0.9},
         }
 
-    def test_and_same_key_different_operators_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    def test_and_same_key_different_operators_merged(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         """AND with same key in separate conditions must merge operators (issue #4850)."""
         memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
-        result = memory._process_metadata_filters({
-            "AND": [{"price": {"gt": 10}}, {"price": {"lt": 20}}]
-        })
+        result = memory._process_metadata_filters({"AND": [{"price": {"gt": 10}}, {"price": {"lt": 20}}]})
         assert result == {"price": {"gt": 10, "lt": 20}}
 
-    def test_and_same_key_three_operators_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    def test_and_same_key_three_operators_merged(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         """AND with three conditions on the same key must merge all operators."""
         memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
-        result = memory._process_metadata_filters({
-            "AND": [{"price": {"gte": 5}}, {"price": {"lte": 100}}, {"price": {"ne": 50}}]
-        })
+        result = memory._process_metadata_filters(
+            {"AND": [{"price": {"gte": 5}}, {"price": {"lte": 100}}, {"price": {"ne": 50}}]}
+        )
         assert result == {"price": {"gte": 5, "lte": 100, "ne": 50}}
 
-    def test_and_mixed_keys_with_same_key_overlap(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    def test_and_mixed_keys_with_same_key_overlap(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         """AND with a mix of same-key and different-key conditions."""
         memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
-        result = memory._process_metadata_filters({
-            "AND": [{"price": {"gt": 10}}, {"category": "electronics"}, {"price": {"lt": 20}}]
-        })
+        result = memory._process_metadata_filters(
+            {"AND": [{"price": {"gt": 10}}, {"category": "electronics"}, {"price": {"lt": 20}}]}
+        )
         assert result == {"price": {"gt": 10, "lt": 20}, "category": "electronics"}
 
-    def test_and_simple_equality_no_merge(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    def test_and_simple_equality_no_merge(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         """AND with simple equality values on the same key — last value wins."""
         memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
-        result = memory._process_metadata_filters({
-            "AND": [{"status": "active"}, {"status": "pending"}]
-        })
+        result = memory._process_metadata_filters({"AND": [{"status": "active"}, {"status": "pending"}]})
         assert result == {"status": "pending"}
 
 
 # --- Issue #3040: reset() should clean up graph database ---
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_reset_skips_graph_when_graph_disabled(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_reset_skips_graph_when_graph_disabled(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """Test that reset() does NOT call graph.reset() when graph is disabled."""
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
@@ -1108,10 +1184,10 @@ def test_reset_skips_graph_when_graph_disabled(mock_sqlite, mock_llm_factory, mo
 
 
 # ─── Entity Param Rejection Tests ─────────────────────────────────────────────
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_search_rejects_user_id_kwarg(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """search() should reject user_id as top-level kwarg."""
     mock_embedder_factory.return_value = MagicMock()
@@ -1126,10 +1202,10 @@ def test_search_rejects_user_id_kwarg(mock_sqlite, mock_llm_factory, mock_vector
         memory.search("test query", user_id="u1")
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_get_all_rejects_user_id_kwarg(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """get_all() should reject user_id as top-level kwarg."""
     mock_embedder_factory.return_value = MagicMock()
@@ -1145,11 +1221,13 @@ def test_get_all_rejects_user_id_kwarg(mock_sqlite, mock_llm_factory, mock_vecto
 
 
 # ─── Regression: AsyncMemory._create_memory must store text_lemmatized ─────────
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_sync_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_sync_create_memory_stores_text_lemmatized(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """Sync Memory._create_memory must include text_lemmatized in payload for BM25 keyword search."""
     embedder = MagicMock()
     embedder.embed.return_value = [0.1, 0.2, 0.3]
@@ -1164,6 +1242,7 @@ def test_sync_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_factory
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import Memory as MemoryClass
+
     memory = MemoryClass(MemoryConfig())
 
     data = "I love hiking in the mountains"
@@ -1181,11 +1260,13 @@ def test_sync_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_factory
 
 
 @pytest.mark.asyncio
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-async def test_async_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+async def test_async_create_memory_stores_text_lemmatized(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """
     Regression test: AsyncMemory._create_memory must include text_lemmatized
     in the vector store payload.
@@ -1206,6 +1287,7 @@ async def test_async_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import AsyncMemory
+
     memory = AsyncMemory(MemoryConfig())
 
     data = "I love hiking in the mountains"
@@ -1240,17 +1322,38 @@ class TestHybridSearchWarning:
         from mem0.vector_stores.base import VectorStoreBase
 
         class StoreWithoutKeywordSearch(VectorStoreBase):
-            def create_col(self, *a, **kw): pass
-            def insert(self, *a, **kw): pass
-            def search(self, *a, **kw): return []
-            def delete(self, *a, **kw): pass
-            def update(self, *a, **kw): pass
-            def get(self, *a, **kw): pass
-            def list_cols(self): return []
-            def delete_col(self): pass
-            def col_info(self): return {}
-            def list(self, *a, **kw): return []
-            def reset(self): pass
+            def create_col(self, *a, **kw):
+                pass
+
+            def insert(self, *a, **kw):
+                pass
+
+            def search(self, *a, **kw):
+                return []
+
+            def delete(self, *a, **kw):
+                pass
+
+            def update(self, *a, **kw):
+                pass
+
+            def get(self, *a, **kw):
+                pass
+
+            def list_cols(self):
+                return []
+
+            def delete_col(self):
+                pass
+
+            def col_info(self):
+                return {}
+
+            def list(self, *a, **kw):
+                return []
+
+            def reset(self):
+                pass
 
         mock_vs_factory.return_value = StoreWithoutKeywordSearch()
         mock_emb.return_value = MagicMock()
@@ -1279,17 +1382,39 @@ class TestHybridSearchWarning:
         class StoreWithKeywordSearch(VectorStoreBase):
             def keyword_search(self, query, top_k=5, filters=None):
                 return []
-            def create_col(self, *a, **kw): pass
-            def insert(self, *a, **kw): pass
-            def search(self, *a, **kw): return []
-            def delete(self, *a, **kw): pass
-            def update(self, *a, **kw): pass
-            def get(self, *a, **kw): pass
-            def list_cols(self): return []
-            def delete_col(self): pass
-            def col_info(self): return {}
-            def list(self, *a, **kw): return []
-            def reset(self): pass
+
+            def create_col(self, *a, **kw):
+                pass
+
+            def insert(self, *a, **kw):
+                pass
+
+            def search(self, *a, **kw):
+                return []
+
+            def delete(self, *a, **kw):
+                pass
+
+            def update(self, *a, **kw):
+                pass
+
+            def get(self, *a, **kw):
+                pass
+
+            def list_cols(self):
+                return []
+
+            def delete_col(self):
+                pass
+
+            def col_info(self):
+                return {}
+
+            def list(self, *a, **kw):
+                return []
+
+            def reset(self):
+                pass
 
         mock_vs_factory.return_value = StoreWithKeywordSearch()
         mock_emb.return_value = MagicMock()
@@ -1304,12 +1429,13 @@ class TestHybridSearchWarning:
 
 
 class TestPreserveCustomMetadata:
-
-    @patch('mem0.utils.factory.EmbedderFactory.create')
-    @patch('mem0.utils.factory.VectorStoreFactory.create')
-    @patch('mem0.utils.factory.LlmFactory.create')
-    @patch('mem0.memory.storage.SQLiteManager')
-    def test_update_preserves_custom_metadata(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.memory.storage.SQLiteManager")
+    def test_update_preserves_custom_metadata(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         mock_embedder_factory.return_value = MagicMock()
         mock_vector_store = MagicMock()
         mock_vector_factory.return_value = mock_vector_store
@@ -1335,7 +1461,9 @@ class TestPreserveCustomMetadata:
         config = MemoryConfig()
         memory = Memory(config)
 
-        memory._update_memory("mem-1", "I love playing tennis and swimming", {"I love playing tennis and swimming": [0.1, 0.2, 0.3]})
+        memory._update_memory(
+            "mem-1", "I love playing tennis and swimming", {"I love playing tennis and swimming": [0.1, 0.2, 0.3]}
+        )
 
         call_args = mock_vector_store.update.call_args
         payload = call_args.kwargs.get("payload") or call_args[1].get("payload")
@@ -1345,11 +1473,13 @@ class TestPreserveCustomMetadata:
         assert payload["data"] == "I love playing tennis and swimming"
         assert payload["user_id"] == "user_1"
 
-    @patch('mem0.utils.factory.EmbedderFactory.create')
-    @patch('mem0.utils.factory.VectorStoreFactory.create')
-    @patch('mem0.utils.factory.LlmFactory.create')
-    @patch('mem0.memory.storage.SQLiteManager')
-    def test_update_with_new_metadata_overrides_existing(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.memory.storage.SQLiteManager")
+    def test_update_with_new_metadata_overrides_existing(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         mock_embedder_factory.return_value = MagicMock()
         mock_vector_store = MagicMock()
         mock_vector_factory.return_value = mock_vector_store
@@ -1371,7 +1501,8 @@ class TestPreserveCustomMetadata:
         memory = Memory(config)
 
         memory._update_memory(
-            "mem-1", "Updated text",
+            "mem-1",
+            "Updated text",
             {"Updated text": [0.1, 0.2, 0.3]},
             metadata={"priority": "low", "new_field": "value"},
         )
@@ -1383,11 +1514,13 @@ class TestPreserveCustomMetadata:
         assert payload["new_field"] == "value"
         assert payload["data"] == "Updated text"
 
-    @patch('mem0.utils.factory.EmbedderFactory.create')
-    @patch('mem0.utils.factory.VectorStoreFactory.create')
-    @patch('mem0.utils.factory.LlmFactory.create')
-    @patch('mem0.memory.storage.SQLiteManager')
-    def test_update_preserves_actor_id_from_original(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.memory.storage.SQLiteManager")
+    def test_update_preserves_actor_id_from_original(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         mock_embedder_factory.return_value = MagicMock()
         mock_vector_store = MagicMock()
         mock_vector_factory.return_value = mock_vector_store
@@ -1408,7 +1541,8 @@ class TestPreserveCustomMetadata:
         memory = Memory(config)
 
         memory._update_memory(
-            "mem-1", "Player #1 is great",
+            "mem-1",
+            "Player #1 is great",
             {"Player #1 is great": [0.1, 0.2, 0.3]},
             metadata={"user_id": "team", "actor_id": "Bob"},
         )
@@ -1418,11 +1552,13 @@ class TestPreserveCustomMetadata:
         assert payload["actor_id"] == "Alice"
 
     @pytest.mark.asyncio
-    @patch('mem0.utils.factory.EmbedderFactory.create')
-    @patch('mem0.utils.factory.VectorStoreFactory.create')
-    @patch('mem0.utils.factory.LlmFactory.create')
-    @patch('mem0.memory.storage.SQLiteManager')
-    async def test_async_update_preserves_custom_metadata(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.memory.storage.SQLiteManager")
+    async def test_async_update_preserves_custom_metadata(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         mock_embedder_factory.return_value = MagicMock()
         mock_vector_store = MagicMock()
         mock_vector_factory.return_value = mock_vector_store
@@ -1441,6 +1577,7 @@ class TestPreserveCustomMetadata:
         mock_vector_store.get.return_value = MockVectorMemory("mem-1", existing_payload)
 
         from mem0.memory.main import AsyncMemory
+
         config = MemoryConfig()
         memory = AsyncMemory(config)
 
@@ -1458,11 +1595,13 @@ class TestAsyncDeleteAllEntityRace:
     """Tests for async delete_all entity store race condition fix."""
 
     @pytest.mark.asyncio
-    @patch('mem0.utils.factory.EmbedderFactory.create')
-    @patch('mem0.utils.factory.VectorStoreFactory.create')
-    @patch('mem0.utils.factory.LlmFactory.create')
-    @patch('mem0.memory.storage.SQLiteManager')
-    async def test_async_delete_all_bulk_clears_entity_store(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.memory.storage.SQLiteManager")
+    async def test_async_delete_all_bulk_clears_entity_store(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
         """
         Verify that async delete_all bulk-clears entity records after
         concurrent memory deletes complete, preventing both the
@@ -1494,6 +1633,7 @@ class TestAsyncDeleteAllEntityRace:
         mock_entity_store.list.return_value = ([entity_row],)
 
         from mem0.memory.main import AsyncMemory
+
         config = MemoryConfig()
         memory = AsyncMemory(config)
         memory._entity_store = mock_entity_store
