@@ -51,6 +51,8 @@ from mem0.memory.notices import (
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
+from mem0.telemetry.otel import instrument as otel_instrument
+from mem0.telemetry.otel import trace_components as otel_trace_components
 from mem0.memory.utils import (
     extract_json,
     parse_messages,
@@ -550,6 +552,9 @@ class Memory(MemoryBase):
             )
 
         capture_event("mem0.init", self, {"sync_type": "sync"})
+        # Emit child spans for the internal pipeline (embed → vector store → LLM)
+        # so each memory op renders as an end-to-end trace. No-op without [otel].
+        otel_trace_components(self)
 
     @property
     def project(self):
@@ -757,6 +762,7 @@ class Memory(MemoryBase):
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
+    @otel_instrument("add")
     def add(
         self,
         messages,
@@ -1219,6 +1225,7 @@ class Memory(MemoryBase):
         )
         return returned_memories
 
+    @otel_instrument("get")
     def get(self, memory_id):
         """
         Retrieve a memory by ID.
@@ -1266,6 +1273,7 @@ class Memory(MemoryBase):
         display_first_run_notice(self, "sync", "get")
         return result_item
 
+    @otel_instrument("get_all")
     def get_all(
         self,
         *,
@@ -1390,6 +1398,7 @@ class Memory(MemoryBase):
 
         return formatted_memories
 
+    @otel_instrument("search")
     def search(
         self,
         query: str,
@@ -1826,6 +1835,7 @@ class Memory(MemoryBase):
 
         return memory_boosts
 
+    @otel_instrument("update")
     def update(
         self,
         memory_id,
@@ -1880,6 +1890,7 @@ class Memory(MemoryBase):
         display_first_run_notice(self, "sync", "update")
         return {"message": "Memory updated successfully!"}
 
+    @otel_instrument("delete")
     def delete(self, memory_id):
         """
         Delete a memory by ID.
@@ -2236,6 +2247,9 @@ class AsyncMemory(MemoryBase):
             )
 
         capture_event("mem0.init", self, {"sync_type": "async"})
+        # Emit child spans for the internal pipeline (embed → vector store → LLM)
+        # so each memory op renders as an end-to-end trace. No-op without [otel].
+        otel_trace_components(self)
 
     @property
     def project(self):
@@ -2452,6 +2466,7 @@ class AsyncMemory(MemoryBase):
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
+    @otel_instrument("add")
     async def add(
         self,
         messages,
@@ -2900,6 +2915,7 @@ class AsyncMemory(MemoryBase):
         )
         return returned_memories
 
+    @otel_instrument("get")
     async def get(self, memory_id):
         """
         Retrieve a memory by ID asynchronously.
@@ -2947,6 +2963,7 @@ class AsyncMemory(MemoryBase):
         await display_first_run_notice_async(self, "async", "get")
         return result_item
 
+    @otel_instrument("get_all")
     async def get_all(
         self,
         *,
@@ -3071,6 +3088,7 @@ class AsyncMemory(MemoryBase):
 
         return formatted_memories
 
+    @otel_instrument("search")
     async def search(
         self,
         query: str,
@@ -3504,6 +3522,7 @@ class AsyncMemory(MemoryBase):
 
         return memory_boosts
 
+    @otel_instrument("update")
     async def update(
         self,
         memory_id,
@@ -3559,6 +3578,7 @@ class AsyncMemory(MemoryBase):
         await display_first_run_notice_async(self, "async", "update")
         return {"message": "Memory updated successfully!"}
 
+    @otel_instrument("delete")
     async def delete(self, memory_id):
         """
         Delete a memory by ID asynchronously.
