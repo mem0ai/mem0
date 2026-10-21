@@ -117,6 +117,9 @@ memory.update(
     text="Alex now prefers decaf coffee",
 )
 
+# With Qdrant, omit text to update metadata without calling the embedding model
+memory.update(memory_id="mem_123", metadata={"category": "preferences"})
+
 # Update content plus metadata and an expiration date (None clears it)
 memory.update(
     memory_id="mem_123",
@@ -145,6 +148,22 @@ await memory.update("mem_123", {
 await memory.update("mem_123", { metadata: { category: "preferences" } });
 ```
 </CodeGroup>
+
+<Note>
+With the Python OSS SDK and Qdrant, updates that omit both `text` and its deprecated
+`data` alias preserve the stored vectors without calling the embedding model. This
+also applies when setting or clearing `expiration_date`. Explicitly supplying text
+still computes an embedding, even if the text is unchanged. Other vector-store
+adapters retain their existing embedding behavior.
+
+These Qdrant updates write only the supplied metadata/expiration fields and the
+update timestamp, leaving text-derived and unspecified fields untouched. A
+metadata-only write therefore does not restore stale text over an intervening
+text/vector update. This is not a transaction across concurrent updates and
+history: history still uses the snapshot read by each operation, and conflicting
+writes to the same field are not serialized. Serialize updates to the same memory
+in your application when you require that stronger guarantee.
+</Note>
 
 <Note>
   In both OSS SDKs the content is optional: pass only `metadata` and/or an expiration date to update those while keeping the existing content. At least one of the three must be provided, otherwise the call raises.

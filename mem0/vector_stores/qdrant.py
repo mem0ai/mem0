@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 class Qdrant(VectorStoreBase):
+    _supports_metadata_only_update = True
+
     def __init__(
         self,
         collection_name: str,
