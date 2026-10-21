@@ -34,7 +34,7 @@ def _escape_cypher(value: str) -> str:
 
 class OutputData(BaseModel):
     id: Optional[str]  # memory id
-    score: Optional[float]  # distance
+    score: Optional[float]  # similarity (higher = more similar); see _parse_query_responses
     payload: Optional[Dict]  # metadata
 
 
@@ -432,7 +432,14 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             properties = item[self._FIELD_N][self._FIELD_PROP]
             properties.pop("label", None)
             if with_score:
-                score = item[self._FIELD_SCORE]
+                # Neptune Analytics' topK.byEmbedding returns the squared Euclidean
+                # DISTANCE (lower = more similar). VectorStoreBase.search requires a
+                # similarity score (higher = more similar), so convert with the L2
+                # formula documented there: score = 1 / (1 + distance). Without this,
+                # mem0's score_and_rank sorts farthest-first and its threshold drops
+                # the nearest matches (distance ~0 -> score ~0).
+                raw_distance = item[self._FIELD_SCORE]
+                score = 1.0 / (1.0 + raw_distance) if raw_distance is not None else None
             else:
                 score = None
             result.append(OutputData(
