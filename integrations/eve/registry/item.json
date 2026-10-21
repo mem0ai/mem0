@@ -1,0 +1,17 @@
+{
+  "name": "mem0",
+  "type": "registry:item",
+  "title": "Mem0",
+  "description": "Hosted semantic memory for Eve agents. Recalls relevant context before each turn, captures completed turns, and exposes search, remember, and forget tools.",
+  "dependencies": ["@mem0/eve"],
+  "envVars": {
+    "MEM0_API_KEY": ""
+  },
+  "files": [
+    {
+      "path": "registry/mem0.ts",
+      "type": "registry:file",
+      "target": "agent/memory/mem0.ts"
+    }
+  ]
+}
