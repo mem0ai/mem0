@@ -375,17 +375,22 @@ class AWSBedrockLLM(LLMBase):
         """
         if tools:
             # Handle tool-enabled responses
-            processed_response = {"tool_calls": []}
+            processed_response = {"content": None, "tool_calls": []}
 
             if response.get("output", {}).get("message", {}).get("content"):
+                text_parts = []
                 for item in response["output"]["message"]["content"]:
-                    if "toolUse" in item:
+                    if "text" in item:
+                        text_parts.append(item["text"])
+                    elif "toolUse" in item:
                         processed_response["tool_calls"].append(
                             {
                                 "name": item["toolUse"]["name"],
                                 "arguments": json.loads(extract_json(json.dumps(item["toolUse"]["input"]))),
                             }
                         )
+                if text_parts:
+                    processed_response["content"] = "\n".join(text_parts)
 
             return processed_response
 
