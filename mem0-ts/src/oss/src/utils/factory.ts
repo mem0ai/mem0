@@ -38,6 +38,7 @@ import { SarvamLLM } from "../llms/sarvam";
 import { AWSBedrockLLM } from "../llms/aws_bedrock";
 import { LiteLLM } from "../llms/litellm";
 import { MiniMaxLLM } from "../llms/minimax";
+import { NvidiaLLM } from "../llms/nvidia";
 import { TogetherLLM } from "../llms/together";
 import { VllmLLM } from "../llms/vllm";
 import { SupabaseDB } from "../vector_stores/supabase";
@@ -141,6 +142,8 @@ export class LLMFactory {
         return new LiteLLM(config);
       case "minimax":
         return new MiniMaxLLM(config);
+      case "nvidia":
+        return new NvidiaLLM(config);
       case "together":
         return new TogetherLLM(config);
       case "vllm":
