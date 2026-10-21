@@ -74,6 +74,7 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
 | `defaultScope` | `string` | `"project"` | Default memory scope: `project`, `session`, or `global` |
 | `searchThreshold` | `number` | `0.3` | Minimum similarity score (0–1) a memory must reach to count as a match for `/mem0-search` and `/mem0-forget`, enforced on each result's relevance score. Raise it to be stricter; lower it if relevant results are missed. |
 
+Environment variables take precedence over the config file: `MEM0_API_KEY`, `MEM0_USER_ID`, and `MEM0_APP_ID`. `MEM0_APP_ID` pins the project identity; while it holds a non-empty value it is used as `app_id` for `project` and `session` scope instead of the git-detected repository name. Empty, whitespace-only, and `*` values are ignored. There is no config-file key for it.
 
 ## What's Included
 
