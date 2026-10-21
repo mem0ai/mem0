@@ -96,6 +96,39 @@ class TestScoreAndRank:
         assert len(scored) == 1
         assert scored[0]["id"] == "b"
 
+    def test_active_entity_signal_admits_absent_semantic_score(self):
+        results = [{"id": "a", "score": None, "payload": {"data": "entity memory"}, "is_entity_rescue": True}]
+        scored = score_and_rank(results, {}, {"a": 0.3}, threshold=0.1, top_k=10)
+
+        assert len(scored) == 1
+        assert scored[0]["id"] == "a"
+        assert scored[0]["score"] == pytest.approx(0.2)
+
+    def test_unscored_ordinary_candidate_remains_admitted_at_zero_threshold(self):
+        results = [{"id": "a", "score": None, "payload": {"data": "ordinary"}}]
+        scored = score_and_rank(results, {}, {}, threshold=0.0, top_k=10)
+
+        assert [item["id"] for item in scored] == ["a"]
+
+    def test_absent_semantic_score_without_active_signal_is_excluded(self):
+        results = [{"id": "a", "score": None, "payload": {"data": "unscored"}}]
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+
+        assert scored == []
+
+    def test_numeric_weak_semantic_score_is_not_rescued_by_entity(self):
+        results = [
+            {
+                "id": "a",
+                "score": 0.05,
+                "payload": {"data": "weak semantic"},
+                "is_entity_rescue": True,
+            }
+        ]
+        scored = score_and_rank(results, {}, {"a": 0.5}, threshold=0.1, top_k=10)
+
+        assert scored == []
+
     def test_top_k_limit(self):
         results = [{"id": str(i), "score": 0.5, "payload": {}} for i in range(20)]
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=5)
