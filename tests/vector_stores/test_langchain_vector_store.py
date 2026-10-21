@@ -1,9 +1,17 @@
+import inspect
 from unittest.mock import Mock, patch
 
 import pytest
 from langchain_community.vectorstores import VectorStore
 
 from mem0.vector_stores.langchain import Langchain
+
+
+def _mock_with_sig(func):
+    """Create a Mock whose inspect.signature matches *func*."""
+    m = Mock()
+    m.__signature__ = inspect.signature(func)
+    return m
 
 
 @pytest.fixture
@@ -18,24 +26,50 @@ def langchain_instance(mock_langchain_client):
     return Langchain(client=mock_client, collection_name="test_collection")
 
 
-def test_insert_vectors(langchain_instance):
-    # Test data
+def test_insert_faiss_style(langchain_instance):
+    """FAISS/AzureSearch/ScaNN: add_embeddings(text_embeddings=..., metadatas=..., ids=...)."""
     vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
     payloads = [{"data": "text1", "name": "vector1"}, {"data": "text2", "name": "vector2"}]
     ids = ["id1", "id2"]
 
-    # Test with add_embeddings method
-    langchain_instance.client.add_embeddings = Mock()
-    langchain_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
-    langchain_instance.client.add_embeddings.assert_called_once_with(embeddings=vectors, metadatas=payloads, ids=ids)
+    def _faiss_sig(self, text_embeddings, metadatas=None, ids=None): ...
 
-    # Test with add_texts method
-    delattr(langchain_instance.client, "add_embeddings")  # Remove attribute completely
+    langchain_instance.client.add_embeddings = _mock_with_sig(_faiss_sig)
+    langchain_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
+    langchain_instance.client.add_embeddings.assert_called_once_with(
+        text_embeddings=[("text1", [0.1, 0.2, 0.3]), ("text2", [0.4, 0.5, 0.6])],
+        metadatas=payloads,
+        ids=ids,
+    )
+
+
+def test_insert_pgvector_style(langchain_instance):
+    """PGVector/Neo4j: add_embeddings(texts=..., embeddings=..., metadatas=..., ids=...)."""
+    vectors = [[0.1, 0.2, 0.3]]
+    payloads = [{"data": "hello"}]
+    ids = ["id1"]
+
+    def _pgvector_sig(self, texts, embeddings, metadatas=None, ids=None): ...
+
+    langchain_instance.client.add_embeddings = _mock_with_sig(_pgvector_sig)
+    langchain_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
+    langchain_instance.client.add_embeddings.assert_called_once_with(
+        texts=["hello"], embeddings=vectors, metadatas=payloads, ids=ids,
+    )
+
+
+def test_insert_falls_back_to_add_texts(langchain_instance):
+    """No add_embeddings → fall back to add_texts."""
+    vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+    payloads = [{"data": "text1", "name": "vector1"}, {"data": "text2", "name": "vector2"}]
+    ids = ["id1", "id2"]
+
+    delattr(langchain_instance.client, "add_embeddings")
     langchain_instance.client.add_texts = Mock()
     langchain_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
     langchain_instance.client.add_texts.assert_called_once_with(texts=["text1", "text2"], metadatas=payloads, ids=ids)
 
-    # Test with empty payloads
+    # Empty payloads
     langchain_instance.client.add_texts.reset_mock()
     langchain_instance.insert(vectors=vectors, payloads=None, ids=ids)
     langchain_instance.client.add_texts.assert_called_once_with(texts=["", ""], metadatas=None, ids=ids)
@@ -279,14 +313,13 @@ def test_search_falls_back_when_scored_method_raises_not_implemented(langchain_i
     assert results[0].score == 1.0
 
 
-def test_update_wraps_vector_and_payload_in_lists(langchain_instance):
-    """Regression test for Langchain update() type mismatch.
-
-    update() must wrap vector and payload in lists before calling insert(),
-    which expects List[List[float]] and List[Dict] respectively.
-    """
+def test_update_with_vector(langchain_instance):
+    """update() with a vector delegates to insert()."""
     langchain_instance.client.delete = Mock()
-    langchain_instance.client.add_embeddings = Mock()
+
+    def _faiss_sig(self, text_embeddings, metadatas=None, ids=None): ...
+
+    langchain_instance.client.add_embeddings = _mock_with_sig(_faiss_sig)
 
     vector = [0.1, 0.2, 0.3]
     payload = {"data": "updated text", "name": "updated"}
@@ -295,6 +328,20 @@ def test_update_wraps_vector_and_payload_in_lists(langchain_instance):
     langchain_instance.update(vector_id=vector_id, vector=vector, payload=payload)
 
     langchain_instance.client.delete.assert_called_once_with(ids=[vector_id])
-    langchain_instance.client.add_embeddings.assert_called_once_with(
-        embeddings=[vector], metadatas=[payload], ids=[vector_id]
+    langchain_instance.client.add_embeddings.assert_called_once()
+
+
+def test_update_without_vector_uses_add_texts(langchain_instance):
+    """update(vector=None) must not pass None as an embedding; use add_texts instead."""
+    langchain_instance.client.delete = Mock()
+    langchain_instance.client.add_texts = Mock()
+
+    payload = {"data": "updated text", "name": "updated"}
+    vector_id = "id1"
+
+    langchain_instance.update(vector_id=vector_id, vector=None, payload=payload)
+
+    langchain_instance.client.delete.assert_called_once_with(ids=[vector_id])
+    langchain_instance.client.add_texts.assert_called_once_with(
+        texts=["updated text"], metadatas=[payload], ids=[vector_id]
     )
