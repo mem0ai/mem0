@@ -596,13 +596,35 @@ export async function cmdDeleteAll(
 ): Promise<void> {
 	setCurrentCommand("delete-all");
 	const { isAgentMode } = await import("../state.js");
+	if (opts.dryRun) {
+		if (opts.all) {
+			// No count endpoint for project scope: preview without any writes.
+			printInfo("Would delete ALL memories across the ENTIRE project.");
+			printInfo("No changes made.");
+			return;
+		}
+		let memories: Record<string, unknown>[];
+		try {
+			memories = await backend.listMemories({
+				userId: opts.userId,
+				agentId: opts.agentId,
+				appId: opts.appId,
+				runId: opts.runId,
+			});
+		} catch (e) {
+			printError(e instanceof Error ? e.message : String(e));
+			process.exit(1);
+		}
+		printInfo(`Would delete ${memories.length} memories.`);
+		printInfo("No changes made.");
+		return;
+	}
 	if (isAgentMode() && !opts.force) {
 		printError("Destructive operation requires --force in agent mode.");
 		process.exit(1);
 	}
 	if (opts.all) {
 		// Project-wide wipe using wildcard entity IDs
-		// Note: --dry-run is ignored here because the API has no count-before-delete endpoint.
 
 		if (!opts.force) {
 			const readline = await import("node:readline");
@@ -661,24 +683,6 @@ export async function cmdDeleteAll(
 				printSuccess(`All project memories deleted (${elapsed.toFixed(2)}s)`);
 			}
 		}
-		return;
-	}
-
-	if (opts.dryRun) {
-		let memories: Record<string, unknown>[];
-		try {
-			memories = await backend.listMemories({
-				userId: opts.userId,
-				agentId: opts.agentId,
-				appId: opts.appId,
-				runId: opts.runId,
-			});
-		} catch (e) {
-			printError(e instanceof Error ? e.message : String(e));
-			process.exit(1);
-		}
-		printInfo(`Would delete ${memories.length} memories.`);
-		printInfo("No changes made.");
 		return;
 	}
 
