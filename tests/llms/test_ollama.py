@@ -140,3 +140,33 @@ def test_parse_response_with_tools_object_style(mock_ollama_client):
     result = llm._parse_response(mock_response, tools)
 
     assert result["tool_calls"] == [{"name": "extract", "arguments": {"entities": ["Alice"]}}]
+
+
+@pytest.mark.parametrize("model", ["o3-mini", "gpt-5", "openai/o3-mini", "o1-2024-12-17"])
+def test_generate_response_omits_options_for_reasoning_models(mock_ollama_client, model):
+    """Reasoning-model names must not send temperature/top_p/num_predict via options."""
+    config = OllamaConfig(model=model, temperature=0.1, max_tokens=100, top_p=0.9)
+    llm = OllamaLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_ollama_client.chat.return_value = {"message": {"content": "ok"}}
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_ollama_client.chat.call_args.kwargs
+    assert call_kwargs["model"] == model
+    assert call_kwargs["messages"] == messages
+    assert "options" not in call_kwargs
+
+
+def test_generate_response_keeps_options_for_standard_model(mock_ollama_client):
+    config = OllamaConfig(model="llama3.1:70b", temperature=0.2, max_tokens=50, top_p=0.8)
+    llm = OllamaLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_ollama_client.chat.return_value = {"message": {"content": "ok"}}
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_ollama_client.chat.call_args.kwargs
+    assert call_kwargs["options"] == {"temperature": 0.2, "num_predict": 50, "top_p": 0.8}
