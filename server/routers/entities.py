@@ -27,7 +27,7 @@ class Entity(BaseModel):
 
 def _iter_payloads() -> list[dict[str, Any]]:
     results = get_memory_instance().vector_store.list(top_k=SCAN_LIMIT)
-    rows = results[0] if results and isinstance(results, list) and isinstance(results[0], list) else results or []
+    rows = results[0] if results and isinstance(results, (list, tuple)) and isinstance(results[0], (list, tuple)) else results or []
     return [getattr(row, "payload", None) or {} for row in rows]
 
 
