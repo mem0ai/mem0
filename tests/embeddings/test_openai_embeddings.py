@@ -149,3 +149,46 @@ def test_embed_batch_count_mismatch_raises(mock_openai_client):
 
     with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def _make_batch_response(*args, **kwargs):
+    """Return a mock embeddings response aligned with the requested chunk."""
+    chunk = kwargs["input"]
+    return Mock(data=[Mock(index=i, embedding=[float(i)]) for i in range(len(chunk))])
+
+
+def test_embed_batch_default_chunk_size_is_100(mock_openai_client):
+    """Default batch limit stays 100 for backward compatibility (#6861)."""
+    config = BaseEmbedderConfig()
+    embedder = OpenAIEmbedding(config)
+    mock_openai_client.embeddings.create.side_effect = _make_batch_response
+
+    result = embedder.embed_batch([f"text {i}" for i in range(201)])
+
+    calls = mock_openai_client.embeddings.create.call_args_list
+    assert [len(call.kwargs["input"]) for call in calls] == [100, 100, 1]
+    assert len(result) == 201
+
+
+def test_embed_batch_respects_custom_batch_size(mock_openai_client):
+    """A lower batch_size chunks requests for providers with smaller limits (#6861)."""
+    config = BaseEmbedderConfig(batch_size=50)
+    embedder = OpenAIEmbedding(config)
+    mock_openai_client.embeddings.create.side_effect = _make_batch_response
+
+    result = embedder.embed_batch([f"text {i}" for i in range(120)])
+
+    calls = mock_openai_client.embeddings.create.call_args_list
+    assert [len(call.kwargs["input"]) for call in calls] == [50, 50, 20]
+    assert len(result) == 120
+
+
+@pytest.mark.parametrize("invalid_batch_size", [0, -1, -100])
+def test_batch_size_rejects_zero_and_negative(invalid_batch_size):
+    with pytest.raises(ValueError, match="batch_size must be a positive integer"):
+        BaseEmbedderConfig(batch_size=invalid_batch_size)
+
+
+def test_batch_size_rejects_non_integer():
+    with pytest.raises(ValueError, match="batch_size must be a positive integer"):
+        BaseEmbedderConfig(batch_size=2.5)
