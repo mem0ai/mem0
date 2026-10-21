@@ -34,7 +34,11 @@ def _ensure_model_available():
 
             download("en_core_web_sm")
             logger.info("spaCy model en_core_web_sm downloaded successfully")
-        except Exception as e:
+        except (Exception, SystemExit) as e:
+            # spaCy's download helper shells out to pip and calls sys.exit() when
+            # the subprocess fails, so SystemExit (a BaseException) has to be
+            # named explicitly; otherwise it terminates the caller's process
+            # instead of degrading, and the _load_failed_* latches never set.
             raise RuntimeError(
                 f"Failed to download spaCy model en_core_web_sm: {e}. "
                 "Please install manually: python -m spacy download en_core_web_sm"
