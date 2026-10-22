@@ -145,6 +145,7 @@ class PlatformProvider implements Mem0Provider {
     const opts: Record<string, unknown> = {};
     if (options.top_k != null) opts.topK = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;
+    if (options.rerank) opts.rerank = true;
     if (options.categories != null) opts.categories = options.categories;
 
     // Build filters with user_id/run_id inside (v3.0.0 requirement)
@@ -574,11 +575,12 @@ export function providerToBackend(
     },
 
     async search(query, opts = {}) {
-      // v3.0.0: removed keyword_search, reranking
+      // v3.0.0: keyword_search removed; rerank remains supported.
       const results = await provider.search(query, {
         user_id: opts.userId ?? userId,
         top_k: opts.topK,
         threshold: opts.threshold,
+        rerank: opts.rerank,
         filters: opts.filters,
         source: "OPENCLAW",
       });
