@@ -502,6 +502,12 @@ def list_cmd(
     page_size: int = typer.Option(
         100, "--page-size", help="Results per page.", rich_help_panel="Pagination"
     ),
+    all_: bool = typer.Option(
+        False,
+        "--all",
+        help="Fetch every page of results. Cannot be combined with --page.",
+        rich_help_panel="Pagination",
+    ),
     category: str | None = typer.Option(
         None, "--category", help="Filter by category.", rich_help_panel="Filters"
     ),
@@ -538,9 +544,19 @@ def list_cmd(
 
     Examples:
       mem0 list -u alice
+      mem0 list -u alice --all
       mem0 list --category prefs --after 2024-01-01 -o json
     """
     from mem0_cli.commands.memory import cmd_list
+
+    page_explicit = any(arg == "--page" or arg.startswith("--page=") for arg in sys.argv)
+    if all_ and page_explicit:
+        print_error(
+            err_console,
+            "Cannot combine --all with --page.",
+            hint="Omit --page to fetch every page.",
+        )
+        raise typer.Exit(1)
 
     backend, config = _get_backend_and_config(api_key, base_url)
     ids = _resolve_ids(config, user_id=user_id, agent_id=agent_id, app_id=app_id, run_id=run_id)
@@ -556,6 +572,8 @@ def list_cmd(
         show_expired=show_expired,
         latest_only=latest_only,
         output=output,
+        fetch_all=all_,
+        page_explicit=page_explicit,
     )
 
 
@@ -1210,6 +1228,7 @@ def _build_help_json() -> dict:
                 "--agent-id": "Filter by agent.",
                 "--page": "Page number (default: 1).",
                 "--page-size": "Results per page (default: 100).",
+                "--all": "Fetch every page of results. Cannot be combined with --page.",
                 "--category": "Filter by category.",
                 "--after": "Created after (YYYY-MM-DD).",
                 "--before": "Created before (YYYY-MM-DD).",

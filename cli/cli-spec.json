@@ -135,7 +135,7 @@
     },
     "pagination": {
       "label": "Pagination",
-      "options": ["page", "page_size"]
+      "options": ["page", "page_size", "all"]
     },
     "filters": {
       "label": "Filters",
@@ -300,6 +300,7 @@
         { "name": "run_id", "flags": ["--run-id"], "type": "string", "help": "Filter by run.", "panel": "Scope" },
         { "name": "page", "flags": ["--page"], "type": "integer", "default": 1, "help": "Page number.", "panel": "Pagination" },
         { "name": "page_size", "flags": ["--page-size"], "type": "integer", "default": 100, "help": "Results per page.", "panel": "Pagination" },
+        { "name": "all", "flags": ["--all"], "type": "boolean", "default": false, "help": "Fetch every page of results. Cannot be combined with --page.", "panel": "Pagination" },
         { "name": "category", "flags": ["--category"], "type": "string", "help": "Filter by category.", "panel": "Filters" },
         { "name": "after", "flags": ["--after"], "type": "string", "help": "Created after (YYYY-MM-DD).", "panel": "Filters" },
         { "name": "before", "flags": ["--before"], "type": "string", "help": "Created before (YYYY-MM-DD).", "panel": "Filters" },

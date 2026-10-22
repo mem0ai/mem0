@@ -416,6 +416,156 @@ describe("cmdList", () => {
 	});
 });
 
+function listMem(id: string, memory: string) {
+	return {
+		id,
+		memory,
+		created_at: "2026-02-15T10:30:00Z",
+		categories: ["preferences"],
+	};
+}
+
+function stubListPages(
+	backend: Backend,
+	pages: Record<number, Record<string, unknown>[]>,
+) {
+	(backend.listMemories as ReturnType<typeof vi.fn>).mockImplementation(
+		async (opts: { page?: number }) => pages[opts.page ?? 1] ?? [],
+	);
+}
+
+function memoriesFromJson(raw: string): Record<string, unknown>[] {
+	const parsed = JSON.parse(raw.trim());
+	return Array.isArray(parsed) ? parsed : parsed.data;
+}
+
+describe("cmdList --all", () => {
+	function mockProcessExit() {
+		return vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+			throw new Error(`process.exit:${code}`);
+		}) as never);
+	}
+
+	it("combines three pages in order and forwards filters", async () => {
+		const { cmdList } = await import("../src/commands/memory.js");
+		stubListPages(mockBackend, {
+			1: [listMem("p1-a", "alpha"), listMem("p1-b", "bravo")],
+			2: [listMem("p2-a", "charlie"), listMem("p2-b", "delta")],
+			3: [listMem("p3-a", "echo")],
+		});
+		await cmdList(mockBackend, {
+			userId: "alice",
+			page: 1,
+			pageSize: 2,
+			category: "prefs",
+			after: "2024-01-01",
+			showExpired: true,
+			latestOnly: true,
+			fetchAll: true,
+			output: "text",
+		});
+		expect(output.indexOf("alpha")).toBeLessThan(output.indexOf("charlie"));
+		expect(output.indexOf("charlie")).toBeLessThan(output.indexOf("echo"));
+		expect(mockBackend.listMemories).toHaveBeenCalledTimes(3);
+		const calls = (mockBackend.listMemories as ReturnType<typeof vi.fn>).mock
+			.calls as [Record<string, unknown>][];
+		expect(calls.map(([opts]) => opts.page)).toEqual([1, 2, 3]);
+		for (const [opts] of calls) {
+			expect(opts).toEqual(
+				expect.objectContaining({
+					userId: "alice",
+					pageSize: 2,
+					category: "prefs",
+					after: "2024-01-01",
+					showExpired: true,
+					latestOnly: true,
+				}),
+			);
+		}
+	});
+
+	it("stops on a short page", async () => {
+		const { cmdList } = await import("../src/commands/memory.js");
+		stubListPages(mockBackend, {
+			1: [listMem("p1-a", "alpha"), listMem("p1-b", "bravo")],
+			2: [listMem("p2-a", "charlie")],
+		});
+		await cmdList(mockBackend, {
+			userId: "alice",
+			page: 1,
+			pageSize: 2,
+			fetchAll: true,
+			output: "text",
+		});
+		expect(output).toContain("alpha");
+		expect(output).toContain("charlie");
+		expect(mockBackend.listMemories).toHaveBeenCalledTimes(2);
+	});
+
+	it("stops on an empty first page", async () => {
+		const { cmdList } = await import("../src/commands/memory.js");
+		(mockBackend.listMemories as ReturnType<typeof vi.fn>).mockResolvedValue(
+			[],
+		);
+		await cmdList(mockBackend, {
+			userId: "alice",
+			page: 1,
+			pageSize: 2,
+			fetchAll: true,
+			output: "text",
+		});
+		expect(errOutput).toContain("No memories found");
+		expect(mockBackend.listMemories).toHaveBeenCalledTimes(1);
+		expect(mockBackend.listMemories).toHaveBeenCalledWith(
+			expect.objectContaining({ page: 1, pageSize: 2 }),
+		);
+	});
+
+	it("JSON output is one array of combined results", async () => {
+		const { cmdList } = await import("../src/commands/memory.js");
+		stubListPages(mockBackend, {
+			1: [listMem("p1-a", "alpha"), listMem("p1-b", "bravo")],
+			2: [listMem("p2-a", "charlie"), listMem("p2-b", "delta")],
+			3: [listMem("p3-a", "echo")],
+		});
+		await cmdList(mockBackend, {
+			userId: "alice",
+			page: 1,
+			pageSize: 2,
+			fetchAll: true,
+			output: "json",
+		});
+		const memories = memoriesFromJson(output);
+		expect(Array.isArray(memories)).toBe(true);
+		expect(memories.map((m) => m.id)).toEqual([
+			"p1-a",
+			"p1-b",
+			"p2-a",
+			"p2-b",
+			"p3-a",
+		]);
+	});
+
+	it("rejects --all with an explicit --page", async () => {
+		const { cmdList } = await import("../src/commands/memory.js");
+		const exitSpy = mockProcessExit();
+		await expect(
+			cmdList(mockBackend, {
+				userId: "alice",
+				page: 2,
+				pageSize: 100,
+				fetchAll: true,
+				pageExplicit: true,
+				output: "table",
+			}),
+		).rejects.toThrow("process.exit:1");
+		expect(errOutput).toContain("--all");
+		expect(errOutput).toContain("--page");
+		expect(mockBackend.listMemories).not.toHaveBeenCalled();
+		exitSpy.mockRestore();
+	});
+});
+
 describe("cmdUpdate", () => {
 	it("updates memory", async () => {
 		const { cmdUpdate } = await import("../src/commands/memory.js");

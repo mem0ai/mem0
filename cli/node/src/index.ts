@@ -481,6 +481,11 @@ program
 		(v) => Number.parseInt(v),
 		100,
 	)
+	.option(
+		"--all",
+		"Fetch every page of results. Cannot be combined with --page.",
+		false,
+	)
 	.option("--category <name>", "Filter by category.")
 	.option("--after <date>", "Created after (YYYY-MM-DD).")
 	.option("--before <date>", "Created before (YYYY-MM-DD).")
@@ -495,11 +500,21 @@ program
 	.option("--base-url <url>", "Override API base URL.")
 	.addHelpText(
 		"after",
-		"\nExamples:\n  $ mem0 list -u alice\n  $ mem0 list --category prefs --after 2024-01-01 -o json",
+		"\nExamples:\n  $ mem0 list -u alice\n  $ mem0 list -u alice --all\n  $ mem0 list --category prefs --after 2024-01-01 -o json",
 	)
 	.action(async (opts) => {
 		const { cmdList } = await import("./commands/memory.js");
 		const isAgent = checkAgentMode();
+		const pageExplicit = process.argv.some(
+			(arg) => arg === "--page" || arg.startsWith("--page="),
+		);
+		if (opts.all && pageExplicit) {
+			printError(
+				"Cannot combine --all with --page.",
+				"Omit --page to fetch every page.",
+			);
+			process.exit(1);
+		}
 		const { backend, config } = await getBackendAndConfig(
 			opts.apiKey,
 			opts.baseUrl,
@@ -516,6 +531,8 @@ program
 			showExpired: opts.showExpired,
 			latestOnly: opts.latestOnly,
 			output,
+			fetchAll: opts.all,
+			pageExplicit,
 		});
 	});
 

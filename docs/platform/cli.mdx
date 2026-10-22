@@ -166,10 +166,11 @@ mem0 search "invoices" --user-id alice --filter '{"AND": [{"categories": {"in": 
 
 ### `mem0 list`
 
-List memories with optional filters and pagination.
+List memories with optional filters and pagination. `--all` fetches every page using `--page-size` and prints the combined result once. Do not pass `--page` with `--all`.
 
 ```bash
 mem0 list --user-id alice
+mem0 list --user-id alice --all
 mem0 list --user-id alice --category preferences --output json
 mem0 list --user-id alice --after 2024-01-01 --page-size 50
 ```
@@ -182,6 +183,7 @@ mem0 list --user-id alice --after 2024-01-01 --page-size 50
 | `--run-id` | Filter by run or session |
 | `--page` | Page number (default: 1) |
 | `--page-size` | Results per page (default: 100) |
+| `--all` | Fetch every page of results. Cannot be combined with `--page` |
 | `--category` | Filter by category |
 | `--after` | Created after date (YYYY-MM-DD) |
 | `--before` | Created before date (YYYY-MM-DD) |

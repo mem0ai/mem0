@@ -142,6 +142,14 @@ class TestCLIIntegration:
         result = _run(["list", "--help"])
         assert result.returncode == 0
         assert "page-size" in result.stdout
+        assert "--all" in result.stdout
+
+    def test_list_all_with_page_errors_without_backend(self):
+        result = _run(["list", "--all", "--page", "2"])
+        assert result.returncode != 0
+        combined = result.stdout + result.stderr
+        assert "--all" in combined
+        assert "--page" in combined
 
     def test_delete_help(self):
         result = _run(["delete", "--help"])

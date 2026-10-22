@@ -86,6 +86,15 @@ describe("CLI Integration — help and version", () => {
     const result = run(["list", "--help"]);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("page-size");
+    expect(result.stdout).toContain("--all");
+  });
+
+  it("list --all --page 2 is a usage error", () => {
+    const result = run(["list", "--all", "--page", "2"]);
+    expect(result.exitCode).not.toBe(0);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain("--all");
+    expect(combined).toContain("--page");
   });
 
   it("shows delete help with --all, --entity, --project", () => {

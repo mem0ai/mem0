@@ -128,6 +128,7 @@ List memories with optional filters and pagination.
 
 ```bash
 mem0 list --user-id alice
+mem0 list --user-id alice --all
 mem0 list --user-id alice --category preferences --output json
 mem0 list --user-id alice --after 2024-01-01 --page-size 50
 ```
@@ -137,6 +138,7 @@ mem0 list --user-id alice --after 2024-01-01 --page-size 50
 | `-u, --user-id` | Filter by user |
 | `--page` | Page number (default: 1) |
 | `--page-size` | Results per page (default: 100) |
+| `--all` | Fetch every page of results. Cannot be combined with `--page` |
 | `--category` | Filter by category |
 | `--after` | Created after date (YYYY-MM-DD) |
 | `--before` | Created before date (YYYY-MM-DD) |

@@ -20,6 +20,7 @@ from mem0_cli.branding import (
     print_info,
     print_scope,
     print_success,
+    print_warning,
     timed_status,
 )
 from mem0_cli.output import (
@@ -373,6 +374,58 @@ def cmd_get(backend: Backend, memory_id: str, *, output: str) -> None:
         format_single_memory(console, result, output)
 
 
+_MAX_LIST_PAGES = 1000
+
+
+def _fetch_list_pages(
+    backend: Backend,
+    *,
+    fetch_all: bool,
+    page: int,
+    page_size: int,
+    user_id: str | None,
+    agent_id: str | None,
+    app_id: str | None,
+    run_id: str | None,
+    category: str | None,
+    after: str | None,
+    before: str | None,
+    show_expired: bool,
+    latest_only: bool,
+) -> tuple[list, bool]:
+    """Fetch one page, or walk pages until a short page or the safety cap.
+
+    Returns (results, truncated). truncated is True when the last fetched page
+    was full and the 1000-page cap stopped the walk.
+    """
+
+    def _page(page_no: int) -> list:
+        return backend.list_memories(
+            user_id=user_id,
+            agent_id=agent_id,
+            app_id=app_id,
+            run_id=run_id,
+            page=page_no,
+            page_size=page_size,
+            category=category,
+            after=after,
+            before=before,
+            show_expired=show_expired,
+            latest_only=latest_only,
+        )
+
+    if not fetch_all:
+        return _page(page), False
+
+    results: list = []
+    for page_no in range(1, _MAX_LIST_PAGES + 1):
+        batch = _page(page_no)
+        results.extend(batch)
+        if len(batch) < page_size:
+            return results, False
+    return results, True
+
+
 def cmd_list(
     backend: Backend,
     *,
@@ -388,6 +441,8 @@ def cmd_list(
     show_expired: bool = False,
     latest_only: bool = False,
     output: str = "table",
+    fetch_all: bool = False,
+    page_explicit: bool = False,
 ) -> None:
     """List memories."""
     from mem0_cli.state import is_agent_mode, set_current_command
@@ -398,20 +453,30 @@ def cmd_list(
     if page_size < 1:
         print_error(err_console, "--page-size must be >= 1.")
         raise typer.Exit(1)
+    if fetch_all and page_explicit:
+        print_error(
+            err_console,
+            "Cannot combine --all with --page.",
+            hint="Omit --page to fetch every page.",
+        )
+        raise typer.Exit(1)
     if page < 1:
         print_error(err_console, "--page must be >= 1.")
         raise typer.Exit(1)
 
+    truncated = False
     _start = _time.perf_counter()
     with timed_status(err_console, "Listing memories...") as _ts:
         try:
-            results = backend.list_memories(
+            results, truncated = _fetch_list_pages(
+                backend,
+                fetch_all=fetch_all,
+                page=page,
+                page_size=page_size,
                 user_id=user_id,
                 agent_id=agent_id,
                 app_id=app_id,
                 run_id=run_id,
-                page=page,
-                page_size=page_size,
                 category=category,
                 after=after,
                 before=before,
@@ -423,8 +488,16 @@ def cmd_list(
             raise typer.Exit(1) from None
     _elapsed = _time.perf_counter() - _start
 
+    if truncated:
+        print_warning(
+            err_console,
+            f"Stopped after {_MAX_LIST_PAGES} pages; additional memories were not fetched.",
+        )
+
     if output == "quiet":
         return
+
+    summary_page = None if fetch_all else page
 
     if output in ("json", "agent"):
         scope = {
@@ -452,7 +525,7 @@ def cmd_list(
                 console,
                 len(results),
                 duration_secs=_elapsed,
-                page=page,
+                page=summary_page,
                 user_id=user_id,
                 agent_id=agent_id,
             )
@@ -467,7 +540,7 @@ def cmd_list(
                 console,
                 len(results),
                 duration_secs=_elapsed,
-                page=page,
+                page=summary_page,
                 user_id=user_id,
                 agent_id=agent_id,
             )

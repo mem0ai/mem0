@@ -93,6 +93,7 @@ const OPTION_PANELS: Record<string, Record<string, string>> = {
 		"--run-id": "Scope",
 		"--page": "Pagination",
 		"--page-size": "Pagination",
+		"--all": "Pagination",
 		"--category": "Filters",
 		"--after": "Filters",
 		"--before": "Filters",

@@ -9,6 +9,7 @@ import {
 	printInfo,
 	printScope,
 	printSuccess,
+	printWarning,
 	timedStatus,
 } from "../branding.js";
 import {
@@ -377,6 +378,55 @@ export async function cmdGet(
 	}
 }
 
+const MAX_LIST_PAGES = 1000;
+
+async function fetchListPages(
+	backend: Backend,
+	opts: {
+		userId?: string;
+		agentId?: string;
+		appId?: string;
+		runId?: string;
+		page: number;
+		pageSize: number;
+		category?: string;
+		after?: string;
+		before?: string;
+		showExpired?: boolean;
+		latestOnly?: boolean;
+		fetchAll?: boolean;
+	},
+): Promise<{ results: Record<string, unknown>[]; truncated: boolean }> {
+	const requestPage = (page: number) =>
+		backend.listMemories({
+			userId: opts.userId,
+			agentId: opts.agentId,
+			appId: opts.appId,
+			runId: opts.runId,
+			page,
+			pageSize: opts.pageSize,
+			category: opts.category,
+			after: opts.after,
+			before: opts.before,
+			showExpired: opts.showExpired,
+			latestOnly: opts.latestOnly,
+		});
+
+	if (!opts.fetchAll) {
+		return { results: await requestPage(opts.page), truncated: false };
+	}
+
+	const results: Record<string, unknown>[] = [];
+	for (let page = 1; page <= MAX_LIST_PAGES; page++) {
+		const batch = await requestPage(page);
+		results.push(...batch);
+		if (batch.length < opts.pageSize) {
+			return { results, truncated: false };
+		}
+	}
+	return { results, truncated: true };
+}
+
 export async function cmdList(
 	backend: Backend,
 	opts: {
@@ -392,11 +442,20 @@ export async function cmdList(
 		showExpired?: boolean;
 		latestOnly?: boolean;
 		output: string;
+		fetchAll?: boolean;
+		pageExplicit?: boolean;
 	},
 ): Promise<void> {
 	setCurrentCommand("list");
 	if (opts.pageSize < 1) {
 		printError("--page-size must be >= 1.");
+		process.exit(1);
+	}
+	if (opts.fetchAll && opts.pageExplicit) {
+		printError(
+			"Cannot combine --all with --page.",
+			"Omit --page to fetch every page.",
+		);
 		process.exit(1);
 	}
 	if (opts.page < 1) {
@@ -406,21 +465,12 @@ export async function cmdList(
 
 	const start = performance.now();
 	let results: Record<string, unknown>[];
+	let truncated = false;
 	try {
 		results = await timedStatus("Listing memories...", async () => {
-			return backend.listMemories({
-				userId: opts.userId,
-				agentId: opts.agentId,
-				appId: opts.appId,
-				runId: opts.runId,
-				page: opts.page,
-				pageSize: opts.pageSize,
-				category: opts.category,
-				after: opts.after,
-				before: opts.before,
-				showExpired: opts.showExpired,
-				latestOnly: opts.latestOnly,
-			});
+			const fetched = await fetchListPages(backend, opts);
+			truncated = fetched.truncated;
+			return fetched.results;
 		});
 	} catch (e) {
 		printError(e instanceof Error ? e.message : String(e));
@@ -428,7 +478,15 @@ export async function cmdList(
 	}
 	const elapsed = (performance.now() - start) / 1000;
 
+	if (truncated) {
+		printWarning(
+			`Stopped after ${MAX_LIST_PAGES} pages; additional memories were not fetched.`,
+		);
+	}
+
 	if (opts.output === "quiet") return;
+
+	const summaryPage = opts.fetchAll ? undefined : opts.page;
 
 	if (opts.output === "agent" || opts.output === "json") {
 		const scope: Record<string, string | undefined> = {
@@ -450,7 +508,7 @@ export async function cmdList(
 			printResultSummary({
 				count: results.length,
 				durationSecs: elapsed,
-				page: opts.page,
+				page: summaryPage,
 				scopeIds: { user_id: opts.userId, agent_id: opts.agentId },
 			});
 		} else {
@@ -464,7 +522,7 @@ export async function cmdList(
 			printResultSummary({
 				count: results.length,
 				durationSecs: elapsed,
-				page: opts.page,
+				page: summaryPage,
 				scopeIds: { user_id: opts.userId, agent_id: opts.agentId },
 			});
 		} else {

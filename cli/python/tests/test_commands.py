@@ -43,6 +43,39 @@ def _make_err_console():
     return Console(file=buf, force_terminal=False, no_color=True, width=120), buf
 
 
+def _list_mem(mem_id: str, text: str) -> dict:
+    return {
+        "id": mem_id,
+        "memory": text,
+        "created_at": "2026-02-15T10:30:00Z",
+        "categories": ["preferences"],
+    }
+
+
+def _run_list(mock_backend, **kwargs):
+    console, buf = _make_console()
+    err_console, err_buf = _make_err_console()
+    params = {
+        "user_id": "alice",
+        "agent_id": None,
+        "app_id": None,
+        "run_id": None,
+        "page": 1,
+        "page_size": 100,
+        "category": None,
+        "after": None,
+        "before": None,
+        "output": "table",
+    }
+    params.update(kwargs)
+    with (
+        patch("mem0_cli.commands.memory.console", console),
+        patch("mem0_cli.commands.memory.err_console", err_console),
+    ):
+        cmd_list(mock_backend, **params)
+    return buf.getvalue(), err_buf.getvalue()
+
+
 class TestAddCommand:
     def test_add_text(self, mock_backend):
         console, _buf = _make_console()
@@ -703,6 +736,107 @@ class TestListCommand:
         call_kwargs = mock_backend.list_memories.call_args.kwargs
         assert call_kwargs["show_expired"] is True
         assert call_kwargs["latest_only"] is True
+
+    def test_list_all_combines_three_pages_in_order(self, mock_backend):
+        pages = {
+            1: [_list_mem("p1-a", "alpha"), _list_mem("p1-b", "bravo")],
+            2: [_list_mem("p2-a", "charlie"), _list_mem("p2-b", "delta")],
+            3: [_list_mem("p3-a", "echo")],
+        }
+
+        def _side_effect(**kw):
+            return pages.get(kw["page"], [])
+
+        mock_backend.list_memories.side_effect = _side_effect
+        output, _err = _run_list(
+            mock_backend,
+            page_size=2,
+            fetch_all=True,
+            category="prefs",
+            after="2024-01-01",
+            show_expired=True,
+            latest_only=True,
+            output="text",
+        )
+        assert output.index("alpha") < output.index("charlie") < output.index("echo")
+        assert mock_backend.list_memories.call_count == 3
+        pages_called = [c.kwargs["page"] for c in mock_backend.list_memories.call_args_list]
+        assert pages_called == [1, 2, 3]
+        for call in mock_backend.list_memories.call_args_list:
+            assert call.kwargs["user_id"] == "alice"
+            assert call.kwargs["page_size"] == 2
+            assert call.kwargs["category"] == "prefs"
+            assert call.kwargs["after"] == "2024-01-01"
+            assert call.kwargs["show_expired"] is True
+            assert call.kwargs["latest_only"] is True
+
+    def test_list_all_stops_on_short_page(self, mock_backend):
+        pages = {
+            1: [_list_mem("p1-a", "alpha"), _list_mem("p1-b", "bravo")],
+            2: [_list_mem("p2-a", "charlie")],
+        }
+
+        def _side_effect(**kw):
+            return pages.get(kw["page"], [])
+
+        mock_backend.list_memories.side_effect = _side_effect
+        output, _err = _run_list(mock_backend, page_size=2, fetch_all=True, output="text")
+        assert "alpha" in output
+        assert "charlie" in output
+        assert mock_backend.list_memories.call_count == 2
+
+    def test_list_all_empty_first_page(self, mock_backend):
+        mock_backend.list_memories.return_value = []
+        output, _err = _run_list(mock_backend, page_size=2, fetch_all=True, output="text")
+        assert "No memories found" in output
+        assert mock_backend.list_memories.call_count == 1
+        assert mock_backend.list_memories.call_args.kwargs["page"] == 1
+
+    def test_list_all_json_is_one_array(self, mock_backend):
+        pages = {
+            1: [_list_mem("p1-a", "alpha"), _list_mem("p1-b", "bravo")],
+            2: [_list_mem("p2-a", "charlie"), _list_mem("p2-b", "delta")],
+            3: [_list_mem("p3-a", "echo")],
+        }
+
+        def _side_effect(**kw):
+            return pages.get(kw["page"], [])
+
+        mock_backend.list_memories.side_effect = _side_effect
+        output, _err = _run_list(mock_backend, page_size=2, fetch_all=True, output="json")
+        parsed = json.loads(output)
+        memories = parsed if isinstance(parsed, list) else parsed["data"]
+        assert isinstance(memories, list)
+        assert [m["id"] for m in memories] == ["p1-a", "p1-b", "p2-a", "p2-b", "p3-a"]
+        assert all(isinstance(m, dict) for m in memories)
+
+    def test_list_all_with_page_errors(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises((SystemExit, TyperExit)),
+        ):
+            cmd_list(
+                mock_backend,
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                page=2,
+                page_size=100,
+                category=None,
+                after=None,
+                before=None,
+                output="table",
+                fetch_all=True,
+                page_explicit=True,
+            )
+        err = err_buf.getvalue()
+        assert "--all" in err
+        assert "--page" in err
+        mock_backend.list_memories.assert_not_called()
 
 
 class TestUpdateCommand:
