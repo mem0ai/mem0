@@ -37,8 +37,7 @@ mem0-ts/src/
 └── oss/             Memory (self-hosted)
     ├── llms/
     ├── embeddings/
-    ├── vector_stores/
-    └── graphs/
+    └── vector_stores/
 ```
 
 ## Public API

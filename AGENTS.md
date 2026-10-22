@@ -40,7 +40,7 @@ This is a polyglot monorepo and **every package sets its own rules**. Read the `
 
 | Directory | What it is |
 |-----------|------------|
-| `mem0/` | Core Python SDK (`mem0ai` on PyPI): memory, LLMs, embeddings, vector stores, graphs, rerankers |
+| `mem0/` | Core Python SDK (`mem0ai` on PyPI): memory, LLMs, embeddings, vector stores, rerankers |
 | `mem0-ts/` | TypeScript SDK (`mem0ai` on npm): hosted client + OSS memory |
 | `cli/python/` | Python CLI (`mem0-cli` on PyPI), Typer-based, entry point `mem0` |
 | `cli/node/` | Node CLI (`@mem0/cli` on npm), Commander-based, entry point `mem0` |
@@ -60,8 +60,7 @@ mem0 (Python SDK)          mem0-ts (TypeScript SDK)
 ├── mem0/llms/             └── src/oss/       Memory (self-hosted)
 ├── mem0/embeddings/           ├── src/llms/
 ├── mem0/vector_stores/        ├── src/embeddings/
-├── mem0/graphs/               ├── src/vector_stores/
-└── mem0/reranker/             └── src/graphs/
+└── mem0/reranker/             └── src/vector_stores/
 
 cli/python/                 ──▶ mem0ai (optional, OSS mode)
 cli/node/                   ──▶ mem0ai (npm)
