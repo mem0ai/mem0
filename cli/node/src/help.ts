@@ -32,7 +32,7 @@ function stripAnsi(str: string): number {
 const COMMAND_GROUPS: { panel: string; commands: string[] }[] = [
 	{
 		panel: "Memory",
-		commands: ["add", "search", "get", "list", "update", "delete"],
+		commands: ["add", "search", "get", "history", "list", "update", "delete"],
 	},
 	{
 		panel: "Management",
@@ -82,6 +82,11 @@ const OPTION_PANELS: Record<string, Record<string, string>> = {
 		"--base-url": "Connection",
 	},
 	get: {
+		"--output": "Output",
+		"--api-key": "Connection",
+		"--base-url": "Connection",
+	},
+	history: {
 		"--output": "Output",
 		"--api-key": "Connection",
 		"--base-url": "Connection",

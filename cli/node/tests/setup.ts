@@ -44,6 +44,36 @@ export function createMockBackend(): Backend {
       categories: ["preferences"],
     }),
 
+    history: vi.fn().mockResolvedValue([
+      {
+        id: "hist-1",
+        memory_id: "abc-123-def-456",
+        old_memory: null,
+        new_memory: "User prefers dark mode",
+        event: "ADD",
+        created_at: "2026-02-15T10:30:00Z",
+        updated_at: "2026-02-15T10:30:00Z",
+      },
+      {
+        id: "hist-2",
+        memory_id: "abc-123-def-456",
+        old_memory: "User prefers dark mode",
+        new_memory: "User prefers light mode",
+        event: "UPDATE",
+        created_at: "2026-02-20T08:00:00Z",
+        updated_at: "2026-02-20T08:00:00Z",
+      },
+      {
+        id: "hist-3",
+        memory_id: "abc-123-def-456",
+        old_memory: "User prefers light mode",
+        new_memory: null,
+        event: "DELETE",
+        created_at: "2026-03-01T12:00:00Z",
+        updated_at: "2026-03-01T12:00:00Z",
+      },
+    ]),
+
     listMemories: vi.fn().mockResolvedValue([
       {
         id: "abc-123-def-456",

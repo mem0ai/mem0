@@ -48,6 +48,9 @@ mem0 list --user-id alice
 # Get a specific memory
 mem0 get <memory-id>
 
+# Show how a memory changed
+mem0 history <memory-id>
+
 # Update a memory
 mem0 update <memory-id> "I switched to light mode"
 
@@ -150,6 +153,20 @@ Retrieve a specific memory by ID.
 mem0 get 7b3c1a2e-4d5f-6789-abcd-ef0123456789
 mem0 get 7b3c1a2e-4d5f-6789-abcd-ef0123456789 --output json
 ```
+
+### `mem0 history`
+
+Show the change history of a memory: event (ADD/UPDATE/DELETE), previous text, new text, and timestamps.
+
+```bash
+mem0 history 7b3c1a2e-4d5f-6789-abcd-ef0123456789
+mem0 history 7b3c1a2e-4d5f-6789-abcd-ef0123456789 --output json
+mem0 history 7b3c1a2e-4d5f-6789-abcd-ef0123456789 --output table
+```
+
+| Flag | Description |
+|------|-------------|
+| `-o, --output` | Output format: `text`, `json`, `table` (default: `table`) |
 
 ### `mem0 update`
 

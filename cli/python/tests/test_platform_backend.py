@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from mem0_cli.backend.platform import PlatformBackend
+import pytest
+
+from mem0_cli.backend.platform import NotFoundError, PlatformBackend
 from mem0_cli.config import PlatformConfig
 
 
@@ -40,7 +42,36 @@ class TestDeleteEntities:
 
     def test_no_entities_raises(self):
         backend = _make_backend()
-        import pytest
 
         with pytest.raises(ValueError):
             backend.delete_entities()
+
+
+class TestHistory:
+    def test_history_requests_endpoint(self):
+        backend = _make_backend()
+        entries = [{"event": "ADD", "new_memory": "hello"}]
+        with patch.object(backend, "_request", return_value=entries) as mock_request:
+            result = backend.history("abc-123")
+        mock_request.assert_called_once_with(
+            "GET",
+            "/v1/memories/abc-123/history/",
+            params={"source": "CLI"},
+        )
+        assert result == entries
+
+    def test_history_unwraps_results_dict(self):
+        backend = _make_backend()
+        with patch.object(backend, "_request", return_value={"results": [{"event": "UPDATE"}]}):
+            result = backend.history("abc-123")
+        assert result == [{"event": "UPDATE"}]
+
+    def test_history_404_raises_not_found(self):
+        backend = _make_backend()
+        resp = MagicMock()
+        resp.status_code = 404
+        backend._client.request.return_value = resp
+        with pytest.raises(NotFoundError, match="Resource not found"):
+            backend.history("missing-id")
+        path = backend._client.request.call_args.args[1]
+        assert path == "/v1/memories/missing-id/history/"

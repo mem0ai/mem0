@@ -8,6 +8,8 @@ from rich.console import Console
 
 from mem0_cli.output import (
     format_add_result,
+    format_history_table,
+    format_history_text,
     format_memories_table,
     format_memories_text,
     format_single_memory,
@@ -81,6 +83,41 @@ class TestTableFormat:
         output = buf.getvalue()
         assert "ID" in output
         assert "Memory" in output
+
+
+SAMPLE_HISTORY = [
+    {
+        "event": "ADD",
+        "old_memory": None,
+        "new_memory": "User prefers dark mode",
+        "created_at": "2026-02-15T10:30:00Z",
+    },
+    {
+        "event": "UPDATE",
+        "old_memory": "User prefers dark mode",
+        "new_memory": "User prefers light mode",
+        "created_at": "2026-02-20T08:00:00Z",
+    },
+]
+
+
+class TestHistoryFormat:
+    def test_format_history_table(self):
+        console, buf = _make_console()
+        format_history_table(console, SAMPLE_HISTORY)
+        output = buf.getvalue()
+        assert "ADD" in output
+        assert "UPDATE" in output
+        assert "dark mode" in output
+        assert "light mode" in output
+
+    def test_format_history_text(self):
+        console, buf = _make_console()
+        format_history_text(console, SAMPLE_HISTORY)
+        output = buf.getvalue()
+        assert "Found 2 history events" in output
+        assert "Old:" in output
+        assert "New:" in output
 
 
 class TestSingleMemory:
@@ -244,6 +281,32 @@ class TestSanitizeAgentData:
         result = sanitize_agent_data("get", raw)
         assert "user_id" not in result
         assert "id" in result and "memory" in result
+
+    def test_history_projects_fields(self):
+        raw = [
+            {
+                "id": "hist-1",
+                "memory_id": "abc",
+                "event": "ADD",
+                "old_memory": None,
+                "new_memory": "User prefers dark mode",
+                "created_at": "2026-01-01",
+                "updated_at": "2026-01-01",
+                "embedding_qwen": "secret",
+            }
+        ]
+        result = sanitize_agent_data("history", raw)
+        assert result == [
+            {
+                "id": "hist-1",
+                "memory_id": "abc",
+                "event": "ADD",
+                "old_memory": None,
+                "new_memory": "User prefers dark mode",
+                "created_at": "2026-01-01",
+                "updated_at": "2026-01-01",
+            }
+        ]
 
     def test_update_projects_fields(self):
         raw = {"id": "abc", "memory": "updated", "extra": "noise"}

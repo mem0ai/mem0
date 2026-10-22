@@ -1,5 +1,5 @@
 /**
- * Memory CRUD commands: add, search, get, list, update, delete.
+ * Memory CRUD commands: add, search, get, history, list, update, delete.
  */
 
 import fs from "node:fs";
@@ -14,6 +14,8 @@ import {
 import {
 	formatAddResult,
 	formatAgentEnvelope,
+	formatHistoryTable,
+	formatHistoryText,
 	formatJson,
 	formatJsonEnvelope,
 	formatMemoriesTable,
@@ -375,6 +377,57 @@ export async function cmdGet(
 	} else {
 		formatSingleMemory(result, opts.output);
 	}
+}
+
+export async function cmdHistory(
+	backend: Backend,
+	memoryId: string,
+	opts: { output: string },
+): Promise<void> {
+	setCurrentCommand("history");
+	const start = performance.now();
+	let results: Record<string, unknown>[];
+	try {
+		results = await timedStatus("Fetching history...", async () => {
+			return backend.history(memoryId);
+		});
+	} catch (e) {
+		printError(e instanceof Error ? e.message : String(e));
+		process.exit(1);
+	}
+	const elapsed = (performance.now() - start) / 1000;
+
+	if (opts.output === "agent") {
+		formatAgentEnvelope({
+			command: "history",
+			data: results,
+			count: results.length,
+			durationMs: Math.round(elapsed * 1000),
+		});
+		return;
+	}
+
+	if (opts.output === "json") {
+		formatJson(results);
+		return;
+	}
+
+	if (results.length === 0) {
+		console.log();
+		printInfo("No history found.");
+		console.log();
+		return;
+	}
+
+	if (opts.output === "table") {
+		formatHistoryTable(results);
+	} else {
+		formatHistoryText(results);
+	}
+	printResultSummary({
+		count: results.length,
+		durationSecs: elapsed,
+	});
 }
 
 export async function cmdList(

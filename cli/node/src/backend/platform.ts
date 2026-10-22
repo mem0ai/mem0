@@ -245,6 +245,19 @@ export class PlatformBackend implements Backend {
 		)) as Record<string, unknown>;
 	}
 
+	async history(memoryId: string): Promise<Record<string, unknown>[]> {
+		const result = (await this._request(
+			"GET",
+			`/v1/memories/${encodePathSegment(memoryId)}/history/`,
+			{
+				params: { source: "CLI" },
+			},
+		)) as unknown;
+		if (Array.isArray(result)) return result;
+		const obj = result as Record<string, unknown>;
+		return (obj.results ?? []) as Record<string, unknown>[];
+	}
+
 	async listMemories(
 		opts: ListOptions = {},
 	): Promise<Record<string, unknown>[]> {

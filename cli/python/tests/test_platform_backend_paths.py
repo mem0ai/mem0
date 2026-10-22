@@ -19,12 +19,14 @@ def test_memory_id_path_segments_are_encoded(sample_config):
     backend = _backend(sample_config)
 
     backend.get("mem/a?b#c")
+    backend.history("mem/a?b#c")
     backend.update("mem/a?b#c", content="updated")
     backend.delete("mem/a?b#c")
 
     paths = [call.args[1] for call in backend._client.request.call_args_list]
     assert paths == [
         "/v1/memories/mem%2Fa%3Fb%23c/",
+        "/v1/memories/mem%2Fa%3Fb%23c/history/",
         "/v1/memories/mem%2Fa%3Fb%23c/",
         "/v1/memories/mem%2Fa%3Fb%23c/",
     ]

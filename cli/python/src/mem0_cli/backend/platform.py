@@ -229,6 +229,14 @@ class PlatformBackend(Backend):
             params={"source": "CLI"},
         )
 
+    def history(self, memory_id: str) -> list[dict]:
+        result = self._request(
+            "GET",
+            f"/v1/memories/{_encode_path_segment(memory_id)}/history/",
+            params={"source": "CLI"},
+        )
+        return result if isinstance(result, list) else result.get("results", [])
+
     def list_memories(
         self,
         *,

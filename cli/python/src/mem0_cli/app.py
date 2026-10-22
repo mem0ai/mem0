@@ -481,6 +481,43 @@ def get(
     cmd_get(backend, memory_id, output=output)
 
 
+# ── Memory: history ───────────────────────────────────────────────────────
+
+
+@app.command(rich_help_panel="Memory")
+def history(
+    memory_id: str = typer.Argument(..., help="Memory ID whose history to retrieve."),
+    output: str = typer.Option(
+        "table",
+        "--output",
+        "-o",
+        help="Output: text, json, table.",
+        rich_help_panel="Output",
+    ),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        help="Override API key.",
+        envvar="MEM0_API_KEY",
+        rich_help_panel="Connection",
+    ),
+    base_url: str | None = typer.Option(
+        None, "--base-url", help="Override API base URL.", rich_help_panel="Connection"
+    ),
+) -> None:
+    """Show the change history of a memory.
+
+    Examples:
+      mem0 history abc-123-def-456
+      mem0 history abc-123-def-456 -o json
+      mem0 history abc-123-def-456 -o table
+    """
+    from mem0_cli.commands.memory import cmd_history
+
+    backend = _get_backend(api_key, base_url)
+    cmd_history(backend, memory_id, output=output)
+
+
 # ── Memory: list ──────────────────────────────────────────────────────────
 
 
@@ -1201,6 +1238,17 @@ def _build_help_json() -> dict:
             "arguments": {"memory_id": {"description": "Memory ID to retrieve.", "required": True}},
             "options": {"--output, -o": "Output format: text, json."},
         },
+        "history": {
+            "description": "Show the change history of a memory.",
+            "usage": "mem0 history <memory_id> [OPTIONS]",
+            "arguments": {
+                "memory_id": {
+                    "description": "Memory ID whose history to retrieve.",
+                    "required": True,
+                }
+            },
+            "options": {"--output, -o": "Output format: text, json, table."},
+        },
         "list": {
             "description": "List memories with optional filters.",
             "usage": "mem0 list [OPTIONS]",
@@ -1390,6 +1438,7 @@ def help(
         console.print("  add              Add a memory from text, messages, file, or stdin")
         console.print("  search           Query your memory store (semantic, keyword, hybrid)")
         console.print("  get              Get a specific memory by ID")
+        console.print("  history          Show the change history of a memory")
         console.print("  list             List memories with optional filters")
         console.print("  update           Update a memory's text or metadata")
         console.print("  delete           Delete a memory, all memories, or an entity")

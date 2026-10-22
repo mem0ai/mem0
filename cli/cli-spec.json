@@ -89,6 +89,7 @@
       "add": { "method": "POST", "path": "/v1/memories/" },
       "search": { "method": "POST", "path": "/v2/memories/search/" },
       "get": { "method": "GET", "path": "/v1/memories/{memory_id}/" },
+      "history": { "method": "GET", "path": "/v1/memories/{memory_id}/history/" },
       "list": { "method": "POST", "path": "/v2/memories/" },
       "update": { "method": "PUT", "path": "/v1/memories/{memory_id}/" },
       "delete": { "method": "DELETE", "path": "/v1/memories/{memory_id}/" },
@@ -280,6 +281,30 @@
         { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "text", "help": "Output: text, json.", "panel": "Output" }
       ],
       "apiEndpoint": "get"
+    },
+    {
+      "name": "history",
+      "description": "Show the change history of a memory.",
+      "usage": "mem0 history <memory_id> [OPTIONS]",
+      "needsBackend": true,
+      "needsConfig": false,
+      "resolveIds": false,
+      "resolveGraph": false,
+      "confirmDangerous": false,
+      "outputFormats": ["text", "json", "table"],
+      "defaultOutput": "table",
+      "arguments": [
+        {
+          "name": "memory_id",
+          "type": "string",
+          "required": true,
+          "help": "Memory ID whose history to retrieve."
+        }
+      ],
+      "options": [
+        { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "table", "help": "Output: text, json, table.", "panel": "Output" }
+      ],
+      "apiEndpoint": "history"
     },
     {
       "name": "list",

@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NotFoundError } from "../src/backend/base.js";
 import { PlatformBackend } from "../src/backend/platform.js";
 import { createDefaultConfig } from "../src/config.js";
 
@@ -209,18 +210,65 @@ describe("PlatformBackend option-parity payloads (MEM-5893)", () => {
 	});
 });
 
+describe("history", () => {
+	it("requests GET /v1/memories/{id}/history/", async () => {
+		const backend = makeBackend();
+		const entries = [{ event: "ADD", new_memory: "hello" }];
+		const spy = vi
+			// biome-ignore lint/suspicious/noExplicitAny: spying on a private method
+			.spyOn(backend as any, "_request")
+			.mockResolvedValue(entries);
+
+		const result = await backend.history("abc-123");
+		expect(spy).toHaveBeenCalledWith(
+			"GET",
+			"/v1/memories/abc-123/history/",
+			{ params: { source: "CLI" } },
+		);
+		expect(result).toEqual(entries);
+	});
+
+	it("unwraps a results wrapper", async () => {
+		const backend = makeBackend();
+		// biome-ignore lint/suspicious/noExplicitAny: spying on a private method
+		vi.spyOn(backend as any, "_request").mockResolvedValue({
+			results: [{ event: "UPDATE" }],
+		});
+		const result = await backend.history("abc-123");
+		expect(result).toEqual([{ event: "UPDATE" }]);
+	});
+
+	it("raises NotFoundError on 404", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue({
+				ok: false,
+				status: 404,
+				headers: { get: vi.fn().mockReturnValue(null) },
+			}),
+		);
+		const backend = makeBackend();
+		await expect(backend.history("missing-id")).rejects.toThrow(NotFoundError);
+		await expect(backend.history("missing-id")).rejects.toThrow(
+			"Resource not found",
+		);
+	});
+});
+
 describe("PlatformBackend path encoding", () => {
 	it("encodes memory IDs before interpolating them into paths", async () => {
 		const fetchMock = mockFetch();
 		const backend = makeBackend();
 
 		await backend.get("mem/a?b#c");
+		await backend.history("mem/a?b#c");
 		await backend.update("mem/a?b#c", "updated");
 		await backend.delete("mem/a?b#c");
 
 		const urls = fetchMock.mock.calls.map((call) => call[0]);
 		expect(urls).toEqual([
 			"https://api.mem0.ai/v1/memories/mem%2Fa%3Fb%23c/?source=CLI",
+			"https://api.mem0.ai/v1/memories/mem%2Fa%3Fb%23c/history/?source=CLI",
 			"https://api.mem0.ai/v1/memories/mem%2Fa%3Fb%23c/",
 			"https://api.mem0.ai/v1/memories/mem%2Fa%3Fb%23c/?source=CLI",
 		]);

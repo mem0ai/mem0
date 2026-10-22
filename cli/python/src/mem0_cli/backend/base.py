@@ -56,6 +56,9 @@ class Backend(ABC):
     def get(self, memory_id: str) -> dict: ...
 
     @abstractmethod
+    def history(self, memory_id: str) -> list[dict]: ...
+
+    @abstractmethod
     def list_memories(
         self,
         *,

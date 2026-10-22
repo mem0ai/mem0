@@ -82,6 +82,13 @@ describe("CLI Integration — help and version", () => {
     expect(result.stdout).toContain("top-k");
   });
 
+  it("shows history help", () => {
+    const result = run(["history", "--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.toLowerCase()).toContain("memory");
+    expect(result.stdout).toContain("--output");
+  });
+
   it("shows list help", () => {
     const result = run(["list", "--help"]);
     expect(result.exitCode).toBe(0);

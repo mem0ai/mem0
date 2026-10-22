@@ -86,6 +86,8 @@ export interface Backend {
 
 	get(memoryId: string): Promise<Record<string, unknown>>;
 
+	history(memoryId: string): Promise<Record<string, unknown>[]>;
+
 	listMemories(opts?: ListOptions): Promise<Record<string, unknown>[]>;
 
 	update(

@@ -98,6 +98,73 @@ def format_json(console: Console, data: Any) -> None:
     console.print_json(json.dumps(data, default=str))
 
 
+def _history_text(value: Any, *, limit: int | None = None) -> str:
+    if value is None or value == "":
+        return "—"
+    text = str(value)
+    if limit is not None and len(text) > limit:
+        return text[: limit - 3] + "..."
+    return text
+
+
+def _format_timestamp(dt_str: str | None) -> str:
+    if not dt_str:
+        return "—"
+    return str(dt_str)[:19].replace("T", " ")
+
+
+def format_history_table(console: Console, entries: list[dict]) -> None:
+    """Render memory history in a rich table."""
+    table = Table(
+        border_style=BRAND_COLOR,
+        header_style=f"bold {ACCENT_COLOR}",
+        row_styles=["", "dim"],
+        padding=(0, 1),
+    )
+    table.add_column("Event", max_width=10)
+    table.add_column("Old", max_width=36, no_wrap=False)
+    table.add_column("New", max_width=36, no_wrap=False)
+    table.add_column("Timestamp", max_width=20)
+
+    for entry in entries:
+        table.add_row(
+            str(entry.get("event") or "—"),
+            _history_text(entry.get("old_memory"), limit=60),
+            _history_text(entry.get("new_memory"), limit=60),
+            _format_timestamp(entry.get("created_at") or entry.get("updated_at")),
+        )
+
+    console.print()
+    console.print(table)
+    console.print()
+
+
+def format_history_text(console: Console, entries: list[dict]) -> None:
+    """Render memory history in human-friendly text mode."""
+    count = len(entries)
+    label = "history event" if count == 1 else "history events"
+    console.print(f"\n[{BRAND_COLOR}]Found {count} {label}:[/]\n")
+
+    for i, entry in enumerate(entries, 1):
+        event = entry.get("event") or "—"
+        line = Text()
+        line.append(f"  {i}. ", style="bold")
+        line.append(str(event), style="white")
+        console.print(line)
+        console.print(f"     [{DIM_COLOR}]Old:[/] {_history_text(entry.get('old_memory'))}")
+        console.print(f"     [{DIM_COLOR}]New:[/] {_history_text(entry.get('new_memory'))}")
+        created = _format_timestamp(entry.get("created_at"))
+        updated = _format_timestamp(entry.get("updated_at"))
+        details = []
+        if created != "—":
+            details.append(f"Created: {created}")
+        if updated != "—" and updated != created:
+            details.append(f"Updated: {updated}")
+        if details:
+            console.print(f"     [{DIM_COLOR}]{' · '.join(details)}[/]")
+        console.print()
+
+
 def format_single_memory(console: Console, mem: dict, output: str = "text") -> None:
     """Format a single memory for display."""
     if output == "json":
@@ -285,6 +352,23 @@ def sanitize_agent_data(command: str, data: Any) -> Any:
                 "expiration_date",
             ],
         )
+
+    if command == "history":
+        return [
+            pick(
+                r,
+                [
+                    "id",
+                    "memory_id",
+                    "event",
+                    "old_memory",
+                    "new_memory",
+                    "created_at",
+                    "updated_at",
+                ],
+            )
+            for r in data
+        ]
 
     if command == "update":
         return pick(data, ["id", "memory", "expiration_date"])

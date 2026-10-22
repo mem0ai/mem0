@@ -160,6 +160,29 @@ describe("sanitizeAgentData", () => {
     expect(result).toHaveProperty("metadata");
   });
 
+  it("projects history results", () => {
+    const raw = [{
+      id: "hist-1",
+      memory_id: "abc",
+      event: "ADD",
+      old_memory: null,
+      new_memory: "User prefers dark mode",
+      created_at: "2026-01-01",
+      updated_at: "2026-01-01",
+      embedding_qwen: "secret",
+    }];
+    const result = sanitizeAgentData("history", raw) as Record<string, unknown>[];
+    expect(result).toEqual([{
+      id: "hist-1",
+      memory_id: "abc",
+      event: "ADD",
+      old_memory: null,
+      new_memory: "User prefers dark mode",
+      created_at: "2026-01-01",
+      updated_at: "2026-01-01",
+    }]);
+  });
+
   it("projects update result", () => {
     const raw = { id: "abc", memory: "updated", extra: "noise" };
     const result = sanitizeAgentData("update", raw);

@@ -1,4 +1,4 @@
-"""Memory CRUD commands: add, search, get, list, update, delete."""
+"""Memory CRUD commands: add, search, get, history, list, update, delete."""
 
 from __future__ import annotations
 
@@ -25,6 +25,8 @@ from mem0_cli.branding import (
 from mem0_cli.output import (
     format_add_result,
     format_agent_envelope,
+    format_history_table,
+    format_history_text,
     format_json,
     format_memories_table,
     format_memories_text,
@@ -371,6 +373,50 @@ def cmd_get(backend: Backend, memory_id: str, *, output: str) -> None:
         format_agent_envelope(console, command="get", data=result)
     else:
         format_single_memory(console, result, output)
+
+
+def cmd_history(backend: Backend, memory_id: str, *, output: str) -> None:
+    """Show the change history of a memory."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+
+    set_current_command("history")
+    if is_agent_mode():
+        output = "agent"
+
+    _start = _time.perf_counter()
+    with timed_status(err_console, "Fetching history...") as _ts:
+        try:
+            results = backend.history(memory_id)
+        except Exception as e:
+            print_error(err_console, str(e))
+            raise typer.Exit(1) from None
+    _elapsed = _time.perf_counter() - _start
+
+    if output == "agent":
+        format_agent_envelope(
+            console,
+            command="history",
+            data=results,
+            count=len(results),
+            duration_ms=int(_elapsed * 1000),
+        )
+        return
+
+    if output == "json":
+        format_json(console, results)
+        return
+
+    if not results:
+        console.print()
+        print_info(console, "No history found.")
+        console.print()
+        return
+
+    if output == "table":
+        format_history_table(console, results)
+    else:
+        format_history_text(console, results)
+    print_result_summary(console, len(results), duration_secs=_elapsed)
 
 
 def cmd_list(

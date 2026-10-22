@@ -465,6 +465,26 @@ program
 		await cmdGet(backend, memoryId, { output });
 	});
 
+// ── Memory: history ───────────────────────────────────────────────────────
+
+program
+	.command("history <memoryId>")
+	.description("Show the change history of a memory.")
+	.option("-o, --output <format>", "Output: text, json, table.", "table")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 history abc-123-def-456\n  $ mem0 history abc-123-def-456 -o json\n  $ mem0 history abc-123-def-456 -o table",
+	)
+	.action(async (memoryId, opts) => {
+		const { cmdHistory } = await import("./commands/memory.js");
+		const isAgent = checkAgentMode();
+		const backend = await getBackendOnly(opts.apiKey, opts.baseUrl);
+		const output = isAgent ? "agent" : opts.output;
+		await cmdHistory(backend, memoryId, { output });
+	});
+
 // ── Memory: list ──────────────────────────────────────────────────────────
 
 program
@@ -911,6 +931,7 @@ program
 				"  search           Query your memory store (semantic, keyword, hybrid)",
 			);
 			console.log("  get              Get a specific memory by ID");
+			console.log("  history          Show the change history of a memory");
 			console.log("  list             List memories with optional filters");
 			console.log("  update           Update a memory's text or metadata");
 			console.log(

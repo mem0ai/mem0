@@ -6,7 +6,7 @@ icon: "terminal"
 iconType: "solid"
 ---
 
-The mem0 CLI lets you add, search, list, update, and delete memories directly from the terminal. It works with the Mem0 Platform API and is available as both an npm package and a Python package.
+The mem0 CLI lets you add, search, list, inspect history, update, and delete memories directly from the terminal. It works with the Mem0 Platform API and is available as both an npm package and a Python package.
 
 Both implementations provide identical behavior: same commands, same options, same output formats.
 
@@ -64,6 +64,9 @@ mem0 list --user-id alice
 
 # Get a specific memory
 mem0 get <memory-id>
+
+# Show how a memory changed
+mem0 history <memory-id>
 
 # Update a memory
 mem0 update <memory-id> "I prefer light mode now"
@@ -201,6 +204,20 @@ mem0 get 7b3c1a2e-4d5f-6789-abcd-ef0123456789 --output json
 | Flag | Description |
 |------|-------------|
 | `-o, --output` | Output format: `text`, `json` |
+
+### `mem0 history`
+
+Show the change history of a memory: event (`ADD` / `UPDATE` / `DELETE`), previous text, new text, and timestamps.
+
+```bash
+mem0 history 7b3c1a2e-4d5f-6789-abcd-ef0123456789
+mem0 history 7b3c1a2e-4d5f-6789-abcd-ef0123456789 --output json
+mem0 history 7b3c1a2e-4d5f-6789-abcd-ef0123456789 --output table
+```
+
+| Flag | Description |
+|------|-------------|
+| `-o, --output` | Output format: `text`, `json`, `table` (default: `table`) |
 
 ### `mem0 update`
 

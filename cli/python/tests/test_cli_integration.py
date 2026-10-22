@@ -138,6 +138,12 @@ class TestCLIIntegration:
         assert "AND" in result.stdout
         assert "categories" in result.stdout
 
+    def test_history_help(self):
+        result = _run(["history", "--help"])
+        assert result.returncode == 0
+        assert "memory" in result.stdout.lower()
+        assert "--output" in result.stdout or "-o" in result.stdout
+
     def test_list_help(self):
         result = _run(["list", "--help"])
         assert result.returncode == 0

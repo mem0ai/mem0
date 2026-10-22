@@ -102,6 +102,66 @@ export function formatMemoriesTable(
 	console.log();
 }
 
+function historyText(value: unknown, limit?: number): string {
+	if (value === null || value === undefined || value === "") return "—";
+	const text = String(value);
+	if (limit !== undefined && text.length > limit) {
+		return `${text.slice(0, limit - 3)}...`;
+	}
+	return text;
+}
+
+function formatTimestamp(dtStr?: unknown): string {
+	if (!dtStr) return "—";
+	return String(dtStr).slice(0, 19).replace("T", " ");
+}
+
+export function formatHistoryTable(entries: Record<string, unknown>[]): void {
+	const table = new Table({
+		head: [accent("Event"), accent("Old"), accent("New"), accent("Timestamp")],
+		colWidths: [10, 28, 28, 22],
+		wordWrap: true,
+		style: { head: [], border: [] },
+	});
+
+	for (const entry of entries) {
+		table.push([
+			String(entry.event ?? "—"),
+			historyText(entry.old_memory, 60),
+			historyText(entry.new_memory, 60),
+			formatTimestamp(entry.created_at ?? entry.updated_at),
+		]);
+	}
+
+	console.log();
+	console.log(table.toString());
+	console.log();
+}
+
+export function formatHistoryText(entries: Record<string, unknown>[]): void {
+	const count = entries.length;
+	const label = count === 1 ? "history event" : "history events";
+	console.log(`\n${brand(`Found ${count} ${label}:`)}\n`);
+
+	for (let i = 0; i < entries.length; i++) {
+		const entry = entries[i];
+		console.log(`  ${i + 1}. ${String(entry.event ?? "—")}`);
+		console.log(`     ${dim("Old:")} ${historyText(entry.old_memory)}`);
+		console.log(`     ${dim("New:")} ${historyText(entry.new_memory)}`);
+		const created = formatTimestamp(entry.created_at);
+		const updated = formatTimestamp(entry.updated_at);
+		const details: string[] = [];
+		if (created !== "—") details.push(`Created: ${created}`);
+		if (updated !== "—" && updated !== created) {
+			details.push(`Updated: ${updated}`);
+		}
+		if (details.length > 0) {
+			console.log(`     ${dim(details.join(" · "))}`);
+		}
+		console.log();
+	}
+}
+
 export function formatJson(data: unknown): void {
 	console.log(JSON.stringify(data, null, 2));
 }
@@ -313,6 +373,18 @@ export function sanitizeAgentData(command: string, data: unknown): unknown {
 				"expiration_date",
 			]);
 		}
+		case "history":
+			return (data as Record<string, unknown>[]).map((r) =>
+				pick(r, [
+					"id",
+					"memory_id",
+					"event",
+					"old_memory",
+					"new_memory",
+					"created_at",
+					"updated_at",
+				]),
+			);
 		case "update": {
 			const r = data as Record<string, unknown>;
 			return pick(r, ["id", "memory", "expiration_date"]);

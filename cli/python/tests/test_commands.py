@@ -11,6 +11,7 @@ import pytest
 from rich.console import Console
 from typer import Exit as TyperExit
 
+from mem0_cli.backend.platform import NotFoundError
 from mem0_cli.commands.config_cmd import (
     cmd_config_get,
     cmd_config_set,
@@ -23,6 +24,7 @@ from mem0_cli.commands.memory import (
     cmd_delete,
     cmd_delete_all,
     cmd_get,
+    cmd_history,
     cmd_list,
     cmd_search,
     cmd_update,
@@ -605,6 +607,65 @@ class TestGetCommand:
             cmd_get(mock_backend, "abc-123-def-456", output="json")
         output = buf.getvalue()
         assert '"memory"' in output
+
+
+class TestHistoryCommand:
+    def test_history_table(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_history(mock_backend, "abc-123-def-456", output="table")
+        output = buf.getvalue()
+        assert "ADD" in output
+        assert "UPDATE" in output
+        assert "DELETE" in output
+        assert "dark mode" in output
+        assert "light mode" in output
+        assert output.find("ADD") < output.find("UPDATE") < output.find("DELETE")
+
+    def test_history_json(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_history(mock_backend, "abc-123-def-456", output="json")
+        data = json.loads(buf.getvalue())
+        assert isinstance(data, list)
+        assert data[0]["event"] == "ADD"
+        assert data[0]["old_memory"] is None
+        assert data[0]["new_memory"] == "User prefers dark mode"
+        assert data[1]["event"] == "UPDATE"
+        assert data[2]["event"] == "DELETE"
+
+    def test_history_not_found(self, mock_backend):
+        mock_backend.history.side_effect = NotFoundError(
+            "Resource not found: /v1/memories/missing-id/history/"
+        )
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises((SystemExit, TyperExit)),
+        ):
+            cmd_history(mock_backend, "missing-id", output="table")
+        assert "Resource not found" in err_buf.getvalue()
+
+    def test_history_empty(self, mock_backend):
+        mock_backend.history.return_value = []
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_history(mock_backend, "abc-123-def-456", output="table")
+        assert "No history found" in buf.getvalue()
 
 
 class TestListCommand:
@@ -1389,6 +1450,29 @@ class TestAgentMode:
         assert data["data"]["id"] == "abc-123-def-456"
         assert "memory" in data["data"]
         assert set(data["data"].keys()) >= {"id", "memory"}
+
+    def test_history_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_history(mock_backend, "abc-123-def-456", output="table")
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "history"
+        assert isinstance(data["data"], list)
+        assert data["count"] == 3
+        assert set(data["data"][0].keys()) == {
+            "id",
+            "memory_id",
+            "event",
+            "old_memory",
+            "new_memory",
+            "created_at",
+            "updated_at",
+        }
 
     # ── update ───────────────────────────────────────────────────────────────
 

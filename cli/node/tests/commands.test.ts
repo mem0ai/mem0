@@ -372,6 +372,59 @@ describe("cmdGet", () => {
 	});
 });
 
+describe("cmdHistory", () => {
+	function mockProcessExit() {
+		return vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+			throw new Error(`process.exit:${code}`);
+		}) as never);
+	}
+
+	it("renders history in table mode", async () => {
+		const { cmdHistory } = await import("../src/commands/memory.js");
+		await cmdHistory(mockBackend, "abc-123-def-456", { output: "table" });
+		expect(output).toContain("ADD");
+		expect(output).toContain("UPDATE");
+		expect(output).toContain("DELETE");
+		expect(output).toContain("dark mode");
+		expect(output).toContain("light mode");
+		expect(output.indexOf("ADD")).toBeLessThan(output.indexOf("UPDATE"));
+		expect(output.indexOf("UPDATE")).toBeLessThan(output.indexOf("DELETE"));
+	});
+
+	it("renders history in json mode", async () => {
+		const { cmdHistory } = await import("../src/commands/memory.js");
+		await cmdHistory(mockBackend, "abc-123-def-456", { output: "json" });
+		const data = JSON.parse(output);
+		expect(Array.isArray(data)).toBe(true);
+		expect(data[0].event).toBe("ADD");
+		expect(data[0].old_memory).toBeNull();
+		expect(data[0].new_memory).toBe("User prefers dark mode");
+		expect(data[1].event).toBe("UPDATE");
+		expect(data[2].event).toBe("DELETE");
+	});
+
+	it("surfaces the not-found error", async () => {
+		const { NotFoundError } = await import("../src/backend/base.js");
+		(mockBackend.history as ReturnType<typeof vi.fn>).mockRejectedValue(
+			new NotFoundError("/v1/memories/missing-id/history/"),
+		);
+		const exitSpy = mockProcessExit();
+		const { cmdHistory } = await import("../src/commands/memory.js");
+		await expect(
+			cmdHistory(mockBackend, "missing-id", { output: "table" }),
+		).rejects.toThrow("process.exit:1");
+		expect(errOutput).toContain("Resource not found");
+		exitSpy.mockRestore();
+	});
+
+	it("shows an empty-history message", async () => {
+		(mockBackend.history as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+		const { cmdHistory } = await import("../src/commands/memory.js");
+		await cmdHistory(mockBackend, "abc-123-def-456", { output: "table" });
+		expect(errOutput).toContain("No history found");
+	});
+});
+
 describe("cmdList", () => {
 	it("lists in table mode", async () => {
 		const { cmdList } = await import("../src/commands/memory.js");
@@ -613,6 +666,26 @@ describe("agent mode", () => {
 		expect(parsed.data).toBeDefined();
 		expect(parsed.data).toMatchObject({ id: "abc-123-def-456" });
 		expect(Object.keys(parsed.data)).not.toContain("user_id");
+	});
+
+	it("cmdHistory outputs JSON envelope", async () => {
+		setAgentMode(true);
+		const { cmdHistory } = await import("../src/commands/memory.js");
+		await cmdHistory(mockBackend, "abc-123-def-456", { output: "agent" });
+		const parsed = JSON.parse(output.trim());
+		expect(parsed.status).toBe("success");
+		expect(parsed.command).toBe("history");
+		expect(Array.isArray(parsed.data)).toBe(true);
+		expect(parsed.count).toBe(3);
+		expect(Object.keys(parsed.data[0]).sort()).toEqual([
+			"created_at",
+			"event",
+			"id",
+			"memory_id",
+			"new_memory",
+			"old_memory",
+			"updated_at",
+		]);
 	});
 
 	it("cmdUpdate outputs JSON envelope", async () => {
