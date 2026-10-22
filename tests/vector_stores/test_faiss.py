@@ -754,3 +754,32 @@ class TestCosineNormalization:
 
             assert results[0].id == "x"
             assert results[0].score == pytest.approx(1.0, abs=1e-5)
+
+
+def test_apply_filters_operators_and_logical(faiss_instance):
+    store = faiss_instance
+    payload = {"user_id": "u1", "category": "work", "priority": 5}
+
+    # scalar equality and list membership (unchanged behavior)
+    assert store._apply_filters(payload, {"user_id": "u1"}) is True
+    assert store._apply_filters(payload, {"user_id": "u2"}) is False
+    assert store._apply_filters(payload, {"category": ["work", "home"]}) is True
+    assert store._apply_filters(payload, {"category": ["home"]}) is False
+
+    # operator dicts: previously always dropped (returned False) -> empty results
+    assert store._apply_filters(payload, {"category": {"eq": "work"}}) is True
+    assert store._apply_filters(payload, {"category": {"ne": "home"}}) is True
+    assert store._apply_filters(payload, {"priority": {"gte": 5}}) is True
+    assert store._apply_filters(payload, {"priority": {"lt": 5}}) is False
+    assert store._apply_filters(payload, {"category": {"in": ["work", "home"]}}) is True
+    assert store._apply_filters(payload, {"category": {"nin": ["home"]}}) is True
+
+    # logical $or / $not: previously returned empty
+    assert store._apply_filters(payload, {"$or": [{"category": "home"}, {"category": "work"}]}) is True
+    assert store._apply_filters(payload, {"$or": [{"category": "home"}]}) is False
+    assert store._apply_filters(payload, {"$not": [{"category": "home"}]}) is True
+    assert store._apply_filters(payload, {"$not": [{"category": "work"}]}) is False
+
+    # absent key never matches
+    assert store._apply_filters(payload, {"missing": {"eq": "x"}}) is False
+    assert store._apply_filters(payload, {"missing": "x"}) is False
