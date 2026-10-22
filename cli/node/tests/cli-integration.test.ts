@@ -88,6 +88,13 @@ describe("CLI Integration — help and version", () => {
     expect(result.stdout).toContain("page-size");
   });
 
+  it("shows update help with --clear-expiration", () => {
+    const result = run(["update", "--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--clear-expiration");
+    expect(result.stdout).toContain("--expires");
+  });
+
   it("shows delete help with --all, --entity, --project", () => {
     const result = run(["delete", "--help"]);
     expect(result.exitCode).toBe(0);

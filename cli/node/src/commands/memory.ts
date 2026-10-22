@@ -483,10 +483,15 @@ export async function cmdUpdate(
 		metadata?: string;
 		expires?: string;
 		timestamp?: number;
+		clearExpiration?: boolean;
 		output: string;
 	},
 ): Promise<void> {
 	setCurrentCommand("update");
+	if (opts.clearExpiration && opts.expires) {
+		printError("--clear-expiration cannot be used with --expires.");
+		process.exit(1);
+	}
 	let meta: Record<string, unknown> | undefined;
 	if (opts.metadata) {
 		try {
@@ -504,7 +509,7 @@ export async function cmdUpdate(
 	try {
 		result = await timedStatus("Updating memory...", async () => {
 			return backend.update(memoryId, text, meta, {
-				expirationDate: opts.expires,
+				expirationDate: opts.clearExpiration ? null : opts.expires,
 				timestamp: opts.timestamp,
 			});
 		});

@@ -286,13 +286,16 @@ class PlatformBackend(Backend):
         *,
         expiration_date: str | None = None,
         timestamp: int | None = None,
+        clear_expiration: bool = False,
     ) -> dict:
         payload: dict[str, Any] = {}
         if content:
             payload["text"] = content
         if metadata:
             payload["metadata"] = metadata
-        if expiration_date:
+        if clear_expiration:
+            payload["expiration_date"] = None
+        elif expiration_date:
             payload["expiration_date"] = expiration_date
         if timestamp is not None:
             payload["timestamp"] = timestamp

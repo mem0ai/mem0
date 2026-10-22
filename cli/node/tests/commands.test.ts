@@ -440,6 +440,52 @@ describe("cmdUpdate", () => {
 			}),
 		);
 	});
+
+	it("forwards clearExpiration without text", async () => {
+		const { cmdUpdate } = await import("../src/commands/memory.js");
+		await cmdUpdate(mockBackend, "abc-123", undefined, {
+			clearExpiration: true,
+			output: "text",
+		});
+		expect(mockBackend.update).toHaveBeenCalledWith(
+			"abc-123",
+			undefined,
+			undefined,
+			expect.objectContaining({
+				expirationDate: null,
+			}),
+		);
+	});
+
+	it("rejects --clear-expiration with --expires", async () => {
+		const { cmdUpdate } = await import("../src/commands/memory.js");
+		const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
+			code?: number,
+		) => {
+			throw new Error(`process.exit:${code}`);
+		}) as never);
+
+		await expect(
+			cmdUpdate(mockBackend, "abc-123", undefined, {
+				expires: "2099-01-01",
+				clearExpiration: true,
+				output: "text",
+			}),
+		).rejects.toThrow("process.exit:1");
+
+		expect(errOutput).toContain(
+			"--clear-expiration cannot be used with --expires.",
+		);
+		expect(mockBackend.update).not.toHaveBeenCalled();
+		exitSpy.mockRestore();
+	});
+
+	it("omits expirationDate when neither expires nor clearExpiration is set", async () => {
+		const { cmdUpdate } = await import("../src/commands/memory.js");
+		await cmdUpdate(mockBackend, "abc-123", "New text", { output: "text" });
+		const updateOpts = vi.mocked(mockBackend.update).mock.calls[0][3];
+		expect(updateOpts?.expirationDate).toBeUndefined();
+	});
 });
 
 describe("cmdDelete", () => {

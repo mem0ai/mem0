@@ -209,6 +209,7 @@ Update the text or metadata of an existing memory.
 ```bash
 mem0 update <memory-id> "Updated preference text"
 mem0 update <memory-id> --metadata '{"priority": "high"}'
+mem0 update <memory-id> --clear-expiration
 echo "new text" | mem0 update <memory-id>
 ```
 
@@ -216,6 +217,7 @@ echo "new text" | mem0 update <memory-id>
 |------|-------------|
 | `-m, --metadata` | Replace the memory's metadata with this JSON |
 | `--expires` | Expiration date (YYYY-MM-DD) |
+| `--clear-expiration` | Remove the memory's expiration date. Cannot be used with `--expires` |
 | `--timestamp` | Unix timestamp for the memory |
 | `-o, --output` | Output format: `text`, `json`, `quiet` |
 

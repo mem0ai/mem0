@@ -568,6 +568,9 @@ def update(
     text: str | None = typer.Argument(None, help="New memory text."),
     metadata: str | None = typer.Option(None, "--metadata", "-m", help="Update metadata (JSON)."),
     expires: str | None = typer.Option(None, "--expires", help="Expiration date (YYYY-MM-DD)."),
+    clear_expiration: bool = typer.Option(
+        False, "--clear-expiration", help="Remove the memory's expiration date."
+    ),
     timestamp: int | None = typer.Option(
         None, "--timestamp", help="Unix timestamp for the memory."
     ),
@@ -590,6 +593,7 @@ def update(
     Examples:
       mem0 update abc-123-def-456 "new text"
       mem0 update abc-123 --metadata '{{"key":"val"}}'
+      mem0 update abc-123 --clear-expiration
       echo "new text" | mem0 update abc-123
     """
     from mem0_cli.commands.memory import cmd_update
@@ -606,6 +610,7 @@ def update(
         metadata=metadata,
         expires=expires,
         timestamp=timestamp,
+        clear_expiration=clear_expiration,
         output=output,
     )
 
@@ -1230,6 +1235,7 @@ def _build_help_json() -> dict:
             "options": {
                 "--metadata, -m": "Update metadata (JSON).",
                 "--expires": "Expiration date (YYYY-MM-DD).",
+                "--clear-expiration": "Remove the memory's expiration date.",
                 "--timestamp": "Unix timestamp for the memory.",
                 "--output, -o": "Output format: text, json, quiet.",
             },

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import patch
 
 from mem0_cli.backend.platform import PlatformBackend
@@ -100,6 +101,21 @@ class TestUpdateOptions:
         payload = mock_request.call_args.kwargs["json"]
         assert payload["expiration_date"] == "2099-01-01"
         assert payload["timestamp"] == 1700000000
+
+    def test_clear_expiration_sends_null(self):
+        backend = _make_backend()
+        with patch.object(backend, "_request", return_value={}) as mock_request:
+            backend.update("mem-123", clear_expiration=True)
+        payload = mock_request.call_args.kwargs["json"]
+        assert payload["expiration_date"] is None
+        assert '"expiration_date": null' in json.dumps(payload)
+
+    def test_omitted_expiration_is_absent_from_payload(self):
+        backend = _make_backend()
+        with patch.object(backend, "_request", return_value={}) as mock_request:
+            backend.update("mem-123", content="new text")
+        payload = mock_request.call_args.kwargs["json"]
+        assert "expiration_date" not in payload
 
 
 class TestDeleteOptions:

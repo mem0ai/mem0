@@ -339,6 +339,7 @@
       "options": [
         { "name": "metadata", "flags": ["--metadata", "-m"], "type": "string", "help": "Update metadata (JSON)." },
         { "name": "expires", "flags": ["--expires"], "type": "string", "help": "Expiration date (YYYY-MM-DD)." },
+        { "name": "clear_expiration", "flags": ["--clear-expiration"], "type": "boolean", "default": false, "help": "Remove the memory's expiration date." },
         { "name": "timestamp", "flags": ["--timestamp"], "type": "integer", "help": "Unix timestamp for the memory." },
         { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "text", "help": "Output: text, json, quiet.", "panel": "Output" }
       ],

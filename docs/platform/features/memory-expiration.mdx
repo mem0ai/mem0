@@ -100,7 +100,7 @@ The same parameter and spelling work on the OSS `Memory` class. See <Link href="
 
 ## How do you clear or remove an expiration date?
 
-Pass an explicit `None` (Python) or `null` (TypeScript) to make the memory permanent again. The SDKs deliberately preserve that null instead of treating it as "argument not supplied".
+Pass an explicit `None` (Python) or `null` (TypeScript) to make the memory permanent again. The SDKs deliberately preserve that null instead of treating it as "argument not supplied". From the CLI, use `--clear-expiration` on `mem0 update`.
 
 <CodeGroup>
 ```python Python
@@ -111,6 +111,10 @@ memory.update("mem_123", expiration_date=None)   # OSS
 ```javascript JavaScript
 await client.update("mem_123", { expirationDate: null });   // Platform
 await memory.update("mem_123", { expirationDate: null });   // OSS
+```
+
+```bash CLI
+mem0 update mem_123 --clear-expiration
 ```
 </CodeGroup>
 
@@ -125,7 +129,8 @@ await memory.update("mem_123", { expirationDate: null });   // OSS
 | Python (Platform and OSS) | `str` in `YYYY-MM-DD` form, or a `date` / `datetime` object | Normalized to `YYYY-MM-DD` before storage. |
 | TypeScript (Platform and OSS) | `string` in `YYYY-MM-DD` form only | Stricter than `new Date()`: rejects `12/31/2099`, `2099-12-31T23:00:00`, and non-days like `2099-02-30` or `2100-02-29`. |
 | Self-hosted REST server | `string` in `YYYY-MM-DD` form | Same normalization as OSS Python underneath. |
-| CLI (`mem0 add --expires`) | `string` in `YYYY-MM-DD` form | Must be strictly in the future, checked against the local system date. The SDKs have no such restriction. Platform only: the CLI has no OSS backend. |
+| CLI (`mem0 add --expires`, `mem0 update --expires`) | `string` in `YYYY-MM-DD` form | Must be strictly in the future, checked against the local system date. The SDKs have no such restriction. Platform only: the CLI has no OSS backend. |
+| CLI (`mem0 update --clear-expiration`) | no date value; sends `expiration_date: null` | Mutually exclusive with `--expires`. Does not require new text or metadata. |
 
 ## Reading the field back
 

@@ -196,6 +196,31 @@ describe("PlatformBackend option-parity payloads (MEM-5893)", () => {
 		expect(payload.timestamp).toBe(1700000000);
 	});
 
+	it("update: expirationDate null sends expiration_date: null", async () => {
+		const backend = makeBackend();
+		// biome-ignore lint/suspicious/noExplicitAny: spying on a private method
+		const spy = vi.spyOn(backend as any, "_request").mockResolvedValue({});
+
+		await backend.update("mem-123", undefined, undefined, {
+			expirationDate: null,
+		});
+
+		const payload = spy.mock.calls[0][2].json;
+		expect(payload.expiration_date).toBeNull();
+		expect(JSON.stringify(payload)).toContain('"expiration_date":null');
+	});
+
+	it("update: omitted expirationDate leaves the key out", async () => {
+		const backend = makeBackend();
+		// biome-ignore lint/suspicious/noExplicitAny: spying on a private method
+		const spy = vi.spyOn(backend as any, "_request").mockResolvedValue({});
+
+		await backend.update("mem-123", "new text");
+
+		const payload = spy.mock.calls[0][2].json;
+		expect(payload).not.toHaveProperty("expiration_date");
+	});
+
 	it("delete: delete_linked is a query param, not part of the JSON body", async () => {
 		const backend = makeBackend();
 		// biome-ignore lint/suspicious/noExplicitAny: spying on a private method

@@ -526,6 +526,7 @@ program
 	.description("Update a memory's text or metadata.")
 	.option("-m, --metadata <json>", "Update metadata (JSON).")
 	.option("--expires <date>", "Expiration date (YYYY-MM-DD).")
+	.option("--clear-expiration", "Remove the memory's expiration date.", false)
 	.option("--timestamp <unix>", "Unix timestamp for the memory.", (v) =>
 		Number.parseInt(v),
 	)
@@ -534,7 +535,7 @@ program
 	.option("--base-url <url>", "Override API base URL.")
 	.addHelpText(
 		"after",
-		`\nExamples:\n  $ mem0 update abc-123 "new text"\n  $ mem0 update abc-123 --metadata '{"key":"val"}'\n  $ echo "new text" | mem0 update abc-123`,
+		`\nExamples:\n  $ mem0 update abc-123 "new text"\n  $ mem0 update abc-123 --metadata '{"key":"val"}'\n  $ mem0 update abc-123 --clear-expiration\n  $ echo "new text" | mem0 update abc-123`,
 	)
 	.action(async (memoryId, text, opts) => {
 		let resolvedText = text;
@@ -549,6 +550,7 @@ program
 			metadata: opts.metadata,
 			expires: opts.expires,
 			timestamp: opts.timestamp,
+			clearExpiration: opts.clearExpiration,
 			output,
 		});
 	});

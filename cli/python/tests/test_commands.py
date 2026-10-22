@@ -748,6 +748,59 @@ class TestUpdateCommand:
         assert call_kwargs["expiration_date"] == "2099-01-01"
         assert call_kwargs["timestamp"] == 1700000000
 
+    def test_update_clear_expiration_without_text(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_update(
+                mock_backend,
+                "abc-123",
+                None,
+                metadata=None,
+                clear_expiration=True,
+                output="text",
+            )
+        call_kwargs = mock_backend.update.call_args.kwargs
+        assert call_kwargs["clear_expiration"] is True
+        assert call_kwargs["content"] is None
+        assert call_kwargs["metadata"] is None
+        assert "updated" in buf.getvalue().lower()
+
+    def test_update_clear_expiration_conflicts_with_expires(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises((SystemExit, TyperExit)),
+        ):
+            cmd_update(
+                mock_backend,
+                "abc-123",
+                None,
+                metadata=None,
+                expires="2099-01-01",
+                clear_expiration=True,
+                output="text",
+            )
+        assert "--clear-expiration cannot be used with --expires." in err_buf.getvalue()
+        mock_backend.update.assert_not_called()
+
+    def test_update_omits_clear_when_flags_absent(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_update(mock_backend, "abc-123", "New text", metadata=None, output="text")
+        call_kwargs = mock_backend.update.call_args.kwargs
+        assert call_kwargs.get("clear_expiration") is False
+        assert call_kwargs.get("expiration_date") is None
+
 
 class TestDeleteCommand:
     def test_delete_single(self, mock_backend):

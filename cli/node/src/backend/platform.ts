@@ -301,7 +301,8 @@ export class PlatformBackend implements Backend {
 		const payload: Record<string, unknown> = {};
 		if (content) payload.text = content;
 		if (metadata) payload.metadata = metadata;
-		if (opts.expirationDate) payload.expiration_date = opts.expirationDate;
+		if (opts.expirationDate !== undefined)
+			payload.expiration_date = opts.expirationDate;
 		if (opts.timestamp !== undefined) payload.timestamp = opts.timestamp;
 		payload.source = "CLI";
 		return (await this._request(

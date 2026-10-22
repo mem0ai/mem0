@@ -149,6 +149,7 @@ Update the text or metadata of an existing memory.
 ```bash
 mem0 update <memory-id> "Updated preference text"
 mem0 update <memory-id> --metadata '{"priority": "high"}'
+mem0 update <memory-id> --clear-expiration
 echo "new text" | mem0 update <memory-id>
 ```
 

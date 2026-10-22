@@ -485,6 +485,7 @@ def cmd_update(
     metadata: str | None,
     expires: str | None = None,
     timestamp: int | None = None,
+    clear_expiration: bool = False,
     output: str,
 ) -> None:
     """Update a memory."""
@@ -493,6 +494,9 @@ def cmd_update(
     set_current_command("update")
     if is_agent_mode():
         output = "agent"
+    if clear_expiration and expires:
+        print_error(err_console, "--clear-expiration cannot be used with --expires.")
+        raise typer.Exit(1)
     meta = None
     if metadata:
         try:
@@ -513,6 +517,7 @@ def cmd_update(
                 metadata=meta,
                 expiration_date=expires,
                 timestamp=timestamp,
+                clear_expiration=clear_expiration,
             )
         except Exception as e:
             print_error(err_console, str(e))

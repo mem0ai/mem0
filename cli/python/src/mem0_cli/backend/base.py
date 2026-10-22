@@ -81,6 +81,7 @@ class Backend(ABC):
         *,
         expiration_date: str | None = None,
         timestamp: int | None = None,
+        clear_expiration: bool = False,
     ) -> dict: ...
 
     @abstractmethod

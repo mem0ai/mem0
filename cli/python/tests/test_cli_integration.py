@@ -143,6 +143,12 @@ class TestCLIIntegration:
         assert result.returncode == 0
         assert "page-size" in result.stdout
 
+    def test_update_help_clear_expiration(self):
+        result = _run(["update", "--help"])
+        assert result.returncode == 0
+        assert "--clear-expiration" in result.stdout
+        assert "--expires" in result.stdout
+
     def test_delete_help(self):
         result = _run(["delete", "--help"])
         assert result.returncode == 0

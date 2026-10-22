@@ -61,7 +61,7 @@ export interface DeleteOptions {
 }
 
 export interface UpdateOptions {
-	expirationDate?: string;
+	expirationDate?: string | null;
 	timestamp?: number;
 }
 
