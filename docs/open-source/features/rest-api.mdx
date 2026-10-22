@@ -202,6 +202,12 @@ ADMIN_API_KEY=your-long-admin-key
 
 ### Create and search memories via HTTP
 
+Each message may include an optional string `name` to identify its speaker.
+With `infer: false`, this name is stored as the memory's `actor_id`. For example,
+`{"role": "user", "name": "alice", "content": "I like tea."}` preserves Alice's
+attribution when several speakers share the same memory scope. Omit `name` for
+messages without a named speaker.
+
 ```bash
 curl -X POST http://localhost:8888/memories \
   -H "Content-Type: application/json" \

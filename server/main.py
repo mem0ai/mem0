@@ -175,6 +175,7 @@ app.include_router(requests_router.router)
 class Message(BaseModel):
     role: str = Field(..., description="Role of the message (user or assistant).")
     content: str = Field(..., description="Message content.")
+    name: Optional[str] = Field(None, description="Speaker name used for actor attribution.")
 
 
 class MemoryCreate(BaseModel):
@@ -372,7 +373,9 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
 
     params = {k: v for k, v in memory_create.model_dump().items() if v is not None and k != "messages"}
     try:
-        response = get_memory_instance().add(messages=[m.model_dump() for m in memory_create.messages], **params)
+        response = get_memory_instance().add(
+            messages=[m.model_dump(exclude_none=True) for m in memory_create.messages], **params
+        )
         if response.get("results"):
             telemetry.log_dashboard_nudge_once(DASHBOARD_URL)
         return JSONResponse(content=response)

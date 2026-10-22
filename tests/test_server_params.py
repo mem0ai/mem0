@@ -8,6 +8,7 @@ previously silently dropped by Pydantic v2's default extra='ignore' behavior.
 
 import importlib
 import os
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -155,6 +156,67 @@ class TestSearchLimitAndThreshold:
 # ===========================================================================
 # MemoryCreate: infer parameter
 # ===========================================================================
+
+class TestAddMessageName:
+    """Speaker attribution must survive the REST request-model boundary."""
+
+    def test_named_speakers_forwarded(self, client, mock_memory):
+        messages = [
+            {"role": "user", "name": "alice", "content": "Alice likes tea"},
+            {"role": "user", "name": "bob", "content": "Bob likes coffee"},
+        ]
+        response = client.post("/memories", json={"messages": messages, "user_id": "team", "infer": False})
+        assert response.status_code == 200
+        _, kwargs = mock_memory.add.call_args
+        assert kwargs["infer"] is False
+        assert kwargs["messages"] == messages
+
+    def test_unnamed_message_still_accepted(self, client, mock_memory):
+        response = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "I like tea"}],
+            "user_id": "u1",
+            "infer": False,
+        })
+        assert response.status_code == 200
+        _, kwargs = mock_memory.add.call_args
+        assert kwargs["messages"] == [{"role": "user", "content": "I like tea"}]
+
+    def test_names_reach_actor_metadata(self, client, mock_memory):
+        from mem0 import Memory
+
+        persisted = []
+        writer = SimpleNamespace(
+            embedding_model=SimpleNamespace(embed=lambda *args: [0.1]),
+            _create_memory=lambda text, embeddings, metadata: persisted.append(metadata) or "mem-1",
+        )
+
+        def add(messages, **params):
+            results = Memory._add_to_vector_store(writer, messages, {"user_id": "team"}, {}, params["infer"])
+            return {"results": results}
+
+        mock_memory.add.side_effect = add
+        response = client.post("/memories", json={
+            "messages": [
+                {"role": "user", "name": "alice", "content": "Tea"},
+                {"role": "user", "name": "bob", "content": "Coffee"},
+                {"role": "assistant", "content": "Understood"},
+            ],
+            "user_id": "team",
+            "infer": False,
+        })
+        assert response.status_code == 200
+        assert [item["actor_id"] for item in response.json()["results"]] == ["alice", "bob", None]
+        assert [item.get("actor_id") for item in persisted] == ["alice", "bob", None]
+
+    def test_invalid_name_rejected_before_memory_write(self, client, mock_memory):
+        response = client.post("/memories", json={
+            "messages": [{"role": "user", "name": {"unexpected": "object"}, "content": "Tea"}],
+            "user_id": "team",
+            "infer": False,
+        })
+        assert response.status_code == 422
+        mock_memory.add.assert_not_called()
+
 
 class TestAddInfer:
     """Verify that the infer parameter is accepted and forwarded to Memory.add()."""
