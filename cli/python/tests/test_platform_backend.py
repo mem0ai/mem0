@@ -68,8 +68,8 @@ class TestHistory:
 
     def test_history_404_raises_not_found(self):
         backend = _make_backend()
-        resp = MagicMock()
-        resp.status_code = 404
+        resp = MagicMock(status_code=404)
+        backend._client = MagicMock()
         backend._client.request.return_value = resp
         with pytest.raises(NotFoundError, match="Resource not found"):
             backend.history("missing-id")
