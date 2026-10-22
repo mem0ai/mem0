@@ -274,7 +274,7 @@ class ElasticsearchDB(VectorStoreBase):
         """Get information about a collection (index)."""
         return self.client.indices.get(index=name)
 
-    def list(self, filters: Optional[Dict] = None, top_k: Optional[int] = None) -> List[List[OutputData]]:
+    def list(self, filters: Optional[Dict] = None, top_k: Optional[int] = None) -> List[OutputData]:
         """List all memories."""
         query: Dict[str, Any] = {"query": {"match_all": {}}}
 
@@ -300,7 +300,7 @@ class ElasticsearchDB(VectorStoreBase):
                 )
             )
 
-        return [results]
+        return results
 
     def reset(self):
         """Reset the index by deleting and recreating it."""

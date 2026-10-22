@@ -1934,9 +1934,9 @@ class Memory(MemoryBase):
         deleted_count = 0
         seen_batches = set()
         while True:
-            memories = self.vector_store.list(
-                filters=filters, top_k=DELETE_ALL_BATCH_SIZE
-            )[0]
+            memories = _vector_store_list_rows(
+                self.vector_store.list(filters=filters, top_k=DELETE_ALL_BATCH_SIZE)
+            )
             if not memories:
                 break
             batch_ids = tuple(sorted(str(memory.id) for memory in memories))
@@ -3612,12 +3612,12 @@ class AsyncMemory(MemoryBase):
         errors = []
         seen_batches = set()
         while True:
-            memories = await asyncio.to_thread(
+            listed = await asyncio.to_thread(
                 self.vector_store.list,
                 filters=filters,
                 top_k=DELETE_ALL_BATCH_SIZE,
             )
-            batch = memories[0] if memories else []
+            batch = _vector_store_list_rows(listed)
             if not batch:
                 break
             batch_ids = tuple(sorted(str(memory.id) for memory in batch))
