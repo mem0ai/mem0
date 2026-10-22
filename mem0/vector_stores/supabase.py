@@ -168,12 +168,12 @@ class Supabase(VectorStoreBase):
             payload (Dict, optional): Updated payload
         """
         if vector is None:
-            # If only updating metadata, we need to get the existing vector
-            existing = self.get(vector_id)
-            if existing and existing.payload:
-                vector = existing.payload.get("vector", [])
+            # If only updating metadata, recover the stored embedding from the collection.
+            existing = self.collection.fetch([(vector_id,)])
+            if existing:
+                vector = existing[0][1]
 
-        if vector:
+        if vector is not None:
             self.collection.upsert([(vector_id, vector, payload or {})])
 
     def get(self, vector_id: str) -> Optional[OutputData]:
