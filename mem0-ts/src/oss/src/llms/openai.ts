@@ -42,10 +42,13 @@ export class OpenAILLM implements LLM {
       return {
         content: response.content || "",
         role: response.role,
-        toolCalls: response.tool_calls.map((call) => ({
-          name: call.function.name,
-          arguments: call.function.arguments,
-        })),
+        toolCalls: response.tool_calls
+          // In OpenAI SDK v5 the `tool_calls` entry type became a union that includes `ChatCompletionMessageCustomToolCall`, which has no `function` property.
+          .filter((call) => "function" in call)
+          .map((call) => ({
+            name: call.function.name,
+            arguments: call.function.arguments,
+          })),
       };
     }
 

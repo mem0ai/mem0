@@ -48,10 +48,12 @@ export class AzureOpenAILLM implements LLM {
       return {
         content: response.content || "",
         role: response.role,
-        toolCalls: response.tool_calls.map((call) => ({
-          name: call.function.name,
-          arguments: call.function.arguments,
-        })),
+        toolCalls: response.tool_calls
+          .filter((call) => "function" in call)
+          .map((call) => ({
+            name: call.function.name,
+            arguments: call.function.arguments,
+          })),
       };
     }
 
