@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -7,7 +8,7 @@ import pytest
 import pytz
 from valkey.exceptions import ResponseError
 
-from mem0.vector_stores.valkey import ValkeyDB
+from mem0.vector_stores.valkey import ValkeyDB, _redact_url
 
 
 @pytest.fixture
@@ -1092,3 +1093,38 @@ def test_escape_tag_value_normal_strings(valkey_db):
 def test_escape_tag_value_hyphenated_user_id(valkey_db):
     """Hyphenated user IDs must have the hyphen escaped for exact-match."""
     assert valkey_db._escape_tag_value("user-123") == r"user\-123"
+
+
+def test_connect_success_log_redacts_credentials(mock_valkey_client, caplog):
+    """The connection log must not contain the password embedded in the URL."""
+    with caplog.at_level(logging.DEBUG, logger="mem0.vector_stores.valkey"):
+        ValkeyDB(
+            valkey_url="rediss://default:super-secret-token@cache.example.com:6379",
+            collection_name="cred_col",
+            embedding_model_dims=4,
+        )
+    joined = "\n".join(record.getMessage() for record in caplog.records)
+    assert "super-secret-token" not in joined
+    assert "cache.example.com:6379" in joined
+
+
+def test_redact_url_drops_credentials():
+    """_redact_url removes userinfo but keeps scheme, host, port, and path."""
+    assert _redact_url("rediss://default:tok@example.com:6379") == "rediss://example.com:6379"
+    assert _redact_url("valkey://:pass@localhost:6379/0") == "valkey://localhost:6379/0"
+    assert _redact_url("valkey://localhost:6379") == "valkey://localhost:6379"
+
+
+def test_connect_failure_log_redacts_credentials(caplog):
+    """The ERROR-level connect-failure log must not contain the URL password."""
+    with patch("valkey.from_url", side_effect=ConnectionError("connection refused")):
+        with caplog.at_level(logging.DEBUG, logger="mem0.vector_stores.valkey"):
+            with pytest.raises(ConnectionError):
+                ValkeyDB(
+                    valkey_url="rediss://default:super-secret-token@cache.example.com:6379",
+                    collection_name="cred_col_fail",
+                    embedding_model_dims=4,
+                )
+    joined = "\n".join(record.getMessage() for record in caplog.records)
+    assert "super-secret-token" not in joined
+    assert "cache.example.com:6379" in joined

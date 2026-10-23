@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime
 from typing import Dict
+from urllib.parse import urlsplit, urlunsplit
 
 import numpy as np
 import pytz
@@ -13,6 +14,22 @@ from mem0.memory.utils import extract_json
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+
+def _redact_url(url: str) -> str:
+    """Return the URL with any embedded credentials dropped, keeping scheme, host, and port."""
+    try:
+        parts = urlsplit(url)
+        if parts.hostname is None:
+            return url
+        host = parts.hostname
+        if ":" in host:
+            host = f"[{host}]"
+        port = f":{parts.port}" if parts.port is not None else ""
+        return urlunsplit((parts.scheme, f"{host}{port}", parts.path, parts.query, parts.fragment))
+    except ValueError:
+        return "<unparseable-url>"
+
 
 # Default fields for the Valkey index
 DEFAULT_FIELDS = [
@@ -103,9 +120,9 @@ class ValkeyDB(VectorStoreBase):
                 self.client = ValkeyCluster.from_url(valkey_url)
             else:
                 self.client = valkey.from_url(valkey_url)
-            logger.debug(f"Successfully connected to Valkey at {valkey_url} (cluster_mode={cluster_mode})")
+            logger.debug(f"Successfully connected to Valkey at {_redact_url(valkey_url)} (cluster_mode={cluster_mode})")
         except Exception as e:
-            logger.exception(f"Failed to connect to Valkey at {valkey_url}: {e}")
+            logger.exception(f"Failed to connect to Valkey at {_redact_url(valkey_url)}: {e}")
             raise
 
         # Create the index schema
