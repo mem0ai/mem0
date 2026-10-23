@@ -19,6 +19,7 @@ from mem0_cli.commands.config_cmd import (
 from mem0_cli.commands.entities import cmd_entities_delete, cmd_entities_list
 from mem0_cli.commands.events_cmd import cmd_event_list, cmd_event_status
 from mem0_cli.commands.memory import (
+    _validate_expires,
     cmd_add,
     cmd_delete,
     cmd_delete_all,
@@ -363,6 +364,20 @@ class TestAddCommand:
         assert call_kwargs["metadata"] == {"source": "test"}
         assert call_kwargs["expires"] == "2099-01-01"
         assert call_kwargs["custom_categories"] == [{"prefs": "user preferences"}]
+
+
+class TestValidateExpires:
+    # https://github.com/mem0ai/mem0/issues/7713
+    @pytest.mark.parametrize("value", ["2099-02-30", "2099-13-01", "2099-00-10"])
+    def test_impossible_date_is_a_validation_error(self, value):
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises(TyperExit) as exc,
+        ):
+            _validate_expires(value)
+        assert exc.value.exit_code == 1
+        assert "is not a calendar date" in err_buf.getvalue()
 
 
 class TestAddDeduplicatesPending:
