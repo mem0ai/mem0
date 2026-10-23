@@ -1504,6 +1504,60 @@ class TestAsyncDeleteAllEntityRace:
 
         assert mock_vector_store.delete.call_count == 2
 
+    @pytest.mark.asyncio
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    async def test_async_delete_all_preserves_entity_links_on_partial_failure(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
+        """
+        Verify that when a memory vector deletion fails, async delete_all does not
+        wipe the entire entity store, and instead only cleans entity associations
+        for successfully deleted memories.
+        """
+        mock_embedder_factory.return_value = MagicMock()
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        mock_vector_store = MagicMock()
+        mem_a = MagicMock()
+        mem_a.id = "mem-a"
+        mem_a.payload = {"data": "Alice likes Python", "user_id": "alice"}
+        mem_b = MagicMock()
+        mem_b.id = "mem-b"
+        mem_b.payload = {"data": "Alice works at Acme", "user_id": "alice"}
+        mock_vector_store.list.side_effect = [([mem_a, mem_b],), ([],)]
+        mock_vector_store.get.side_effect = lambda vector_id: {"mem-a": mem_a, "mem-b": mem_b}[vector_id]
+
+        def delete_side_effect(vector_id):
+            if vector_id == "mem-a":
+                raise RuntimeError("Vector store delete error on mem-a")
+
+        mock_vector_store.delete.side_effect = delete_side_effect
+        mock_vector_factory.return_value = mock_vector_store
+
+        mock_entity_store = MagicMock()
+        entity_row = MagicMock()
+        entity_row.id = "entity-alice"
+        entity_row.payload = {
+            "data": "alice",
+            "user_id": "alice",
+            "linked_memory_ids": ["mem-a", "mem-b"],
+        }
+        mock_entity_store.list.return_value = ([entity_row],)
+
+        from mem0.memory.main import AsyncMemory
+        config = MemoryConfig()
+        memory = AsyncMemory(config)
+        memory._entity_store = mock_entity_store
+
+        await memory.delete_all(user_id="alice")
+
+        # Entire entity store must NOT be bulk wiped
+        mock_entity_store.delete.assert_not_called()
+
 
 @pytest.mark.asyncio
 @patch("mem0.memory.main.VectorStoreFactory")

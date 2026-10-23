@@ -3611,6 +3611,7 @@ class AsyncMemory(MemoryBase):
         deleted_count = 0
         errors = []
         seen_batches = set()
+        successful_memory_ids = []
         while True:
             memories = await asyncio.to_thread(
                 self.vector_store.list,
@@ -3630,14 +3631,19 @@ class AsyncMemory(MemoryBase):
                 for memory in batch
             ]
             results = await asyncio.gather(*delete_tasks, return_exceptions=True)
-            batch_errors = [
-                result for result in results if isinstance(result, BaseException)
-            ]
-            errors.extend(batch_errors)
-            deleted_count += len(results) - len(batch_errors)
+            for memory, result in zip(batch, results):
+                if isinstance(result, BaseException):
+                    errors.append(result)
+                else:
+                    successful_memory_ids.append(memory.id)
+            deleted_count = len(successful_memory_ids)
 
         if self._entity_store is not None:
-            await self._bulk_clear_entity_store(filters)
+            if not errors:
+                await self._bulk_clear_entity_store(filters)
+            else:
+                for memory_id in successful_memory_ids:
+                    await self._remove_memory_from_entity_store(memory_id, filters)
 
         if errors:
             logger.warning("Failed to delete %d memories", len(errors))
