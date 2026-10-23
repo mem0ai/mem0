@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime
 from typing import Dict
+from urllib.parse import urlsplit, urlunsplit
 
 import numpy as np
 import pytz
@@ -33,6 +34,21 @@ DEFAULT_FIELDS = [
 ]
 
 excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
+
+
+def _redact_url(valkey_url: str) -> str:
+    """Return the Valkey URL without its userinfo, for safe logging.
+
+    Managed Valkey/Redis endpoints authenticate via the URL
+    (``rediss://default:<token>@host:6379``), so the raw value must never reach a log sink.
+    """
+    try:
+        parts = urlsplit(valkey_url)
+    except ValueError:
+        return "<unparseable-valkey-url>"
+    if "@" not in parts.netloc:
+        return valkey_url
+    return urlunsplit((parts.scheme, parts.netloc.rpartition("@")[2], parts.path, parts.query, parts.fragment))
 
 
 class OutputData(BaseModel):
@@ -103,9 +119,9 @@ class ValkeyDB(VectorStoreBase):
                 self.client = ValkeyCluster.from_url(valkey_url)
             else:
                 self.client = valkey.from_url(valkey_url)
-            logger.debug(f"Successfully connected to Valkey at {valkey_url} (cluster_mode={cluster_mode})")
+            logger.debug(f"Successfully connected to Valkey at {_redact_url(valkey_url)} (cluster_mode={cluster_mode})")
         except Exception as e:
-            logger.exception(f"Failed to connect to Valkey at {valkey_url}: {e}")
+            logger.exception(f"Failed to connect to Valkey at {_redact_url(valkey_url)}: {e}")
             raise
 
         # Create the index schema

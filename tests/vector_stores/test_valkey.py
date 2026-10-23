@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -7,7 +8,7 @@ import pytest
 import pytz
 from valkey.exceptions import ResponseError
 
-from mem0.vector_stores.valkey import ValkeyDB
+from mem0.vector_stores.valkey import ValkeyDB, _redact_url
 
 
 @pytest.fixture
@@ -1092,3 +1093,36 @@ def test_escape_tag_value_normal_strings(valkey_db):
 def test_escape_tag_value_hyphenated_user_id(valkey_db):
     """Hyphenated user IDs must have the hyphen escaped for exact-match."""
     assert valkey_db._escape_tag_value("user-123") == r"user\-123"
+
+
+def test_connect_success_log_redacts_url_credentials(caplog):
+    """Regression for #7718: the connect-success DEBUG line must not log URL-embedded credentials."""
+    secret_url = "rediss://default:super-secret-token@cache.example.com:6379"
+    with patch("valkey.from_url") as mock_client:
+        mock_client.return_value.ft = MagicMock()
+        with caplog.at_level(logging.DEBUG, logger="mem0.vector_stores.valkey"):
+            ValkeyDB(valkey_url=secret_url, collection_name="demo", embedding_model_dims=4)
+
+    messages = "\n".join(record.getMessage() for record in caplog.records)
+    assert "super-secret-token" not in messages
+    assert "cache.example.com:6379" in messages
+
+
+def test_connect_failure_log_redacts_url_credentials(caplog):
+    """Regression for #7718: the connect-failure ERROR line (visible by default) must not log credentials."""
+    secret_url = "rediss://default:super-secret-token@cache.example.com:6379"
+    with patch("valkey.from_url", side_effect=ConnectionError("connection refused")):
+        with caplog.at_level(logging.DEBUG, logger="mem0.vector_stores.valkey"):
+            with pytest.raises(ConnectionError):
+                ValkeyDB(valkey_url=secret_url, collection_name="demo", embedding_model_dims=4)
+
+    messages = "\n".join(record.getMessage() for record in caplog.records)
+    assert "super-secret-token" not in messages
+    assert "cache.example.com:6379" in messages
+
+
+def test_redact_url_variants():
+    assert _redact_url("rediss://default:token@cache.example.com:6379") == "rediss://cache.example.com:6379"
+    assert _redact_url("redis://:password@host.example.com") == "redis://host.example.com"
+    assert _redact_url("rediss://token@cache.example.com") == "rediss://cache.example.com"
+    assert _redact_url("valkey://localhost:6379") == "valkey://localhost:6379"
