@@ -45,6 +45,7 @@ import {
   OPENCLAW_CONFIG_FILE,
 } from "./config-file.ts";
 import { jsonOut, jsonErr, redactSecrets } from "./json-helpers.ts";
+import { parseRecallTimeoutMs } from "../config.ts";
 import {
   LLM_PROVIDERS, EMBEDDER_PROVIDERS, VECTOR_PROVIDERS,
   buildOssLlmConfig, buildOssEmbedderConfig, buildOssVectorConfig,
@@ -1287,6 +1288,7 @@ export function registerCliCommands(
         auto_recall: "autoRecall",
         auto_capture: "autoCapture",
         top_k: "topK",
+        recall_timeout_ms: "recallTimeoutMs",
         mode: "mode",
         embedder_provider: "oss.embedder.provider",
         embedder_model: "oss.embedder.config.model",
@@ -1316,7 +1318,7 @@ export function registerCliCommands(
       ]);
 
       // Integer config fields — coerce to number on set
-      const INTEGER_KEYS = new Set(["topK", "oss.vectorStore.config.port"]);
+      const INTEGER_KEYS = new Set(["topK", "recallTimeoutMs", "oss.vectorStore.config.port"]);
 
       /** Resolve a user-facing key to the internal camelCase field name. */
       function resolveConfigKey(key: string): string | null {
@@ -1344,6 +1346,7 @@ export function registerCliCommands(
           autoRecall: cfg.autoRecall,
           autoCapture: cfg.autoCapture,
           topK: cfg.topK,
+          recallTimeoutMs: auth.recallTimeoutMs ?? cfg.recallTimeoutMs,
         };
         return values[field];
       }
@@ -1372,6 +1375,7 @@ export function registerCliCommands(
               ["auto_recall", "autoRecall"],
               ["auto_capture", "autoCapture"],
               ["top_k", "topK"],
+              ["recall_timeout_ms", "recallTimeoutMs"],
             ];
             if (cfg.mode === "platform") {
               showEntries.push(["api_key", "apiKey"], ["email", "userEmail"]);
@@ -1405,6 +1409,7 @@ export function registerCliCommands(
             ["auto_recall", "autoRecall"],
             ["auto_capture", "autoCapture"],
             ["top_k", "topK"],
+            ["recall_timeout_ms", "recallTimeoutMs"],
           ];
 
           if (cfg.mode === "platform") {
@@ -1507,13 +1512,19 @@ export function registerCliCommands(
               rawValue === "1" ||
               rawValue.toLowerCase() === "yes";
           } else if (INTEGER_KEYS.has(field)) {
-            const parsed = parseInt(rawValue, 10);
-            if (isNaN(parsed)) {
-              if (jsonErr(opts, `Invalid integer value: ${rawValue}`)) return;
-              console.error(`Invalid integer value: ${rawValue}`);
+            try {
+              value = field === "recallTimeoutMs"
+                ? parseRecallTimeoutMs(rawValue)
+                : Number.parseInt(rawValue, 10);
+              if (!Number.isInteger(value)) throw new Error();
+            } catch {
+              const message = field === "recallTimeoutMs"
+                ? `Invalid recall timeout value: ${rawValue}`
+                : `Invalid integer value: ${rawValue}`;
+              if (jsonErr(opts, message)) return;
+              console.error(message);
               return;
             }
-            value = parsed;
           }
 
           // Nested OSS fields use dot-path writer; flat fields use auth writer
