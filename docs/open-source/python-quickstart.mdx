@@ -73,6 +73,15 @@ print(results)
 ```
 
 </Step>
+
+<Step title="Delete a memory">
+```python
+if results["results"]:
+    memory_id = results["results"][0]["id"]
+    m.delete(memory_id=memory_id)
+    print(f"Deleted memory {memory_id}")
+```
+</Step>
 </Steps>
 
 <Snippet file="star-on-github.mdx" />
