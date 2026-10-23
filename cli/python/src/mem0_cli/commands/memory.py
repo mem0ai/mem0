@@ -51,12 +51,19 @@ def _stdin_is_piped() -> bool:
 
 def _validate_expires(value: str) -> None:
     """Exit 1 if value is not a future YYYY-MM-DD date."""
-    if not re.match(r"^\d{4}-\d{2}-\d{2}$", value):
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         print_error(
             err_console, "Invalid date format for --expires. Use YYYY-MM-DD (e.g. 2025-12-31)."
         )
         raise typer.Exit(1)
-    if date.fromisoformat(value) <= date.today():
+    try:
+        expires_on = date.fromisoformat(value)
+    except ValueError:
+        print_error(
+            err_console, f"Invalid date for --expires. {value} is not a valid calendar date."
+        )
+        raise typer.Exit(1) from None
+    if expires_on <= date.today():
         print_error(err_console, "--expires date must be in the future.")
         raise typer.Exit(1)
 

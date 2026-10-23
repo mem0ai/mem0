@@ -365,6 +365,80 @@ class TestAddCommand:
         assert call_kwargs["custom_categories"] == [{"prefs": "user preferences"}]
 
 
+class TestExpiresValidation:
+    """--expires must fail with a clean CLI error, not an uncaught ValueError."""
+
+    def test_add_rejects_impossible_calendar_date(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),pytest.raises(TyperExit)
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires="2099-02-30",
+                categories=None,
+                output="text",
+            )
+        assert "Invalid date for --expires" in err_buf.getvalue()
+        mock_backend.add.assert_not_called()
+
+    def test_add_rejects_trailing_newline(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),pytest.raises(TyperExit)
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires="2099-01-01\n",
+                categories=None,
+                output="text",
+            )
+        assert "Invalid date format" in err_buf.getvalue()
+        mock_backend.add.assert_not_called()
+
+    def test_update_rejects_impossible_calendar_date(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),pytest.raises(TyperExit)
+        ):
+            cmd_update(
+                mock_backend,
+                "mem-1",
+                "updated",
+                metadata=None,
+                expires="2099-02-30",
+                output="text",
+            )
+        assert "Invalid date for --expires" in err_buf.getvalue()
+        mock_backend.update.assert_not_called()
+
+
 class TestAddDeduplicatesPending:
     """Ensure duplicate PENDING entries with the same event_id are collapsed."""
 
