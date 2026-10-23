@@ -37,3 +37,22 @@ def test_llm_factory_preserves_http_client_proxies():
     llm = LlmFactory.create("openai", base)
     assert llm.config.http_client_proxies == "http://proxy.local:8080"
     assert isinstance(llm.config.http_client, httpx.Client)
+
+
+def test_xai_llm_preserves_http_client_proxies_from_base_config():
+    """XAILLM converts a BaseLlmConfig to XAIConfig directly; the proxy setting must survive.
+
+    Every other provider forwards config.http_client_proxies in this conversion. xAI
+    forwarded the already-built config.http_client instead, which build_http_client then
+    tried to treat as a proxy, crashing whenever a proxy was configured.
+    """
+    from mem0.llms.xai import XAILLM
+
+    base = BaseLlmConfig(
+        model="grok-4",
+        api_key="sk-test",
+        http_client_proxies="http://proxy.local:8080",
+    )
+    llm = XAILLM(base)
+    assert llm.config.http_client_proxies == "http://proxy.local:8080"
+    assert isinstance(llm.config.http_client, httpx.Client)
