@@ -63,6 +63,50 @@ await memory.add(messages, { userId: 'alice', metadata: { category: 'movies' } }
 ```
 </CodeGroup>
 
+### Model-specific parameters
+
+Python users can pass model-specific LiteLLM parameters directly in the LLM config. For Gemini models, set a Gemini API key and use `reasoning_effort` to control thinking token usage:
+
+```python
+import os
+
+os.environ["GEMINI_API_KEY"] = "your-gemini-api-key"
+
+config = {
+    "llm": {
+        "provider": "litellm",
+        "config": {
+            "model": "gemini/gemini-3-flash-preview",
+            "reasoning_effort": "low",
+            "temperature": 0.0,
+            "max_tokens": 8192,
+        },
+    }
+}
+```
+
+You can also keep model-specific parameters with the model name:
+
+```python
+import os
+
+os.environ["GEMINI_API_KEY"] = "your-gemini-api-key"
+
+config = {
+    "llm": {
+        "provider": "litellm",
+        "config": {
+            "model": {
+                "name": "gemini/gemini-3-flash-preview",
+                "reasoning_effort": "low",
+            },
+            "temperature": 0.0,
+            "max_tokens": 8192,
+        },
+    }
+}
+```
+
 ## Config
 
 All available parameters for the `litellm` config are present in [Master List of All Params in Config](../config).
