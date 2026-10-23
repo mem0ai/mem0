@@ -33,6 +33,9 @@ class BaseEmbedderConfig(ABC):
         memory_search_embedding_type: Optional[str] = None,
         # Gemini specific
         output_dimensionality: Optional[str] = None,
+        vertexai: Optional[bool] = None,
+        project: Optional[str] = None,
+        location: Optional[str] = None,
         # LM Studio specific
         lmstudio_base_url: Optional[str] = "http://localhost:1234/v1",
         # AWS Bedrock specific
@@ -72,6 +75,13 @@ class BaseEmbedderConfig(ABC):
         :type memory_search_embedding_type: Optional[str], optional
         :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
+        :param vertexai: Whether to use the Vertex AI backend for Gemini embeddings. If None, checks the
+            GOOGLE_GENAI_USE_VERTEXAI env var. Mirrors ``GeminiConfig`` on the LLM side.
+        :type vertexai: Optional[bool], optional
+        :param project: GCP project ID for Vertex AI. If None, checks the GOOGLE_CLOUD_PROJECT env var.
+        :type project: Optional[str], optional
+        :param location: GCP location for Vertex AI. If None, checks the GOOGLE_CLOUD_LOCATION env var.
+        :type location: Optional[str], optional
         """
 
         self.model = model
@@ -100,6 +110,15 @@ class BaseEmbedderConfig(ABC):
 
         # Gemini specific
         self.output_dimensionality = output_dimensionality
+        # Vertex AI backend for the `gemini` embedder. Defaults are read from the
+        # same environment variables `GeminiConfig` uses on the LLM side, so a
+        # deployment that already routes mem0's Gemini LLM through Vertex does
+        # not need extra configuration for the embedder.
+        if vertexai is None:
+            vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("true", "1", "yes")
+        self.vertexai = vertexai
+        self.project = project or os.getenv("GOOGLE_CLOUD_PROJECT")
+        self.location = location or os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 
         # LM Studio specific
         self.lmstudio_base_url = lmstudio_base_url
