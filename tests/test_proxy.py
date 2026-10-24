@@ -1,4 +1,7 @@
+import builtins
+import importlib
 import inspect
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -83,6 +86,25 @@ def test_completions_create(mock_memory_client, mock_litellm):
     assert response == {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
 
 
+def test_completions_create_keeps_filters_out_of_add(mock_memory_client, mock_litellm):
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = []
+    mock_litellm.supports_function_calling.return_value = True
+
+    with patch("mem0.proxy.main.threading.Thread") as mock_thread:
+        mock_thread.side_effect = lambda target, daemon: Mock(start=target)
+        completions.create(
+            model="gpt-4.1-nano-2025-04-14",
+            messages=[{"role": "user", "content": "Hello"}],
+            user_id="test_user",
+            filters={"categories": {"in": ["travel"]}},
+        )
+
+    assert "filters" not in mock_memory_client.add.call_args.kwargs
+    assert mock_memory_client.add.call_args.kwargs["user_id"] == "test_user"
+    assert mock_memory_client.search.call_args.kwargs["filters"] == {"categories": {"in": ["travel"]}}
+
+
 def test_completions_create_with_system_message(mock_memory_client, mock_litellm):
     completions = Completions(mock_memory_client)
 
@@ -138,3 +160,20 @@ def test_completions_create_messages_default_does_not_leak_between_calls(mock_me
         f"Completions.create(messages=...) must default to None to avoid the "
         f"B006 shared-default-list bug; got {messages_default!r}."
     )
+
+
+def test_missing_litellm_raises_actionable_import_error(monkeypatch):
+    monkeypatch.delitem(sys.modules, "mem0.proxy.main", raising=False)
+    monkeypatch.delitem(sys.modules, "litellm", raising=False)
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "litellm":
+            raise ImportError("No module named 'litellm'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    with pytest.raises(ImportError, match="pip install litellm"):
+        importlib.import_module("mem0.proxy.main")

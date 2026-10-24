@@ -14,7 +14,7 @@ export default {
 	noun: 'Memory',
 	display: {
 		label: 'Delete Memory',
-		description: 'Delete a single memory by its ID.',
+		description: 'Deletes a memory by its ID.',
 	},
 	operation: {
 		perform,

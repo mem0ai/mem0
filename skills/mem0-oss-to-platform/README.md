@@ -71,7 +71,7 @@ curl -X POST https://api.anthropic.com/v1/skills \
 
 - [Mem0 Platform Dashboard](https://app.mem0.ai)
 - [Mem0 Documentation](https://docs.mem0.ai)
-- [OSS → Platform migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3)
+- [OSS → Platform migration guide](https://docs.mem0.ai/migration/oss-to-platform)
 - [Platform vs OSS comparison](https://docs.mem0.ai/platform/platform-vs-oss)
 
 ## License

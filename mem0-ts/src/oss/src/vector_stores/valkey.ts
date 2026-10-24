@@ -2,6 +2,7 @@ import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreResult } from "../types";
 import { ValkeyConfig } from "../types/valkey";
 import { loadPeer } from "../utils/load_peer";
+import { toCamelCasePreservingIds } from "../utils/casing";
 
 interface ValkeyClient {
   call: (...args: (string | number | Buffer)[]) => Promise<unknown>;
@@ -40,16 +41,6 @@ function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   return Object.fromEntries(
     Object.entries(obj).map(([key, value]) => [
       key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`),
-      value,
-    ]),
-  );
-}
-
-function toCamelCase(obj: Record<string, any>): Record<string, any> {
-  if (typeof obj !== "object" || obj === null) return obj;
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [
-      key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase()),
       value,
     ]),
   );
@@ -388,7 +379,7 @@ export class ValkeyDB implements VectorStore {
 
     return {
       id: doc.memory_id ?? "",
-      payload: toCamelCase(resultPayload),
+      payload: toCamelCasePreservingIds(resultPayload),
       score,
     };
   }

@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -6,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.exceptions import LLMError
+from mem0.exceptions import LLMError, VectorStoreError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -1178,3 +1179,157 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+class TestPartialInsertFailure:
+    """Records the vector store rejects must never be reported as successful ADDs (#6911)."""
+
+    LLM_RESPONSE = json.dumps(
+        {
+            "memory": [
+                {"text": "User's name is Aryan"},
+                {"text": "User is allergic to penicillin"},
+                {"text": "User works as an engineer"},
+            ]
+        }
+    )
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda texts, action: [[0.1, 0.2, 0.3] for _ in texts])
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        return memory
+
+    def test_rejected_records_are_not_reported_as_add(self, mock_memory):
+        """A record rejected by the vector store must be absent from results and history."""
+        poison = "User is allergic to penicillin"
+        real_insert = mock_memory.vector_store.insert
+
+        def flaky_insert(vectors, ids, payloads):
+            if len(ids) > 1:
+                raise RuntimeError("batch insert rejected")
+            if payloads[0]["data"] == poison:
+                raise RuntimeError("record rejected by vector store")
+            return real_insert(vectors=vectors, ids=ids, payloads=payloads)
+
+        mock_memory.vector_store.insert = Mock(side_effect=flaky_insert)
+        mock_memory.llm.generate_response.return_value = self.LLM_RESPONSE
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "My name is Aryan. I work as an engineer."}],
+            metadata={},
+            filters={},
+            infer=True,
+        )
+
+        assert [r["memory"] for r in result] == [
+            "User's name is Aryan",
+            "User works as an engineer",
+        ]
+        assert all(r["event"] == "ADD" for r in result)
+
+        history = mock_memory.db.batch_add_history.call_args.args[0]
+        assert {h["new_memory"] for h in history} == {
+            "User's name is Aryan",
+            "User works as an engineer",
+        }
+
+    def test_all_inserts_failed_raises_vector_store_error(self, mock_memory):
+        """If nothing persisted, add() must raise VectorStoreError instead of reporting success."""
+        mock_memory.vector_store.insert = Mock(side_effect=RuntimeError("vector store down"))
+        mock_memory.llm.generate_response.return_value = self.LLM_RESPONSE
+
+        with pytest.raises(VectorStoreError, match="Failed to insert any"):
+            mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+        # Raw messages are still saved so a later retry can re-extract them.
+        mock_memory.db.save_messages.assert_called_once()
+
+
+@pytest.mark.asyncio
+class TestAsyncPartialInsertFailure:
+    """Async mirror of TestPartialInsertFailure (#6911)."""
+
+    LLM_RESPONSE = TestPartialInsertFailure.LLM_RESPONSE
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda texts, action: [[0.1, 0.2, 0.3] for _ in texts])
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        return memory
+
+    async def test_rejected_records_are_not_reported_as_add(self, mock_async_memory):
+        poison = "User is allergic to penicillin"
+        real_insert = mock_async_memory.vector_store.insert
+
+        def flaky_insert(vectors, ids, payloads):
+            if len(ids) > 1:
+                raise RuntimeError("batch insert rejected")
+            if payloads[0]["data"] == poison:
+                raise RuntimeError("record rejected by vector store")
+            return real_insert(vectors=vectors, ids=ids, payloads=payloads)
+
+        mock_async_memory.vector_store.insert = Mock(side_effect=flaky_insert)
+        mock_async_memory.llm.generate_response.return_value = self.LLM_RESPONSE
+
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "My name is Aryan. I work as an engineer."}],
+            metadata={},
+            effective_filters={},
+            infer=True,
+        )
+
+        assert [r["memory"] for r in result] == [
+            "User's name is Aryan",
+            "User works as an engineer",
+        ]
+
+        history = mock_async_memory.db.batch_add_history.call_args.args[0]
+        assert {h["new_memory"] for h in history} == {
+            "User's name is Aryan",
+            "User works as an engineer",
+        }
+
+    async def test_all_inserts_failed_raises_vector_store_error(self, mock_async_memory):
+        mock_async_memory.vector_store.insert = Mock(side_effect=RuntimeError("vector store down"))
+        mock_async_memory.llm.generate_response.return_value = self.LLM_RESPONSE
+
+        with pytest.raises(VectorStoreError, match="Failed to insert any"):
+            await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}],
+                metadata={},
+                effective_filters={},
+                infer=True,
+            )
+
+        mock_async_memory.db.save_messages.assert_called_once()

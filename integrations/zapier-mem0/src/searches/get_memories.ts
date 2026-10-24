@@ -1,11 +1,8 @@
 import type { ZObject, Bundle, Memory } from '../types';
-import { captureEvent } from '../telemetry';
 
 const perform = async (z: ZObject, bundle: Bundle): Promise<Memory[]> => {
 	const body: Record<string, unknown> = {};
 	if (bundle.inputData.user_id) body.filters = { user_id: bundle.inputData.user_id };
-
-	captureEvent('zapier.get_memories', bundle.authData?.apiKey);
 
 	const response = await z.request({
 		url: '/v3/memories/',
@@ -25,8 +22,8 @@ export default {
 	key: 'get_memories',
 	noun: 'Memory',
 	display: {
-		label: 'Get Memories',
-		description: 'List stored memories for a user.',
+		label: 'Find Memories by User',
+		description: 'Finds all stored memories for a user.',
 	},
 	operation: {
 		perform,

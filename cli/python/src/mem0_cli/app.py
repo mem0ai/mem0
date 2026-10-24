@@ -371,7 +371,11 @@ def search(
         False, "--keyword", help="Use keyword search.", rich_help_panel="Search"
     ),
     filter_json: str | None = typer.Option(
-        None, "--filter", help="Advanced filter expression (JSON).", rich_help_panel="Search"
+        None,
+        "--filter",
+        help='Advanced filter as JSON: {"AND": [...]} or {"OR": [...]}, '
+        'e.g. {"AND": [{"categories": {"in": ["work"]}}]}.',
+        rich_help_panel="Search",
     ),
     fields: str | None = typer.Option(
         None,
@@ -414,6 +418,7 @@ def search(
       mem0 search "preferences" --user-id alice
       mem0 search "tools" -u alice -o json -k 5
       echo "preferences" | mem0 search -u alice
+      mem0 search "invoices" -u alice --filter '{"AND": [{"categories": {"in": ["work"]}}]}'
     """
     from mem0_cli.commands.memory import cmd_search
 
@@ -1084,6 +1089,18 @@ def status(
     )
 
 
+@app.command(rich_help_panel="Management")
+def version() -> None:
+    """Show version and exit.
+
+    Example:
+      mem0 version
+    """
+    from mem0_cli.commands.utils import cmd_version
+
+    cmd_version()
+
+
 @app.command("import", rich_help_panel="Management")
 def import_cmd(
     file_path: str = typer.Argument(..., help="JSON file to import."),
@@ -1165,7 +1182,10 @@ def _build_help_json() -> dict:
                 "--threshold": "Minimum similarity score (default: 0.3).",
                 "--rerank": "Enable reranking (Platform only).",
                 "--keyword": "Use keyword search instead of semantic.",
-                "--filter": "Advanced filter expression (JSON).",
+                "--filter": (
+                    'Advanced filter as JSON: {"AND": [...]} or {"OR": [...]}, '
+                    'e.g. {"AND": [{"categories": {"in": ["work"]}}]}.'
+                ),
                 "--fields": "Specific fields to return (comma-separated).",
                 "--show-expired": "Include expired memories.",
                 "--reference-date": "Reference date for relative queries (YYYY-MM-DD or unix timestamp).",

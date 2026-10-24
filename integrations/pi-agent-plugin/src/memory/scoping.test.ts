@@ -63,8 +63,8 @@ describe("resolveSearchFilters", () => {
     expect(resolveSearchFilters("session", ctx)).toEqual({ user_id: "u1", app_id: "a1", run_id: "r1" });
   });
 
-  it("uses wildcard app_id for global scope", () => {
-    expect(resolveSearchFilters("global", ctx)).toEqual({ user_id: "u1", app_id: "*" });
+  it("limits global scope to the configured user", () => {
+    expect(resolveSearchFilters("global", ctx)).toEqual({ user_id: "u1" });
   });
 });
 

@@ -91,7 +91,12 @@ class TestCLIIntegration:
         flag = _run(["--version"])
         assert flag.returncode == 0
         assert __version__ in flag.stdout
-        assert _run(["version"]).returncode != 0
+
+    def test_version_subcommand_matches_flag_byte_for_byte(self):
+        flag = _run(["--version"])
+        cmd = _run(["version"])
+        assert cmd.returncode == 0
+        assert cmd.stdout == flag.stdout
 
     @pytest.mark.parametrize(
         "args",
@@ -126,6 +131,12 @@ class TestCLIIntegration:
         result = _run(["search", "--help"])
         assert result.returncode == 0
         assert "top-k" in result.stdout
+
+    def test_search_help_documents_filter_json_shape(self):
+        result = _run(["search", "--help"])
+        assert result.returncode == 0
+        assert "AND" in result.stdout
+        assert "categories" in result.stdout
 
     def test_list_help(self):
         result = _run(["list", "--help"])

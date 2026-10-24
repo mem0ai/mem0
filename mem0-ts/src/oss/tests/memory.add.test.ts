@@ -269,9 +269,7 @@ describe("Memory - add()", () => {
         "runId",
         "actor_id",
       ]) {
-        if (key !== canonicalKey) {
-          expect(stored!.metadata).not.toHaveProperty(key);
-        }
+        expect(stored!.metadata).not.toHaveProperty(key);
       }
     },
   );
@@ -307,10 +305,7 @@ describe("Memory - add()", () => {
         }
       }
       expect(stored!.metadata).toEqual(
-        expect.objectContaining({
-          [filterKey]: filterValue,
-          ordinary: "preserved",
-        }),
+        expect.objectContaining({ ordinary: "preserved" }),
       );
       for (const key of [
         "user_id",
@@ -321,7 +316,6 @@ describe("Memory - add()", () => {
         "runId",
         "actor_id",
       ]) {
-        if (key === filterKey) continue;
         expect(stored!.metadata).not.toHaveProperty(key);
       }
     },

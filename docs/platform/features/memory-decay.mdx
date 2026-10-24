@@ -64,7 +64,7 @@ client.project.update(decay=True)
 ```
 
 ```javascript JavaScript
-await client.project.update({ decay: true });
+await client.updateProject({ decay: true });
 ```
 
 ```bash cURL
@@ -75,32 +75,32 @@ curl -X PATCH https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PR
 ```
 
 ```json Response
-{ "message": "Updated decay" }
+{ "message": "Project updated successfully" }
 ```
 </CodeGroup>
 
 ### 2. Confirm the state
 
-`decay` is returned on every project read; there is currently no way to narrow the response to just this field, so read the full project object and pick out `decay`.
+`decay` is returned on every project read. To fetch only this field, use `?fields=decay`.
 
 <CodeGroup>
 ```python Python
-response = client.project.get()
+response = client.project.get(fields=["decay"])
 print(response["decay"])
 ```
 
 ```javascript JavaScript
-const response = await client.project.get();
+const response = await client.getProject({ fields: ["decay"] });
 console.log(response.decay);
 ```
 
 ```bash cURL
-curl "https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/" \
+curl "https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/?fields=decay" \
   -H "Authorization: Token $MEM0_API_KEY"
 ```
 
 ```json Response
-{ "decay": true, "...": "full project object" }
+{ "decay": true }
 ```
 </CodeGroup>
 
@@ -114,7 +114,7 @@ client.project.update(decay=False)
 ```
 
 ```javascript JavaScript
-await client.project.update({ decay: false });
+await client.updateProject({ decay: false });
 ```
 
 ```bash cURL

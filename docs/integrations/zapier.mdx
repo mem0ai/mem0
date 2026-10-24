@@ -14,7 +14,7 @@ Zaps fire and forget. The [Mem0](https://mem0.ai) app gives them memory: store d
 
 ## Prerequisites
 
-1. A Mem0 API key from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-zapier" rel="nofollow">API Keys dashboard</a> (sign up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-zapier" rel="nofollow">app.mem0.ai</a> if you do not have an account).
+1. A Mem0 API key from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-zapier">API Keys dashboard</a> (sign up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-zapier">app.mem0.ai</a> if you do not have an account).
 2. A Zapier account on any plan.
 
 <Note>
@@ -126,7 +126,7 @@ The **User ID** is a stable string you pick to identify whose memories these are
 ## Troubleshooting
 
 - **Mem0 does not appear in the Zap editor**: the app is not yet in the public App Directory. Email [support@mem0.ai](mailto:support@mem0.ai) for an invite link.
-- **The connection fails when you paste the key**: check that it starts with `m0-` and has not been revoked in the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-zapier" rel="nofollow">API Keys dashboard</a>.
+- **The connection fails when you paste the key**: check that it starts with `m0-` and has not been revoked in the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-zapier">API Keys dashboard</a>.
 - **Search returns nothing right after an Add**: extraction is asynchronous. Turn on **Wait for Completion**, or put a Zapier **Delay** step before the Search.
 - **"Metadata must be valid JSON" or "Custom Categories must be valid JSON"**: those fields take raw JSON. Check for smart quotes and trailing commas.
 - **The Add step times out**: the memory was still accepted and is likely finishing server-side. Confirm with **Get Memories** before re-running.

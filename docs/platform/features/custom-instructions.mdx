@@ -1,5 +1,6 @@
 ---
-title: Custom Instructions
+title: "Platform Custom Instructions"
+sidebarTitle: "Custom Instructions"
 description: 'Control how Mem0 extracts and stores memories using natural language guidelines'
 ---
 
@@ -152,7 +153,7 @@ Both fields are also accepted per request, overriding the project setting for th
 ```python Python
 client.add(
     messages,
-    filters={"agent_id": "support-agent"},
+    agent_id="support-agent",
     agent_custom_instructions="Only remember which tools errored and why.",
 )
 ```
