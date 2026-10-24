@@ -997,7 +997,7 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
 
     result = await memory.delete_all(user_id="test-user")
 
-    assert result == {"message": "Memories deleted successfully!"}
+    assert result == {"message": "Memories deleted successfully!", "failed": ["mem-2"]}
     assert mock_vector_store.delete.call_count == 2
     assert mock_vector_store.list.call_args_list[0].kwargs == {
         "filters": {"user_id": "test-user"},

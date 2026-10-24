@@ -3588,6 +3588,11 @@ class AsyncMemory(MemoryBase):
             user_id (str, optional): ID of the user to delete memories for. Defaults to None.
             agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
             run_id (str, optional): ID of the run to delete memories for. Defaults to None.
+
+        Returns:
+            dict: Response message. When some deletions failed, a `failed` key lists
+            the memory IDs that could not be deleted, so partial deletes are
+            distinguishable from full ones and retries can target the survivors.
         """
         user_id = _validate_and_trim_entity_id(user_id, "user_id")
         agent_id = _validate_and_trim_entity_id(agent_id, "agent_id")
@@ -3610,6 +3615,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
         deleted_count = 0
         errors = []
+        failed_memory_ids = set()
         seen_batches = set()
         while True:
             memories = await asyncio.to_thread(
@@ -3634,10 +3640,22 @@ class AsyncMemory(MemoryBase):
                 result for result in results if isinstance(result, BaseException)
             ]
             errors.extend(batch_errors)
+            for memory, result in zip(batch, results):
+                if isinstance(result, BaseException):
+                    failed_memory_ids.add(str(memory.id))
+                else:
+                    failed_memory_ids.discard(str(memory.id))
             deleted_count += len(results) - len(batch_errors)
 
         if self._entity_store is not None:
-            await self._bulk_clear_entity_store(filters)
+            if errors:
+                # Only clean confirmed successes: a repeated failed batch can
+                # stop pagination before other live memories have been visited.
+                attempted_ids = {memory_id for batch_ids in seen_batches for memory_id in batch_ids}
+                for memory_id in attempted_ids - failed_memory_ids:
+                    await self._remove_memory_from_entity_store(memory_id, filters)
+            else:
+                await self._bulk_clear_entity_store(filters)
 
         if errors:
             logger.warning("Failed to delete %d memories", len(errors))
@@ -3651,7 +3669,10 @@ class AsyncMemory(MemoryBase):
             await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
         else:
             await display_first_run_notice_async(self, "async", "delete_all")
-        return {"message": "Memories deleted successfully!"}
+        response = {"message": "Memories deleted successfully!"}
+        if failed_memory_ids:
+            response["failed"] = sorted(failed_memory_ids)
+        return response
 
     async def history(self, memory_id):
         """
