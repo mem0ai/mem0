@@ -1554,3 +1554,88 @@ class TestAgentMode:
         # In agent mode it should be empty (no status lines printed)
         err_output = err_buf.getvalue()
         assert "Searching" not in err_output
+
+
+class TestExpiresValidation:
+    def test_add_impossible_calendar_date_exits(self, mock_backend):
+        """A well-shaped but nonexistent date (2099-02-30) exits cleanly instead of
+        escaping date.fromisoformat's ValueError as a traceback."""
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises(TyperExit),
+        ):
+            cmd_add(
+                mock_backend,
+                "I prefer dark mode",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires="2099-02-30",
+                categories=None,
+                output="text",
+            )
+        mock_backend.add.assert_not_called()
+        assert "not a valid calendar date" in err_buf.getvalue()
+
+    def test_update_impossible_calendar_date_exits(self, mock_backend):
+        console, _buf = _make_console()
+        err_console, err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            pytest.raises(TyperExit),
+        ):
+            cmd_update(
+                mock_backend,
+                "abc-123",
+                "Updated content",
+                metadata=None,
+                expires="2100-04-31",
+                output="text",
+            )
+        mock_backend.update.assert_not_called()
+        assert "not a valid calendar date" in err_buf.getvalue()
+
+    def test_add_impossible_calendar_date_agent_mode_envelope(self, mock_backend, capsys):
+        """Agent mode receives the JSON error envelope instead of a traceback."""
+        from mem0_cli.state import set_agent_mode
+
+        set_agent_mode(True)
+        try:
+            console, _buf = _make_console()
+            err_console, _err_buf = _make_err_console()
+            with (
+                patch("mem0_cli.commands.memory.console", console),
+                patch("mem0_cli.commands.memory.err_console", err_console),
+                pytest.raises(TyperExit),
+            ):
+                cmd_add(
+                    mock_backend,
+                    "I prefer dark mode",
+                    user_id="alice",
+                    agent_id=None,
+                    app_id=None,
+                    run_id=None,
+                    messages=None,
+                    file=None,
+                    metadata=None,
+                    immutable=False,
+                    no_infer=False,
+                    expires="2099-02-30",
+                    categories=None,
+                    output="text",
+                )
+        finally:
+            set_agent_mode(False)
+        envelope = json.loads(capsys.readouterr().out)
+        assert envelope["status"] == "error"
+        assert "not a valid calendar date" in envelope["error"]

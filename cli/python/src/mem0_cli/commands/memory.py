@@ -56,7 +56,14 @@ def _validate_expires(value: str) -> None:
             err_console, "Invalid date format for --expires. Use YYYY-MM-DD (e.g. 2025-12-31)."
         )
         raise typer.Exit(1)
-    if date.fromisoformat(value) <= date.today():
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError:
+        # Well-shaped but nonexistent calendar date (e.g. 2099-02-30); without this
+        # the ValueError escapes as a traceback and bypasses the agent-mode envelope.
+        print_error(err_console, f"--expires {value!r} is not a valid calendar date.")
+        raise typer.Exit(1) from None
+    if parsed <= date.today():
         print_error(err_console, "--expires date must be in the future.")
         raise typer.Exit(1)
 
