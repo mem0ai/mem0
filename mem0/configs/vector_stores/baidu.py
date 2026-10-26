@@ -15,6 +15,9 @@ class BaiduDBConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if "collection_name" in values:
+            values = dict(values)
+            values["table_name"] = values.pop("collection_name")
         allowed_fields = set(cls.model_fields.keys())
         input_fields = set(values.keys())
         extra_fields = input_fields - allowed_fields
@@ -23,5 +26,16 @@ class BaiduDBConfig(BaseModel):
                 f"Extra fields not allowed: {', '.join(extra_fields)}. Please input only the following fields: {', '.join(allowed_fields)}"
             )
         return values
+
+    # Memory addresses every store by collection_name: it reads it, renames it for the
+    # entity store ("<name>_entities") and passes it when rebuilding a config for the
+    # telemetry store. Baidu keeps that name in table_name.
+    @property
+    def collection_name(self) -> str:
+        return self.table_name
+
+    @collection_name.setter
+    def collection_name(self, value: str) -> None:
+        self.table_name = value
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
