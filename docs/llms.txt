@@ -225,6 +225,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 
 ### Support & Migration
 - [FAQs](https://docs.mem0.ai/platform/faqs) [Platform]: Use when answering common Platform questions.
+- [Pricing FAQ](https://docs.mem0.ai/platform/pricing) [Platform]: Use when a user asks how the October 26, 2026 pricing change affects their plan - existing Starter, Growth and Pro plans, free plan limits and the 30-day period, connecting their own LLM key, Vercel accounts and usage-based billing.
 - [Contribute to Platform](https://docs.mem0.ai/platform/contribute) [Platform]: Use when a user wants to contribute to Platform docs or code.
 - [OSS to Platform Migration](https://docs.mem0.ai/migration/oss-to-platform) [Both]: Use when moving from self-hosted to managed.
 - [OSS v2 to v3 Migration](https://docs.mem0.ai/migration/oss-v2-to-v3) [OSS]: Use when upgrading a self-hosted deployment across major versions.
