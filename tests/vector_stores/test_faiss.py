@@ -299,6 +299,21 @@ def test_list_uninitialized_index_returns_nested_list(faiss_instance):
     assert results[0] == []
 
 
+def test_list_cols_finds_collections_in_store_path():
+    # Regression for issue #7668: list_cols() used to glob the parent of the
+    # store path, so it always returned [] even when collections existed on
+    # disk (each collection is saved as <path>/<collection>.faiss).
+    with tempfile.TemporaryDirectory() as temp_dir:
+        store_path = os.path.join(temp_dir, "faiss_store")
+        store = FAISS(collection_name="col_a", path=store_path, embedding_model_dims=2)
+        store.insert(vectors=[[0.1, 0.2]], payloads=[{"name": "a"}], ids=["a"])
+
+        # A second collection saved side-by-side in the same store path.
+        FAISS(collection_name="col_b", path=store_path, embedding_model_dims=2)
+
+        assert sorted(store.list_cols()) == ["col_a", "col_b"]
+
+
 def test_col_info(faiss_instance, mock_faiss_index):
     # Mock index attributes
     mock_faiss_index.ntotal = 5
