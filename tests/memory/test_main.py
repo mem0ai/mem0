@@ -1180,6 +1180,7 @@ class TestAddPipelineEntityEmbeddingCountGuard:
             "expected count-mismatch warning was not emitted"
         )
 
+
 class TestPartialInsertFailure:
     """Records the vector store rejects must never be reported as successful ADDs (#6911)."""
 
@@ -1333,3 +1334,239 @@ class TestAsyncPartialInsertFailure:
             )
 
         mock_async_memory.db.save_messages.assert_called_once()
+
+
+class TestAddPipelineMemoryEmbeddingCountGuard:
+    """An extracted memory text that ends up with no embedding must surface the
+    loss, not vanish from the add silently.
+
+    Two paths get there. `dict(zip(mem_texts, mem_embeddings_list))` truncates to
+    the shorter side, so a short `embed_batch` return drops the tail. And every
+    shipped embedder raises on a count mismatch instead of returning short
+    (`openai.py:77` and seven siblings; `base.py:47` is one-to-one by
+    construction), which sends add() into the per-item fallback, where an
+    individual `embed()` failure is logged and the text simply never enters
+    `embed_map`. The guard therefore compares `embed_map` against `mem_texts`
+    once the embedding path has settled, covering both; checking inside the
+    `try` only ever saw the first. Caller-visible surfacing is tracked
+    separately.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @staticmethod
+    def _short_memory_embed_batch(texts, memory_action="add"):
+        # The extracted memory texts come back short (1 vector for 2); any other
+        # batch (e.g. entities) embeds normally. Requires a custom
+        # EmbeddingBase subclass: every shipped embedder raises instead.
+        if any(t in ("fact one", "fact two") for t in texts):
+            return [[0.1] * 10]
+        return [[0.1] * 10 for _ in texts]
+
+    @staticmethod
+    def _raising_memory_embed_batch(texts, memory_action="add"):
+        # What the shipped embedders actually do on a count mismatch (e.g.
+        # OpenAIEmbedding at openai.py:77): raise rather than return short,
+        # which routes add() into the per-item fallback.
+        if any(t in ("fact one", "fact two") for t in texts):
+            raise ValueError("embed_batch() returned 1 embeddings for 2 texts")
+        return [[0.1] * 10 for _ in texts]
+
+    @staticmethod
+    def _fallback_embed_one_failure(text, memory_action="add"):
+        # In the fallback, "fact two" fails on its own too, so it never enters
+        # embed_map — the drop the in-try check could not see.
+        if text == "fact two":
+            raise RuntimeError("provider rejected the text")
+        return [0.1] * 10
+
+    def test_sync_short_memory_embeddings_warn_not_silent(self, mock_memory, mocker, caplog):
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(side_effect=self._short_memory_embed_batch)
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "two facts"}],
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        assert any("memory texts" in r.message for r in caplog.records), (
+            "expected memory-embedding count-mismatch warning was not emitted"
+        )
+        # The count disagreement is reported as an alignment hazard too: zip()
+        # pairs by position, so a vector missing from the middle of the response
+        # would leave a surviving text holding its neighbour's vector. Not
+        # repaired here — repairing changes what add() stores.
+        assert any("may not correspond" in r.message for r in caplog.records), (
+            "positional-pairing warning was not emitted"
+        )
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_async_short_memory_embeddings_warn_not_silent(self, mock_async_memory, mocker, caplog):
+        mock_async_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(side_effect=self._short_memory_embed_batch)
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "two facts"}],
+                metadata={},
+                effective_filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        assert any("memory texts" in r.message for r in caplog.records), (
+            "expected memory-embedding count-mismatch warning was not emitted"
+        )
+        assert any("may not correspond" in r.message for r in caplog.records), (
+            "positional-pairing warning was not emitted"
+        )
+        assert len(result) == 1
+
+    def test_sync_raising_batch_then_failed_fallback_warns(self, mock_memory, mocker, caplog):
+        """The path a shipped embedder actually takes: embed_batch raises, the
+        per-item fallback loses one text, and the loss is still reported."""
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(side_effect=self._raising_memory_embed_batch)
+        mock_memory.embedding_model.embed = Mock(side_effect=self._fallback_embed_one_failure)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "two facts"}],
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        assert any("memory texts have no embedding" in r.message for r in caplog.records), (
+            "a text lost in the per-item fallback was not reported"
+        )
+        assert len(result) == 1
+
+    def test_overlong_batch_return_is_reported(self, mock_memory, mocker, caplog):
+        """More vectors than texts: zip() drops the extras so nothing is missing
+        from embed_map, but the response ordering is not what the pairing
+        assumes, so it must not pass silently."""
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(
+            side_effect=lambda texts, memory_action="add": [[0.1] * 10 for _ in texts] + [[0.2] * 10]
+        )
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "two facts"}],
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        # Nothing is missing, so only the pairing warning applies.
+        assert not any("have no embedding" in r.message for r in caplog.records)
+        assert any("may not correspond" in r.message for r in caplog.records), (
+            "an over-long batch return passed silently"
+        )
+        assert len(result) == 2
+
+    def test_repeated_text_embedded_correctly_does_not_warn(self, mock_memory, mocker, caplog):
+        """A fact extracted twice yields one embed_map entry for two mem_texts.
+        Nothing is lost — hash dedup collapses it downstream — so comparing
+        lengths would cry wolf. The set comparison must stay quiet."""
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact one"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(side_effect=lambda texts, memory_action="add": [[0.1] * 10 for _ in texts])
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "the same fact twice"}],
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        assert not any("have no embedding" in r.message for r in caplog.records), (
+            "a correctly embedded duplicate text was reported as missing"
+        )
+        assert not any("may not correspond" in r.message for r in caplog.records), (
+            "a correct one-vector-per-text return was reported as misaligned"
+        )
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_async_raising_batch_then_failed_fallback_warns(self, mock_async_memory, mocker, caplog):
+        mock_async_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(side_effect=self._raising_memory_embed_batch)
+        mock_async_memory.embedding_model.embed = Mock(side_effect=self._fallback_embed_one_failure)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "two facts"}],
+                metadata={},
+                effective_filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        assert any("memory texts have no embedding" in r.message for r in caplog.records), (
+            "a text lost in the per-item fallback was not reported"
+        )
+        assert len(result) == 1
