@@ -2,6 +2,11 @@ from abc import ABC, abstractmethod
 
 
 class VectorStoreBase(ABC):
+    # Opt in only when update(vector=None, payload=...) preserves existing
+    # vectors and merges the supplied payload keys, including explicit None
+    # values, without replacing unspecified payload fields.
+    _supports_metadata_only_update = False
+
     @abstractmethod
     def create_col(self, name, vector_size, distance):
         """Create a new collection."""

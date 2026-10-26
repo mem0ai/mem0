@@ -22,8 +22,9 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
-from mem0.exceptions import LLMError, VectorStoreError
+from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.exceptions import VectorStoreError
 from mem0.memory.base import MemoryBase
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
@@ -2062,6 +2063,7 @@ class Memory(MemoryBase):
         if existing_memory is None:
             raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
 
+        metadata_only = data is None and getattr(self.vector_store, "_supports_metadata_only_update", False) is True
         prev_value = existing_memory.payload.get("data")
         if data is None:
             data = prev_value
@@ -2069,25 +2071,35 @@ class Memory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} does not have text content to update")
         text_changed = data != prev_value
 
+        metadata_updates = _strip_identity_keys(metadata, existing_memory.payload) if metadata is not None else {}
+        if metadata_only:
+            # These fields belong to the text write, never to a caller's metadata patch.
+            metadata_updates = {
+                k: v for k, v in metadata_updates.items() if k not in {"data", "hash", "text_lemmatized", "created_at"}
+            }
         new_metadata = deepcopy(existing_memory.payload)
-        if metadata is not None:
-            new_metadata.update(_strip_identity_keys(metadata, existing_memory.payload))
+        new_metadata.update(metadata_updates)
 
-        new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        if not metadata_only:
+            new_metadata["data"] = data
+            new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+            new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        if data in existing_embeddings:
+        if metadata_only:
+            embeddings = None
+        elif data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
             embeddings = self.embedding_model.embed(data, "update")
 
+        # A payload-only write must not restore snapshot fields over a concurrent text/vector write.
+        payload = {**metadata_updates, "updated_at": new_metadata["updated_at"]} if metadata_only else new_metadata
         self.vector_store.update(
             vector_id=memory_id,
             vector=embeddings,
-            payload=new_metadata,
+            payload=payload,
         )
         logger.info(f"Updating memory with ID {memory_id=} with {data=}")
 
@@ -3780,6 +3792,7 @@ class AsyncMemory(MemoryBase):
         if existing_memory is None:
             raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
 
+        metadata_only = data is None and getattr(self.vector_store, "_supports_metadata_only_update", False) is True
         prev_value = existing_memory.payload.get("data")
         if data is None:
             data = prev_value
@@ -3787,26 +3800,36 @@ class AsyncMemory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} does not have text content to update")
         text_changed = data != prev_value
 
+        metadata_updates = _strip_identity_keys(metadata, existing_memory.payload) if metadata is not None else {}
+        if metadata_only:
+            # These fields belong to the text write, never to a caller's metadata patch.
+            metadata_updates = {
+                k: v for k, v in metadata_updates.items() if k not in {"data", "hash", "text_lemmatized", "created_at"}
+            }
         new_metadata = deepcopy(existing_memory.payload)
-        if metadata is not None:
-            new_metadata.update(_strip_identity_keys(metadata, existing_memory.payload))
+        new_metadata.update(metadata_updates)
 
-        new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        if not metadata_only:
+            new_metadata["data"] = data
+            new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+            new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        if data in existing_embeddings:
+        if metadata_only:
+            embeddings = None
+        elif data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
 
+        # A payload-only write must not restore snapshot fields over a concurrent text/vector write.
+        payload = {**metadata_updates, "updated_at": new_metadata["updated_at"]} if metadata_only else new_metadata
         await asyncio.to_thread(
             self.vector_store.update,
             vector_id=memory_id,
             vector=embeddings,
-            payload=new_metadata,
+            payload=payload,
         )
         logger.info(f"Updating memory with ID {memory_id=} with {data=}")
 
