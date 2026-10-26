@@ -64,7 +64,9 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -273,7 +275,9 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -484,9 +488,7 @@ def test_add_metadata_cannot_set_identity_fields(mocker, caplog):
     memory = _build_memory_instance(mocker, Memory)
 
     with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
-        metadata = _captured_add_metadata(
-            memory, mocker, user_id="attacker", metadata=dict(_ATTACKER_ADD_METADATA)
-        )
+        metadata = _captured_add_metadata(memory, mocker, user_id="attacker", metadata=dict(_ATTACKER_ADD_METADATA))
 
     assert metadata["user_id"] == "attacker"
     for key in ("agent_id", "run_id", "actor_id"):
@@ -740,6 +742,7 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
+
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -1180,6 +1183,7 @@ class TestAddPipelineEntityEmbeddingCountGuard:
             "expected count-mismatch warning was not emitted"
         )
 
+
 class TestPartialInsertFailure:
     """Records the vector store rejects must never be reported as successful ADDs (#6911)."""
 
@@ -1333,3 +1337,328 @@ class TestAsyncPartialInsertFailure:
             )
 
         mock_async_memory.db.save_messages.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for issue #4863 / PR #6997:
+# delete/update/reset/delete_all skipped entity cleanup in a fresh process.
+#
+# `entity_store` is a lazy property, but the cleanup paths guarded on the raw
+# `_entity_store` backing field. A fresh process that never called add() always
+# has `_entity_store = None`, so every delete/update/reset silently skipped
+# entity cleanup and left stale `linked_memory_ids` behind. The probe classes
+# below override the lazy property to hand back a dummy store while leaving the
+# backing field at None, so the test only passes if the code routes through the
+# property (the pre-fix early-return never touches it).
+# ---------------------------------------------------------------------------
+
+
+class _EntityStoreProbeMixin:
+    """Route `entity_store` to a supplied dummy while `_entity_store` stays None.
+
+    Simulates a fresh process that has never lazily initialized the entity
+    store, and records every property access so tests can assert the cleanup
+    path went through the lazy property rather than the raw backing field.
+    """
+
+    @property
+    def entity_store(self):
+        self.entity_store_accesses += 1
+        return self._dummy_entity_store
+
+
+class _ProbeMemory(_EntityStoreProbeMixin, Memory):
+    pass
+
+
+class _ProbeAsyncMemory(_EntityStoreProbeMixin, AsyncMemory):
+    pass
+
+
+def _make_probe(cls, dummy_entity_store):
+    memory = cls.__new__(cls)
+    memory._entity_store = None  # fresh-process state: never lazily initialized
+    memory._dummy_entity_store = dummy_entity_store
+    memory.entity_store_accesses = 0
+    memory.vector_store = MagicMock()
+    memory.db = MagicMock()
+    memory.embedding_model = MagicMock()
+    return memory
+
+
+def _existing_memory(memory_id="mem-1"):
+    return SimpleNamespace(
+        id=memory_id,
+        payload={
+            "data": "trip to Paris",
+            "created_at": "2026-04-16T00:00:00+00:00",
+            "user_id": "user-1",
+        },
+    )
+
+
+def test_delete_initializes_entity_store_before_cleanup():
+    """Sync delete removes the entity row via the lazy property (delete branch)."""
+    stale_row = SimpleNamespace(id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1"]})
+    dummy = MagicMock()
+    dummy.list.return_value = [stale_row]
+    memory = _make_probe(_ProbeMemory, dummy)
+
+    memory._delete_memory("mem-1", existing_memory=_existing_memory())
+
+    assert memory.entity_store_accesses > 0, "cleanup returned early instead of using the lazy property"
+    dummy.delete.assert_called_once_with(vector_id="entity-1")
+    dummy.update.assert_not_called()
+
+
+def test_delete_updates_entity_row_when_other_links_remain():
+    """Sync delete trims linked_memory_ids and updates when other ids remain."""
+    stale_row = SimpleNamespace(id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1", "mem-2"]})
+    dummy = MagicMock()
+    dummy.list.return_value = [stale_row]
+    memory = _make_probe(_ProbeMemory, dummy)
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+
+    memory._delete_memory("mem-1", existing_memory=_existing_memory())
+
+    dummy.delete.assert_not_called()
+    dummy.update.assert_called_once()
+    kwargs = dummy.update.call_args.kwargs
+    assert kwargs["vector_id"] == "entity-1"
+    assert kwargs["payload"]["linked_memory_ids"] == ["mem-2"]
+
+
+def test_update_initializes_entity_store_before_cleanup(mocker):
+    """Sync update removes old entity link via lazy property when text changes."""
+    mocker.patch("mem0.memory.main.extract_entities", return_value=[])
+    stale_row = SimpleNamespace(id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1"]})
+    dummy = MagicMock()
+    dummy.list.return_value = [stale_row]
+    memory = _make_probe(_ProbeMemory, dummy)
+
+    existing = _existing_memory("mem-1")
+    memory.vector_store.get.return_value = existing
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+    memory._update_memory("mem-1", data="new data", existing_embeddings={})
+
+    assert memory.entity_store_accesses > 0, "update returned early instead of using lazy entity store"
+    dummy.delete.assert_called_once_with(vector_id="entity-1")
+
+
+@pytest.mark.asyncio
+async def test_async_delete_initializes_entity_store_before_cleanup():
+    """Async delete removes the entity row via the lazy property (delete branch)."""
+    stale_row = SimpleNamespace(id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1"]})
+    dummy = MagicMock()
+    dummy.list.return_value = [stale_row]
+    memory = _make_probe(_ProbeAsyncMemory, dummy)
+
+    await memory._delete_memory("mem-1", existing_memory=_existing_memory())
+
+    assert memory.entity_store_accesses > 0, "async cleanup returned early instead of using the lazy property"
+    dummy.delete.assert_called_once_with(vector_id="entity-1")
+    dummy.update.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_delete_updates_entity_row_when_other_links_remain():
+    """Async delete trims linked_memory_ids and updates when other ids remain."""
+    stale_row = SimpleNamespace(id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1", "mem-2"]})
+    dummy = MagicMock()
+    dummy.list.return_value = [stale_row]
+    memory = _make_probe(_ProbeAsyncMemory, dummy)
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+
+    await memory._delete_memory("mem-1", existing_memory=_existing_memory())
+
+    dummy.delete.assert_not_called()
+    dummy.update.assert_called_once()
+    kwargs = dummy.update.call_args.kwargs
+    assert kwargs["vector_id"] == "entity-1"
+    assert kwargs["payload"]["linked_memory_ids"] == ["mem-2"]
+
+
+@pytest.mark.asyncio
+async def test_async_update_initializes_entity_store_before_cleanup(mocker):
+    """Async update removes old entity link via lazy property when text changes."""
+    mocker.patch("mem0.memory.main.extract_entities", return_value=[])
+    stale_row = SimpleNamespace(id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1"]})
+    dummy = MagicMock()
+    dummy.list.return_value = [stale_row]
+    memory = _make_probe(_ProbeAsyncMemory, dummy)
+
+    existing = _existing_memory("mem-1")
+    memory.vector_store.get.return_value = existing
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+    await memory._update_memory("mem-1", data="new data", existing_embeddings={})
+
+    assert memory.entity_store_accesses > 0, "async update returned early instead of using lazy entity store"
+    dummy.delete.assert_called_once_with(vector_id="entity-1")
+
+
+def test_reset_initializes_entity_store_in_fresh_process(mocker):
+    """Sync reset clears a persistent entity collection even when never used this process."""
+    mocker.patch("mem0.memory.main.SQLiteManager", MagicMock())
+    mocker.patch("mem0.memory.main.VectorStoreFactory", MagicMock())
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.display_first_run_notice")
+    dummy = MagicMock()
+    memory = _make_probe(_ProbeMemory, dummy)
+    memory.config = MagicMock()
+
+    memory.reset()
+
+    assert memory.entity_store_accesses > 0, "reset skipped the entity store instead of initializing it"
+    dummy.reset.assert_called_once()
+    assert memory._entity_store is None
+
+
+@pytest.mark.asyncio
+async def test_async_reset_initializes_entity_store_in_fresh_process(mocker):
+    """Async reset clears a persistent entity collection even when never used this process."""
+    mocker.patch("mem0.memory.main.SQLiteManager", MagicMock())
+    mocker.patch("mem0.memory.main.VectorStoreFactory", MagicMock())
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.display_first_run_notice_async")
+    mocker.patch("mem0.memory.main.gc")
+    dummy = MagicMock()
+    memory = _make_probe(_ProbeAsyncMemory, dummy)
+    memory.config = MagicMock()
+
+    await memory.reset()
+
+    assert memory.entity_store_accesses > 0, "async reset skipped the entity store instead of initializing it"
+    dummy.reset.assert_called_once()
+    assert memory._entity_store is None
+
+
+@pytest.mark.asyncio
+async def test_async_delete_all_clears_entity_store_in_fresh_process(mocker):
+    """Async delete_all bulk-clears entity rows through the lazy property in a fresh process."""
+    mocker.patch("mem0.memory.main.capture_event")
+    entity_row = SimpleNamespace(id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1"]})
+    dummy = MagicMock()
+    dummy.list.return_value = ([entity_row],)
+    memory = _make_probe(_ProbeAsyncMemory, dummy)
+    mem = SimpleNamespace(id="mem-1", payload={"data": "trip to Paris", "user_id": "user-1"})
+    memory.vector_store.list.side_effect = [([mem],), ([],)]
+
+    await memory.delete_all(user_id="user-1")
+
+    assert memory.entity_store_accesses > 0, "delete_all skipped the entity store instead of initializing it"
+    dummy.delete.assert_called_once_with(vector_id="entity-1")
+
+
+def test_sync_delete_all_clears_entity_store_in_fresh_process(mocker):
+    """Sync delete_all cleans up entity rows through the lazy property in a fresh process."""
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.display_first_run_notice")
+    entity_row = SimpleNamespace(id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1"]})
+    dummy = MagicMock()
+    dummy.list.return_value = [entity_row]
+    memory = _make_probe(_ProbeMemory, dummy)
+    mem = _existing_memory("mem-1")
+    memory.vector_store.list.side_effect = [([mem],), ([],)]
+    memory.vector_store.get.return_value = mem
+
+    memory.delete_all(user_id="user-1")
+
+    assert memory.entity_store_accesses > 0, "sync delete_all skipped the entity store"
+    dummy.delete.assert_called_once_with(vector_id="entity-1")
+
+
+# ---------------------------------------------------------------------------
+# Qdrant shared-client invalidation tests for reset()
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_async_reset_invalidates_shared_client_entity_store(mocker):
+    """When AsyncMemory.entity_store shares the main vector store's client, reset()
+    must invalidate the stale entity store so it does not call reset() on a closed client.
+    """
+    mocker.patch("mem0.memory.main.SQLiteManager", MagicMock())
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.display_first_run_notice_async")
+    mocker.patch("mem0.memory.main.gc")
+
+    shared_client = MagicMock()
+    shared_client.close = MagicMock()
+
+    old_vector_store = MagicMock()
+    old_vector_store.client = shared_client
+
+    stale_entity_store = MagicMock()
+    stale_entity_store.client = shared_client
+    stale_entity_store.reset.side_effect = RuntimeError("QdrantLocal instance is closed")
+
+    new_client = MagicMock()
+    new_vector_store = MagicMock()
+    new_vector_store.client = new_client
+
+    fresh_entity_store = MagicMock()
+    fresh_entity_store.client = new_client
+
+    mock_vs_factory = mocker.patch("mem0.memory.main.VectorStoreFactory")
+    mock_vs_factory.create.side_effect = [new_vector_store, fresh_entity_store]
+
+    memory = AsyncMemory.__new__(AsyncMemory)
+    memory.config = MagicMock()
+    memory.config.vector_store.provider = "qdrant"
+    memory.config.vector_store.config = MagicMock()
+    memory.collection_name = "test_col"
+    memory.vector_store = old_vector_store
+    memory._entity_store = stale_entity_store
+    memory.db = MagicMock()
+
+    await memory.reset()
+
+    shared_client.close.assert_called_once()
+    stale_entity_store.reset.assert_not_called()
+    fresh_entity_store.reset.assert_called_once()
+    assert memory._entity_store is None
+
+
+def test_sync_reset_invalidates_shared_client_entity_store(mocker):
+    """When Memory.entity_store shares the main vector store's client and the store
+    is recreated, reset() must invalidate the stale entity store.
+    """
+    mocker.patch("mem0.memory.main.SQLiteManager", MagicMock())
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.display_first_run_notice")
+
+    shared_client = MagicMock()
+    shared_client.close = MagicMock()
+
+    old_vector_store = MagicMock(spec=["client", "delete_col"])
+    old_vector_store.client = shared_client
+
+    stale_entity_store = MagicMock()
+    stale_entity_store.client = shared_client
+    stale_entity_store.reset.side_effect = RuntimeError("QdrantLocal instance is closed")
+
+    new_client = MagicMock()
+    new_vector_store = MagicMock()
+    new_vector_store.client = new_client
+
+    fresh_entity_store = MagicMock()
+    fresh_entity_store.client = new_client
+
+    mock_vs_factory = mocker.patch("mem0.memory.main.VectorStoreFactory")
+    mock_vs_factory.create.side_effect = [new_vector_store, fresh_entity_store]
+
+    memory = Memory.__new__(Memory)
+    memory.config = MagicMock()
+    memory.config.vector_store.provider = "qdrant"
+    memory.config.vector_store.config = MagicMock()
+    memory.collection_name = "test_col"
+    memory.vector_store = old_vector_store
+    memory._entity_store = stale_entity_store
+    memory.db = MagicMock()
+
+    memory.reset()
+
+    shared_client.close.assert_called_once()
+    stale_entity_store.reset.assert_not_called()
+    fresh_entity_store.reset.assert_called_once()
+    assert memory._entity_store is None
