@@ -55,6 +55,10 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    enable_memory_management: bool = Field(
+        description="Enable LLM-driven ADD, UPDATE, DELETE, and NONE memory actions during extraction",
+        default=False,
+    )
 
 
 class AzureConfig(BaseModel):
