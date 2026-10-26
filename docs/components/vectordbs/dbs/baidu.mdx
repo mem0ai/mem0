@@ -32,6 +32,7 @@ config = {
             "api_key": "your-api-key",
             "database_name": "mem0",
             "table_name": "mem0_table",
+            "collection_name": "mem0",
             "embedding_model_dims": 1536,
             "metric_type": "COSINE"
         }
@@ -47,6 +48,8 @@ messages = [
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+
+`collection_name` is optional and defaults to `mem0`. mem0 reads it when it builds a `Memory` instance; Baidu VectorDB itself stores the vectors in `database_name`.`table_name`.
 
 ```typescript
 import { Memory } from "mem0ai/oss";

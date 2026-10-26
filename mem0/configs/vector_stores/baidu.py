@@ -9,6 +9,7 @@ class BaiduDBConfig(BaseModel):
     api_key: str = Field(None, description="API Key for Baidu VectorDB")
     database_name: str = Field("mem0", description="Name of the database")
     table_name: str = Field("mem0", description="Name of the table")
+    collection_name: str = Field("mem0", description="Name of the collection mem0 uses for bookkeeping; vectors live in database_name.table_name")
     embedding_model_dims: int = Field(1536, description="Dimensions of the embedding model")
     metric_type: str = Field("L2", description="Metric type for similarity search")
 
