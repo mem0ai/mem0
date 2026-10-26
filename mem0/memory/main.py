@@ -1578,37 +1578,46 @@ class Memory(MemoryBase):
                 else:
                     target[key] = value
 
-        for key, value in metadata_filters.items():
-            if key == "AND":
-                # Logical AND: combine multiple conditions
-                if not isinstance(value, list):
-                    raise ValueError("AND operator requires a list of conditions")
-                for condition in value:
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(processed_filters, process_condition(sub_key, sub_value))
-            elif key == "OR":
-                # Logical OR: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("OR operator requires a non-empty list of conditions")
-                # Store OR conditions in a way that vector stores can interpret
-                processed_filters["$or"] = []
-                for condition in value:
-                    or_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(or_condition, process_condition(sub_key, sub_value))
-                    processed_filters["$or"].append(or_condition)
-            elif key == "NOT":
-                # Logical NOT: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("NOT operator requires a non-empty list of conditions")
-                processed_filters["$not"] = []
-                for condition in value:
-                    not_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(not_condition, process_condition(sub_key, sub_value))
-                    processed_filters["$not"].append(not_condition)
-            else:
-                merge_filters(processed_filters, process_condition(key, value))
+        def process_group(conditions: Dict[str, Any], output: Dict[str, Any]) -> None:
+            """Process one condition group into output.
+
+            A group is a dict of field conditions plus optional logical
+            operators. Logical operators nested inside a group are handled
+            recursively so they reach the vector store as $or/$not groups
+            instead of literal "OR"/"NOT" fields.
+            """
+            if not isinstance(conditions, dict):
+                raise ValueError(f"Filter conditions must be a dict, got {type(conditions).__name__}")
+            for key, value in conditions.items():
+                if key == "AND":
+                    # Logical AND: combine multiple conditions
+                    if not isinstance(value, list):
+                        raise ValueError("AND operator requires a list of conditions")
+                    for condition in value:
+                        process_group(condition, output)
+                elif key == "OR":
+                    # Logical OR: Pass through to vector store for implementation-specific handling
+                    if not isinstance(value, list) or not value:
+                        raise ValueError("OR operator requires a non-empty list of conditions")
+                    # Store OR conditions in a way that vector stores can interpret
+                    or_conditions = output.setdefault("$or", [])
+                    for condition in value:
+                        or_condition: Dict[str, Any] = {}
+                        process_group(condition, or_condition)
+                        or_conditions.append(or_condition)
+                elif key == "NOT":
+                    # Logical NOT: Pass through to vector store for implementation-specific handling
+                    if not isinstance(value, list) or not value:
+                        raise ValueError("NOT operator requires a non-empty list of conditions")
+                    not_conditions = output.setdefault("$not", [])
+                    for condition in value:
+                        not_condition: Dict[str, Any] = {}
+                        process_group(condition, not_condition)
+                        not_conditions.append(not_condition)
+                else:
+                    merge_filters(output, process_condition(key, value))
+
+        process_group(metadata_filters, processed_filters)
 
         return processed_filters
 
@@ -3266,37 +3275,46 @@ class AsyncMemory(MemoryBase):
                 else:
                     target[key] = value
 
-        for key, value in metadata_filters.items():
-            if key == "AND":
-                # Logical AND: combine multiple conditions
-                if not isinstance(value, list):
-                    raise ValueError("AND operator requires a list of conditions")
-                for condition in value:
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(processed_filters, process_condition(sub_key, sub_value))
-            elif key == "OR":
-                # Logical OR: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("OR operator requires a non-empty list of conditions")
-                # Store OR conditions in a way that vector stores can interpret
-                processed_filters["$or"] = []
-                for condition in value:
-                    or_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(or_condition, process_condition(sub_key, sub_value))
-                    processed_filters["$or"].append(or_condition)
-            elif key == "NOT":
-                # Logical NOT: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("NOT operator requires a non-empty list of conditions")
-                processed_filters["$not"] = []
-                for condition in value:
-                    not_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(not_condition, process_condition(sub_key, sub_value))
-                    processed_filters["$not"].append(not_condition)
-            else:
-                merge_filters(processed_filters, process_condition(key, value))
+        def process_group(conditions: Dict[str, Any], output: Dict[str, Any]) -> None:
+            """Process one condition group into output.
+
+            A group is a dict of field conditions plus optional logical
+            operators. Logical operators nested inside a group are handled
+            recursively so they reach the vector store as $or/$not groups
+            instead of literal "OR"/"NOT" fields.
+            """
+            if not isinstance(conditions, dict):
+                raise ValueError(f"Filter conditions must be a dict, got {type(conditions).__name__}")
+            for key, value in conditions.items():
+                if key == "AND":
+                    # Logical AND: combine multiple conditions
+                    if not isinstance(value, list):
+                        raise ValueError("AND operator requires a list of conditions")
+                    for condition in value:
+                        process_group(condition, output)
+                elif key == "OR":
+                    # Logical OR: Pass through to vector store for implementation-specific handling
+                    if not isinstance(value, list) or not value:
+                        raise ValueError("OR operator requires a non-empty list of conditions")
+                    # Store OR conditions in a way that vector stores can interpret
+                    or_conditions = output.setdefault("$or", [])
+                    for condition in value:
+                        or_condition: Dict[str, Any] = {}
+                        process_group(condition, or_condition)
+                        or_conditions.append(or_condition)
+                elif key == "NOT":
+                    # Logical NOT: Pass through to vector store for implementation-specific handling
+                    if not isinstance(value, list) or not value:
+                        raise ValueError("NOT operator requires a non-empty list of conditions")
+                    not_conditions = output.setdefault("$not", [])
+                    for condition in value:
+                        not_condition: Dict[str, Any] = {}
+                        process_group(condition, not_condition)
+                        not_conditions.append(not_condition)
+                else:
+                    merge_filters(output, process_condition(key, value))
+
+        process_group(metadata_filters, processed_filters)
 
         return processed_filters
 

@@ -1081,6 +1081,92 @@ class TestProcessMetadataFiltersMerge:
         assert result == {"status": "pending"}
 
 
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+class TestProcessMetadataFiltersNested:
+    """Regression tests for issue #7664: logical operators nested inside
+    AND/OR/NOT must be processed recursively into $or/$not groups, not passed
+    through to the vector store as literal "OR"/"NOT" field names."""
+
+    def _make_memory(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, async_memory=False):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_vector_factory.return_value = MagicMock()
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+        if async_memory:
+            from mem0.memory.main import AsyncMemory as AsyncMemoryClass
+            return AsyncMemoryClass(MemoryConfig())
+        from mem0.memory.main import Memory as MemoryClass
+        return MemoryClass(MemoryConfig())
+
+    def test_docs_nested_example_converts_or_and_not(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """The 'Complex nested logic' docs example must produce $or/$not groups."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "user_id": "alice",
+            "AND": [
+                {"OR": [{"category": "work"}, {"category": "personal"}]},
+                {"priority": {"gte": 5}},
+                {"NOT": [{"status": "archived"}]},
+            ],
+        })
+        assert result == {
+            "user_id": "alice",
+            "$or": [{"category": "work"}, {"category": "personal"}],
+            "priority": {"gte": 5},
+            "$not": [{"status": "archived"}],
+        }
+
+    def test_async_memory_processes_nested_operators_identically(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, async_memory=True)
+        result = memory._process_metadata_filters({
+            "AND": [
+                {"OR": [{"category": "work"}]},
+                {"NOT": [{"status": "archived"}]},
+            ],
+        })
+        assert result == {
+            "$or": [{"category": "work"}],
+            "$not": [{"status": "archived"}],
+        }
+
+    def test_nested_and_inside_and_flattens(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"AND": [{"a": 1}]}, {"b": 2}],
+        })
+        assert result == {"a": 1, "b": 2}
+
+    def test_not_with_nested_or(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "NOT": [{"OR": [{"a": 1}, {"b": 2}]}],
+        })
+        assert result == {"$not": [{"$or": [{"a": 1}, {"b": 2}]}]}
+
+    def test_or_with_nested_not(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "OR": [{"NOT": [{"a": 1}]}, {"b": 2}],
+        })
+        assert result == {"$or": [{"$not": [{"a": 1}]}, {"b": 2}]}
+
+    def test_nested_or_items_support_operators(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Field operators inside nested groups still map correctly."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"OR": [{"score": {"gte": 5}}, {"tag": "*"}]}],
+        })
+        assert result == {"$or": [{"score": {"gte": 5}}, {"tag": "*"}]}
+
+    def test_invalid_nested_condition_type_raises(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        with pytest.raises(ValueError, match="must be a dict"):
+            memory._process_metadata_filters({"AND": ["not-a-dict"]})
+
+
 # --- Issue #3040: reset() should clean up graph database ---
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
