@@ -10,6 +10,7 @@ from pymochow.model.table import (
     VectorTopkSearchRequest,
 )
 
+from mem0.memory.main import AsyncMemory, Memory
 from mem0.vector_stores.baidu import BaiduDB
 
 
@@ -288,3 +289,47 @@ def test_create_filter_renders_boolean(mochow_instance):
     result = mochow_instance._create_filter({"active": True, "deleted": False})
     assert 'metadata["active"] = True' in result
     assert 'metadata["deleted"] = False' in result
+
+
+@pytest.fixture(params=[Memory, AsyncMemory])
+def memory_with_baidu(request, mock_mochow_client, mock_configuration, mock_bce_credentials, mock_table):
+    mock_database = Mock()
+    mock_client_instance = Mock()
+    mock_mochow_client.return_value = mock_client_instance
+    mock_client_instance.list_databases.return_value = []
+    mock_client_instance.create_database.return_value = mock_database
+    mock_database.list_table.return_value = []
+    mock_database.create_table.return_value = mock_table
+    mock_database.describe_table.return_value = Mock(state=TableState.NORMAL)
+
+    config = {
+        "vector_store": {
+            "provider": "baidu",
+            "config": {
+                "endpoint": "http://localhost:8287",
+                "account": "test_account",
+                "api_key": "test_api_key",
+                "database_name": "test_db",
+                "table_name": "test_table",
+                "embedding_model_dims": 128,
+                "metric_type": "COSINE",
+            },
+        }
+    }
+    with (
+        patch("mem0.utils.factory.EmbedderFactory.create"),
+        patch("mem0.utils.factory.LlmFactory.create"),
+        patch("mem0.memory.storage.SQLiteManager"),
+    ):
+        yield request.param.from_config(config)
+
+
+def test_memory_initialization_with_config(memory_with_baidu):
+    """Memory must build from a Baidu config, which names its storage table_name."""
+    assert isinstance(memory_with_baidu.vector_store, BaiduDB)
+    assert memory_with_baidu.collection_name == "test_table"
+
+
+def test_memory_entity_store_uses_separate_table(memory_with_baidu):
+    assert memory_with_baidu.vector_store.table_name == "test_table"
+    assert memory_with_baidu.entity_store.table_name == "test_table_entities"
