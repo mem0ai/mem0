@@ -99,7 +99,7 @@ Captured prompts and responses retain their full redacted text without a per-mes
 
 | Problem | Fix |
 | --- | --- |
-| Missing API key | Start Kimi from a shell where `MEM0_API_KEY` is exported. |
+| Missing API key | Start Kimi from a shell where `MEM0_API_KEY` is exported, or run `mem0 init` with the [Mem0 CLI](/platform/cli). The plugin falls back to the key it saves. |
 | Plugin changes do not appear | Run `/plugins reload`, then `/reload` or `/new`. |
 | MCP server is disabled | Run `/plugins mcp enable mem0 mem0`, then `/reload`. |
 | No memory in a later session | Wait a moment for the background flush, then ask Kimi to search memory explicitly. |

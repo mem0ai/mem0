@@ -2,6 +2,7 @@
 
 HARNESS_ID = "coding-agent"
 SOURCE_TAG = "CODING_AGENT_PLUGIN"
+DATA_DIR_NAME = "coding-agent-plugin"
 
 # Platform-side vocabulary (mem0_event.source + X-Application). The whole
 # plugin family is one source; which editor it runs in is the application.
