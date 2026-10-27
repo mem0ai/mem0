@@ -46,4 +46,214 @@ describe("scoreAndRank", () => {
     expect(details.maxPossibleScore).toBe(1.0);
     expect(details.finalScore).toBe(0.8);
   });
+
+  describe("reciprocal rank fusion", () => {
+    const candidates = [
+      { id: "a", score: 0.95, payload: { data: "a" } },
+      { id: "b", score: 0.8, payload: { data: "b" } },
+      { id: "c", score: 0.7, payload: { data: "c" } },
+    ];
+
+    it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+      "excludes nonfinite semantic score %p before ranking",
+      (invalidScore) => {
+        const scored = scoreAndRank(
+          [
+            { id: "invalid", score: invalidScore, payload: {} },
+            { id: "valid", score: 0.8, payload: {} },
+          ],
+          { invalid: 1.0 },
+          {},
+          0.1,
+          10,
+          true,
+          "rrf",
+        );
+        expect(scored.map((item) => item.id)).toEqual(["valid"]);
+        expect(scored[0].score).toBeCloseTo(1 / 61);
+        expect(scored[0].scoreDetails!.semanticRank).toBe(1);
+      },
+    );
+
+    it("fuses all three channels directly and can reverse additive ordering", () => {
+      const additive = scoreAndRank(
+        candidates,
+        { a: 0.1, b: 0.9, c: 0.8 },
+        { a: 0.1, b: 0.2, c: 0.95 },
+        0.1,
+        3,
+      );
+      const scored = scoreAndRank(
+        candidates,
+        { a: 0.1, b: 0.9, c: 0.8 },
+        { a: 0.1, b: 0.2, c: 0.95 },
+        0.1,
+        3,
+        true,
+        "rrf",
+        1,
+      );
+
+      // Additive scoring favors c here because its raw auxiliary scores are
+      // largest, while direct RRF favors b's consistently strong ranks.
+      expect(additive[0].id).toBe("c");
+      expect(scored.map((result) => result.id)).toEqual(["b", "c", "a"]);
+      const details = scored[0].scoreDetails!;
+      expect(details.fusionStrategy).toBe("rrf");
+      expect(details.rrfK).toBe(1);
+      expect(details.semanticRank).toBe(2);
+      expect(details.bm25Rank).toBe(1);
+      expect(details.entityRank).toBe(2);
+      expect(details.rawScore).toBeCloseTo(1 / 3 + 1 / 2 + 1 / 3);
+      expect(details.finalScore).toBe(details.rawScore);
+      expect(details.maxPossibleScore).toBe(3 / 2);
+    });
+
+    it("is invariant to positive score scaling within each auxiliary channel", () => {
+      const original = scoreAndRank(
+        candidates,
+        { a: 0.1, b: 0.9, c: 0.8 },
+        { a: 0.1, b: 0.2, c: 0.95 },
+        0.1,
+        3,
+        true,
+        "rrf",
+        60,
+      );
+      const scaled = scoreAndRank(
+        candidates,
+        { a: 10, b: 90, c: 80 },
+        { a: 10, b: 20, c: 95 },
+        0.1,
+        3,
+        true,
+        "rrf",
+        60,
+      );
+
+      expect(scaled.map((result) => result.id)).toEqual(
+        original.map((result) => result.id),
+      );
+      expect(scaled.map((result) => result.score)).toEqual(
+        original.map((result) => result.score),
+      );
+    });
+
+    it("uses average ranks for ties without changing ranks when input order changes", () => {
+      const forward = scoreAndRank(
+        candidates,
+        { a: 1, b: 1, c: 0.5 },
+        { a: 0.8, b: 0.8, c: 0.1 },
+        0.1,
+        3,
+        true,
+        "rrf",
+        10,
+      );
+      const reverse = scoreAndRank(
+        [...candidates].reverse(),
+        { a: 1, b: 1, c: 0.5 },
+        { a: 0.8, b: 0.8, c: 0.1 },
+        0.1,
+        3,
+        true,
+        "rrf",
+        10,
+      );
+
+      const detailsById = (results: typeof forward) =>
+        new Map(results.map((result) => [result.id, result.scoreDetails!]));
+      const forwardDetails = detailsById(forward);
+      const reverseDetails = detailsById(reverse);
+      expect(forwardDetails.get("a")?.semanticRank).toBe(
+        reverseDetails.get("a")?.semanticRank,
+      );
+      expect(forwardDetails.get("a")?.bm25Rank).toBe(1.5);
+      expect(forwardDetails.get("b")?.bm25Rank).toBe(1.5);
+      expect(forwardDetails.get("a")?.entityRank).toBe(1.5);
+      expect(forwardDetails.get("b")?.entityRank).toBe(1.5);
+      expect(forwardDetails.get("a")?.finalScore).toBe(
+        reverseDetails.get("a")?.finalScore,
+      );
+    });
+
+    it("ignores missing, zero, non-finite, noneligible, and auxiliary-only IDs", () => {
+      const scored = scoreAndRank(
+        [
+          ...candidates,
+          { id: "below-threshold", score: 0.05, payload: { data: "x" } },
+        ],
+        {
+          a: 0,
+          b: 1,
+          "below-threshold": 100,
+          extra: 100,
+          invalid: Number.NaN,
+        },
+        { a: Number.POSITIVE_INFINITY, extra: 1 },
+        0.1,
+        10,
+        true,
+        "rrf",
+        10,
+      );
+
+      expect(scored.map((result) => result.id)).toEqual(["b", "a", "c"]);
+      expect(scored).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "below-threshold" }),
+          expect.objectContaining({ id: "extra" }),
+        ]),
+      );
+      const aDetails = scored.find(
+        (result) => result.id === "a",
+      )!.scoreDetails!;
+      expect(aDetails.bm25Rank).toBeNull();
+      expect(aDetails.entityRank).toBeNull();
+      expect(aDetails.bm25Contribution).toBe(0);
+      expect(aDetails.entityContribution).toBe(0);
+      expect(aDetails.maxPossibleScore).toBe(2 / 11);
+    });
+
+    it("applies topK after fusing all eligible candidates", () => {
+      const scored = scoreAndRank(
+        candidates,
+        { a: 0.1, b: 1, c: 0.9 },
+        { a: 0.1, b: 1, c: 0.9 },
+        0.1,
+        1,
+        false,
+        "rrf",
+        1,
+      );
+
+      expect(scored).toHaveLength(1);
+      expect(scored[0].id).toBe("b");
+    });
+
+    it("keeps additive scoring and its explanation shape unchanged by default", () => {
+      const scored = scoreAndRank(candidates, {}, {}, 0.1, 3, true);
+      expect(scored[0].scoreDetails).not.toHaveProperty("fusionStrategy");
+      expect(scored[0].scoreDetails).not.toHaveProperty("rrfK");
+      expect(scored[0].score).toBeCloseTo(0.95);
+    });
+
+    it.each([
+      ["unknown strategy", "weighted"],
+      ["boolean strategy", true],
+    ])("rejects %s", (_label: string, strategy: unknown) => {
+      expect(() =>
+        scoreAndRank(candidates, {}, {}, 0.1, 3, false, strategy as any),
+      ).toThrow(/fusionStrategy/);
+    });
+
+    it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, false])(
+      "rejects invalid rrfK %p",
+      (rrfK: number | boolean) => {
+        expect(() =>
+          scoreAndRank(candidates, {}, {}, 0.1, 3, false, "rrf", rrfK as any),
+        ).toThrow(/rrfK/);
+      },
+    );
+  });
 });

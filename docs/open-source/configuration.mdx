@@ -93,6 +93,19 @@ export OPENAI_API_KEY="..."
 export COHERE_API_KEY="..."   # Cohere reranker only
 ```
 
+### Search fusion
+
+The default `fusion_strategy` (Python) / `fusionStrategy` (TypeScript) is `"additive"`.
+To opt into equal-weight reciprocal rank fusion of the existing semantic, keyword, and
+entity signals, add `"fusion_strategy": "rrf", "rrf_k": 60` to the Python config, or
+`fusionStrategy: "rrf", rrfK: 60` to the TypeScript config above. The rank offset must be
+a positive integer; it is independent of the number of returned results.
+
+RRF preserves the existing candidate pool and semantic-threshold checks. Returned scores
+are raw rank-fusion sums rather than additive relevance scores, so downstream score cutoffs
+need to be adjusted. See [Search Memory](/core-concepts/memory-operations/search#optional-reciprocal-rank-fusion-oss)
+for ranking, ties, score explanations, and examples. This setting applies to OSS only.
+
 <Note>
   The TypeScript OSS SDK configures the LLM, embedder, vector store, history store, and reranker. Graph memory is not part of OSS in either language: it is a built-in [Mem0 Platform feature](/platform/features/graph-memory).
 </Note>

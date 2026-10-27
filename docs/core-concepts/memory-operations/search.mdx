@@ -176,6 +176,51 @@ console.log(results.results[0].score_details);
 
 Each result includes `score_details` with the semantic score, normalized BM25 score, entity boost, raw combined score, maximum possible score, final score, and threshold used for filtering. The field is omitted unless `explain` is enabled, so existing response shapes stay unchanged.
 
+### Optional reciprocal rank fusion (OSS)
+
+OSS search uses additive scoring by default. Set `fusion_strategy="rrf"` in the Python configuration
+or `fusionStrategy: "rrf"` in TypeScript to combine semantic, keyword, and entity rankings with
+equal-weight reciprocal rank fusion instead:
+
+<CodeGroup>
+```python Python
+from mem0 import Memory
+
+m = Memory.from_config({
+    "fusion_strategy": "rrf",
+    "rrf_k": 60,
+})
+results = m.search("Alice's project", filters={"user_id": "alice"}, explain=True)
+```
+
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({ fusionStrategy: "rrf", rrfK: 60 });
+const results = await memory.search("Alice's project", {
+    filters: { user_id: "alice" },
+    explain: true,
+});
+```
+</CodeGroup>
+
+Each memory receives `1 / (rrf_k + rank)` from each matching signal, and all contributions are
+summed in one pass. Ranks start at 1. Tied scores receive the average of their rank positions;
+missing, zero, or negative keyword/entity scores contribute nothing. The rank offset must be a
+positive integer and defaults to 60; it is independent of `top_k`.
+
+This option reuses the existing semantic candidates, BM25 scores, and entity boosts. It adds
+no model or retrieval calls. Existing semantic-threshold and expiration checks still determine
+eligibility before ranking, so keyword/entity-only hits outside the semantic candidate pool
+are not introduced by this option. `top_k` is applied after the complete fusion.
+
+RRF returns raw reciprocal-rank sums, not additive scores: a single first-place contribution
+with the default offset is `1/61`. Do not reuse downstream additive-score cutoffs for RRF.
+The search `threshold` continues to apply to the semantic score before fusion, not to the
+returned RRF score. With `explain` enabled, additional fields identify the strategy, rank
+offset, per-signal ranks and contributions. `raw_score` and `final_score` both contain the
+RRF sum, and `max_possible_score` is the theoretical bound for the active channels.
+
 ## Filter patterns
 
 Filters help narrow down search results. Common use cases:

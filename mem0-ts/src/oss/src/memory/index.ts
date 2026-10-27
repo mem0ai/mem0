@@ -1566,6 +1566,8 @@ export class Memory {
       threshold ?? 0.1,
       topK,
       explain,
+      this.config.fusionStrategy ?? "additive",
+      this.config.rrfK ?? 60,
     );
 
     // Step 9: Format results

@@ -5,6 +5,7 @@ Provides:
 - **BM25 normalization**: Sigmoid normalization of raw BM25 scores to [0, 1].
 - **BM25 parameter selection**: Query-length-adaptive sigmoid parameters.
 - **Additive scoring**: Combined scoring with semantic + BM25 + entity boost.
+- **Reciprocal rank fusion**: Optional equal-weight fusion of the same signals.
 """
 
 from __future__ import annotations
@@ -64,8 +65,10 @@ def score_and_rank(
     threshold: float,
     top_k: int,
     explain: bool = False,
+    fusion_strategy: str = "additive",
+    rrf_k: int = 60,
 ) -> List[Dict[str, Any]]:
-    """Score candidates additively and return top-k results.
+    """Score candidates with additive or reciprocal rank fusion and return top-k results.
 
     For each candidate:
         semantic_score is taken from the result's score field.
@@ -87,10 +90,19 @@ def score_and_rank(
         threshold: Minimum semantic score required before hybrid scoring.
         top_k: Maximum number of results to return.
         explain: Include score_details in each result when true.
+        fusion_strategy: "additive" (default) or "rrf". Both retain semantic eligibility checks.
+        rrf_k: Positive integer rank offset for RRF. Not the number of results.
 
     Returns:
         List of scored result dicts sorted by combined score descending.
     """
+    if fusion_strategy not in ("additive", "rrf"):
+        raise ValueError("fusion_strategy must be 'additive' or 'rrf'")
+    if isinstance(rrf_k, bool) or not isinstance(rrf_k, int) or rrf_k <= 0:
+        raise ValueError("rrf_k must be a positive integer")
+    if fusion_strategy == "rrf":
+        return _rrf_score_and_rank(semantic_results, bm25_scores, entity_boosts, threshold, top_k, explain, rrf_k)
+
     has_bm25 = bool(bm25_scores)
     has_entity = bool(entity_boosts)
 
@@ -136,4 +148,80 @@ def score_and_rank(
         scored.append(scored_result)
 
     scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored[:top_k]
+
+
+def _average_ranks(scores: Dict[str, float]) -> Dict[str, float]:
+    """Rank descending, assigning each tie group its average one-based position."""
+    ordered = sorted(scores, key=scores.get, reverse=True)
+    ranks: Dict[str, float] = {}
+    start = 0
+    while start < len(ordered):
+        end = start + 1
+        while end < len(ordered) and scores[ordered[end]] == scores[ordered[start]]:
+            end += 1
+        rank = (start + 1 + end) / 2.0
+        for memory_id in ordered[start:end]:
+            ranks[memory_id] = rank
+        start = end
+    return ranks
+
+
+def _rrf_score_and_rank(
+    semantic_results: List[Dict[str, Any]],
+    bm25_scores: Dict[str, float],
+    entity_boosts: Dict[str, float],
+    threshold: float,
+    top_k: int,
+    explain: bool,
+    rrf_k: int,
+) -> List[Dict[str, Any]]:
+    # Use exactly the existing semantic candidate pool and eligibility gate.
+    eligible = [
+        result
+        for result in semantic_results
+        if result.get("id") is not None
+        and math.isfinite(result.get("score") or 0.0)
+        and (result.get("score") or 0.0) >= threshold
+    ]
+    semantic_scores = {str(result["id"]): result.get("score") or 0.0 for result in eligible}
+    keyword_scores = {
+        memory_id: score
+        for memory_id in semantic_scores
+        if (score := bm25_scores.get(memory_id, 0.0)) > 0 and math.isfinite(score)
+    }
+    entity_scores = {
+        memory_id: score
+        for memory_id in semantic_scores
+        if (score := entity_boosts.get(memory_id, 0.0)) > 0 and math.isfinite(score)
+    }
+    rank_maps = [_average_ranks(scores) for scores in (semantic_scores, keyword_scores, entity_scores)]
+    active_channels = sum(bool(ranks) for ranks in rank_maps)
+    scored: List[Dict[str, Any]] = []
+    for result in eligible:
+        memory_id = str(result["id"])
+        ranks = [rank_map.get(memory_id) for rank_map in rank_maps]
+        contributions = [1.0 / (rrf_k + rank) if rank is not None else 0.0 for rank in ranks]
+        score = sum(contributions)
+        entry = {"id": memory_id, "score": score, "payload": result.get("payload")}
+        if explain:
+            entry["score_details"] = {
+                "semantic_score": semantic_scores[memory_id],
+                "bm25_score": bm25_scores.get(memory_id, 0.0),
+                "entity_boost": entity_boosts.get(memory_id, 0.0),
+                "raw_score": score,
+                "max_possible_score": active_channels / (rrf_k + 1),
+                "final_score": score,
+                "threshold": threshold,
+                "fusion_strategy": "rrf",
+                "rrf_k": rrf_k,
+                "semantic_rank": ranks[0],
+                "bm25_rank": ranks[1],
+                "entity_rank": ranks[2],
+                "semantic_contribution": contributions[0],
+                "bm25_contribution": contributions[1],
+                "entity_contribution": contributions[2],
+            }
+        scored.append(entry)
+    scored.sort(key=lambda entry: entry["score"], reverse=True)
     return scored[:top_k]
