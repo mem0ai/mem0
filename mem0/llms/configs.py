@@ -12,6 +12,7 @@ class LlmConfig(BaseModel):
         provider = values.data.get("provider")
         if provider in (
             "openai",
+            "aihubmix",
             "ollama",
             "anthropic",
             "groq",

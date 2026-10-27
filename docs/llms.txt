@@ -464,6 +464,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [LLM Overview](https://docs.mem0.ai/components/llms/overview) [OSS]: Use when the user is choosing an LLM for memory extraction.
 - [LLM Configuration](https://docs.mem0.ai/components/llms/config) [OSS]: Use for the `llm` config schema.
 - [OpenAI](https://docs.mem0.ai/components/llms/models/openai) [OSS]: Use when the extraction LLM is OpenAI.
+- [AIHubMix](https://docs.mem0.ai/components/llms/models/aihubmix) [OSS]: Use when memory extraction runs through AIHubMix in the Python OSS SDK.
 - [Anthropic](https://docs.mem0.ai/components/llms/models/anthropic) [OSS]: Use when the extraction LLM is Claude.
 - [Azure OpenAI](https://docs.mem0.ai/components/llms/models/azure-openai) [OSS]: Use when the user is on Azure-hosted OpenAI.
 - [AWS Bedrock](https://docs.mem0.ai/components/llms/models/aws-bedrock) [OSS]: Use when the LLM runs through Bedrock.
@@ -485,6 +486,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Embeddings Overview](https://docs.mem0.ai/components/embedders/overview) [OSS]: Use when choosing an embedding model.
 - [Embeddings Configuration](https://docs.mem0.ai/components/embedders/config) [OSS]: Use for the `embedder` config schema.
 - [OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/openai) [OSS]: Use when embeddings come from OpenAI.
+- [AIHubMix Embeddings](https://docs.mem0.ai/components/embedders/models/aihubmix) [OSS]: Use when embeddings come from AIHubMix in the Python OSS SDK.
 - [Azure OpenAI Embeddings](https://docs.mem0.ai/components/embedders/models/azure-openai) [OSS]: Use for Azure-hosted OpenAI embeddings.
 - [AWS Bedrock Embeddings](https://docs.mem0.ai/components/embedders/models/aws-bedrock) [OSS]: Use for Bedrock-hosted embeddings.
 - [Google AI Embeddings](https://docs.mem0.ai/components/embedders/models/google-ai) [OSS]: Use for Gemini embeddings.

@@ -175,6 +175,7 @@
                             "icon": "list",
                             "pages": [
                               "components/llms/models/openai",
+                              "components/llms/models/aihubmix",
                               "components/llms/models/anthropic",
                               "components/llms/models/azure-openai",
                               "components/llms/models/ollama",
@@ -247,6 +248,7 @@
                             "icon": "list",
                             "pages": [
                               "components/embedders/models/openai",
+                              "components/embedders/models/aihubmix",
                               "components/embedders/models/azure-openai",
                               "components/embedders/models/ollama",
                               "components/embedders/models/huggingface",

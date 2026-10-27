@@ -3,6 +3,7 @@ import inspect
 from typing import Dict, Optional, Union
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.configs.llms.aihubmix import AIHubMixConfig
 from mem0.configs.llms.anthropic import AnthropicConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.configs.llms.azure import AzureOpenAIConfig
@@ -42,6 +43,7 @@ class LlmFactory:
     provider_to_class = {
         "ollama": ("mem0.llms.ollama.OllamaLLM", OllamaConfig),
         "openai": ("mem0.llms.openai.OpenAILLM", OpenAIConfig),
+        "aihubmix": ("mem0.llms.aihubmix.AIHubMixLLM", AIHubMixConfig),
         "groq": ("mem0.llms.groq.GroqLLM", BaseLlmConfig),
         "together": ("mem0.llms.together.TogetherLLM", BaseLlmConfig),
         "aws_bedrock": ("mem0.llms.aws_bedrock.AWSBedrockLLM", AWSBedrockConfig),
@@ -113,6 +115,8 @@ class LlmFactory:
                     config_dict["reasoning_effort"] = config.reasoning_effort
                 if accepts_kwargs or "is_reasoning_model" in params:
                     config_dict["is_reasoning_model"] = config.is_reasoning_model
+                if config_class is AIHubMixConfig:
+                    config_dict["aihubmix_base_url"] = getattr(config, "aihubmix_base_url", None)
                 config_dict.update(kwargs)
                 config = config_class(**config_dict)
             else:
@@ -152,6 +156,7 @@ class LlmFactory:
 class EmbedderFactory:
     provider_to_class = {
         "openai": "mem0.embeddings.openai.OpenAIEmbedding",
+        "aihubmix": "mem0.embeddings.aihubmix.AIHubMixEmbedding",
         "ollama": "mem0.embeddings.ollama.OllamaEmbedding",
         "huggingface": "mem0.embeddings.huggingface.HuggingFaceEmbedding",
         "azure_openai": "mem0.embeddings.azure_openai.AzureOpenAIEmbedding",

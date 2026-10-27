@@ -15,6 +15,7 @@ class EmbedderConfig(BaseModel):
         provider = values.data.get("provider")
         if provider in [
             "openai",
+            "aihubmix",
             "ollama",
             "huggingface",
             "azure_openai",

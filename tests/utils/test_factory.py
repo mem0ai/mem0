@@ -2,12 +2,13 @@ from unittest.mock import Mock, patch
 
 from mem0.configs.llms.anthropic import AnthropicConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
+from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.utils.factory import LlmFactory
 
 
-def _capture_config(provider_name, config):
+def _capture_config(provider_name, config, **kwargs):
     """Build an LLM via the factory and return the config it was constructed with."""
     captured = {}
 
@@ -16,7 +17,7 @@ def _capture_config(provider_name, config):
         return Mock()
 
     with patch("mem0.utils.factory.load_class", return_value=fake_llm_class):
-        LlmFactory.create(provider_name, config)
+        LlmFactory.create(provider_name, config, **kwargs)
 
     return captured["config"]
 
@@ -60,3 +61,40 @@ def test_dict_config_not_mutated_by_kwargs():
         LlmFactory.create("openai", config, api_key="secret")
 
     assert config == {"model": "gpt-4o-mini"}
+
+
+def test_typed_azure_with_kwargs_preserves_base_fields():
+    original = AzureOpenAIConfig(
+        model="gpt-4o",
+        api_key="key",
+        reasoning_effort="low",
+        is_reasoning_model=True,
+        azure_kwargs={"azure_deployment": "deployment"},
+    )
+
+    built = _capture_config("azure_openai", original, model="gpt-4.1")
+
+    assert isinstance(built, AzureOpenAIConfig)
+    assert built.model == "gpt-4.1"
+    assert built.api_key == "key"
+    assert built.reasoning_effort == "low"
+    assert built.is_reasoning_model is True
+    assert original.model == "gpt-4o"
+
+
+def test_typed_bedrock_with_kwargs_preserves_base_fields():
+    original = AWSBedrockConfig(
+        model="amazon.nova",
+        api_key="key",
+        reasoning_effort="high",
+        is_reasoning_model=True,
+    )
+
+    built = _capture_config("aws_bedrock", original, model="amazon.nova-pro")
+
+    assert isinstance(built, AWSBedrockConfig)
+    assert built.model == "amazon.nova-pro"
+    assert built.api_key == "key"
+    assert built.reasoning_effort == "high"
+    assert built.is_reasoning_model is True
+    assert original.model == "amazon.nova"

@@ -1,0 +1,45 @@
+---
+title: "AIHubMix as Embedding Provider"
+sidebarTitle: "AIHubMix"
+description: "Configure AIHubMix embeddings in the Mem0 open-source Python SDK."
+---
+
+Set `AIHUBMIX_API_KEY` in your environment. The default embedding model is `embed-v-4-0`; match your vector store's `embedding_model_dims` to the model output. The example below uses a 1536-dimensional collection.
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+assert os.environ.get("AIHUBMIX_API_KEY"), "Set AIHUBMIX_API_KEY"
+
+memory = Memory.from_config({
+    "llm": {
+        "provider": "aihubmix",
+        "config": {"model": "gpt-6.1-terra"},
+    },
+    "embedder": {
+        "provider": "aihubmix",
+        "config": {"model": "embed-v-4-0"},
+    },
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {"collection_name": "aihubmix_memories", "embedding_model_dims": 1536},
+    },
+})
+
+memory.add("I prefer science fiction films.", user_id="alice")
+print(memory.search("What movies do I like?", filters={"user_id": "alice"}))
+```
+
+## Configuration
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `model` | `embed-v-4-0` | AIHubMix embedding model identifier. |
+| `api_key` | `AIHUBMIX_API_KEY` | Explicit key takes precedence over the environment variable. |
+| `aihubmix_base_url` | `AIHUBMIX_BASE_URL` or `https://aihubmix.com/v1` | Explicit URL takes precedence over the environment variable. |
+| `embedding_dims` | `None` | When set, sends `dimensions` to the embedding API. Otherwise Mem0 assumes 1536 internally without sending `dimensions`. |
+
+Model support for `dimensions` varies. When using another model or an explicit dimension, set the vector store dimension to the actual output size. This OSS provider does not use `OPENAI_API_KEY`.
