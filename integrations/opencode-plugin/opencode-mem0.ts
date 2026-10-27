@@ -7,7 +7,7 @@ import type {Plugin} from "@opencode-ai/plugin";
 import {tool} from "@opencode-ai/plugin";
 import {MemoryClient} from "mem0ai";
 import {userInfo} from "os";
-import {basename, resolve, dirname} from "path";
+import {resolve, dirname} from "path";
 import {randomBytes} from "crypto";
 import {existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync} from "fs";
 import {homedir} from "os";
@@ -15,7 +15,7 @@ import {join} from "path";
 import {createHash} from "crypto";
 import {captureEvent} from "./telemetry";
 import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
-import {parseProjectFromRemote} from "./project";
+import {resolveBranch, resolveProjectId} from "./project";
 import {resolveApiKey} from "./api-key";
 import {createMemoryLifecycle} from "../agent-plugin-core/typescript/src/lifecycle.ts";
 import {SEARCH_QUERY_DESCRIPTION, SEARCH_TOOL_DESCRIPTION} from "../agent-plugin-core/typescript/src/prompts.ts";
@@ -27,36 +27,6 @@ async function getUserId(): Promise<string> {
   } catch {
   }
   return process.env.USER || process.env.USERNAME || "unknown";
-}
-
-async function getProjectId($: any): Promise<string> {
-  if (process.env.MEM0_APP_ID) return process.env.MEM0_APP_ID;
-  // Prefer the git remote's owner/repo — stable across clones, worktrees, and
-  // sub-directories (handles https + ssh, incl. custom host aliases).
-  try {
-    const r = await $`git remote get-url origin`.quiet();
-    const project = parseProjectFromRemote(r.stdout.toString());
-    if (project) return project;
-  } catch {
-  }
-  // No usable remote: use the git repo ROOT dir name, not cwd (which may be a
-  // sub-directory, or your home dir if OpenCode was launched outside a repo).
-  try {
-    const r = await $`git rev-parse --show-toplevel`.quiet();
-    const top = r.stdout.toString().trim();
-    if (top) return basename(top);
-  } catch {
-  }
-  return basename(process.cwd());
-}
-
-async function getBranch($: any): Promise<string> {
-  try {
-    const r = await $`git branch --show-current`.quiet();
-    return r.stdout.toString().trim() || "main";
-  } catch {
-  }
-  return "main";
 }
 
 function extractMemories(res: any): Array<{ memory: string; id: string }> {
@@ -233,7 +203,7 @@ function extractUserText(input: any, output: any): string {
 }
 
 const Mem0Plugin: Plugin = async (ctx) => {
-  const {$, client} = ctx;
+  const {$, client, directory} = ctx;
 
   const apiKey = resolveApiKey(process.env, process.env.HOME || process.env.USERPROFILE || homedir());
 
@@ -254,8 +224,8 @@ const Mem0Plugin: Plugin = async (ctx) => {
 
   const mem0 = new MemoryClient({apiKey});
   const userId = await getUserId();
-  const appId = await getProjectId($);
-  const branch = await getBranch($);
+  const appId = await resolveProjectId($, directory);
+  const branch = await resolveBranch($, directory);
   const stats = {adds: 0, searches: 0, messages: 0};
   const sessionId = generateSessionId();
   const globalSearch = loadGlobalSearch();
