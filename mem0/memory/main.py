@@ -584,12 +584,19 @@ class Memory(MemoryBase):
         return " ".join(value.strip().lower().split())
 
     def _existing_entities_by_text(self, filters):
-        """Return existing entity rows keyed by normalized payload data."""
+        """Return existing entity rows keyed by normalized payload data.
+
+        Returns ``None`` when the exact-match index could not be read. That is
+        not the same as an empty index: treating a failed lookup as "no entity
+        exists" makes the caller fall through to the semantic threshold and
+        insert a duplicate row for an entity that is already stored, splitting
+        ``linked_memory_ids`` across the two rows.
+        """
         try:
             listed = self.entity_store.list(filters=filters, top_k=10000)
         except Exception as e:
-            logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
-            return {}
+            logger.warning(f"Exact entity lookup failed; skipping new entity inserts to avoid duplicate rows: {e}")
+            return None
 
         rows_by_text = {}
         for row in _vector_store_list_rows(listed):
@@ -607,7 +614,8 @@ class Memory(MemoryBase):
         try:
             entity_embedding = self.embedding_model.embed(entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-            exact_match = self._existing_entities_by_text(search_filters).get(self._normalize_entity_text(entity_text))
+            existing_by_text = self._existing_entities_by_text(search_filters)
+            exact_match = (existing_by_text or {}).get(self._normalize_entity_text(entity_text))
 
             existing = []
             if exact_match is None:
@@ -632,8 +640,9 @@ class Memory(MemoryBase):
                         vector=None,
                         payload=payload,
                     )
-            else:
-                # Create new entity
+            elif existing_by_text is not None:
+                # Only a readable exact index permits insertion; semantic hits
+                # above the existing threshold can still link during an outage.
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
@@ -1142,10 +1151,12 @@ class Memory(MemoryBase):
 
                 # Filter out entities with failed embeddings
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
+                exact_matches = self._existing_entities_by_text(search_filters) if valid else {}
+                # Preserve semantic links during an exact-index outage, while
+                # preventing new inserts whose uniqueness cannot be established.
                 if valid:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
-                    exact_matches = self._existing_entities_by_text(search_filters)
 
                     # 7c: Batch search for existing entities
                     valid_texts = [global_entities[k][1] for k in valid_keys]
@@ -1161,7 +1172,7 @@ class Memory(MemoryBase):
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
-                        exact_match = exact_matches.get(key)
+                        exact_match = (exact_matches or {}).get(key)
 
                         semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
                         match = exact_match or semantic_match
@@ -1179,7 +1190,7 @@ class Memory(MemoryBase):
                                 )
                             except Exception as e:
                                 logger.debug(f"Entity update failed for '{entity_text}': {e}")
-                        else:
+                        elif exact_matches is not None:
                             # New entity — collect for batch insert
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
@@ -2269,12 +2280,19 @@ class AsyncMemory(MemoryBase):
         return " ".join(value.strip().lower().split())
 
     def _existing_entities_by_text(self, filters):
-        """Return existing entity rows keyed by normalized payload data."""
+        """Return existing entity rows keyed by normalized payload data.
+
+        Returns ``None`` when the exact-match index could not be read. That is
+        not the same as an empty index: treating a failed lookup as "no entity
+        exists" makes the caller fall through to the semantic threshold and
+        insert a duplicate row for an entity that is already stored, splitting
+        ``linked_memory_ids`` across the two rows.
+        """
         try:
             listed = self.entity_store.list(filters=filters, top_k=10000)
         except Exception as e:
-            logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
-            return {}
+            logger.warning(f"Exact entity lookup failed; skipping new entity inserts to avoid duplicate rows: {e}")
+            return None
 
         rows_by_text = {}
         for row in _vector_store_list_rows(listed):
@@ -2292,9 +2310,8 @@ class AsyncMemory(MemoryBase):
         try:
             entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-            exact_match = (
-                await asyncio.to_thread(self._existing_entities_by_text, search_filters)
-            ).get(self._normalize_entity_text(entity_text))
+            existing_by_text = await asyncio.to_thread(self._existing_entities_by_text, search_filters)
+            exact_match = (existing_by_text or {}).get(self._normalize_entity_text(entity_text))
 
             existing = []
             if exact_match is None:
@@ -2320,7 +2337,7 @@ class AsyncMemory(MemoryBase):
                         vector=None,
                         payload=payload,
                     )
-            else:
+            elif existing_by_text is not None:
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
@@ -2822,10 +2839,13 @@ class AsyncMemory(MemoryBase):
                     entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
 
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
+                exact_matches = (
+                    await asyncio.to_thread(self._existing_entities_by_text, search_filters) if valid else {}
+                )
+                # As in the sync path, only insertion requires a readable index.
                 if valid:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
-                    exact_matches = await asyncio.to_thread(self._existing_entities_by_text, search_filters)
 
                     # 7c: Batch search for existing entities
                     valid_texts = [global_entities[k][1] for k in valid_keys]
@@ -2842,7 +2862,7 @@ class AsyncMemory(MemoryBase):
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
-                        exact_match = exact_matches.get(key)
+                        exact_match = (exact_matches or {}).get(key)
 
                         semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
                         match = exact_match or semantic_match
@@ -2860,7 +2880,7 @@ class AsyncMemory(MemoryBase):
                                 )
                             except Exception as e:
                                 logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
-                        else:
+                        elif exact_matches is not None:
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
                             to_insert_payloads.append({
