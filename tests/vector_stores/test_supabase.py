@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from mem0.configs.vector_stores.supabase import IndexMeasure, IndexMethod
+from mem0.configs.vector_stores.supabase import IndexMeasure, IndexMethod, SupabaseConfig
 from mem0.vector_stores.supabase import VECS_MAX_QUERY_LIMIT, Supabase
 
 
@@ -205,3 +205,36 @@ def test_preprocess_filters(supabase_instance):
 
     # Test None filters
     assert supabase_instance._preprocess_filters(None) is None
+
+
+def test_supabase_config_connection_string_prefixes():
+    # Both postgresql:// and postgres:// must be valid connection strings
+    cfg1 = SupabaseConfig(connection_string="postgresql://user:pass@localhost:5432/db")
+    assert cfg1.connection_string == "postgresql://user:pass@localhost:5432/db"
+
+    cfg2 = SupabaseConfig(connection_string="postgres://user:pass@localhost:5432/db")
+    assert cfg2.connection_string == "postgres://user:pass@localhost:5432/db"
+
+    with pytest.raises(ValueError, match="A valid PostgreSQL connection string"):
+        SupabaseConfig(connection_string="mysql://user:pass@localhost:3306/db")
+
+    with pytest.raises(ValueError, match="A valid PostgreSQL connection string"):
+        SupabaseConfig(connection_string="")
+
+
+def test_search_vectors_l2_measure(supabase_instance, mock_collection):
+    supabase_instance.index_measure = IndexMeasure.L2
+    mock_collection.query.return_value = [("id1", 1.0, {"name": "vector1"})]
+
+    results = supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=1)
+    # L2 distance 1.0 -> similarity = 1.0 / (1.0 + 1.0) = 0.5
+    assert results[0].score == pytest.approx(0.5)
+
+
+def test_search_vectors_max_inner_product_measure(supabase_instance, mock_collection):
+    supabase_instance.index_measure = IndexMeasure.MAX_INNER_PRODUCT
+    mock_collection.query.return_value = [("id1", 0.85, {"name": "vector1"})]
+
+    results = supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=1)
+    # MAX_INNER_PRODUCT -> similarity = raw score
+    assert results[0].score == pytest.approx(0.85)

@@ -144,8 +144,15 @@ class Supabase(VectorStoreBase):
             data=vectors, limit=limit, filters=filters, include_metadata=True, include_value=True
         )
 
+        def _to_similarity(distance: float) -> float:
+            if self.index_measure == IndexMeasure.L2:
+                return 1.0 / (1.0 + distance)
+            elif self.index_measure == IndexMeasure.MAX_INNER_PRODUCT:
+                return distance
+            return max(0.0, 1.0 - distance)
+
         return [
-            OutputData(id=str(result[0]), score=max(0.0, 1.0 - float(result[1])), payload=result[2])
+            OutputData(id=str(result[0]), score=_to_similarity(float(result[1])), payload=result[2])
             for result in results
         ]
 
