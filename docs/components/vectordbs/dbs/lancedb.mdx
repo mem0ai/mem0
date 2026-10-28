@@ -1,0 +1,85 @@
+---
+title: "LanceDB"
+description: "Use LanceDB as a local, file-based vector store in Mem0 for embedded similarity search without an external database server."
+---
+[LanceDB](https://lancedb.github.io/lancedb/) is an open-source, embedded vector database built on the Lance columnar format. It stores vectors on the local filesystem, so you can run Mem0 without provisioning a separate vector database service. This makes LanceDB a strong fit for local development, single-node self-hosting, and lightweight deployments.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "lancedb",
+        "config": {
+            "collection_name": "memories",
+            "path": "/tmp/lancedb",
+            "embedding_model_dims": 1536,
+            "distance": "cosine",
+        },
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."},
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Installation
+
+Install Mem0 with the vector-store extras (includes LanceDB), or install LanceDB directly:
+
+```bash
+pip install "mem0ai[vector-stores]"
+# or
+pip install "lancedb>=0.40.0,<1.0.0" "pyarrow>=19.0.0"
+```
+
+### Config
+
+Here are the parameters available for configuring LanceDB:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | The name of the LanceDB table | `mem0` |
+| `path` | Local directory used as the LanceDB database path | `/tmp/lancedb` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `distance` | Distance metric to use (`cosine`, `l2`, or `dot`) | `cosine` |
+
+### Notes
+
+1. **Local persistence**: Vectors and payloads are stored under `path`. Persist that directory (or mount a volume in Docker) so data survives process restarts.
+2. **Single-writer deployments**: LanceDB local mode is best for one writer. Avoid multiple processes writing to the same database path concurrently.
+3. **Metadata filters**: Search filters run in LanceDB before the vector search limit; list operations (including `get_all`) also filter in LanceDB. Equality, `ne`, `in` / `nin`, wildcard, `AND` / `OR` / `NOT`, comparisons, `contains`, and `icontains` are supported. Missing fields do not match field predicates, including `ne` and `nin`; explicit JSON null is distinct from a missing field. Boolean values do not compare equal to numbers. Range comparisons match strings against strings and numbers against numbers. `contains` takes a string and matches a substring, array string member, or object key; `icontains` applies only to strings. Empty field names are unsupported by the JSONPath implementation, and query numbers must have absolute value below 2⁵³.
+4. **Existing tables**: Tables using the earlier UTF-8 or map payload schema are rejected without changes. Back up the database and export IDs, vectors, and decoded payloads from the old table, then insert them into a new collection using this provider. Verify the exported and imported data before removing the backup. JSON integers must be in the range −2⁶³ to 2⁶⁴−1; non-finite numbers are rejected.
+5. **Embedding dimensions**: If you change `embedding_model_dims`, create a new table or rebuild the store. Existing tables keep the dimension they were created with.
+
+Field names are literal top-level metadata keys, so `"a.b"` names a key rather than a nested path.
+`eq`, `ne`, `in`, and `nin` accept scalar JSON values; container equality is unsupported.
+Explicit `in` and `nin` operands must be non-empty lists (or tuples when using the provider directly).
+An empty list shorthand matches no rows. Unknown operators, invalid operand types, empty field names,
+and field names containing a null character raise `ValueError`, including on empty collections.
+String containment and string range operands cannot contain a null character.
+
+For example, list a user's memories whose priority is at least three:
+
+```python
+m.get_all(filters={"user_id": "alice", "priority": {"gte": 3}}, top_k=10)
+```
+
+### Distance Metrics
+
+LanceDB in Mem0 supports three distance metrics. Search results are returned as similarity scores where higher is better:
+
+- **cosine**: Cosine distance converted with `score = max(0.0, 1.0 - distance)`
+- **l2**: Squared Euclidean distance converted with `score = 1.0 / (1.0 + distance)`
+- **dot**: Inner product distance converted with `score = 1.0 - distance`
