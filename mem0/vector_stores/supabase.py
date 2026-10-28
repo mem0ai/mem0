@@ -117,6 +117,23 @@ class Supabase(VectorStoreBase):
 
         self.collection.upsert(records)
 
+    def _calculate_score(self, distance: float) -> float:
+        """
+        Convert distance metric to similarity score according to VectorStoreBase contract.
+
+        - Cosine distance: score = max(0.0, 1.0 - distance)
+        - L2 / L1 distance: score = 1.0 / (1.0 + distance)
+        - Max inner product: score = distance
+        """
+        distance = float(distance)
+        if self.index_measure == IndexMeasure.COSINE:
+            return max(0.0, 1.0 - distance)
+        elif self.index_measure in (IndexMeasure.L2, IndexMeasure.L1):
+            return 1.0 / (1.0 + distance)
+        elif self.index_measure == IndexMeasure.MAX_INNER_PRODUCT:
+            return distance
+        return max(0.0, 1.0 - distance)
+
     def search(
         self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[dict] = None
     ) -> List[OutputData]:
@@ -140,12 +157,13 @@ class Supabase(VectorStoreBase):
                 f"capping to {VECS_MAX_QUERY_LIMIT}."
             )
             limit = VECS_MAX_QUERY_LIMIT
+        measure = self.index_measure.value if hasattr(self.index_measure, "value") else str(self.index_measure)
         results = self.collection.query(
-            data=vectors, limit=limit, filters=filters, include_metadata=True, include_value=True
+            data=vectors, limit=limit, filters=filters, measure=measure, include_metadata=True, include_value=True
         )
 
         return [
-            OutputData(id=str(result[0]), score=max(0.0, 1.0 - float(result[1])), payload=result[2])
+            OutputData(id=str(result[0]), score=self._calculate_score(result[1]), payload=result[2])
             for result in results
         ]
 

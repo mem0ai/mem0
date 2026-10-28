@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from mem0.configs.vector_stores.supabase import IndexMeasure, IndexMethod
+from mem0.configs.vector_stores.supabase import IndexMeasure, IndexMethod, SupabaseConfig
 from mem0.vector_stores.supabase import VECS_MAX_QUERY_LIMIT, Supabase
 
 
@@ -70,7 +70,12 @@ def test_search_vectors(supabase_instance, mock_collection):
     results = supabase_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
 
     mock_collection.query.assert_called_once_with(
-        data=vectors, limit=2, filters={"category": {"$eq": "test"}}, include_metadata=True, include_value=True
+        data=vectors,
+        limit=2,
+        filters={"category": {"$eq": "test"}},
+        measure="cosine_distance",
+        include_metadata=True,
+        include_value=True,
     )
 
     assert len(results) == 2
@@ -156,7 +161,12 @@ def test_search_clamps_top_k_to_vecs_limit(supabase_instance, mock_collection, c
         supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=5000)
 
     mock_collection.query.assert_called_once_with(
-        data=[[0.1, 0.2, 0.3]], limit=VECS_MAX_QUERY_LIMIT, filters=None, include_metadata=True, include_value=True
+        data=[[0.1, 0.2, 0.3]],
+        limit=VECS_MAX_QUERY_LIMIT,
+        filters=None,
+        measure="cosine_distance",
+        include_metadata=True,
+        include_value=True,
     )
     assert "5000" in caplog.text
     assert str(VECS_MAX_QUERY_LIMIT) in caplog.text
@@ -168,7 +178,12 @@ def test_search_does_not_clamp_top_k_within_limit(supabase_instance, mock_collec
     supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=5)
 
     mock_collection.query.assert_called_once_with(
-        data=[[0.1, 0.2, 0.3]], limit=5, filters=None, include_metadata=True, include_value=True
+        data=[[0.1, 0.2, 0.3]],
+        limit=5,
+        filters=None,
+        measure="cosine_distance",
+        include_metadata=True,
+        include_value=True,
     )
 
 
@@ -205,3 +220,69 @@ def test_preprocess_filters(supabase_instance):
 
     # Test None filters
     assert supabase_instance._preprocess_filters(None) is None
+
+
+def test_supabase_config_connection_string_normalization():
+    # postgres:// scheme should be normalized to postgresql://
+    cfg = SupabaseConfig(connection_string="postgres://postgres.abc:pass@db.abc.supabase.co:5432/postgres")
+    assert cfg.connection_string == "postgresql://postgres.abc:pass@db.abc.supabase.co:5432/postgres"
+
+    # postgresql:// should be accepted as-is
+    cfg2 = SupabaseConfig(connection_string="postgresql://user:pass@localhost:5432/db")
+    assert cfg2.connection_string == "postgresql://user:pass@localhost:5432/db"
+
+    # Invalid scheme should raise ValueError
+    with pytest.raises(ValueError, match="A valid PostgreSQL connection string must be provided"):
+        SupabaseConfig(connection_string="mysql://user:pass@localhost:3306/db")
+
+    # Empty string should raise ValueError
+    with pytest.raises(ValueError, match="A valid PostgreSQL connection string must be provided"):
+        SupabaseConfig(connection_string="")
+
+
+def test_calculate_score_various_measures(supabase_instance):
+    # Cosine distance
+    supabase_instance.index_measure = IndexMeasure.COSINE
+    assert supabase_instance._calculate_score(0.2) == pytest.approx(0.8)
+    assert supabase_instance._calculate_score(1.5) == 0.0  # max(0.0, 1.0 - 1.5)
+
+    # L2 distance
+    supabase_instance.index_measure = IndexMeasure.L2
+    assert supabase_instance._calculate_score(1.0) == pytest.approx(0.5)
+    assert supabase_instance._calculate_score(0.0) == pytest.approx(1.0)
+
+    # L1 distance
+    supabase_instance.index_measure = IndexMeasure.L1
+    assert supabase_instance._calculate_score(1.0) == pytest.approx(0.5)
+
+    # Max inner product
+    supabase_instance.index_measure = IndexMeasure.MAX_INNER_PRODUCT
+    assert supabase_instance._calculate_score(0.95) == pytest.approx(0.95)
+
+
+def test_search_vectors_with_l2_measure(mock_vecs_client, mock_collection):
+    mock_vecs_client.return_value.get_or_create_collection.return_value = mock_collection
+    mock_vecs_client.return_value.list_collections.return_value = ["test_collection"]
+
+    instance = Supabase(
+        connection_string="postgresql://user:password@localhost:5432/test",
+        collection_name="test_collection",
+        embedding_model_dims=1536,
+        index_method=IndexMethod.HNSW,
+        index_measure=IndexMeasure.L2,
+    )
+    instance.collection = mock_collection
+
+    mock_collection.query.return_value = [("id1", 1.0, {"name": "vector1"})]
+    results = instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=1)
+
+    mock_collection.query.assert_called_once_with(
+        data=[[0.1, 0.2, 0.3]],
+        limit=1,
+        filters=None,
+        measure="l2_distance",
+        include_metadata=True,
+        include_value=True,
+    )
+    assert len(results) == 1
+    assert results[0].score == pytest.approx(0.5)  # 1.0 / (1.0 + 1.0)

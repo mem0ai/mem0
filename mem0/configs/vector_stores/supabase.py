@@ -25,10 +25,17 @@ class SupabaseConfig(BaseModel):
     index_measure: Optional[IndexMeasure] = Field(IndexMeasure.COSINE, description="Distance measure to use")
 
     @model_validator(mode="before")
-    def check_connection_string(cls, values):
-        conn_str = values.get("connection_string")
-        if not conn_str or not conn_str.startswith("postgresql://"):
-            raise ValueError("A valid PostgreSQL connection string must be provided")
+    @classmethod
+    def check_connection_string(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            conn_str = values.get("connection_string")
+            if not conn_str:
+                raise ValueError("A valid PostgreSQL connection string must be provided")
+            if conn_str.startswith("postgres://"):
+                conn_str = "postgresql://" + conn_str[len("postgres://") :]
+                values["connection_string"] = conn_str
+            elif not conn_str.startswith("postgresql://"):
+                raise ValueError("A valid PostgreSQL connection string must be provided")
         return values
 
     @model_validator(mode="before")
