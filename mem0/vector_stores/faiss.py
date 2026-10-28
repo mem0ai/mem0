@@ -553,7 +553,8 @@ class FAISS(VectorStoreBase):
 
         try:
             collections = []
-            path = Path(self.path).parent
+            # Files are saved directly under self.path (see _save), not its parent
+            path = Path(self.path)
             for file in path.glob("*.faiss"):
                 collections.append(file.stem)
             return collections

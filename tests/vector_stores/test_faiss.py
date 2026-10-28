@@ -754,3 +754,26 @@ class TestCosineNormalization:
 
             assert results[0].id == "x"
             assert results[0].score == pytest.approx(1.0, abs=1e-5)
+
+
+def test_list_cols_finds_collections_in_store_path(tmp_path):
+    """list_cols must search the store path itself, not its parent.
+
+    _save writes <path>/<collection>.faiss, so globbing the parent always
+    misses the collections (issue #7668).
+    """
+    store_path = tmp_path / "mem0_store"
+    store_path.mkdir()
+    # Simulate the file written by _save
+    (store_path / "my_collection.faiss").write_text("")
+
+    store = FAISS(
+        collection_name="my_collection",
+        path=str(store_path),
+        embedding_model_dims=4,
+    )
+    # Avoid real FAISS init side-effects for this unit test
+    store.index = object()
+
+    cols = store.list_cols()
+    assert "my_collection" in cols
