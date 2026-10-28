@@ -13,7 +13,7 @@ It gives a Harness agent automatic long-term memory plus two explicit memory too
 
 Unlike the local/file-based memory plugins in the ecosystem, Mem0 is a managed backend: server-side extraction, semantic dedup and conflict resolution, and memories that other agents can retrieve when their user and entity filters match.
 
-Current package version: `0.3.0`.
+Current package version: `0.3.2`.
 
 Sidekick is available only in the [Claude Code plugin](../claude-code-plugin/README.md#sonnet-sidekick-agent).
 
@@ -54,7 +54,7 @@ Cordis owns listener and tool cleanup when the plugin unmounts. Every automatic 
 3. Install it into a disposable Harness profile:
    ```sh
    DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
-     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.3.0.tgz
+     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.3.2.tgz
    ```
 4. Copy `cordis.example.yml`, set its installed package path and your `userId`, then run Harness with the same profile:
    ```sh

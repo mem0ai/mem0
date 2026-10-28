@@ -4,7 +4,7 @@ Persistent cross-session memory for Claude Code, plus a Sonnet sidekick agent fo
 
 Claude Code forgets everything between sessions. This plugin fixes that: hooks capture session details locally, a background worker turns them into Mem0 memories, and Claude automatically gets the relevant ones back at the start of later sessions.
 
-Current bundle version: `0.3.1`.
+Current bundle version: `0.3.3`.
 
 ## Prerequisites
 
