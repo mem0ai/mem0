@@ -1,8 +1,14 @@
 import logging
 import re
+import threading
+import weakref
+from contextlib import nullcontext
 from typing import Optional
 
+import grpc
 from qdrant_client import QdrantClient, models
+from qdrant_client.http.exceptions import UnexpectedResponse
+from qdrant_client.local.qdrant_local import QdrantLocal
 from qdrant_client.models import (
     DatetimeRange,
     Distance,
@@ -24,6 +30,9 @@ from qdrant_client.models import (
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+_LOCAL_LOCKS = weakref.WeakKeyDictionary()
+_LOCAL_LOCKS_GUARD = threading.Lock()
 
 
 class Qdrant(VectorStoreBase):
@@ -88,6 +97,14 @@ class Qdrant(VectorStoreBase):
         # Pre-v3 collections lack it; writing a `bm25` sparse vector into such a
         # collection is rejected by Qdrant ("Not existing vector name error: bm25").
         self._has_bm25_slot = False
+        # Local mode is not thread-safe, so update and delete share a lock per client and cannot interleave,
+        # including across stores that share one client.
+        self._local = isinstance(getattr(self.client, "_client", None), QdrantLocal)
+        if self._local:
+            with _LOCAL_LOCKS_GUARD:
+                self._write_lock = _LOCAL_LOCKS.setdefault(self.client, threading.RLock())
+        else:
+            self._write_lock = nullcontext()
         self.create_col(embedding_model_dims, on_disk)
 
     def _get_bm25_encoder(self):
@@ -490,50 +507,75 @@ class Qdrant(VectorStoreBase):
         Args:
             vector_id (int): ID of the vector to delete.
         """
-        self.client.delete(
-            collection_name=self.collection_name,
-            points_selector=PointIdsList(
-                points=[vector_id],
-            ),
-        )
+        with self._write_lock:
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=PointIdsList(
+                    points=[vector_id],
+                ),
+            )
 
-    def update(self, vector_id: int, vector: list = None, payload: dict = None):
+    def update(self, vector_id: int, vector: list = None, payload: dict = None) -> Optional[bool]:
         """
-        Update a vector and its payload.
+        Update an existing vector and/or its payload. Never creates a point.
 
         Args:
             vector_id (int): ID of the vector to update.
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
+
+        Returns:
+            Optional[bool]: False if the point does not exist, True if it was updated, None if nothing was given.
         """
-        if vector is not None and payload is not None:
-            # Full update: attach BM25 sparse vector alongside dense vector (only if slot exists).
-            named_vectors = {"": vector}
-            if self._has_bm25_slot:
-                text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
-                if text_for_bm25:
+        operations = []
+        if vector is not None:
+            named_vectors = vector
+            if payload is not None:
+                # Full update: attach BM25 sparse vector alongside dense vector (only if slot exists).
+                named_vectors = {"": vector}
+                if self._has_bm25_slot:
+                    text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
                     # Single-item update: per-row encoding is correct here; see insert() for the batch path.
-                    sparse = self._encode_bm25(text_for_bm25)
-                    if sparse is not None:
-                        named_vectors["bm25"] = sparse
-            point = PointStruct(id=vector_id, vector=named_vectors, payload=payload)
-            self.client.upsert(collection_name=self.collection_name, points=[point])
-        else:
-            # Partial update: use Qdrant's dedicated endpoints.
+                    sparse = self._encode_bm25(text_for_bm25) if text_for_bm25 else None
+                    # An empty sparse vector clears keywords left over from the old text.
+                    named_vectors["bm25"] = sparse if sparse is not None else SparseVector(indices=[], values=[])
+            operations.append(
+                models.UpdateVectorsOperation(
+                    update_vectors=models.UpdateVectors(points=[PointVectors(id=vector_id, vector=named_vectors)])
+                )
+            )
+        if payload is not None:
+            # A full update replaces the payload; a payload-only update merges into it.
             # Note: BM25 sparse vector cannot be refreshed via set_payload alone;
             # payload-only updates will leave any existing BM25 vector stale. In
             # practice v3 re-embeds on memory text change, so this is acceptable.
-            if payload is not None:
-                self.client.set_payload(
-                    collection_name=self.collection_name,
-                    payload=payload,
-                    points=[vector_id],
-                )
+            set_payload = models.SetPayload(payload=payload, points=[vector_id])
             if vector is not None:
-                self.client.update_vectors(
-                    collection_name=self.collection_name,
-                    points=[PointVectors(id=vector_id, vector=vector)],
-                )
+                operations.append(models.OverwritePayloadOperation(overwrite_payload=set_payload))
+            else:
+                operations.append(models.SetPayloadOperation(set_payload=set_payload))
+        if not operations:
+            return None
+        with self._write_lock:
+            # qdrant-client < 1.20 in local mode writes vectors for a deleted id instead of raising.
+            if self._local and not self.client.retrieve(collection_name=self.collection_name, ids=[vector_id]):
+                return False
+            try:
+                self.client.batch_update_points(collection_name=self.collection_name, update_operations=operations)
+            except UnexpectedResponse as e:
+                if e.status_code == 404 and b"No point with id" in (e.content or b""):
+                    return False
+                raise
+            except grpc.RpcError as e:
+                if e.code() == grpc.StatusCode.NOT_FOUND and "No point with id" in (e.details() or ""):
+                    return False
+                raise
+            except KeyError as e:
+                # Local mode reports a missing point as KeyError(point_id), with the id normalized to lowercase.
+                if e.args and str(e.args[0]).lower() == str(vector_id).lower():
+                    return False
+                raise
+        return True
 
     def get(self, vector_id: int) -> dict:
         """

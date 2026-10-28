@@ -305,6 +305,8 @@ class _FakeNeptuneGraph:
             return []
 
         if "CALL neptune.algo.vectors.upsert" in query_string:
+            if params["vector_id"] not in self.nodes:  # MATCH found no node, so no rows
+                return []
             if self.fail_next_upsert:
                 self.fail_next_upsert = False
                 raise RuntimeError("simulated Neptune upsert failure")
@@ -314,8 +316,10 @@ class _FakeNeptuneGraph:
             return [{"success": True}]
 
         if "SET n = $properties" in query_string:
+            if params["vector_id"] not in self.nodes:
+                return []
             self.nodes[params["vector_id"]] = dict(params["properties"])
-            return []
+            return [{"id": params["vector_id"]}] if "RETURN" in query_string else []
 
         if "RETURN n" in query_string and "node_id" in params:
             self.get_call_count += 1
@@ -388,3 +392,15 @@ class TestNeptuneAnalyticsUpdateRollback:
         restored = vec.get("A")
         assert restored.payload["data"] == "alpha"
         assert restored.payload["user_id"] == "u1"
+
+    def test_update_reports_whether_the_node_exists(self, monkeypatch):
+        vec = self._make_vec(monkeypatch)
+        assert vec.update("missing", vector=[0.9, 0.9], payload={"data": "x", "user_id": "u1"}) is False
+        assert vec.update("missing", payload={"data": "x", "user_id": "u1"}) is False
+        assert vec.update("missing", vector=[0.9, 0.9]) is False
+        assert "missing" not in vec.graph.nodes
+
+        vec.insert(vectors=[[0.1, 0.2]], ids=["A"], payloads=[{"data": "alpha", "user_id": "u1"}])
+        assert vec.update("A", payload={"data": "beta", "user_id": "u1"}) is True
+        assert vec.get("A").payload["data"] == "beta"
+        assert vec.update("A", vector=[0.9, 0.9]) is True

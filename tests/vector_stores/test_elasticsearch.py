@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, Mock, patch
 import dotenv
 
 try:
-    from elasticsearch import Elasticsearch
+    from elasticsearch import Elasticsearch, NotFoundError
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
@@ -335,6 +335,25 @@ class TestElasticsearchDB(unittest.TestCase):
 
         # Verify delete call
         self.client_mock.delete.assert_called_once_with(index="test_collection", id="id1")
+
+    def test_update_existing_returns_true(self):
+        vector, payload = [0.3] * 1536, {"data": "new"}
+        self.assertIs(self.es_db.update("id1", vector=vector, payload=payload), True)
+        self.client_mock.update.assert_called_once_with(
+            index="test_collection", id="id1", body={"doc": {"vector": vector, "metadata": payload}}
+        )
+
+    def test_update_payload_only_returns_true(self):
+        self.assertIs(self.es_db.update("id1", payload={"data": "new"}), True)
+        self.client_mock.update.assert_called_once_with(
+            index="test_collection", id="id1", body={"doc": {"metadata": {"data": "new"}}}
+        )
+
+    def test_update_missing_id_returns_false_without_inserting(self):
+        self.client_mock.update.side_effect = NotFoundError("document_missing_exception", MagicMock(status=404), {})
+        self.assertIs(self.es_db.update("gone", vector=[0.3] * 1536, payload={"data": "new"}), False)
+        self.assertNotIn("doc_as_upsert", self.client_mock.update.call_args.kwargs["body"])
+        self.client_mock.index.assert_not_called()
 
     def test_list_cols(self):
         # Mock indices response
