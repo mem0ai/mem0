@@ -310,6 +310,39 @@ def test_delete_all_paginates_beyond_vector_store_page_size(memory_instance):
     assert memory_instance.vector_store.list.call_count == 3
 
 
+class FakeListVectorStore:
+    """A vector store whose list() genuinely returns the configured pages.
+
+    Used to pin the list() shape contract instead of mocking list() per call.
+    """
+
+    def __init__(self, pages):
+        self._pages = list(pages)
+
+    def list(self, filters=None, top_k=None):
+        if self._pages:
+            return self._pages.pop(0)
+        return []
+
+
+@pytest.mark.parametrize(
+    "pages, expected_deletes",
+    [
+        ([[]], 0),  # bare []: the reported IndexError (mem0ai/mem0#7759)
+        ([[[]]], 0),  # nested empty batch
+        ([[Mock(id="1")], []], 1),  # flat batch, then empty
+    ],
+)
+def test_delete_all_handles_list_result_shapes(memory_instance, pages, expected_deletes):
+    memory_instance.vector_store = FakeListVectorStore(pages)
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    assert result["message"] == "Memories deleted successfully!"
+    assert memory_instance._delete_memory.call_count == expected_deletes
+
+
 def test_get_all(memory_instance):
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))

@@ -1931,12 +1931,17 @@ class Memory(MemoryBase):
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
         # Keep listing after each batch is deleted. Most vector stores cap
         # list() at 100 results by default, which silently truncates deletes.
+        # list() shapes differ per backend (bare [], nested [batch], flat
+        # batch, (batch, offset) tuple), so normalize through the shared
+        # helper instead of indexing [0] -- a bare [] used to raise IndexError.
         deleted_count = 0
         seen_batches = set()
         while True:
-            memories = self.vector_store.list(
-                filters=filters, top_k=DELETE_ALL_BATCH_SIZE
-            )[0]
+            memories = _vector_store_list_rows(
+                self.vector_store.list(
+                    filters=filters, top_k=DELETE_ALL_BATCH_SIZE
+                )
+            )
             if not memories:
                 break
             batch_ids = tuple(sorted(str(memory.id) for memory in memories))
@@ -3612,12 +3617,15 @@ class AsyncMemory(MemoryBase):
         errors = []
         seen_batches = set()
         while True:
-            memories = await asyncio.to_thread(
-                self.vector_store.list,
-                filters=filters,
-                top_k=DELETE_ALL_BATCH_SIZE,
+            # Same shared normalization as the sync path: backends disagree
+            # on the list() shape, and indexing [0] used to crash on a bare [].
+            batch = _vector_store_list_rows(
+                await asyncio.to_thread(
+                    self.vector_store.list,
+                    filters=filters,
+                    top_k=DELETE_ALL_BATCH_SIZE,
+                )
             )
-            batch = memories[0] if memories else []
             if not batch:
                 break
             batch_ids = tuple(sorted(str(memory.id) for memory in batch))

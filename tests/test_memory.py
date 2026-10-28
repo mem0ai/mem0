@@ -1005,6 +1005,60 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
     }
 
 
+class FakeListVectorStore:
+    """A vector store whose list() genuinely returns the configured pages."""
+
+    def __init__(self, pages):
+        self._pages = list(pages)
+
+    def list(self, filters=None, top_k=None):
+        if self._pages:
+            return self._pages.pop(0)
+        return []
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_all_handles_list_result_shapes(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Async delete_all must handle the same list() shapes as the sync path
+    (mem0ai/mem0#7759): a bare [] must not raise, and a flat batch must
+    delete its memories."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+
+    deleted = []
+
+    async def fake_delete(memory_id, skip_entity_cleanup=False):
+        deleted.append(memory_id)
+
+    # Bare []: the reported crash shape.
+    memory = AsyncMemory(MemoryConfig())
+    memory.vector_store = FakeListVectorStore([[]])
+    memory._delete_memory = fake_delete
+    result = await memory.delete_all(user_id="test-user")
+    assert result == {"message": "Memories deleted successfully!"}
+    assert deleted == []
+
+    # Flat batch, then empty.
+    memory = AsyncMemory(MemoryConfig())
+    mem1 = MagicMock()
+    mem1.id = "mem-1"
+    memory.vector_store = FakeListVectorStore([[mem1], []])
+    memory._delete_memory = fake_delete
+    result = await memory.delete_all(user_id="test-user")
+    assert result == {"message": "Memories deleted successfully!"}
+    assert deleted == ["mem-1"]
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
