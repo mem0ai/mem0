@@ -28,6 +28,7 @@ function buildMockClient(
     getCollection: jest.fn().mockResolvedValue(collectionInfo),
     scroll: jest.fn().mockResolvedValue({ points: [] }),
     upsert: jest.fn().mockResolvedValue(undefined),
+    batchUpdate: jest.fn().mockResolvedValue([]),
     retrieve: jest.fn().mockResolvedValue([]),
     search: jest.fn().mockResolvedValue([]),
     query: jest.fn().mockResolvedValue({ points: [] }),
@@ -181,6 +182,11 @@ describe("Qdrant BM25 keyword search — collection setup", () => {
   });
 });
 
+function updatedVectors(client: MockClient): any {
+  const ops = client.batchUpdate.mock.calls.at(-1)![1].operations;
+  return ops[0].update_vectors.points[0];
+}
+
 describe("Qdrant BM25 keyword search — insert / update", () => {
   async function freshStore(): Promise<{ store: Qdrant; client: MockClient }> {
     const client = buildMockClient();
@@ -270,17 +276,63 @@ describe("Qdrant BM25 keyword search — insert / update", () => {
       data: "updated",
       textLemmatized: "updat",
     });
-    const point = client.upsert.mock.calls.at(-1)![1].points[0];
+    const point = updatedVectors(client);
     expect(point.vector[""]).toEqual([0.4, 0.5]);
     expect(point.vector.bm25).toEqual({ text: "updat", model: "Qdrant/bm25" });
   });
 
-  it("update with no text → named dense only (bm25 not re-attached)", async () => {
+  it("update on an existing id overwrites the whole payload and returns true", async () => {
+    const { store, client } = await freshStore();
+    const payload = { data: "new", user_id: "u" };
+    await expect(store.update("mem-1", [0.4], payload)).resolves.toBe(true);
+    const ops = client.batchUpdate.mock.calls.at(-1)![1].operations;
+    // Vectors first, so a rejected vector fails before the payload changes.
+    expect(Object.keys(ops[0])).toEqual(["update_vectors"]);
+    expect(ops[1]).toEqual({
+      overwrite_payload: { payload, points: ["mem-1"] },
+    });
+    expect(updatedVectors(client).id).toBe("mem-1");
+    expect(client.upsert).not.toHaveBeenCalled();
+  });
+
+  it("update on a missing id returns false, never upserts, keeps bm25", async () => {
+    const batchUpdate = jest.fn().mockRejectedValue({
+      status: 404,
+      data: { status: { error: "Not found: No point with id gone found" } },
+    });
+    const client = buildMockClient({ batchUpdate });
+    const store = makeStore(client);
+    await store.initialize();
+
+    await expect(store.update("gone", [0.1], { data: "x" })).resolves.toBe(
+      false,
+    );
+    expect(batchUpdate).toHaveBeenCalledTimes(1);
+    expect(client.upsert).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("update on a missing collection rejects instead of reporting not found", async () => {
+    const batchUpdate = jest.fn().mockRejectedValue({
+      status: 404,
+      data: { status: { error: "Not found: Collection `x` doesn't exist!" } },
+    });
+    const client = buildMockClient({ batchUpdate });
+    const store = makeStore(client);
+    await store.initialize();
+
+    await expect(store.update("m", [0.1], { data: "x" })).rejects.toEqual(
+      expect.objectContaining({ status: 404 }),
+    );
+    expect(client.upsert).not.toHaveBeenCalled();
+  });
+
+  it("update with no text clears the stale bm25 vector", async () => {
     const { store, client } = await freshStore();
     await store.update("m", [0.9], { user_id: "u" });
-    const point = client.upsert.mock.calls.at(-1)![1].points[0];
+    const point = updatedVectors(client);
     expect(point.vector[""]).toEqual([0.9]);
-    expect(point.vector.bm25).toBeUndefined();
+    expect(point.vector.bm25).toEqual({ indices: [], values: [] });
   });
 
   it("inserts a plain dense vector (no named/sparse) on legacy collections", async () => {
@@ -465,15 +517,15 @@ describe("Qdrant BM25 keyword search — reactive downgrade on upsert failure", 
     expect(await store.keywordSearch("hello")).toBeNull();
   });
 
-  it("update(): upsert fails once, retries with plain dense vector, disables bm25", async () => {
-    const upsert = jest
+  it("update(): batch update fails once, retries with plain dense vector, disables bm25", async () => {
+    const batchUpdate = jest
       .fn()
       .mockRejectedValueOnce({
         status: 500,
         message: "InferenceService is not initialized.",
       })
-      .mockResolvedValueOnce(undefined);
-    const client = buildMockClient({ upsert });
+      .mockResolvedValueOnce([]);
+    const client = buildMockClient({ batchUpdate });
     const store = makeStore(client);
     await store.initialize();
 
@@ -482,8 +534,8 @@ describe("Qdrant BM25 keyword search — reactive downgrade on upsert failure", 
       textLemmatized: "updat",
     });
 
-    expect(upsert).toHaveBeenCalledTimes(2);
-    const retryPoint = upsert.mock.calls[1][1].points[0];
+    expect(batchUpdate).toHaveBeenCalledTimes(2);
+    const retryPoint = updatedVectors(client);
     expect(retryPoint.vector).toEqual([0.4, 0.5]);
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(await store.keywordSearch("updat")).toBeNull();

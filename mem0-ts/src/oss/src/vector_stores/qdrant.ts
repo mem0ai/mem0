@@ -306,7 +306,7 @@ export class Qdrant implements VectorStore {
       };
     });
 
-    await this.upsertPoints(points);
+    await this.writePoints(points);
   }
 
   // A server can accept a bm25 `sparse_vectors` config yet be unable to run
@@ -317,13 +317,16 @@ export class Qdrant implements VectorStore {
   //
   // `as any`: the JS client types predate server-side sparse_vectors, so the
   // named-vector and BM25-inference shapes are not typed.
-  private async upsertPoints(
+  private async writePoints(
     points: { id: string | number; vector: any; payload?: any }[],
+    write: (pts: typeof points) => Promise<unknown> = (pts) =>
+      this.client.upsert(this.collectionName, { points: pts as any }),
   ): Promise<void> {
     try {
-      await this.client.upsert(this.collectionName, { points: points as any });
+      await write(points);
     } catch (error) {
-      if (!this._hasBm25Slot) {
+      // 404 means the point or collection is missing, not a BM25 rejection.
+      if (!this._hasBm25Slot || (error as any)?.status === 404) {
         throw error;
       }
       this._hasBm25Slot = false;
@@ -336,9 +339,7 @@ export class Qdrant implements VectorStore {
         ...p,
         vector: Array.isArray(p.vector) ? p.vector : p.vector[""],
       }));
-      await this.client.upsert(this.collectionName, {
-        points: denseOnly as any,
-      });
+      await write(denseOnly);
     }
   }
 
@@ -430,7 +431,7 @@ export class Qdrant implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.initialize();
     const point = {
       id: vectorId,
@@ -438,8 +439,34 @@ export class Qdrant implements VectorStore {
       vector: this.buildPointVector(vector, payload),
       payload,
     };
+    // update_vectors keeps any vector it is not sent, so clear a stale bm25.
+    const named = point.vector;
+    if (!Array.isArray(named) && !named[BM25_VECTOR_NAME]) {
+      named[BM25_VECTOR_NAME] = { indices: [], values: [] };
+    }
 
-    await this.upsertPoints([point]);
+    // Update-only operations: Qdrant answers 404 for a missing point
+    // instead of creating it, so a concurrent delete is never undone.
+    // Vectors go first: a batch does not roll back, so a rejected vector
+    // must fail before the payload is touched.
+    try {
+      await this.writePoints([point], ([p]) =>
+        this.client.batchUpdate(this.collectionName, {
+          operations: [
+            { update_vectors: { points: [{ id: p.id, vector: p.vector }] } },
+            { overwrite_payload: { payload: p.payload, points: [p.id] } },
+          ],
+        }),
+      );
+    } catch (error) {
+      const e = error as any;
+      // Only a missing point is "not found"; a missing collection is a config error.
+      const detail = `${e?.data?.status?.error ?? ""} ${e?.message ?? ""}`;
+      if (e?.status === 404 && detail.includes("No point with id"))
+        return false;
+      throw error;
+    }
+    return true;
   }
 
   async delete(vectorId: string): Promise<void> {

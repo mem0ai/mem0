@@ -379,7 +379,7 @@ export class MongoDB implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean | void> {
     await this.initialize();
     const updateFields: any = {};
     if (vector) {
@@ -397,9 +397,12 @@ export class MongoDB implements VectorStore {
           { _id: vectorId as any },
           { $set: updateFields },
         );
+        // An unacknowledged write reports no real matchedCount.
+        if (result.acknowledged === false) return;
         if (result.matchedCount === 0) {
           console.warn(`No document found with ID '${vectorId}' to update.`);
         }
+        return result.matchedCount > 0;
       } catch (error) {
         console.error("Error updating document:", error);
         throw error;
