@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -71,6 +72,7 @@ def format_memories_table(
         memory_text = mem.get("memory") or mem.get("text") or ""
         if len(memory_text) > 60:
             memory_text = memory_text[:57] + "..."
+        memory_text = escape(memory_text)
         categories = mem.get("categories", [])
         if isinstance(categories, list) and categories:
             cat = (
@@ -108,7 +110,7 @@ def format_single_memory(console: Console, mem: dict, output: str = "text") -> N
     mem_id = mem.get("id") or ""
 
     lines = []
-    lines.append(f"  [white bold]{memory_text}[/]")
+    lines.append(f"  [white bold]{escape(memory_text)}[/]")
     lines.append("")
 
     if mem_id:
@@ -197,7 +199,7 @@ def format_add_result(console: Console, result: dict | list, output: str = "text
         # Build the display line
         parts = [f"  {icon} [{DIM_COLOR}]{label:<10}[/]"]
         if memory:
-            parts.append(f"[white]{memory}[/]")
+            parts.append(f"[white]{escape(str(memory))}[/]")
         if mem_id:
             parts.append(f"[{DIM_COLOR}]({mem_id})[/]")
         console.print("  ".join(parts))

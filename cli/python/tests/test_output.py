@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from io import StringIO
 
+import pytest
+
 from rich.console import Console
 
 from mem0_cli.output import (
@@ -303,3 +305,33 @@ class TestSanitizeAgentData:
 
     def test_none_data(self):
         assert sanitize_agent_data("add", None) is None
+
+
+class TestMemoryTextIsLiteralInRichFormatters:
+    """Stored memory text must not be parsed as Rich markup (#7735)."""
+
+    @pytest.mark.parametrize(
+        "memory",
+        ["[bold]buy milk[/bold]", "literal [/red] text"],
+    )
+    def test_table_get_add_preserve_brackets(self, memory):
+        from io import StringIO
+
+        from rich.console import Console
+
+        record = {"id": "abc-123", "memory": memory, "event": "ADD"}
+        for mode, formatter in (
+            ("table", lambda c: format_memories_table(c, [record])),
+            ("get", lambda c: format_single_memory(c, record)),
+            ("add", lambda c: format_add_result(c, {"results": [record]})),
+        ):
+            buffer = StringIO()
+            console = Console(
+                file=buffer,
+                force_terminal=False,
+                no_color=True,
+                width=120,
+                highlight=False,
+            )
+            formatter(console)
+            assert memory in buffer.getvalue(), f"{mode} lost literal text for {memory!r}"
