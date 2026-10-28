@@ -1934,9 +1934,7 @@ class Memory(MemoryBase):
         deleted_count = 0
         seen_batches = set()
         while True:
-            memories = self.vector_store.list(
-                filters=filters, top_k=DELETE_ALL_BATCH_SIZE
-            )[0]
+            memories = _vector_store_list_rows(self.vector_store.list(filters=filters, top_k=DELETE_ALL_BATCH_SIZE))
             if not memories:
                 break
             batch_ids = tuple(sorted(str(memory.id) for memory in memories))

@@ -310,6 +310,43 @@ def test_delete_all_paginates_beyond_vector_store_page_size(memory_instance):
     assert memory_instance.vector_store.list.call_count == 3
 
 
+class _FakeVectorStore:
+    """Vector store whose list() returns whatever shape it was given, once per call.
+
+    list() hands back the queued results in order and then an empty bare list, so a
+    test can pin how delete_all copes with each shape a real backend might return.
+    """
+
+    def __init__(self, *results):
+        self._results = list(results)
+
+    def list(self, filters=None, top_k=None):
+        return self._results.pop(0) if self._results else []
+
+
+def test_delete_all_handles_bare_empty_list_from_vector_store(memory_instance):
+    # Some vector stores (e.g. langchain, databricks) return a bare [] instead
+    # of [[]] when nothing matches. AsyncMemory.delete_all already tolerates it.
+    memory_instance.vector_store = _FakeVectorStore()
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    memory_instance._delete_memory.assert_not_called()
+    assert result["message"] == "Memories deleted successfully!"
+
+
+def test_delete_all_accepts_a_flat_batch_from_vector_store(memory_instance):
+    # A store may return one flat batch of memories instead of [[...]].
+    flat_batch = [Mock(id="1"), Mock(id="2")]
+    memory_instance.vector_store = _FakeVectorStore(flat_batch)
+    memory_instance._delete_memory = Mock()
+
+    memory_instance.delete_all(user_id="test_user")
+
+    assert memory_instance._delete_memory.call_count == 2
+
+
 def test_get_all(memory_instance):
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
