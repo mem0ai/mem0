@@ -337,6 +337,26 @@ describe("scoreAndRank", () => {
       expect(scored[0].scoreDetails?.semanticContribution).toBe(0);
     });
 
+    it("preserves source tie order when an auxiliary payload fills a missing semantic score", () => {
+      const rows = scoreAndRank(
+        [
+          { id: "first", score: Number.NaN },
+          { id: "second", score: 0.05, payload: { data: "second" } },
+        ],
+        { second: 1, first: 1 },
+        {},
+        0.4,
+        2,
+        true,
+        "rrf",
+        60,
+        [{ id: "first", payload: { data: "first" } }],
+      );
+      expect(rows.map((row) => row.id)).toEqual(["first", "second"]);
+      expect(rows[0].scoreDetails?.semanticRank).toBeNull();
+      expect(rows[0].score).toBe(rows[1].score);
+    });
+
     it("keeps additive scoring and its explanation shape unchanged by default", () => {
       const scored = scoreAndRank(candidates, {}, {}, 0.1, 3, true);
       expect(scored[0].scoreDetails).not.toHaveProperty("fusionStrategy");

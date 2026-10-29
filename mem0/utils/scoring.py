@@ -90,7 +90,7 @@ def score_and_rank(
         semantic_results: Candidate memories from vector search.
         bm25_scores: Normalized keyword scores keyed by memory ID.
         entity_boosts: Entity-link boosts keyed by memory ID.
-        threshold: Minimum semantic score required before hybrid scoring.
+        threshold: Semantic vote threshold for RRF; candidate gate for additive.
         top_k: Maximum number of results to return.
         explain: Include score_details in each result when true.
         fusion_strategy: "additive" (default) or "rrf".

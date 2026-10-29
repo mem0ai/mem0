@@ -434,9 +434,7 @@ export class MemoryVectorStore implements VectorStore {
 
     const placeholders = ids.map(() => "?").join(", ");
     const rows = this.db
-      .prepare(
-        `SELECT id, vector, payload FROM vectors WHERE id IN (${placeholders})`,
-      )
+      .prepare(`SELECT id, payload FROM vectors WHERE id IN (${placeholders})`)
       .all(...ids) as any[];
 
     const requested = new Set(ids.map(String));

@@ -113,7 +113,7 @@ export interface CandidateResult {
  * @param bm25Scores - Map of memory ID to BM25 score. Additive callers pass
  *   normalized scores; RRF callers pass positive finite raw scores.
  * @param entityBoosts - Map of memory ID to entity boost score.
- * @param threshold - Minimum semantic score to include a candidate.
+ * @param threshold - Semantic vote threshold for RRF; candidate gate for additive.
  * @param topK - Maximum number of results to return.
  * @param explain - Include scoreDetails in each result when true.
  * @param fusionStrategy - Score fusion strategy. Defaults to `"additive"`.
@@ -379,7 +379,11 @@ function scoreAndRankRrf(
     candidateIds.add(id);
   };
 
-  for (const id of semanticScores.keys()) addCandidate(id);
+  // Preserve source appearance for final ties independently of whether a
+  // semantic vote exists. Auxiliary payloads can make such an ID returnable.
+  for (const result of semanticResults) {
+    if (result.id != null) addCandidate(String(result.id));
+  }
   for (const { id } of bm25Entries) addCandidate(id);
   for (const { id } of entityEntries) addCandidate(id);
 

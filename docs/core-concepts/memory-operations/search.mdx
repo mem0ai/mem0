@@ -209,17 +209,31 @@ summed in one pass. Ranks start at 1. Tied scores receive the average of their r
 missing, zero, or negative keyword/entity scores contribute nothing. The rank offset must be a
 positive integer and defaults to 60; it is independent of `top_k`.
 
-This option reuses the existing semantic candidates, BM25 scores, and entity boosts. It adds
-no model or retrieval calls. Existing semantic-threshold and expiration checks still determine
-eligibility before ranking, so keyword/entity-only hits outside the semantic candidate pool
-are not introduced by this option. `top_k` is applied after the complete fusion.
+RRF combines the union of semantic, keyword, and entity candidates. A memory found only
+by keyword or entity lookup can enter the final results when its scoped payload is available.
+Each route uses a window of `max(top_k * 4, 60)` memories; entity scores are aggregated
+before selecting this window. Ranks retain positions from the complete route windows,
+including positions whose unavailable or expired payload prevents them from being returned.
+Keyword ranks use raw positive BM25 scores rather than sigmoid-normalized scores.
+`top_k` is applied after the complete fusion and IDs are deduplicated.
+
+No additional model calls are required. When an entity hit refers to a memory whose payload
+was not returned by semantic or keyword search, RRF performs one bounded batch payload read
+with the complete search filters. Expired memories are excluded unless `show_expired` is set.
+Scoped batch hydration is supported by Qdrant and PGVector in both SDKs, and by the
+TypeScript in-memory store. Other providers keep entity votes for already-returned memories
+but warn and skip entity-only expansion when scoped batch reads are unavailable; they never
+fall back to unfiltered `get` calls.
 
 RRF returns raw reciprocal-rank sums, not additive scores: a single first-place contribution
 with the default offset is `1/61`. Do not reuse downstream additive-score cutoffs for RRF.
-The search `threshold` continues to apply to the semantic score before fusion, not to the
-returned RRF score. With `explain` enabled, additional fields identify the strategy, rank
+For RRF, the search `threshold` controls only the semantic contribution. A below-threshold
+or semantic-missing memory can still qualify through a positive keyword or entity vote.
+The default additive strategy retains its existing semantic candidate gate and normalization.
+With `explain` enabled, additional fields identify the strategy, rank
 offset, per-signal ranks and contributions. `raw_score` and `final_score` both contain the
 RRF sum, and `max_possible_score` is the theoretical bound for the active channels.
+Auxiliary-only memories have no semantic rank and their semantic score is `null`.
 
 ## Filter patterns
 
