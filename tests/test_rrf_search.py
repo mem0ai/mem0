@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import AsyncMemory, Memory
+from mem0.memory.main import AsyncMemory, Memory, _has_memory_data
 
 
 @pytest.mark.asyncio
@@ -73,7 +73,7 @@ async def test_rrf_preserves_expiration_and_semantic_threshold_gates(monkeypatch
     else:
         result = memory._search_vector_store("query", {"user_id": "user-1"}, 10)
     assert [item["id"] for item in result] == ["valid", "below"]
-    assert result[0]["score"] == pytest.approx(1 / 61 + 1 / 64)
+    assert result[0]["score"] == pytest.approx(1 / 62 + 1 / 64)
     assert "score_details" not in result[0]
 
 
@@ -168,3 +168,37 @@ def test_rrf_warns_and_skips_entity_only_when_scoped_batch_is_unsupported(monkey
 
     assert result == []
     assert any("does not support scoped batch reads" in record.message for record in caplog.records)
+
+
+def test_rrf_expired_semantic_payload_keeps_rank_and_avoids_rehydration(monkeypatch):
+    monkeypatch.setattr("mem0.memory.main.lemmatize_for_bm25", lambda query: query)
+    monkeypatch.setattr("mem0.memory.main.extract_entities", lambda query: [("PERSON", "Alice")])
+    memory = Memory.__new__(Memory)
+    memory.config = MemoryConfig(fusion_strategy="rrf")
+    memory.embedding_model = Mock()
+    memory.embedding_model.embed.return_value = [0.1, 0.2]
+    memory.vector_store = Mock()
+    memory.vector_store.search.return_value = [
+        Mock(id="expired", score=0.99, payload={"data": "expired", "expiration_date": "2000-01-01"}),
+        Mock(id="valid", score=0.8, payload={"data": "valid", "user_id": "u1"}),
+    ]
+    memory.vector_store.keyword_search.return_value = []
+    memory.vector_store.get_by_ids.return_value = [
+        Mock(id="entity-only", payload={"data": "entity", "user_id": "u1"}),
+    ]
+    memory._compute_entity_boosts = Mock(return_value={"expired": 0.9, "entity-only": 0.8})
+
+    result = memory._search_vector_store("Alice", {"user_id": "u1"}, 5, explain=True)
+
+    assert {item["id"] for item in result} == {"valid", "entity-only"}
+    details = {item["id"]: item["score_details"] for item in result}
+    assert details["valid"]["semantic_rank"] == 2
+    assert details["entity-only"]["semantic_rank"] is None
+    memory.vector_store.get_by_ids.assert_called_once_with(["entity-only"], filters={"user_id": "u1"})
+
+
+def test_rrf_payload_requires_nonempty_string_memory_data():
+    assert _has_memory_data({"data": "text"})
+    assert not _has_memory_data({"data": 123})
+    assert not _has_memory_data({"data": []})
+    assert not _has_memory_data({"data": ""})

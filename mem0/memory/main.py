@@ -467,7 +467,8 @@ def _result_payload(result: Any) -> Optional[Dict[str, Any]]:
 
 
 def _has_memory_data(payload: Optional[Dict[str, Any]]) -> bool:
-    return isinstance(payload, dict) and bool(payload.get("data"))
+    data = payload.get("data") if isinstance(payload, dict) else None
+    return isinstance(data, str) and bool(data)
 
 
 def _scoped_batch_get(vector_store: VectorStoreBase, ids, filters):
@@ -1732,9 +1733,6 @@ class Memory(MemoryBase):
                     mem_id = _result_value(mem, "id")
                     if mem_id is None:
                         continue
-                    payload = _result_payload(mem)
-                    if payload is not None and not show_expired and _payload_is_expired(payload):
-                        continue
                     raw_score = _result_value(mem, "score", 0)
                     try:
                         raw_score = float(raw_score)
@@ -1761,17 +1759,24 @@ class Memory(MemoryBase):
 
         # Step 7: Build candidate set from semantic results
         candidates = []
+        supplied_payload_ids = set()
         for mem in semantic_results:
             payload = _result_payload(mem)
-            if not show_expired and _payload_is_expired(payload):
-                continue
             mem_id = _result_value(mem, "id")
             if mem_id is None:
+                continue
+            mem_id = str(mem_id)
+            if is_rrf:
+                if payload is not None:
+                    supplied_payload_ids.add(mem_id)
+                if not show_expired and _payload_is_expired(payload):
+                    payload = None
+            elif not show_expired and _payload_is_expired(payload):
                 continue
             if not _has_memory_data(payload):
                 payload = None
             candidates.append({
-                "id": str(mem_id),
+                "id": mem_id,
                 "score": _result_value(mem, "score"),
                 "payload": payload,
             })
@@ -1779,11 +1784,6 @@ class Memory(MemoryBase):
         candidate_results = None
         if is_rrf:
             candidate_results = []
-            supplied_payload_ids = {
-                candidate["id"]
-                for candidate in candidates
-                if candidate.get("payload") is not None
-            }
 
             # Keyword searches can return complete scoped payloads.  Keep
             # those records as auxiliary candidates and avoid re-fetching them
@@ -1794,13 +1794,13 @@ class Memory(MemoryBase):
                     payload = _result_payload(mem)
                     if mem_id is None or payload is None:
                         continue
+                    mem_id = str(mem_id)
+                    supplied_payload_ids.add(mem_id)
                     if not _has_memory_data(payload):
                         continue
                     if not show_expired and _payload_is_expired(payload):
                         continue
-                    mem_id = str(mem_id)
                     candidate_results.append({"id": mem_id, "payload": payload})
-                    supplied_payload_ids.add(mem_id)
 
             entity_ids = [memory_id for memory_id in entity_boosts if memory_id not in supplied_payload_ids]
             if entity_ids:
@@ -3490,9 +3490,6 @@ class AsyncMemory(MemoryBase):
                     mem_id = _result_value(mem, "id")
                     if mem_id is None:
                         continue
-                    payload = _result_payload(mem)
-                    if payload is not None and not show_expired and _payload_is_expired(payload):
-                        continue
                     raw_score = _result_value(mem, "score", 0)
                     try:
                         raw_score = float(raw_score)
@@ -3517,17 +3514,24 @@ class AsyncMemory(MemoryBase):
 
         # Step 7: Build candidate set from semantic results
         candidates = []
+        supplied_payload_ids = set()
         for mem in semantic_results:
             payload = _result_payload(mem)
-            if not show_expired and _payload_is_expired(payload):
-                continue
             mem_id = _result_value(mem, "id")
             if mem_id is None:
+                continue
+            mem_id = str(mem_id)
+            if is_rrf:
+                if payload is not None:
+                    supplied_payload_ids.add(mem_id)
+                if not show_expired and _payload_is_expired(payload):
+                    payload = None
+            elif not show_expired and _payload_is_expired(payload):
                 continue
             if not _has_memory_data(payload):
                 payload = None
             candidates.append({
-                "id": str(mem_id),
+                "id": mem_id,
                 "score": _result_value(mem, "score"),
                 "payload": payload,
             })
@@ -3535,24 +3539,19 @@ class AsyncMemory(MemoryBase):
         candidate_results = None
         if is_rrf:
             candidate_results = []
-            supplied_payload_ids = {
-                candidate["id"]
-                for candidate in candidates
-                if candidate.get("payload") is not None
-            }
             if keyword_results is not None:
                 for mem in keyword_results:
                     mem_id = _result_value(mem, "id")
                     payload = _result_payload(mem)
                     if mem_id is None or payload is None:
                         continue
+                    mem_id = str(mem_id)
+                    supplied_payload_ids.add(mem_id)
                     if not _has_memory_data(payload):
                         continue
                     if not show_expired and _payload_is_expired(payload):
                         continue
-                    mem_id = str(mem_id)
                     candidate_results.append({"id": mem_id, "payload": payload})
-                    supplied_payload_ids.add(mem_id)
 
             entity_ids = [memory_id for memory_id in entity_boosts if memory_id not in supplied_payload_ids]
             if entity_ids:
