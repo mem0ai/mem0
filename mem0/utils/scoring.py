@@ -324,7 +324,7 @@ def _rrf_score_and_rank(
         if ranks[2] is not None:
             contributions[2] = 1.0 / (rrf_k + ranks[2])
 
-        score = sum(contributions)
+        score = contributions[0] + contributions[1] + contributions[2]
         entry = {"id": memory_id, "score": score, "payload": payloads[memory_id]}
         if explain:
             entry["score_details"] = {

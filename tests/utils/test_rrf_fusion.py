@@ -148,6 +148,27 @@ def test_rrf_auxiliary_payload_upgrades_empty_semantic_payload_and_rejects_non_d
     assert rejected == []
 
 
+def test_rrf_three_contributions_use_fixed_addition_order():
+    fused = score_and_rank(
+        [{"id": "candidate", "score": 0.9, "payload": {"data": "candidate"}}],
+        {"outside-keyword": 2.0, "candidate": 1.0},
+        {"outside-1": 5.0, "outside-2": 4.0, "outside-3": 3.0, "outside-4": 2.0, "candidate": 1.0},
+        threshold=0.1,
+        top_k=1,
+        explain=True,
+        fusion_strategy="rrf",
+        rrf_k=1,
+    )
+    item = fused[0]
+    details = item["score_details"]
+    expected = (
+        details["semantic_contribution"]
+        + details["bm25_contribution"]
+        + details["entity_contribution"]
+    )
+    assert item["score"] == expected
+
+
 def test_limit_is_applied_after_complete_fusion():
     results = candidates({"a": 0.9, "b": 0.8, "c": 0.7})
     fused = score_and_rank(results, {"c": 0.9}, {"c": 0.5}, 0.1, 1, fusion_strategy="rrf")
