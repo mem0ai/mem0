@@ -215,25 +215,37 @@ def _rrf_score_and_rank(
             return record.get(key, default)
         return getattr(record, key, default)
 
-    # Keep the first occurrence in each route.  Vector stores normally return
-    # unique IDs, but deduplicating here prevents duplicate output and keeps
-    # the first supplied payload authoritative.
+    def _payload_has_data(payload: Any) -> bool:
+        return isinstance(payload, dict) and isinstance(payload.get("data"), str) and bool(payload.get("data"))
+
+    def _merge_payload(memory_id: str, payload: Any) -> None:
+        """Keep the first dict payload, upgrading an empty one with data."""
+        if not isinstance(payload, dict):
+            return
+        existing = payloads.get(memory_id)
+        if existing is None or (not _payload_has_data(existing) and _payload_has_data(payload)):
+            payloads[memory_id] = payload
+
+    # Vector stores normally return unique IDs.  For duplicate semantic IDs,
+    # keep the first-seen route order but use the maximum finite score so a
+    # later stronger hit cannot be discarded.
     semantic_scores: Dict[str, float] = {}
     payloads: Dict[str, Any] = {}
     semantic_order: List[str] = []
+    seen_semantic_ids = set()
     for result in semantic_results:
         memory_id = _record_value(result, "id")
         if memory_id is None:
             continue
         memory_id = str(memory_id)
+        if memory_id not in seen_semantic_ids:
+            seen_semantic_ids.add(memory_id)
+            semantic_order.append(memory_id)
         semantic_score = _finite(_record_value(result, "score", 0.0))
-        if semantic_score is None or memory_id in semantic_scores:
-            continue
-        semantic_scores[memory_id] = semantic_score
-        semantic_order.append(memory_id)
-        payload = _record_value(result, "payload")
-        if payload is not None:
-            payloads[memory_id] = payload
+        if semantic_score is not None:
+            if memory_id not in semantic_scores or semantic_score > semantic_scores[memory_id]:
+                semantic_scores[memory_id] = semantic_score
+            _merge_payload(memory_id, _record_value(result, "payload"))
 
     # BM25 and entity maps are already route/window score maps.  Only positive
     # finite values vote in RRF; additive callers continue to pass normalized
@@ -265,16 +277,14 @@ def _rrf_score_and_rank(
         entity_order.append(memory_id)
 
     # Existing semantic/keyword payloads take precedence over hydration
-    # records.  The caller is responsible for omitting IDs it could not
-    # hydrate; low-level scoring never invents payloads for route-only IDs.
+    # records, except that an empty payload may be upgraded by a valid one.
+    # Non-dict payloads are never admitted to the final candidate map.
     for result in candidate_results or []:
         memory_id = _record_value(result, "id")
         if memory_id is None:
             continue
         memory_id = str(memory_id)
-        payload = _record_value(result, "payload")
-        if payload is not None and memory_id not in payloads:
-            payloads[memory_id] = payload
+        _merge_payload(memory_id, _record_value(result, "payload"))
 
     rank_maps = [
         _average_ranks(semantic_scores),

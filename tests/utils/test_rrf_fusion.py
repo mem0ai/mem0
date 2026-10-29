@@ -108,6 +108,46 @@ def test_rrf_does_not_admit_auxiliary_id_without_payload_record():
     assert [item["id"] for item in fused] == ["semantic"]
 
 
+def test_rrf_duplicate_semantic_ids_use_max_finite_score_and_first_order():
+    results = [
+        {"id": "duplicate", "score": 0.2, "payload": {"data": "first"}},
+        {"id": "other", "score": 0.8, "payload": {"data": "other"}},
+        {"id": "duplicate", "score": float("nan"), "payload": {"data": "later-invalid"}},
+        {"id": "duplicate", "score": 0.9, "payload": {"data": "later-valid"}},
+    ]
+
+    fused = fuse(results, explain=True)
+
+    assert [item["id"] for item in fused] == ["duplicate", "other"]
+    assert fused[0]["payload"] == {"data": "first"}
+    assert fused[0]["score_details"]["semantic_score"] == 0.9
+    assert fused[0]["score_details"]["semantic_rank"] == 1
+
+
+def test_rrf_auxiliary_payload_upgrades_empty_semantic_payload_and_rejects_non_dict():
+    fused = score_and_rank(
+        [{"id": "filled", "score": 0.9, "payload": {}}],
+        {"filled": 1.0},
+        {},
+        threshold=0.1,
+        top_k=10,
+        fusion_strategy="rrf",
+        candidate_results=[{"id": "filled", "payload": {"data": "from-keyword"}}],
+    )
+    assert fused[0]["payload"] == {"data": "from-keyword"}
+
+    rejected = score_and_rank(
+        [{"id": "bad", "score": 0.9, "payload": "not-a-payload"}],
+        {},
+        {},
+        threshold=0.1,
+        top_k=10,
+        fusion_strategy="rrf",
+        candidate_results=[{"id": "bad", "payload": ["not-a-payload"]}],
+    )
+    assert rejected == []
+
+
 def test_limit_is_applied_after_complete_fusion():
     results = candidates({"a": 0.9, "b": 0.8, "c": 0.7})
     fused = score_and_rank(results, {"c": 0.9}, {"c": 0.5}, 0.1, 1, fusion_strategy="rrf")
