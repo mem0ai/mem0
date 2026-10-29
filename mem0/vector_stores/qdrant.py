@@ -527,33 +527,41 @@ class Qdrant(VectorStoreBase):
         Returns:
             Optional[bool]: False if the point does not exist, True if it was updated, None if nothing was given.
         """
+        if vector is not None and payload is not None:
+            # Full update: attach BM25 sparse vector alongside dense vector (only if slot exists).
+            named_vectors = {"": vector}
+            if self._has_bm25_slot:
+                text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
+                if text_for_bm25:
+                    # Single-item update: per-row encoding is correct here; see insert() for the batch path.
+                    sparse = self._encode_bm25(text_for_bm25)
+                    if sparse is not None:
+                        named_vectors["bm25"] = sparse
+            point = PointStruct(id=vector_id, vector=named_vectors, payload=payload)
+            # One write keeps the vector and payload of concurrent updates together. update_only
+            # (Qdrant 1.17+) never creates a point; older servers and clients upsert as before.
+            mode = {"update_mode": models.UpdateMode.UPDATE_ONLY} if hasattr(models, "UpdateMode") else {}
+            with self._write_lock:
+                # A local client without update_mode support upserts a missing point, so check under the lock.
+                if self._local and not self.client.retrieve(collection_name=self.collection_name, ids=[vector_id]):
+                    return False
+                self.client.upsert(collection_name=self.collection_name, points=[point], **mode)
+            return bool(self.client.retrieve(collection_name=self.collection_name, ids=[vector_id]))
+
         operations = []
         if vector is not None:
-            named_vectors = vector
-            if payload is not None:
-                # Full update: attach BM25 sparse vector alongside dense vector (only if slot exists).
-                named_vectors = {"": vector}
-                if self._has_bm25_slot:
-                    text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
-                    # Single-item update: per-row encoding is correct here; see insert() for the batch path.
-                    sparse = self._encode_bm25(text_for_bm25) if text_for_bm25 else None
-                    # An empty sparse vector clears keywords left over from the old text.
-                    named_vectors["bm25"] = sparse if sparse is not None else SparseVector(indices=[], values=[])
             operations.append(
                 models.UpdateVectorsOperation(
-                    update_vectors=models.UpdateVectors(points=[PointVectors(id=vector_id, vector=named_vectors)])
+                    update_vectors=models.UpdateVectors(points=[PointVectors(id=vector_id, vector=vector)])
                 )
             )
         if payload is not None:
-            # A full update replaces the payload; a payload-only update merges into it.
             # Note: BM25 sparse vector cannot be refreshed via set_payload alone;
             # payload-only updates will leave any existing BM25 vector stale. In
             # practice v3 re-embeds on memory text change, so this is acceptable.
-            set_payload = models.SetPayload(payload=payload, points=[vector_id])
-            if vector is not None:
-                operations.append(models.OverwritePayloadOperation(overwrite_payload=set_payload))
-            else:
-                operations.append(models.SetPayloadOperation(set_payload=set_payload))
+            operations.append(
+                models.SetPayloadOperation(set_payload=models.SetPayload(payload=payload, points=[vector_id]))
+            )
         if not operations:
             return None
         with self._write_lock:

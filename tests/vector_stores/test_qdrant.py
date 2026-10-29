@@ -355,25 +355,28 @@ class TestQdrant(unittest.TestCase):
 
         self.assertTrue(self.qdrant.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload))
 
-        self.client_mock.upsert.assert_not_called()
-        self.client_mock.batch_update_points.assert_called_once_with(
+        self.client_mock.batch_update_points.assert_not_called()
+        mode = {"update_mode": models.UpdateMode.UPDATE_ONLY} if hasattr(models, "UpdateMode") else {}
+        self.client_mock.upsert.assert_called_once_with(
             collection_name="test_collection",
-            update_operations=[
-                models.UpdateVectorsOperation(
-                    update_vectors=models.UpdateVectors(
-                        points=[
-                            PointVectors(
-                                id=vector_id,
-                                vector={"": updated_vector, "bm25": SparseVector(indices=[], values=[])},
-                            )
-                        ]
-                    )
-                ),
-                models.OverwritePayloadOperation(
-                    overwrite_payload=models.SetPayload(payload=updated_payload, points=[vector_id])
-                ),
-            ],
+            points=[PointStruct(id=vector_id, vector={"": updated_vector}, payload=updated_payload)],
+            **mode,
         )
+
+    def test_full_update_reports_false_when_the_point_is_gone_after_the_write(self):
+        self.client_mock.retrieve.return_value = []
+
+        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"}), False)
+
+    def test_full_update_without_update_mode_support_upserts_as_before(self):
+        update_mode = vars(models).pop("UpdateMode", None)
+        try:
+            self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"})
+        finally:
+            if update_mode is not None:
+                models.UpdateMode = update_mode
+
+        self.assertNotIn("update_mode", self.client_mock.upsert.call_args[1])
 
     def test_update_with_none_vector_uses_set_payload(self):
         """Test that update with vector=None merges the payload and leaves the vector alone (fixes #3708)."""
@@ -420,7 +423,7 @@ class TestQdrant(unittest.TestCase):
             404, "Not Found", b'{"status":{"error":"Not found: No point with id 1 found"}}', httpx.Headers()
         )
 
-        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"}), False)
+        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=None, payload={"k": "v"}), False)
         self.client_mock.upsert.assert_not_called()
 
     def test_update_reraises_other_not_found_errors(self):
@@ -429,14 +432,14 @@ class TestQdrant(unittest.TestCase):
         )
 
         with self.assertRaises(UnexpectedResponse):
-            self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"})
+            self.qdrant.update(vector_id=str(uuid.uuid4()), vector=None, payload={"k": "v"})
 
     def test_local_update_checks_the_point_exists_first(self):
         self.qdrant._local = True
         self.client_mock.retrieve.return_value = []
 
         self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"}), False)
-        self.client_mock.batch_update_points.assert_not_called()
+        self.client_mock.upsert.assert_not_called()
 
     def test_update_missing_point_over_grpc_returns_false(self):
         class NotFound(grpc.RpcError):
@@ -448,7 +451,7 @@ class TestQdrant(unittest.TestCase):
 
         self.client_mock.batch_update_points.side_effect = NotFound()
 
-        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"}), False)
+        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=None, payload={"k": "v"}), False)
 
     def test_stores_sharing_a_local_client_share_one_write_lock(self):
         client = QdrantClient(":memory:")
@@ -464,7 +467,7 @@ class TestQdrant(unittest.TestCase):
             pid = str(uuid.uuid4())
             store.insert(vectors=[[0.1] * 4], payloads=[{"data": "a"}], ids=[pid])
             held = []
-            for name in ("batch_update_points", "delete"):
+            for name in ("upsert", "delete"):
                 real = getattr(store.client, name)
                 setattr(store.client, name, lambda *a, _real=real, **k: held.append(store._write_lock._is_owned()) or _real(*a, **k))
 
@@ -474,13 +477,12 @@ class TestQdrant(unittest.TestCase):
             self.assertEqual(held, [True, True])
             store.client.close()
 
-    def test_full_update_clears_bm25_when_new_text_has_no_keywords(self):
+    def test_full_update_sends_no_bm25_when_new_text_has_no_keywords(self):
         self.qdrant._has_bm25_slot = True
 
         self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"data": ""})
 
-        operations = self.client_mock.batch_update_points.call_args[1]["update_operations"]
-        self.assertEqual(operations[0].update_vectors.points[0].vector["bm25"], SparseVector(indices=[], values=[]))
+        self.assertEqual(self.client_mock.upsert.call_args[1]["points"][0].vector, {"": [0.2, 0.3]})
 
     def test_update_never_recreates_a_deleted_point_on_local_qdrant(self):
         with tempfile.TemporaryDirectory() as tmp:
