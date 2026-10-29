@@ -117,3 +117,15 @@ config = {
 ```
 
 When cluster mode is enabled, the connector uses `ValkeyCluster` instead of the standalone client, which handles `MOVED`/`ASK` redirections automatically. Search queries are coordinated across all shards by the valkey-search module's built-in coordinator. See the [valkey-search documentation](https://github.com/valkey-io/valkey-search) for details on cluster mode behavior.
+
+## Upgrading existing indexes
+
+Mem0 keys are namespaced as `mem0:{collection}:{id}`. Versions prior to the [#5680](https://github.com/mem0ai/mem0/issues/5680) fix created the search index with a colon-less `PREFIX` (`mem0:{collection}`), which is a string-prefix of the sibling entity collection's keys (`mem0:{collection}_entities:{id}`) when graph memory shares the same Valkey database — so the memories index would also match entity documents. The fix terminates the prefix with a colon (`mem0:{collection}:`).
+
+Existing indexes are **not** migrated automatically. If you created an index with an older version, Mem0 logs a warning on startup; drop and recreate the index to rebuild it with the corrected prefix:
+
+```bash
+valkey-cli FT.DROPINDEX <collection_name>
+```
+
+The index is recreated automatically on the next `Memory` initialization (only the index definition is dropped; `FT.DROPINDEX` without `DD` leaves your stored documents intact).
