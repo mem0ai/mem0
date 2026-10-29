@@ -502,12 +502,21 @@ class AWSBedrockLLM(LLMBase):
 
         Anthropic and MiniMax reasoning models reject requests that include both
         ``temperature`` and ``topP`` simultaneously, so ``topP`` is omitted for
-        those providers even when the user has configured it.
+        those providers even when the user has configured it.  A model that
+        rejects ``temperature`` itself (e.g. Haiku 5.5) can omit it entirely by
+        configuring ``temperature=None``, mirroring the ``top_p`` opt-out.
         """
         inference_config: Dict[str, Any] = {
             "maxTokens": self.model_config.get("max_tokens", self._default_max_tokens_for_converse()),
-            "temperature": self.model_config.get("temperature", 0.1),
         }
+
+        temperature = self.model_config.get("temperature")
+        if temperature is not None:
+            inference_config["temperature"] = temperature
+        elif "temperature" not in self.model_config:
+            # No temperature at all (config path that bypassed get_model_config):
+            # keep the historical 0.1 default so existing behavior is unchanged.
+            inference_config["temperature"] = 0.1
 
         top_p = self.model_config.get("top_p")
         if top_p is not None:

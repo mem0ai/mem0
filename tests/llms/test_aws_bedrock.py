@@ -554,3 +554,32 @@ class TestAnthropicConverseContentParsing:
         llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
 
         assert llm.generate_response(MESSAGES) == "object answer"
+
+
+class TestTemperatureOptOut:
+    """#7777: a model that rejects `temperature` (e.g. Haiku 5.5 via Converse) must be
+    able to omit it entirely, mirroring the existing top_p=None opt-out semantics."""
+
+    def test_explicit_none_temperature_omits_key(self, mock_boto3):
+        llm = _make_llm("us.anthropic.claude-haiku-5-5-20260101-v1:0", mock_boto3, temperature=None)
+        cfg = llm._build_inference_config()
+        assert "temperature" not in cfg, "explicit temperature=None must omit the key"
+        assert cfg["maxTokens"] == 2000
+
+    def test_default_temperature_still_applies(self, mock_boto3):
+        llm = _make_llm("us.anthropic.claude-haiku-5-5-20260101-v1:0", mock_boto3)
+        cfg = llm._build_inference_config()
+        assert cfg["temperature"] == 0.1, "unset temperature keeps the 0.1 default"
+
+    def test_explicit_temperature_value_unchanged(self, mock_boto3):
+        llm = _make_llm("us.anthropic.claude-haiku-5-5-20260101-v1:0", mock_boto3, temperature=0.7)
+        cfg = llm._build_inference_config()
+        assert cfg["temperature"] == 0.7
+
+    def test_none_temperature_via_model_kwargs(self, mock_boto3):
+        config = AWSBedrockConfig(
+            model="us.anthropic.claude-haiku-5-5-20260101-v1:0",
+            model_kwargs={"temperature": None},
+        )
+        model_cfg = config.get_model_config()
+        assert model_cfg["temperature"] is None
