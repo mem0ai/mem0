@@ -405,4 +405,63 @@ describe("RRF search integration", () => {
       expect.arrayContaining(["invalid-semantic", "entity-only"]),
     );
   });
+
+  it("allows threshold-zero auxiliary candidates without inventing semantic scores", async () => {
+    mockEmbedder.embedBatch.mockResolvedValue([]);
+    mockVStore.search.mockReset();
+    mockVStore.search.mockResolvedValue([
+      {
+        id: "null-semantic",
+        payload: { data: "null semantic", user_id: "u1" },
+        score: null,
+      },
+      {
+        id: "undefined-semantic",
+        payload: { data: "undefined semantic", user_id: "u1" },
+      },
+    ]);
+    mockVStore.keywordSearch = jest.fn().mockResolvedValue([
+      {
+        id: "keyword-only",
+        payload: { data: "keyword memory", user_id: "u1" },
+        score: 1,
+      },
+    ]);
+    mockVStore.getByIds = undefined;
+
+    const mem = new Memory({
+      embedder: {
+        provider: "lmstudio",
+        config: {
+          model: "nomic-embed-text-v1.5",
+          baseURL: "http://localhost:1234/v1",
+          embeddingDims: 768,
+        },
+      },
+      vectorStore: {
+        provider: "memory",
+        config: { collectionName: "test-rrf-null-semantic", dimension: 768 },
+      },
+      llm: {
+        provider: "lmstudio",
+        config: { baseURL: "http://localhost:1234/v1" },
+      },
+      disableHistory: true,
+      fusionStrategy: "rrf",
+      rrfK: 1,
+    });
+
+    const result = await mem.search("query", {
+      filters: { user_id: "u1" },
+      threshold: 0,
+      explain: true,
+    });
+
+    expect(result.results.map((item) => item.id)).toEqual(["keyword-only"]);
+    expect((result.results[0] as any).score_details).toMatchObject({
+      semanticScore: null,
+      semanticRank: null,
+      semanticContribution: 0,
+    });
+  });
 });

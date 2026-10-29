@@ -270,6 +270,10 @@ function positiveFiniteScore(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
+function finiteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function scoreAndRankRrf(
   semanticResults: Array<{
     id: string;
@@ -311,7 +315,7 @@ function scoreAndRankRrf(
   // Semantic payloads have already passed the caller's scope filters and take
   // precedence over auxiliary payloads for duplicate IDs.
   for (const result of semanticResults) {
-    if (result.id != null && Number.isFinite(result.score ?? 0.0)) {
+    if (result.id != null && finiteNumber(result.score)) {
       addPayload(result.id, result.payload);
     }
   }
@@ -324,8 +328,8 @@ function scoreAndRankRrf(
   for (let inputIndex = 0; inputIndex < semanticResults.length; inputIndex++) {
     const result = semanticResults[inputIndex];
     if (result.id == null) continue;
-    const semanticScore = result.score ?? 0.0;
-    if (!Number.isFinite(semanticScore)) continue;
+    const semanticScore = result.score;
+    if (!finiteNumber(semanticScore)) continue;
     const id = String(result.id);
     const existing = semanticScores.get(id);
     if (existing === undefined || semanticScore > existing) {

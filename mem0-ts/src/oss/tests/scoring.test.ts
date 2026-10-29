@@ -311,6 +311,32 @@ describe("scoreAndRank", () => {
       expect(scored[1].scoreDetails?.semanticContribution).toBe(0);
     });
 
+    it("does not synthesize a semantic vote for null or undefined scores", () => {
+      const scored = scoreAndRank(
+        [
+          { id: "null-score", score: null as any, payload: { data: "null" } },
+          {
+            id: "missing-score",
+            score: undefined as any,
+            payload: { data: "missing" },
+          },
+        ],
+        { "keyword-only": 1 },
+        {},
+        0,
+        10,
+        true,
+        "rrf",
+        1,
+        [{ id: "keyword-only", payload: { data: "keyword" } }],
+      );
+
+      expect(scored.map((result) => result.id)).toEqual(["keyword-only"]);
+      expect(scored[0].scoreDetails?.semanticScore).toBeNull();
+      expect(scored[0].scoreDetails?.semanticRank).toBeNull();
+      expect(scored[0].scoreDetails?.semanticContribution).toBe(0);
+    });
+
     it("keeps additive scoring and its explanation shape unchanged by default", () => {
       const scored = scoreAndRank(candidates, {}, {}, 0.1, 3, true);
       expect(scored[0].scoreDetails).not.toHaveProperty("fusionStrategy");

@@ -1671,7 +1671,7 @@ export class Memory {
       fusionStrategy === "rrf"
         ? semanticResults.map((mem) => ({
             id: String(mem.id),
-            score: mem.score ?? 0,
+            score: typeof mem.score === "number" ? mem.score : Number.NaN,
             payload:
               hasUsableMemoryPayload(mem.payload) &&
               (showExpired || !payloadIsExpired(mem.payload))
