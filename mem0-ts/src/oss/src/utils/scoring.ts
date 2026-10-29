@@ -84,6 +84,14 @@ export interface ScoredResult {
   scoreDetails?: ScoreDetails;
 }
 
+/** A payload-bearing candidate supplied by an auxiliary retrieval route. */
+export interface CandidateResult {
+  id: string;
+  payload?: Record<string, any>;
+  /** Optional route score, retained for callers that build candidate records. */
+  score?: number;
+}
+
 /**
  * Score candidates with additive or reciprocal-rank fusion and return top-k
  * results. Additive scoring remains the default for compatibility.
@@ -91,8 +99,9 @@ export interface ScoredResult {
  * For each candidate:
  *   combined = (semantic + bm25 + entity_boost) / max_possible
  *
- * Threshold gates the semantic score BEFORE combining -- candidates
- * below the threshold are excluded even if BM25/entity would boost them.
+ * In additive mode, threshold gates the semantic score before combining. In
+ * RRF mode, it gates only the semantic vote; auxiliary routes may contribute
+ * candidates below the threshold when a payload record is supplied.
  *
  * The divisor adapts based on which signals are active:
  *   - Semantic only: max_possible = 1.0
@@ -101,20 +110,23 @@ export interface ScoredResult {
  *   - Semantic + entity (no BM25): max_possible = 1.5
  *
  * @param semanticResults - Candidate results with id, score, and payload.
- * @param bm25Scores - Map of memory ID to normalized BM25 score.
+ * @param bm25Scores - Map of memory ID to BM25 score. Additive callers pass
+ *   normalized scores; RRF callers pass positive finite raw scores.
  * @param entityBoosts - Map of memory ID to entity boost score.
  * @param threshold - Minimum semantic score to include a candidate.
  * @param topK - Maximum number of results to return.
  * @param explain - Include scoreDetails in each result when true.
  * @param fusionStrategy - Score fusion strategy. Defaults to `"additive"`.
  * @param rrfK - Reciprocal-rank-fusion constant. Defaults to `60`.
+ * @param candidateResults - Auxiliary payload-bearing candidate records used
+ *   only by the RRF path.
  * @returns Sorted list of scored results, highest score first.
  */
 export function scoreAndRank(
   semanticResults: Array<{
     id: string;
     score: number;
-    payload: Record<string, any>;
+    payload?: Record<string, any>;
   }>,
   bm25Scores: Record<string, number>,
   entityBoosts: Record<string, number>,
@@ -123,6 +135,7 @@ export function scoreAndRank(
   explain: boolean = false,
   fusionStrategy: FusionStrategy = "additive",
   rrfK: number = 60,
+  candidateResults: CandidateResult[] = [],
 ): ScoredResult[] {
   validateFusionOptions(fusionStrategy, rrfK);
 
@@ -135,6 +148,7 @@ export function scoreAndRank(
       topK,
       explain,
       rrfK,
+      candidateResults,
     );
   }
 
@@ -172,7 +186,7 @@ export function scoreAndRank(
     const entry: ScoredResult = {
       id: memIdStr,
       score: combined,
-      payload: result.payload,
+      payload: result.payload ?? {},
     };
     if (explain) {
       entry.scoreDetails = {
@@ -260,7 +274,7 @@ function scoreAndRankRrf(
   semanticResults: Array<{
     id: string;
     score: number;
-    payload: Record<string, any>;
+    payload?: Record<string, any>;
   }>,
   bm25Scores: Record<string, number>,
   entityBoosts: Record<string, number>,
@@ -268,105 +282,133 @@ function scoreAndRankRrf(
   topK: number,
   explain: boolean,
   rrfK: number,
+  candidateResults: CandidateResult[],
 ): ScoredResult[] {
-  const eligible: Array<{
-    id: string;
-    semanticScore: number;
-    payload: Record<string, any>;
-    inputIndex: number;
-  }> = [];
-
-  for (let inputIndex = 0; inputIndex < semanticResults.length; inputIndex++) {
-    const result = semanticResults[inputIndex];
-    if (result.id == null) {
-      continue;
+  const payloadById = new Map<string, Record<string, any>>();
+  const addPayload = (id: unknown, payload: unknown): void => {
+    if (
+      id == null ||
+      payload == null ||
+      typeof payload !== "object" ||
+      Array.isArray(payload)
+    ) {
+      return;
     }
-
-    const semanticScore = result.score ?? 0.0;
-    if (!Number.isFinite(semanticScore) || semanticScore < threshold) {
-      continue;
+    const idString = String(id);
+    const existing = payloadById.get(idString);
+    const hasData =
+      typeof (payload as Record<string, any>).data === "string" &&
+      (payload as Record<string, any>).data.length > 0;
+    const existingHasData =
+      existing != null &&
+      typeof existing.data === "string" &&
+      existing.data.length > 0;
+    if (!existing || (!existingHasData && hasData)) {
+      payloadById.set(idString, payload as Record<string, any>);
     }
+  };
 
-    eligible.push({
-      id: String(result.id),
-      semanticScore,
-      payload: result.payload,
-      inputIndex,
-    });
+  // Semantic payloads have already passed the caller's scope filters and take
+  // precedence over auxiliary payloads for duplicate IDs.
+  for (const result of semanticResults) {
+    if (result.id != null && Number.isFinite(result.score ?? 0.0)) {
+      addPayload(result.id, result.payload);
+    }
+  }
+  for (const result of candidateResults) {
+    addPayload(result.id, result.payload);
   }
 
-  // Auxiliary channels are deliberately restricted to the semantic candidate
-  // set. This keeps the original semantic threshold and candidate acquisition
-  // behavior intact, even when an auxiliary map contains extra memory IDs.
-  const semanticRank = buildRankMap(
-    eligible.map((candidate) => ({
-      id: candidate.id,
-      score: candidate.semanticScore,
-      inputIndex: candidate.inputIndex,
-    })),
-  );
-  const bm25Rank = buildRankMap(
-    eligible.flatMap((candidate) => {
-      const score = bm25Scores[candidate.id];
-      return positiveFiniteScore(score)
-        ? [
-            {
-              id: candidate.id,
-              score,
-              inputIndex: candidate.inputIndex,
-            },
-          ]
-        : [];
-    }),
-  );
-  const entityRank = buildRankMap(
-    eligible.flatMap((candidate) => {
-      const score = entityBoosts[candidate.id];
-      return positiveFiniteScore(score)
-        ? [
-            {
-              id: candidate.id,
-              score,
-              inputIndex: candidate.inputIndex,
-            },
-          ]
-        : [];
-    }),
-  );
+  const semanticEntries: RankedScore[] = [];
+  const semanticScores = new Map<string, number>();
+  for (let inputIndex = 0; inputIndex < semanticResults.length; inputIndex++) {
+    const result = semanticResults[inputIndex];
+    if (result.id == null) continue;
+    const semanticScore = result.score ?? 0.0;
+    if (!Number.isFinite(semanticScore)) continue;
+    const id = String(result.id);
+    const existing = semanticScores.get(id);
+    if (existing === undefined || semanticScore > existing) {
+      semanticScores.set(id, semanticScore);
+    }
+    semanticEntries.push({ id, score: semanticScore, inputIndex });
+  }
 
-  // Each auxiliary rank map is already restricted to eligible candidates and
-  // positive finite scores, so its non-empty state is the channel-activity
-  // signal. Semantic rank is included for consistency when the candidate set
-  // is empty (the resulting max score is not exposed without a result).
+  // Route rank maps are built before payload restriction. In particular, a
+  // below-threshold semantic hit still occupies its source rank, while its
+  // semantic vote is gated below.
+  const semanticRank = buildRankMap(dedupeRankEntries(semanticEntries));
+  const bm25Entries = Object.entries(bm25Scores).flatMap(
+    ([id, score], inputIndex) =>
+      positiveFiniteScore(score) ? [{ id: String(id), score, inputIndex }] : [],
+  );
+  const bm25Rank = buildRankMap(dedupeRankEntries(bm25Entries));
+  const entityEntries = Object.entries(entityBoosts)
+    .filter(([, score]) => positiveFiniteScore(score))
+    .sort(([leftId, leftScore], [rightId, rightScore]) => {
+      const difference = rightScore - leftScore;
+      return difference === 0 || Number.isNaN(difference)
+        ? leftId.localeCompare(rightId)
+        : difference;
+    })
+    .map(([id, score], inputIndex) => ({
+      id: String(id),
+      score,
+      inputIndex,
+    }));
+  const entityRank = buildRankMap(dedupeRankEntries(entityEntries));
+
   const activeChannels = [semanticRank, bm25Rank, entityRank].filter(
     (rankMap) => rankMap.size > 0,
   ).length;
   const maxPossibleScore = activeChannels / (rrfK + 1);
 
-  const scored = eligible.map((candidate) => {
-    const bm25Score = bm25Scores[candidate.id] ?? 0.0;
-    const entityBoost = entityBoosts[candidate.id] ?? 0.0;
-    const semanticRankValue = semanticRank.get(candidate.id) ?? null;
-    const bm25RankValue = bm25Rank.get(candidate.id) ?? null;
-    const entityRankValue = entityRank.get(candidate.id) ?? null;
-    const semanticContribution = semanticRankValue
-      ? 1 / (rrfK + semanticRankValue)
-      : 0;
-    const bm25Contribution = bm25RankValue ? 1 / (rrfK + bm25RankValue) : 0;
-    const entityContribution = entityRankValue
-      ? 1 / (rrfK + entityRankValue)
-      : 0;
+  const candidateIds = new Set<string>();
+  const candidateOrder = new Map<string, number>();
+  const addCandidate = (id: string): void => {
+    if (!payloadById.has(id) || candidateIds.has(id)) return;
+    candidateOrder.set(id, candidateOrder.size);
+    candidateIds.add(id);
+  };
+
+  for (const [id, semanticScore] of semanticScores) {
+    if (semanticScore >= threshold) addCandidate(id);
+  }
+  for (const { id } of bm25Entries) addCandidate(id);
+  for (const { id } of entityEntries) addCandidate(id);
+
+  const scored = [...candidateIds].flatMap((id) => {
+    const semanticScore = semanticScores.get(id) ?? 0.0;
+    const bm25Score = bm25Scores[id] ?? 0.0;
+    const entityBoost = entityBoosts[id] ?? 0.0;
+    const semanticVote = semanticScore >= threshold;
+    const semanticRankValue = semanticRank.get(id) ?? null;
+    const bm25RankValue = bm25Rank.get(id) ?? null;
+    const entityRankValue = entityRank.get(id) ?? null;
+    const semanticContribution =
+      semanticVote && semanticRankValue !== null
+        ? 1 / (rrfK + semanticRankValue)
+        : 0;
+    const bm25Contribution =
+      bm25RankValue !== null ? 1 / (rrfK + bm25RankValue) : 0;
+    const entityContribution =
+      entityRankValue !== null ? 1 / (rrfK + entityRankValue) : 0;
     const rawScore =
       semanticContribution + bm25Contribution + entityContribution;
 
+    // A semantic route hit below threshold can only enter through a positive
+    // auxiliary vote. The union construction above guarantees a payload and
+    // at least one such vote for every emitted ID.
+    if (rawScore <= 0) return [];
+
     const entry: ScoredResult = {
-      id: candidate.id,
+      id,
       score: rawScore,
-      payload: candidate.payload,
+      payload: payloadById.get(id)!,
     };
     if (explain) {
       entry.scoreDetails = {
-        semanticScore: candidate.semanticScore,
+        semanticScore,
         bm25Score,
         entityBoost,
         rawScore,
@@ -383,7 +425,7 @@ function scoreAndRankRrf(
         entityContribution,
       };
     }
-    return { entry, inputIndex: candidate.inputIndex };
+    return [{ entry, inputIndex: candidateOrder.get(id) ?? 0 }];
   });
 
   // Sort only by score; the explicit input-index fallback makes the stable
@@ -395,4 +437,15 @@ function scoreAndRankRrf(
       : difference;
   });
   return scored.slice(0, topK).map(({ entry }) => entry);
+}
+
+function dedupeRankEntries(entries: RankedScore[]): RankedScore[] {
+  const deduped = new Map<string, RankedScore>();
+  for (const entry of entries) {
+    const existing = deduped.get(entry.id);
+    if (!existing || entry.score > existing.score) {
+      deduped.set(entry.id, entry);
+    }
+  }
+  return [...deduped.values()];
 }

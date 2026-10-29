@@ -4,7 +4,7 @@ const mockEmbedder = {
   embed: jest.fn().mockResolvedValue(new Array(768).fill(0.1)),
   embedBatch: jest.fn().mockResolvedValue([]),
 };
-const mockVStore = {
+const mockVStore: any = {
   search: jest.fn(),
   initialize: jest.fn().mockResolvedValue(undefined),
   getUserId: jest.fn().mockResolvedValue("test-user-id"),
@@ -82,5 +82,157 @@ describe("RRF search integration", () => {
       80,
       { user_id: "u1" },
     );
+  });
+
+  it("fuses keyword-only and entity-only scoped payloads into the union", async () => {
+    mockEmbedder.embed.mockClear();
+    mockEmbedder.embedBatch.mockResolvedValue([new Array(768).fill(0.1)]);
+    mockVStore.search.mockReset();
+    mockVStore.search.mockResolvedValue([
+      {
+        id: "semantic",
+        payload: { data: "semantic memory", user_id: "u1" },
+        score: 0.95,
+      },
+      {
+        id: "below-threshold",
+        payload: { data: "below threshold", user_id: "u1" },
+        score: 0.05,
+      },
+    ]);
+    mockVStore.keywordSearch = jest.fn().mockResolvedValue([
+      {
+        id: "keyword-only",
+        payload: { data: "keyword memory", user_id: "u1" },
+        score: 100,
+      },
+    ]);
+    mockVStore.getByIds = jest.fn().mockResolvedValue([
+      {
+        id: "entity-only",
+        payload: { data: "entity memory", user_id: "u1" },
+      },
+    ]);
+
+    const mem = new Memory({
+      embedder: {
+        provider: "lmstudio",
+        config: {
+          model: "nomic-embed-text-v1.5",
+          baseURL: "http://localhost:1234/v1",
+          embeddingDims: 768,
+        },
+      },
+      vectorStore: {
+        provider: "memory",
+        config: { collectionName: "test-rrf-union", dimension: 768 },
+      },
+      llm: {
+        provider: "lmstudio",
+        config: { baseURL: "http://localhost:1234/v1" },
+      },
+      disableHistory: true,
+      fusionStrategy: "rrf",
+      rrfK: 1,
+    });
+    const internals = mem as any;
+    await internals._ensureInitialized();
+    internals._entityStore = {
+      initialize: jest.fn().mockResolvedValue(undefined),
+      search: jest.fn().mockResolvedValue([
+        {
+          id: "entity-record",
+          score: 0.9,
+          payload: { linkedMemoryIds: ["entity-only", "semantic"] },
+        },
+      ]),
+    };
+
+    const result = await mem.search("John Smith", {
+      filters: { user_id: "u1" },
+      threshold: 0.1,
+      explain: true,
+    });
+
+    expect(result.results.map((item) => item.id)).toEqual(
+      expect.arrayContaining(["semantic", "keyword-only", "entity-only"]),
+    );
+    expect(result.results).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "below-threshold" }),
+      ]),
+    );
+    expect(
+      (result.results.find((item) => item.id === "keyword-only") as any)
+        ?.score_details?.bm25Score,
+    ).toBe(100);
+    expect(mockVStore.getByIds).toHaveBeenCalledTimes(1);
+    expect(mockVStore.getByIds).toHaveBeenCalledWith(["entity-only"], {
+      user_id: "u1",
+    });
+    expect(internals._entityStore.search).toHaveBeenCalledWith(
+      expect.any(Array),
+      80,
+      { user_id: "u1" },
+    );
+  });
+
+  it("warns and skips entity-only expansion when scoped batches are unsupported", async () => {
+    mockEmbedder.embedBatch.mockResolvedValue([new Array(768).fill(0.1)]);
+    mockVStore.search.mockReset();
+    mockVStore.search.mockResolvedValue([
+      {
+        id: "semantic",
+        payload: { data: "semantic memory", user_id: "u1" },
+        score: 0.95,
+      },
+    ]);
+    mockVStore.keywordSearch = jest.fn().mockResolvedValue(null);
+    mockVStore.getByIds = undefined;
+
+    const mem = new Memory({
+      embedder: {
+        provider: "lmstudio",
+        config: {
+          model: "nomic-embed-text-v1.5",
+          baseURL: "http://localhost:1234/v1",
+          embeddingDims: 768,
+        },
+      },
+      vectorStore: {
+        provider: "memory",
+        config: { collectionName: "test-rrf-unsupported", dimension: 768 },
+      },
+      llm: {
+        provider: "lmstudio",
+        config: { baseURL: "http://localhost:1234/v1" },
+      },
+      disableHistory: true,
+      fusionStrategy: "rrf",
+      rrfK: 1,
+    });
+    const internals = mem as any;
+    await internals._ensureInitialized();
+    internals._entityStore = {
+      initialize: jest.fn().mockResolvedValue(undefined),
+      search: jest.fn().mockResolvedValue([
+        {
+          id: "entity-record",
+          score: 0.9,
+          payload: { linkedMemoryIds: ["entity-only"] },
+        },
+      ]),
+    };
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await mem.search("John Smith", {
+      filters: { user_id: "u1" },
+    });
+
+    expect(result.results.map((item) => item.id)).toEqual(["semantic"]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("scoped batch hydration"),
+    );
+    warnSpy.mockRestore();
   });
 });

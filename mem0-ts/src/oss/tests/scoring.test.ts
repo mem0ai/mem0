@@ -198,13 +198,20 @@ describe("scoreAndRank", () => {
         10,
       );
 
-      expect(scored.map((result) => result.id)).toEqual(["b", "a", "c"]);
+      expect(scored.map((result) => result.id)).toEqual([
+        "b",
+        "a",
+        "below-threshold",
+        "c",
+      ]);
       expect(scored).not.toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ id: "below-threshold" }),
-          expect.objectContaining({ id: "extra" }),
-        ]),
+        expect.arrayContaining([expect.objectContaining({ id: "extra" })]),
       );
+      const belowDetails = scored.find(
+        (result) => result.id === "below-threshold",
+      )!.scoreDetails!;
+      expect(belowDetails.semanticRank).toBe(4);
+      expect(belowDetails.semanticContribution).toBe(0);
       const aDetails = scored.find(
         (result) => result.id === "a",
       )!.scoreDetails!;
@@ -212,7 +219,7 @@ describe("scoreAndRank", () => {
       expect(aDetails.entityRank).toBeNull();
       expect(aDetails.bm25Contribution).toBe(0);
       expect(aDetails.entityContribution).toBe(0);
-      expect(aDetails.maxPossibleScore).toBe(2 / 11);
+      expect(aDetails.maxPossibleScore).toBe(3 / 11);
     });
 
     it("applies topK after fusing all eligible candidates", () => {
@@ -229,6 +236,59 @@ describe("scoreAndRank", () => {
 
       expect(scored).toHaveLength(1);
       expect(scored[0].id).toBe("b");
+    });
+
+    it("admits keyword-only and entity-only candidates with supplied payloads", () => {
+      const scored = (scoreAndRank as any)(
+        [
+          { id: "semantic", score: 0.95, payload: { data: "semantic" } },
+          { id: "below-threshold", score: 0.05, payload: { data: "below" } },
+        ],
+        { "keyword-only": 100 },
+        { "entity-only": 0.9 },
+        0.1,
+        10,
+        true,
+        "rrf",
+        1,
+        [
+          { id: "keyword-only", payload: { data: "keyword" } },
+          { id: "entity-only", payload: { data: "entity" } },
+        ],
+      );
+
+      expect(scored.map((result: { id: string }) => result.id)).toEqual(
+        expect.arrayContaining(["semantic", "keyword-only", "entity-only"]),
+      );
+      expect(scored).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "below-threshold" }),
+        ]),
+      );
+    });
+
+    it("keeps full source ranks while gating only the semantic vote", () => {
+      const scored = (scoreAndRank as any)(
+        [
+          { id: "outside", score: 0.9, payload: { data: "outside" } },
+          { id: "keyword-only", score: 0.05, payload: { data: "keyword" } },
+        ],
+        { "keyword-only": 10, outside: 1 },
+        {},
+        0.1,
+        10,
+        true,
+        "rrf",
+        1,
+        [{ id: "keyword-only", payload: { data: "keyword" } }],
+      );
+
+      const details = scored.find(
+        (result: any) => result.id === "keyword-only",
+      ).scoreDetails;
+      expect(details.semanticRank).toBe(2);
+      expect(details.semanticContribution).toBe(0);
+      expect(details.bm25Rank).toBe(1);
     });
 
     it("keeps additive scoring and its explanation shape unchanged by default", () => {

@@ -99,6 +99,32 @@ describe("MemoryVectorStore - search", () => {
     expect(results).toHaveLength(0);
   });
 
+  test("applies both bounds in a combined range filter", async () => {
+    const rangeStore = createStore();
+    await rangeStore.insert(
+      [vec([1, 0, 0, 0]), vec([0, 1, 0, 0]), vec([0, 0, 1, 0])],
+      ["low", "middle", "high"],
+      [
+        { data: "low", user_id: "u1", rank: 1 },
+        { data: "middle", user_id: "u1", rank: 5 },
+        { data: "high", user_id: "u1", rank: 10 },
+      ],
+    );
+
+    const results = await rangeStore.search(vec([1, 0, 0, 0]), 10, {
+      user_id: "u1",
+      rank: { gte: 3, lte: 7 },
+    });
+    expect(results.map((result) => result.id)).toEqual(["middle"]);
+  });
+
+  test("hydrates only requested IDs that pass the complete filter", async () => {
+    const scoped = await store.getByIds?.(["a", "b", "c"], {
+      user_id: "u1",
+    });
+    expect(scoped?.map((result) => result.id).sort()).toEqual(["a", "b"]);
+  });
+
   test("throws on query dimension mismatch", async () => {
     await expect(store.search(vec([1, 0]), 10)).rejects.toThrow(
       "Query dimension mismatch",

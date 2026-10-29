@@ -1431,6 +1431,7 @@ export class Memory {
 
     // Step 3: Semantic search (over-fetch for scoring pool)
     const internalLimit = Math.max(topK * 4, 60);
+    const fusionStrategy = this.config.fusionStrategy ?? "additive";
     const semanticResults = await this.vectorStore.search(
       queryEmbedding,
       internalLimit,
@@ -1458,12 +1459,20 @@ export class Memory {
 
     // Step 5: Compute BM25 scores from keyword results
     const bm25Scores: Record<string, number> = {};
+    const rawBm25Scores: Record<string, number> = {};
     if (keywordResults) {
       const [midpoint, steepness] = getBm25Params(query, queryLemmatized);
       for (const mem of keywordResults) {
         const memId = String(mem.id);
         const rawScore = mem.score ?? 0;
-        if (rawScore > 0) {
+        if (fusionStrategy === "rrf") {
+          if (Number.isFinite(rawScore) && rawScore > 0) {
+            rawBm25Scores[memId] = Math.max(
+              rawBm25Scores[memId] ?? 0,
+              rawScore,
+            );
+          }
+        } else if (rawScore > 0) {
           bm25Scores[memId] = normalizeBm25(rawScore, midpoint, steepness);
         }
       }
@@ -1504,7 +1513,11 @@ export class Memory {
           } else {
             const searchResults = await Promise.allSettled(
               deduped.map((_, i) =>
-                entityStore.search(embeddings[i], 500, entitySearchFilters),
+                entityStore.search(
+                  embeddings[i],
+                  fusionStrategy === "rrf" ? internalLimit : 500,
+                  entitySearchFilters,
+                ),
               ),
             );
 
@@ -1549,8 +1562,32 @@ export class Memory {
       }
     }
 
-    // Step 7: Build candidate set from semantic results
-    const candidates = semanticResults
+    // RRF uses a bounded, deterministic entity route window. Additive keeps
+    // the historical entity map and provider behavior unchanged.
+    const entityRouteEntries =
+      fusionStrategy === "rrf"
+        ? Object.entries(entityBoosts)
+            .filter(
+              ([, score]) =>
+                typeof score === "number" &&
+                Number.isFinite(score) &&
+                score > 0,
+            )
+            .sort(([leftId, leftScore], [rightId, rightScore]) => {
+              const difference = rightScore - leftScore;
+              return difference === 0 || Number.isNaN(difference)
+                ? leftId.localeCompare(rightId)
+                : difference;
+            })
+            .slice(0, internalLimit)
+        : Object.entries(entityBoosts);
+    const entityScoresForScoring: Record<string, number> =
+      Object.fromEntries(entityRouteEntries);
+
+    // Step 7: Build payload-bearing candidates from every RRF route. The
+    // semantic route remains the only route filtered by threshold; auxiliary
+    // IDs can enter once their scoped payload is available.
+    const visibleSemanticResults = semanticResults
       .filter((mem) => showExpired || !payloadIsExpired(mem.payload))
       .map((mem) => ({
         id: String(mem.id),
@@ -1558,16 +1595,97 @@ export class Memory {
         payload: mem.payload || {},
       }));
 
+    const candidateResults: Array<{
+      id: string;
+      payload?: Record<string, any>;
+    }> = [];
+    const suppliedPayloadIds = new Set<string>();
+    for (const mem of semanticResults) {
+      if (
+        mem.id != null &&
+        mem.payload != null &&
+        typeof mem.payload === "object"
+      ) {
+        suppliedPayloadIds.add(String(mem.id));
+      }
+    }
+    if (fusionStrategy === "rrf" && keywordResults) {
+      for (const mem of keywordResults) {
+        if (
+          mem.id == null ||
+          mem.payload == null ||
+          typeof mem.payload !== "object" ||
+          (!showExpired && payloadIsExpired(mem.payload))
+        ) {
+          continue;
+        }
+        const id = String(mem.id);
+        suppliedPayloadIds.add(id);
+        candidateResults.push({ id, payload: mem.payload });
+      }
+    }
+
+    if (fusionStrategy === "rrf") {
+      const entityOnlyIds = entityRouteEntries
+        .map(([id]) => id)
+        .filter((id) => !suppliedPayloadIds.has(id));
+      if (entityOnlyIds.length > 0) {
+        if (typeof this.vectorStore.getByIds !== "function") {
+          console.warn(
+            "RRF entity-only candidates require vectorStore.getByIds(ids, filters); " +
+              "the configured provider does not support scoped batch hydration, so entity-only expansion was skipped.",
+          );
+        } else {
+          const hydrated = await this.vectorStore.getByIds(
+            entityOnlyIds,
+            effectiveFilters,
+          );
+          const requested = new Set(entityOnlyIds);
+          const hydratedIds = new Set<string>();
+          for (const mem of hydrated) {
+            const id = String(mem.id);
+            const payload = mem.payload;
+            if (
+              !requested.has(id) ||
+              hydratedIds.has(id) ||
+              payload == null ||
+              typeof payload !== "object" ||
+              typeof payload.data !== "string" ||
+              payload.data.length === 0 ||
+              (!showExpired && payloadIsExpired(payload))
+            ) {
+              continue;
+            }
+            hydratedIds.add(id);
+            candidateResults.push({ id, payload });
+          }
+        }
+      }
+    }
+
+    const scoringSemanticResults =
+      fusionStrategy === "rrf"
+        ? semanticResults.map((mem) => ({
+            id: String(mem.id),
+            score: mem.score ?? 0,
+            payload:
+              showExpired || !payloadIsExpired(mem.payload)
+                ? mem.payload
+                : undefined,
+          }))
+        : visibleSemanticResults;
+
     // Step 8: Score and rank
     const scoredResults = scoreAndRank(
-      candidates,
-      bm25Scores,
-      entityBoosts,
+      scoringSemanticResults,
+      fusionStrategy === "rrf" ? rawBm25Scores : bm25Scores,
+      entityScoresForScoring,
       threshold ?? 0.1,
       topK,
       explain,
-      this.config.fusionStrategy ?? "additive",
+      fusionStrategy,
       this.config.rrfK ?? 60,
+      candidateResults,
     );
 
     // Step 9: Format results
