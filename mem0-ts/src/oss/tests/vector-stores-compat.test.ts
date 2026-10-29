@@ -250,7 +250,6 @@ describe("Qdrant – backward compat with mocked client", () => {
             });
           }
         }),
-      batchUpdate: jest.fn().mockResolvedValue([]),
       retrieve: jest
         .fn()
         .mockImplementation(async (collName: string, opts: any) => {
