@@ -4,6 +4,7 @@ import gc
 import hashlib
 import json
 import logging
+import math
 import os
 import time
 import uuid
@@ -450,6 +451,65 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
         return date.fromisoformat(str(expiration_date)) < datetime.now(timezone.utc).date()
     except ValueError:
         return False
+
+
+def _result_value(result: Any, key: str, default: Any = None) -> Any:
+    """Read a provider result field from either a mapping or an object."""
+    if isinstance(result, dict):
+        return result.get(key, default)
+    return getattr(result, key, default)
+
+
+def _result_payload(result: Any) -> Optional[Dict[str, Any]]:
+    """Return a mapping payload, ignoring provider doubles with missing data."""
+    payload = _result_value(result, "payload")
+    return payload if isinstance(payload, dict) else None
+
+
+def _has_memory_data(payload: Optional[Dict[str, Any]]) -> bool:
+    return isinstance(payload, dict) and bool(payload.get("data"))
+
+
+def _scoped_batch_get(vector_store: VectorStoreBase, ids, filters):
+    """Read IDs through the provider's native scoped batch capability.
+
+    The base method intentionally raises ``NotImplementedError``.  That is a
+    capability boundary, not a storage failure: callers warn and skip only the
+    entity-only expansion in that case.  Other provider errors propagate.
+    """
+    get_by_ids = getattr(vector_store, "get_by_ids", None)
+    implementation = getattr(type(vector_store), "get_by_ids", None)
+    if get_by_ids is None or implementation is VectorStoreBase.get_by_ids:
+        logger.warning(
+            "Vector store %s does not support scoped batch reads; skipping entity-only RRF candidates",
+            type(vector_store).__name__,
+        )
+        return []
+
+    try:
+        return get_by_ids(ids, filters=filters) or []
+    except NotImplementedError:
+        logger.warning(
+            "Vector store %s does not support scoped batch reads; skipping entity-only RRF candidates",
+            type(vector_store).__name__,
+        )
+        return []
+
+
+def _entity_route_window(entity_boosts: Dict[str, Any], limit: int) -> Dict[str, float]:
+    """Keep the highest positive finite entity boosts with deterministic ties."""
+    finite = []
+    for raw_id, raw_score in (entity_boosts or {}).items():
+        if isinstance(raw_score, bool):
+            continue
+        try:
+            score = float(raw_score)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(score) and score > 0:
+            finite.append((str(raw_id), score))
+    finite.sort(key=lambda item: (-item[1], item[0]))
+    return dict(finite[:limit])
 
 
 setup_config()
@@ -1654,6 +1714,7 @@ class Memory(MemoryBase):
 
         # Step 3: Semantic search (over-fetch for scoring pool)
         internal_limit = max(limit * 4, 60)
+        is_rrf = self.config.fusion_strategy == "rrf"
         semantic_results = self.vector_store.search(
             query=query, vectors=embeddings, top_k=internal_limit, filters=filters
         )
@@ -1666,42 +1727,110 @@ class Memory(MemoryBase):
         # Step 5: Compute BM25 scores from keyword results
         bm25_scores = {}
         if keyword_results is not None:
-            midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
-            for mem in keyword_results:
-                mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
-                raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
-                if raw_score and raw_score > 0:
-                    bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
+            if is_rrf:
+                for mem in keyword_results:
+                    mem_id = _result_value(mem, "id")
+                    if mem_id is None:
+                        continue
+                    payload = _result_payload(mem)
+                    if payload is not None and not show_expired and _payload_is_expired(payload):
+                        continue
+                    raw_score = _result_value(mem, "score", 0)
+                    try:
+                        raw_score = float(raw_score)
+                    except (TypeError, ValueError):
+                        continue
+                    if math.isfinite(raw_score) and raw_score > 0:
+                        bm25_scores[str(mem_id)] = raw_score
+            else:
+                # Preserve additive BM25 normalization and its provider-call
+                # behavior exactly as it existed before opt-in RRF.
+                midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
+                for mem in keyword_results:
+                    mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
+                    raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
+                    if raw_score and raw_score > 0:
+                        bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
 
         # Step 6: Compute entity boosts
         entity_boosts = {}
         if query_entities:
             entity_boosts = self._compute_entity_boosts(query_entities, filters)
+            if is_rrf:
+                entity_boosts = _entity_route_window(entity_boosts, internal_limit)
 
         # Step 7: Build candidate set from semantic results
         candidates = []
         for mem in semantic_results:
-            payload = mem.payload if hasattr(mem, 'payload') else {}
+            payload = _result_payload(mem)
             if not show_expired and _payload_is_expired(payload):
                 continue
-            mem_id = str(mem.id)
+            mem_id = _result_value(mem, "id")
+            if mem_id is None:
+                continue
+            if not _has_memory_data(payload):
+                payload = None
             candidates.append({
-                "id": mem_id,
-                "score": mem.score,
+                "id": str(mem_id),
+                "score": _result_value(mem, "score"),
                 "payload": payload,
             })
 
+        candidate_results = None
+        if is_rrf:
+            candidate_results = []
+            supplied_payload_ids = {
+                candidate["id"]
+                for candidate in candidates
+                if candidate.get("payload") is not None
+            }
+
+            # Keyword searches can return complete scoped payloads.  Keep
+            # those records as auxiliary candidates and avoid re-fetching them
+            # through entity links.
+            if keyword_results is not None:
+                for mem in keyword_results:
+                    mem_id = _result_value(mem, "id")
+                    payload = _result_payload(mem)
+                    if mem_id is None or payload is None:
+                        continue
+                    if not _has_memory_data(payload):
+                        continue
+                    if not show_expired and _payload_is_expired(payload):
+                        continue
+                    mem_id = str(mem_id)
+                    candidate_results.append({"id": mem_id, "payload": payload})
+                    supplied_payload_ids.add(mem_id)
+
+            entity_ids = [memory_id for memory_id in entity_boosts if memory_id not in supplied_payload_ids]
+            if entity_ids:
+                hydrated = _scoped_batch_get(self.vector_store, entity_ids, filters)
+                requested_ids = set(entity_ids)
+                for mem in hydrated:
+                    mem_id = _result_value(mem, "id")
+                    payload = _result_payload(mem)
+                    if mem_id is None or str(mem_id) not in requested_ids or payload is None:
+                        continue
+                    if not _has_memory_data(payload):
+                        continue
+                    if not show_expired and _payload_is_expired(payload):
+                        continue
+                    candidate_results.append({"id": str(mem_id), "payload": payload})
+
         # Step 8: Score and rank
-        scored_results = score_and_rank(
-            semantic_results=candidates,
-            bm25_scores=bm25_scores,
-            entity_boosts=entity_boosts,
-            threshold=threshold,
-            top_k=limit,
-            explain=explain,
-            fusion_strategy=self.config.fusion_strategy,
-            rrf_k=self.config.rrf_k,
-        )
+        score_kwargs = {
+            "semantic_results": candidates,
+            "bm25_scores": bm25_scores,
+            "entity_boosts": entity_boosts,
+            "threshold": threshold,
+            "top_k": limit,
+            "explain": explain,
+            "fusion_strategy": self.config.fusion_strategy,
+            "rrf_k": self.config.rrf_k,
+        }
+        if is_rrf:
+            score_kwargs["candidate_results"] = candidate_results
+        scored_results = score_and_rank(**score_kwargs)
 
         # Step 9: Format results
         promoted_payload_keys = [
@@ -3343,6 +3472,7 @@ class AsyncMemory(MemoryBase):
 
         # Step 3: Semantic search (over-fetch)
         internal_limit = max(limit * 4, 60)
+        is_rrf = self.config.fusion_strategy == "rrf"
         semantic_results = await asyncio.to_thread(
             self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
         )
@@ -3355,42 +3485,104 @@ class AsyncMemory(MemoryBase):
         # Step 5: Compute BM25 scores
         bm25_scores = {}
         if keyword_results is not None:
-            midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
-            for mem in keyword_results:
-                mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
-                raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
-                if raw_score and raw_score > 0:
-                    bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
+            if is_rrf:
+                for mem in keyword_results:
+                    mem_id = _result_value(mem, "id")
+                    if mem_id is None:
+                        continue
+                    payload = _result_payload(mem)
+                    if payload is not None and not show_expired and _payload_is_expired(payload):
+                        continue
+                    raw_score = _result_value(mem, "score", 0)
+                    try:
+                        raw_score = float(raw_score)
+                    except (TypeError, ValueError):
+                        continue
+                    if math.isfinite(raw_score) and raw_score > 0:
+                        bm25_scores[str(mem_id)] = raw_score
+            else:
+                midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
+                for mem in keyword_results:
+                    mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
+                    raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
+                    if raw_score and raw_score > 0:
+                        bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
 
         # Step 6: Compute entity boosts
         entity_boosts = {}
         if query_entities:
             entity_boosts = await self._compute_entity_boosts_async(query_entities, filters)
+            if is_rrf:
+                entity_boosts = _entity_route_window(entity_boosts, internal_limit)
 
         # Step 7: Build candidate set from semantic results
         candidates = []
         for mem in semantic_results:
-            payload = mem.payload if hasattr(mem, 'payload') else {}
+            payload = _result_payload(mem)
             if not show_expired and _payload_is_expired(payload):
                 continue
-            mem_id = str(mem.id)
+            mem_id = _result_value(mem, "id")
+            if mem_id is None:
+                continue
+            if not _has_memory_data(payload):
+                payload = None
             candidates.append({
-                "id": mem_id,
-                "score": mem.score,
+                "id": str(mem_id),
+                "score": _result_value(mem, "score"),
                 "payload": payload,
             })
 
+        candidate_results = None
+        if is_rrf:
+            candidate_results = []
+            supplied_payload_ids = {
+                candidate["id"]
+                for candidate in candidates
+                if candidate.get("payload") is not None
+            }
+            if keyword_results is not None:
+                for mem in keyword_results:
+                    mem_id = _result_value(mem, "id")
+                    payload = _result_payload(mem)
+                    if mem_id is None or payload is None:
+                        continue
+                    if not _has_memory_data(payload):
+                        continue
+                    if not show_expired and _payload_is_expired(payload):
+                        continue
+                    mem_id = str(mem_id)
+                    candidate_results.append({"id": mem_id, "payload": payload})
+                    supplied_payload_ids.add(mem_id)
+
+            entity_ids = [memory_id for memory_id in entity_boosts if memory_id not in supplied_payload_ids]
+            if entity_ids:
+                hydrated = await asyncio.to_thread(_scoped_batch_get, self.vector_store, entity_ids, filters)
+                requested_ids = set(entity_ids)
+                for mem in hydrated:
+                    mem_id = _result_value(mem, "id")
+                    payload = _result_payload(mem)
+                    if mem_id is None or str(mem_id) not in requested_ids or payload is None:
+                        continue
+                    if not _has_memory_data(payload):
+                        continue
+                    if not show_expired and _payload_is_expired(payload):
+                        continue
+                    candidate_results.append({"id": str(mem_id), "payload": payload})
+
         # Step 8: Score and rank
-        scored_results = score_and_rank(
-            semantic_results=candidates,
-            bm25_scores=bm25_scores,
-            entity_boosts=entity_boosts,
-            threshold=threshold,
-            top_k=limit,
-            explain=explain,
-            fusion_strategy=self.config.fusion_strategy,
-            rrf_k=self.config.rrf_k,
-        )
+        score_kwargs = {
+            "semantic_results": candidates,
+            "bm25_scores": bm25_scores,
+            "entity_boosts": entity_boosts,
+            "threshold": threshold,
+            "top_k": limit,
+            "explain": explain,
+            "fusion_strategy": self.config.fusion_strategy,
+            "rrf_k": self.config.rrf_k,
+        }
+        if is_rrf:
+            score_kwargs["candidate_results"] = candidate_results
+        scored_results = score_and_rank(**score_kwargs)
 
         # Step 9: Format results
         promoted_payload_keys = [

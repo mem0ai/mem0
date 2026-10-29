@@ -63,8 +63,49 @@ def test_threshold_and_candidate_scope_are_preserved_before_ranking():
         {"eligible": 0.1, "below_threshold": 0.99, "keyword_only": 1.0},
         {"below_threshold": 0.5, "entity_only": 1.0},
     )
-    assert [item["id"] for item in fused] == ["eligible"]
-    assert fused[0]["score"] == pytest.approx(2 / 61)
+    assert [item["id"] for item in fused] == ["eligible", "below_threshold"]
+    assert fused[0]["score"] == pytest.approx(1 / 61 + 1 / 63)
+
+
+def test_rrf_unions_auxiliary_routes_and_keeps_full_source_ranks():
+    """Keyword/entity-only records join the RRF pool when their payload is supplied."""
+    results = candidates({"outside": 0.95, "semantic": 0.8})
+    fused = score_and_rank(
+        results,
+        {"keyword-only": 100.0, "semantic": 90.0},
+        {"entity-only": 1.0},
+        threshold=0.9,
+        top_k=10,
+        explain=True,
+        fusion_strategy="rrf",
+        candidate_results=[
+            {"id": "keyword-only", "payload": {"data": "keyword"}},
+            {"id": "entity-only", "payload": {"data": "entity"}},
+        ],
+    )
+
+    assert {item["id"] for item in fused} == {"outside", "semantic", "keyword-only", "entity-only"}
+    by_id = {item["id"]: item for item in fused}
+    # The semantic route rank is retained even though this candidate is below
+    # threshold; threshold gates only its semantic vote.
+    assert by_id["semantic"]["score_details"]["semantic_rank"] == 2
+    assert by_id["semantic"]["score_details"]["semantic_contribution"] == 0
+    # Auxiliary-only candidates have no invented semantic score or rank.
+    assert by_id["keyword-only"]["score_details"]["semantic_rank"] is None
+    assert by_id["keyword-only"]["score_details"]["semantic_contribution"] == 0
+    assert by_id["entity-only"]["score_details"]["semantic_score"] is None
+
+
+def test_rrf_does_not_admit_auxiliary_id_without_payload_record():
+    fused = score_and_rank(
+        candidates({"semantic": 0.9}),
+        {"keyword-only": 10.0},
+        {},
+        threshold=0.1,
+        top_k=10,
+        fusion_strategy="rrf",
+    )
+    assert [item["id"] for item in fused] == ["semantic"]
 
 
 def test_limit_is_applied_after_complete_fusion():
@@ -111,7 +152,9 @@ def test_small_rank_offset_returns_raw_sum_without_clipping():
 def test_auxiliary_only_ids_do_not_activate_an_extra_channel():
     fused = fuse(candidates({"a": 0.9}), {"outside": 0.8}, {"outside": 0.5}, explain=True)
     assert fused[0]["score"] == pytest.approx(1 / 61)
-    assert fused[0]["score_details"]["max_possible_score"] == pytest.approx(1 / 61)
+    # Route activity is computed before restricting to payload-backed output
+    # candidates, so the unavailable auxiliary routes still count here.
+    assert fused[0]["score_details"]["max_possible_score"] == pytest.approx(3 / 61)
 
 
 def test_separate_tie_groups_get_their_own_average_rank():
