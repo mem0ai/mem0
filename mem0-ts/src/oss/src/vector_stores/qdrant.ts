@@ -459,24 +459,50 @@ export class Qdrant implements VectorStore {
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     await this.initialize();
-    const scrollRequest = {
-      limit: topK,
-      filter: this.createFilter(filters),
-      with_payload: true,
-      with_vectors: false,
-    };
+    // Follow next_page_offset so a scope larger than one page is fully read
+    // (#7763): entity cleanup reads with top_k=10000 and previously stopped
+    // after the first page, leaving rows past it linked to deleted memories.
+    const MAX_SCROLL_PAGES = 1000;
+    const results: VectorStoreResult[] = [];
+    let offset: string | number | undefined = undefined;
+    for (let page = 0; page < MAX_SCROLL_PAGES; page++) {
+      const scrollRequest: Record<string, any> = {
+        limit: topK,
+        filter: this.createFilter(filters),
+        with_payload: true,
+        with_vectors: false,
+      };
+      if (offset !== undefined) {
+        scrollRequest.offset = offset;
+      }
+      const response = await this.client.scroll(
+        this.collectionName,
+        scrollRequest,
+      );
+      for (const point of response.points) {
+        results.push({
+          id: String(point.id),
+          payload: (point.payload as Record<string, any>) || {},
+        });
+      }
+      if (response.next_page_offset == null) {
+        break;
+      }
+      // Point ID offsets (object form) can't round-trip through the scroll
+      // request's string|number offset field; treat them as terminal.
+      const nextOffset = response.next_page_offset;
+      if (typeof nextOffset !== "string" && typeof nextOffset !== "number") {
+        break;
+      }
+      offset = nextOffset;
+      // A misbehaving server repeating an offset over empty pages must not
+      // turn this loop into a spin; an empty page means nothing more to read.
+      if (response.points.length === 0) {
+        break;
+      }
+    }
 
-    const response = await this.client.scroll(
-      this.collectionName,
-      scrollRequest,
-    );
-
-    const results = response.points.map((point) => ({
-      id: String(point.id),
-      payload: (point.payload as Record<string, any>) || {},
-    }));
-
-    return [results, response.points.length];
+    return [results, results.length];
   }
 
   private generateUUID(): string {
