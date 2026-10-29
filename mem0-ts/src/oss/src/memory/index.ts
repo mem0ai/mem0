@@ -1513,11 +1513,7 @@ export class Memory {
           } else {
             const searchResults = await Promise.allSettled(
               deduped.map((_, i) =>
-                entityStore.search(
-                  embeddings[i],
-                  fusionStrategy === "rrf" ? internalLimit : 500,
-                  entitySearchFilters,
-                ),
+                entityStore.search(embeddings[i], 500, entitySearchFilters),
               ),
             );
 
@@ -1576,7 +1572,11 @@ export class Memory {
             .sort(([leftId, leftScore], [rightId, rightScore]) => {
               const difference = rightScore - leftScore;
               return difference === 0 || Number.isNaN(difference)
-                ? leftId.localeCompare(rightId)
+                ? leftId < rightId
+                  ? -1
+                  : leftId > rightId
+                    ? 1
+                    : 0
                 : difference;
             })
             .slice(0, internalLimit)

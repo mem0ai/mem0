@@ -348,7 +348,11 @@ function scoreAndRankRrf(
     .sort(([leftId, leftScore], [rightId, rightScore]) => {
       const difference = rightScore - leftScore;
       return difference === 0 || Number.isNaN(difference)
-        ? leftId.localeCompare(rightId)
+        ? leftId < rightId
+          ? -1
+          : leftId > rightId
+            ? 1
+            : 0
         : difference;
     })
     .map(([id, score], inputIndex) => ({

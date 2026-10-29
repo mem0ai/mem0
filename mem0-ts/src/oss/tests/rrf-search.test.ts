@@ -172,7 +172,7 @@ describe("RRF search integration", () => {
     });
     expect(internals._entityStore.search).toHaveBeenCalledWith(
       expect.any(Array),
-      80,
+      500,
       { user_id: "u1" },
     );
   });
@@ -234,5 +234,88 @@ describe("RRF search integration", () => {
       expect.stringContaining("scoped batch hydration"),
     );
     warnSpy.mockRestore();
+  });
+
+  it("retains source ranks when expired semantic and keyword payloads are removed", async () => {
+    mockEmbedder.embedBatch.mockResolvedValue([]);
+    mockVStore.search.mockReset();
+    mockVStore.search.mockResolvedValue([
+      {
+        id: "expired-semantic",
+        payload: {
+          data: "expired semantic",
+          expiration_date: "2000-01-01",
+          user_id: "u1",
+        },
+        score: 0.99,
+      },
+      {
+        id: "visible-semantic",
+        payload: { data: "visible semantic", user_id: "u1" },
+        score: 0.8,
+      },
+    ]);
+    mockVStore.keywordSearch = jest.fn().mockResolvedValue([
+      {
+        id: "expired-keyword",
+        payload: {
+          data: "expired keyword",
+          expiration_date: "2000-01-01",
+          user_id: "u1",
+        },
+        score: 100,
+      },
+      {
+        id: "visible-keyword",
+        payload: { data: "visible keyword", user_id: "u1" },
+        score: 10,
+      },
+    ]);
+
+    const mem = new Memory({
+      embedder: {
+        provider: "lmstudio",
+        config: {
+          model: "nomic-embed-text-v1.5",
+          baseURL: "http://localhost:1234/v1",
+          embeddingDims: 768,
+        },
+      },
+      vectorStore: {
+        provider: "memory",
+        config: { collectionName: "test-rrf-expired-ranks", dimension: 768 },
+      },
+      llm: {
+        provider: "lmstudio",
+        config: { baseURL: "http://localhost:1234/v1" },
+      },
+      disableHistory: true,
+      fusionStrategy: "rrf",
+      rrfK: 1,
+    });
+
+    const result = await mem.search("query", {
+      filters: { user_id: "u1" },
+      explain: true,
+      topK: 2,
+    });
+
+    expect(result.results.map((item) => item.id)).toEqual(
+      expect.arrayContaining(["visible-semantic", "visible-keyword"]),
+    );
+    expect(result.results).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "expired-semantic" }),
+        expect.objectContaining({ id: "expired-keyword" }),
+      ]),
+    );
+    const semanticDetails = (
+      result.results.find((item) => item.id === "visible-semantic") as any
+    ).score_details;
+    const keywordDetails = (
+      result.results.find((item) => item.id === "visible-keyword") as any
+    ).score_details;
+    expect(semanticDetails.semanticRank).toBe(2);
+    expect(keywordDetails.bm25Rank).toBe(2);
   });
 });
