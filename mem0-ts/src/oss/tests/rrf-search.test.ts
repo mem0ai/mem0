@@ -318,4 +318,91 @@ describe("RRF search integration", () => {
     expect(semanticDetails.semanticRank).toBe(2);
     expect(keywordDetails.bm25Rank).toBe(2);
   });
+
+  it("does not let missing semantic or keyword data occupy RRF payload candidates", async () => {
+    mockEmbedder.embedBatch.mockResolvedValue([new Array(768).fill(0.1)]);
+    mockVStore.search.mockReset();
+    mockVStore.search.mockResolvedValue([
+      { id: "invalid-semantic", payload: {}, score: 0.9 },
+      {
+        id: "valid-semantic",
+        payload: { data: "valid semantic", user_id: "u1" },
+        score: 0.8,
+      },
+    ]);
+    mockVStore.keywordSearch = jest.fn().mockResolvedValue([
+      { id: "invalid-keyword", payload: { data: 42 }, score: 100 },
+      {
+        id: "valid-keyword",
+        payload: { data: "valid keyword", user_id: "u1" },
+        score: 10,
+      },
+    ]);
+    mockVStore.getByIds = jest.fn().mockResolvedValue([
+      {
+        id: "invalid-semantic",
+        payload: { data: "hydrated semantic", user_id: "u1" },
+      },
+      {
+        id: "entity-only",
+        payload: { data: "entity memory", user_id: "u1" },
+      },
+    ]);
+
+    const mem = new Memory({
+      embedder: {
+        provider: "lmstudio",
+        config: {
+          model: "nomic-embed-text-v1.5",
+          baseURL: "http://localhost:1234/v1",
+          embeddingDims: 768,
+        },
+      },
+      vectorStore: {
+        provider: "memory",
+        config: { collectionName: "test-rrf-payload-boundary", dimension: 768 },
+      },
+      llm: {
+        provider: "lmstudio",
+        config: { baseURL: "http://localhost:1234/v1" },
+      },
+      disableHistory: true,
+      fusionStrategy: "rrf",
+      rrfK: 1,
+    });
+    const internals = mem as any;
+    await internals._ensureInitialized();
+    internals._entityStore = {
+      initialize: jest.fn().mockResolvedValue(undefined),
+      search: jest.fn().mockResolvedValue([
+        {
+          id: "entity-record",
+          score: 0.9,
+          payload: { linkedMemoryIds: ["invalid-semantic", "entity-only"] },
+        },
+      ]),
+    };
+
+    const result = await mem.search("John Smith", {
+      filters: { user_id: "u1" },
+    });
+
+    expect(result.results.map((item) => item.id)).toEqual(
+      expect.arrayContaining([
+        "invalid-semantic",
+        "valid-semantic",
+        "valid-keyword",
+        "entity-only",
+      ]),
+    );
+    expect(result.results).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "invalid-keyword" }),
+      ]),
+    );
+    expect(mockVStore.getByIds).toHaveBeenCalledTimes(1);
+    expect(mockVStore.getByIds.mock.calls[0][0]).toEqual(
+      expect.arrayContaining(["invalid-semantic", "entity-only"]),
+    );
+  });
 });

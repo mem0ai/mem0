@@ -117,6 +117,18 @@ const PAYLOAD_METADATA_EXCLUDED_KEYS = new Set([
   "attributedTo",
 ]);
 
+function hasUsableMemoryPayload(
+  payload: unknown,
+): payload is Record<string, any> {
+  return (
+    payload != null &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    typeof (payload as Record<string, any>).data === "string" &&
+    (payload as Record<string, any>).data.length > 0
+  );
+}
+
 // Caller metadata must not overwrite or inject an identity scope (#6342 / #6367 / #6371).
 function stripIdentityKeys(
   metadata: Record<string, any> = {},
@@ -1601,26 +1613,18 @@ export class Memory {
     }> = [];
     const suppliedPayloadIds = new Set<string>();
     for (const mem of semanticResults) {
-      if (
-        mem.id != null &&
-        mem.payload != null &&
-        typeof mem.payload === "object"
-      ) {
+      if (mem.id != null && hasUsableMemoryPayload(mem.payload)) {
         suppliedPayloadIds.add(String(mem.id));
       }
     }
     if (fusionStrategy === "rrf" && keywordResults) {
       for (const mem of keywordResults) {
-        if (
-          mem.id == null ||
-          mem.payload == null ||
-          typeof mem.payload !== "object" ||
-          (!showExpired && payloadIsExpired(mem.payload))
-        ) {
+        if (mem.id == null || !hasUsableMemoryPayload(mem.payload)) {
           continue;
         }
         const id = String(mem.id);
         suppliedPayloadIds.add(id);
+        if (!showExpired && payloadIsExpired(mem.payload)) continue;
         candidateResults.push({ id, payload: mem.payload });
       }
     }
@@ -1669,7 +1673,8 @@ export class Memory {
             id: String(mem.id),
             score: mem.score ?? 0,
             payload:
-              showExpired || !payloadIsExpired(mem.payload)
+              hasUsableMemoryPayload(mem.payload) &&
+              (showExpired || !payloadIsExpired(mem.payload))
                 ? mem.payload
                 : undefined,
           }))

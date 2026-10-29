@@ -291,6 +291,26 @@ describe("scoreAndRank", () => {
       expect(details.bm25Rank).toBe(1);
     });
 
+    it("orders below-threshold semantic candidates before equal auxiliary-only ties", () => {
+      const scored = scoreAndRank(
+        [{ id: "below", score: 0.05, payload: { data: "below" } }],
+        { keyword: 1 },
+        { below: 1 },
+        0.1,
+        10,
+        true,
+        "rrf",
+        1,
+        [{ id: "keyword", payload: { data: "keyword" } }],
+      );
+
+      expect(scored.map((result) => result.id)).toEqual(["below", "keyword"]);
+      expect(scored[0].score).toBe(scored[1].score);
+      expect(scored[0].scoreDetails?.semanticScore).toBe(0.05);
+      expect(scored[1].scoreDetails?.semanticScore).toBeNull();
+      expect(scored[1].scoreDetails?.semanticContribution).toBe(0);
+    });
+
     it("keeps additive scoring and its explanation shape unchanged by default", () => {
       const scored = scoreAndRank(candidates, {}, {}, 0.1, 3, true);
       expect(scored[0].scoreDetails).not.toHaveProperty("fusionStrategy");

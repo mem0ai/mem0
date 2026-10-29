@@ -60,7 +60,7 @@ export function normalizeBm25(
 }
 
 export interface ScoreDetails {
-  semanticScore: number;
+  semanticScore: number | null;
   bm25Score: number;
   entityBoost: number;
   rawScore: number;
@@ -375,17 +375,17 @@ function scoreAndRankRrf(
     candidateIds.add(id);
   };
 
-  for (const [id, semanticScore] of semanticScores) {
-    if (semanticScore >= threshold) addCandidate(id);
-  }
+  for (const id of semanticScores.keys()) addCandidate(id);
   for (const { id } of bm25Entries) addCandidate(id);
   for (const { id } of entityEntries) addCandidate(id);
 
   const scored = [...candidateIds].flatMap((id) => {
-    const semanticScore = semanticScores.get(id) ?? 0.0;
+    const semanticScoreValue = semanticScores.get(id);
+    const semanticScore = semanticScoreValue ?? null;
     const bm25Score = bm25Scores[id] ?? 0.0;
     const entityBoost = entityBoosts[id] ?? 0.0;
-    const semanticVote = semanticScore >= threshold;
+    const semanticVote =
+      semanticScoreValue !== undefined && semanticScoreValue >= threshold;
     const semanticRankValue = semanticRank.get(id) ?? null;
     const bm25RankValue = bm25Rank.get(id) ?? null;
     const entityRankValue = entityRank.get(id) ?? null;
