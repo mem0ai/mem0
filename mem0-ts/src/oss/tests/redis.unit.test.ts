@@ -210,3 +210,19 @@ describe("RedisDB – entity payload handling", () => {
     expect(items[0].payload).not.toHaveProperty("runId");
   });
 });
+
+describe("RedisDB – index dimension", () => {
+  test("uses the resolved dimension when embeddingModelDims is unset", async () => {
+    // Memory resolves the dimension into vectorStore.config.dimension (#7770).
+    const store = new RedisDB({
+      redisUrl: "redis://localhost:6379",
+      collectionName: "dims",
+      dimension: 768,
+    });
+    await store.initialize();
+
+    const create = (store as any).client.ft.create as jest.Mock;
+    expect(create).toHaveBeenCalled();
+    expect(create.mock.calls[0][1].embedding.DIM).toBe(768);
+  });
+});

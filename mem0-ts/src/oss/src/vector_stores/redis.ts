@@ -26,7 +26,7 @@ function escapeRedisTagValue(value: unknown): string {
 interface RedisConfig extends VectorStoreConfig {
   redisUrl: string;
   collectionName: string;
-  embeddingModelDims: number;
+  embeddingModelDims?: number;
   username?: string;
   password?: string;
 }
@@ -176,7 +176,7 @@ export class RedisDB implements VectorStore {
             ...field,
             attrs: {
               ...field.attrs,
-              dims: config.embeddingModelDims,
+              dims: config.embeddingModelDims || config.dimension || 1536,
             },
           };
         }

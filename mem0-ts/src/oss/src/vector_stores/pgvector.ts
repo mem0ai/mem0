@@ -166,7 +166,7 @@ interface PGVectorConfig extends VectorStoreConfig {
   port?: number;
   connectionString?: string;
   ssl?: ClientConfig["ssl"];
-  embeddingModelDims: number;
+  embeddingModelDims?: number;
   diskann?: boolean;
   hnsw?: boolean;
 }
@@ -290,7 +290,9 @@ export class PGVector implements VectorStore {
 
       const collections = await this.listCols();
       if (!collections.includes(this.collectionName)) {
-        await this.createCol(this.config.embeddingModelDims);
+        await this.createCol(
+          this.config.embeddingModelDims || this.config.dimension || 1536,
+        );
       }
     } catch (error) {
       console.error("Error during initialization:", error);

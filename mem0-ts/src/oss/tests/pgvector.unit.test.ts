@@ -241,4 +241,20 @@ describe("PGVector", () => {
       ["[1,0,0]", 4],
     );
   });
+
+  test("creates the table with the resolved dimension when embeddingModelDims is unset", async () => {
+    // Memory resolves the dimension into vectorStore.config.dimension (#7770).
+    const store = new PGVector({
+      collectionName: "fresh_memories",
+      connectionString: "postgresql://postgres:postgres@localhost:5432/db",
+      dimension: 768,
+    } as any);
+
+    await store.initialize();
+
+    const pg = require("pg");
+    const queries = getClientQueries(pg.__mock.clients[0]);
+    const createTable = queries.find((sql) => sql.includes("vector vector("));
+    expect(createTable).toContain("vector vector(768)");
+  });
 });
