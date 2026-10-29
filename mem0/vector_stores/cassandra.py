@@ -145,15 +145,28 @@ class CassandraDB(VectorStoreBase):
     def _create_table(self):
         """Create table with vector column if it doesn't exist."""
         try:
-            # Create table with vector stored as list<float> and payload as text (JSON)
+            # Create table with vector stored as list<float> and payload as text (JSON).
+            # user_id, agent_id, run_id are stored as dedicated columns so they can be
+            # used in CQL WHERE clauses with secondary indexes, avoiding full-table scans
+            # that would expose all users' data during filtering.
             query = f"""
                 CREATE TABLE IF NOT EXISTS {self.keyspace}.{self.collection_name} (
                     id text PRIMARY KEY,
                     vector list<float>,
-                    payload text
+                    payload text,
+                    user_id text,
+                    agent_id text,
+                    run_id text
                 )
             """
             self.session.execute(query)
+
+            for col in ("user_id", "agent_id", "run_id"):
+                idx_query = f"""
+                    CREATE INDEX IF NOT EXISTS ON {self.keyspace}.{self.collection_name} ({col})
+                """
+                self.session.execute(idx_query)
+
             logger.info(f"Table '{self.collection_name}' is ready")
         except Exception as e:
             logger.error(f"Failed to create table: {e}")
@@ -176,10 +189,20 @@ class CassandraDB(VectorStoreBase):
                 CREATE TABLE IF NOT EXISTS {self.keyspace}.{table_name} (
                     id text PRIMARY KEY,
                     vector list<float>,
-                    payload text
+                    payload text,
+                    user_id text,
+                    agent_id text,
+                    run_id text
                 )
             """
             self.session.execute(query)
+
+            for col in ("user_id", "agent_id", "run_id"):
+                idx_query = f"""
+                    CREATE INDEX IF NOT EXISTS ON {self.keyspace}.{table_name} ({col})
+                """
+                self.session.execute(idx_query)
+
             logger.info(f"Created collection '{table_name}' with vector dimension {dims}")
         except Exception as e:
             logger.error(f"Failed to create collection: {e}")
@@ -208,15 +231,23 @@ class CassandraDB(VectorStoreBase):
 
         try:
             query = f"""
-                INSERT INTO {self.keyspace}.{self.collection_name} (id, vector, payload)
-                VALUES (?, ?, ?)
+                INSERT INTO {self.keyspace}.{self.collection_name}
+                    (id, vector, payload, user_id, agent_id, run_id)
+                VALUES (?, ?, ?, ?, ?, ?)
             """
             prepared = self.session.prepare(query)
 
             for vector, payload, vec_id in zip(vectors, payloads, ids):
                 self.session.execute(
                     prepared,
-                    (vec_id, vector, json.dumps(payload))
+                    (
+                        vec_id,
+                        vector,
+                        json.dumps(payload),
+                        payload.get("user_id"),
+                        payload.get("agent_id"),
+                        payload.get("run_id"),
+                    ),
                 )
         except Exception as e:
             logger.error(f"Failed to insert vectors: {e}")
@@ -241,13 +272,37 @@ class CassandraDB(VectorStoreBase):
         Returns:
             List[OutputData]: Search results
         """
+        # Indexed columns that can be pushed into a CQL WHERE clause.
+        _INDEXED_COLS = {"user_id", "agent_id", "run_id"}
+
         try:
-            # Fetch all vectors (in production, you'd want pagination or filtering)
+            # Build a CQL WHERE clause for indexed filter columns so we only fetch
+            # rows that belong to the requesting user/agent/run.  Remaining filter
+            # keys (arbitrary payload fields) are checked in Python after the fetch.
+            where_parts: list = []
+            where_params: list = []
+            extra_filters: dict = {}
+
+            if filters:
+                for k, v in filters.items():
+                    if k in _INDEXED_COLS:
+                        where_parts.append(f"{k} = ?")
+                        where_params.append(v)
+                    else:
+                        extra_filters[k] = v
+
+            where_clause = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
             query_cql = f"""
                 SELECT id, vector, payload
                 FROM {self.keyspace}.{self.collection_name}
+                {where_clause}
             """
-            rows = self.session.execute(query_cql)
+
+            if where_params:
+                prepared = self.session.prepare(query_cql)
+                rows = self.session.execute(prepared, where_params)
+            else:
+                rows = self.session.execute(query_cql)
 
             # Calculate cosine similarity in Python
             query_vec = np.array(vectors)
@@ -261,12 +316,11 @@ class CassandraDB(VectorStoreBase):
 
                 similarity = float(np.dot(query_vec, vec) / (np.linalg.norm(query_vec) * np.linalg.norm(vec)))
 
-                # Apply filters if provided
-                if filters:
+                # Apply any remaining non-indexed filters
+                if extra_filters:
                     try:
                         payload = json.loads(row.payload) if row.payload else {}
-                        match = all(payload.get(k) == v for k, v in filters.items())
-                        if not match:
+                        if not all(payload.get(k) == v for k, v in extra_filters.items()):
                             continue
                     except json.JSONDecodeError:
                         continue
@@ -334,11 +388,20 @@ class CassandraDB(VectorStoreBase):
             if payload is not None:
                 query = f"""
                     UPDATE {self.keyspace}.{self.collection_name}
-                    SET payload = ?
+                    SET payload = ?, user_id = ?, agent_id = ?, run_id = ?
                     WHERE id = ?
                 """
                 prepared = self.session.prepare(query)
-                self.session.execute(prepared, (json.dumps(payload), vector_id))
+                self.session.execute(
+                    prepared,
+                    (
+                        json.dumps(payload),
+                        payload.get("user_id"),
+                        payload.get("agent_id"),
+                        payload.get("run_id"),
+                        vector_id,
+                    ),
+                )
 
             logger.info(f"Updated vector with id: {vector_id}")
         except Exception as e:
@@ -446,22 +509,41 @@ class CassandraDB(VectorStoreBase):
         Returns:
             List[List[OutputData]]: List of vectors
         """
+        _INDEXED_COLS = {"user_id", "agent_id", "run_id"}
+
         try:
+            where_parts: list = []
+            where_params: list = []
+            extra_filters: dict = {}
+
+            if filters:
+                for k, v in filters.items():
+                    if k in _INDEXED_COLS:
+                        where_parts.append(f"{k} = ?")
+                        where_params.append(v)
+                    else:
+                        extra_filters[k] = v
+
+            where_clause = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
             query = f"""
                 SELECT id, vector, payload
                 FROM {self.keyspace}.{self.collection_name}
+                {where_clause}
                 LIMIT {top_k}
             """
-            rows = self.session.execute(query)
+
+            if where_params:
+                prepared = self.session.prepare(query)
+                rows = self.session.execute(prepared, where_params)
+            else:
+                rows = self.session.execute(query)
 
             results = []
             for row in rows:
-                # Apply filters if provided
-                if filters:
+                if extra_filters:
                     try:
                         payload = json.loads(row.payload) if row.payload else {}
-                        match = all(payload.get(k) == v for k, v in filters.items())
-                        if not match:
+                        if not all(payload.get(k) == v for k, v in extra_filters.items()):
                             continue
                     except json.JSONDecodeError:
                         continue
