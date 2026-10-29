@@ -169,7 +169,13 @@ class ValkeyDB(VectorStoreBase):
             "HASH",
             "PREFIX",
             "1",
-            prefix,
+            # Memory hashes are stored under "{prefix}:{id}" while the entity
+            # store uses the sibling collection "{collection}_entities" with keys
+            # "{prefix}_entities:{id}". Valkey matches FT.CREATE PREFIX as a plain
+            # string prefix, so without the trailing colon here the memory index
+            # also indexes entity documents and they leak into search results.
+            # See #5680.
+            prefix + ":",
             "SCHEMA",
             "memory_id",
             "TAG",
