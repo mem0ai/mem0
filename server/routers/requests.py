@@ -24,7 +24,7 @@ class RequestLogItem(BaseModel):
     model_config = {"from_attributes": True}
 
 
-API_KEY_AUTH_TYPES = ("api_key", "admin_api_key")
+VISIBLE_REQUEST_LOG_AUTH_TYPES = ("bearer", "api_key", "admin_api_key", "disabled")
 
 
 @router.get("", response_model=list[RequestLogItem])
@@ -36,7 +36,7 @@ def list_requests(
     logs = (
         db.execute(
             select(RequestLog)
-            .where(RequestLog.auth_type.in_(API_KEY_AUTH_TYPES))
+            .where(RequestLog.auth_type.in_(VISIBLE_REQUEST_LOG_AUTH_TYPES))
             .order_by(RequestLog.created_at.desc())
             .limit(limit)
         )
