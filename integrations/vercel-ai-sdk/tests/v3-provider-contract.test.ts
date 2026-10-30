@@ -464,6 +464,40 @@ describe("V3 Provider Contract", () => {
       expect(body.top_k).toBe(10);
     });
 
+    it("should forward expiration_date into the add body when provided", async () => {
+      const { addMemories } = require("../src/mem0-utils");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: "ok", status: "PENDING", event_id: "test" }),
+      });
+
+      await addMemories(
+        [{ role: "user" as const, content: [{ type: "text" as const, text: "Hello" }] }],
+        { mem0ApiKey: "test-key", user_id: "test-user", expiration_date: "2026-12-31" }
+      );
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.expiration_date).toBe("2026-12-31");
+    });
+
+    it("should omit expiration_date from the add body when not provided", async () => {
+      const { addMemories } = require("../src/mem0-utils");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: "ok", status: "PENDING", event_id: "test" }),
+      });
+
+      await addMemories(
+        [{ role: "user" as const, content: [{ type: "text" as const, text: "Hello" }] }],
+        { mem0ApiKey: "test-key", user_id: "test-user" }
+      );
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.expiration_date).toBeUndefined();
+    });
+
     it("should merge user-provided filters with entity ID filters", async () => {
       const { searchMemories } = require("../src/mem0-utils");
 
