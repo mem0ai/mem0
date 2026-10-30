@@ -239,13 +239,16 @@ class UpstashVector(VectorStoreBase):
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
         """
-        self.client.update(
+        if self.client.update(
             id=str(vector_id),
             vector=vector,
             data=payload.get("data") if payload else None,
             metadata=payload,
             namespace=self.collection_name,
-        )
+        ):
+            return True
+        # Upstash documents updated=0 only as "nothing updated", so confirm the id is gone before returning False.
+        return self.get(vector_id) is not None
 
     def get(self, vector_id: int) -> Optional[OutputData]:
         """
