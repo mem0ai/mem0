@@ -134,10 +134,68 @@ def test_generate_response_with_tools(mock_litellm):
     response = llm.generate_response(messages, tools=tools)
 
     mock_litellm.completion.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1, tools=tools, tool_choice="auto"
+        model="gpt-4.1-nano-2025-04-14",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1,
+        tools=tools,
+        tool_choice="auto",
     )
 
     assert response["content"] == "I've added the memory for you."
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
+def test_generate_response_reasoning_model_omits_temperature(mock_litellm):
+    """Regression test for #6241: reasoning models must not receive temperature or top_p."""
+    config = BaseLlmConfig(model="o3-mini", temperature=0.7, max_tokens=100, top_p=1)
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_litellm.completion.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert "temperature" not in kwargs, "temperature must not be sent to reasoning models"
+    assert "top_p" not in kwargs, "top_p must not be sent to reasoning models"
+    assert kwargs["model"] == "o3-mini"
+
+
+def test_generate_response_reasoning_model_passes_reasoning_effort(mock_litellm):
+    """Regression test for #6241: reasoning_effort config must be forwarded for reasoning models."""
+    config = BaseLlmConfig(model="o3", temperature=0.7, max_tokens=100, top_p=1, reasoning_effort="medium")
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_litellm.completion.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert kwargs["reasoning_effort"] == "medium"
+    assert "temperature" not in kwargs
+
+
+@pytest.mark.parametrize(
+    "model,token_parameter",
+    [("o3-mini", "max_tokens"), ("gpt-5", "max_completion_tokens")],
+)
+def test_reasoning_model_retains_configured_token_limit(mock_litellm, model, token_parameter):
+    config = BaseLlmConfig(model=model, max_tokens=123)
+    llm = litellm.LiteLLM(config)
+    mock_litellm.completion.return_value = Mock(choices=[Mock(message=Mock(content="done"))])
+
+    llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    kwargs = mock_litellm.completion.call_args.kwargs
+    assert kwargs[token_parameter] == 123
+    assert "temperature" not in kwargs
+    assert "top_p" not in kwargs
