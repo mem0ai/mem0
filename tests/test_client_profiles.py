@@ -205,7 +205,8 @@ class TestAsyncClientParity:
 
     @pytest.fixture
     def async_client(self):
-        # AsyncMemoryClient validates the key synchronously, through requests.
+        # AsyncMemoryClient validates the key synchronously, through a
+        # short-lived httpx.Client (reusing the async client's base_url/headers).
         validation = MagicMock()
         validation.json.return_value = {
             "org_id": "org1",
@@ -214,9 +215,13 @@ class TestAsyncClientParity:
         }
         validation.raise_for_status.return_value = None
 
-        with patch("mem0.client.main.httpx.AsyncClient") as mock_httpx:
-            mock_httpx.return_value = MagicMock()
-            with patch("mem0.client.main.requests.get", return_value=validation):
+        with patch("mem0.client.main.httpx.AsyncClient") as mock_async:
+            mock_async.return_value = MagicMock()
+            with patch("mem0.client.main.httpx.Client") as mock_sync:
+                mock_http_client = MagicMock()
+                mock_http_client.__enter__.return_value = mock_http_client
+                mock_http_client.get.return_value = validation
+                mock_sync.return_value = mock_http_client
                 with patch("mem0.client.main.capture_client_event"):
                     from mem0.client.main import AsyncMemoryClient
 
