@@ -35,7 +35,7 @@ icon: "bolt"
     | Create memories | `await memory.add(...)` | Same arguments as synchronous `Memory.add`. |
     | Search memories | `await memory.search(...)` | Returns dict with `results`, identical shape. |
     | List memories | `await memory.get_all(...)` | Filter by `user_id`, `agent_id`, `run_id`. |
-    | Retrieve memory | `await memory.get(memory_id=...)` | Raises `ValueError` if ID is invalid. |
+| Retrieve memory | `await memory.get(memory_id=...)` | Returns `None` if no memory matches the ID. |
     | Update memory | `await memory.update(memory_id=..., text=...)` | Accepts partial updates. |
     | Delete memory | `await memory.delete(memory_id=...)` | Returns confirmation payload. |
     | Delete in bulk | `await memory.delete_all(...)` | Requires at least one scope filter. |
@@ -289,10 +289,9 @@ async def handle_initialization_errors():
 
 async def handle_memory_operation_errors():
     memory = AsyncMemory()
-    try:
-        await memory.get(memory_id="non-existent-id")
-    except ValueError as err:
-        print(f"Invalid memory ID: {err}")
+    result = await memory.get(memory_id="00000000-0000-0000-0000-000000000001")
+    if result is None:
+        print("No memory found for this ID")
 
     try:
         await memory.search(query="", filters={"user_id": "alice"})
