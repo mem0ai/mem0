@@ -746,6 +746,7 @@ describe("AzureAISearch – backward compat with mocked client", () => {
         }),
         getDocument: jest.fn().mockResolvedValue(null),
         mergeOrUploadDocuments: jest.fn().mockResolvedValue({}),
+        mergeDocuments: jest.fn(),
         deleteDocuments: jest.fn().mockResolvedValue({}),
       })),
       SearchIndexClient: jest.fn().mockImplementation(() => ({
@@ -805,6 +806,46 @@ describe("AzureAISearch – backward compat with mocked client", () => {
     const p3 = store.initialize();
     await Promise.all([p1, p2, p3]);
     // No crash = idempotent
+  });
+
+  it("update merges existing documents and returns false on a 404, never uploading", async () => {
+    const store = new AzureAISearch({
+      serviceName: "test-service",
+      collectionName: "test-index",
+      apiKey: "fake-key",
+      embeddingModelDims: 768,
+    });
+    await store.initialize();
+    const client = store.searchClient;
+    const result = (statusCode: number) => ({
+      results: [
+        { succeeded: statusCode === 200, statusCode, errorMessage: "x" },
+      ],
+    });
+    client.mergeDocuments
+      .mockResolvedValueOnce(result(404))
+      .mockResolvedValueOnce(result(200))
+      .mockResolvedValueOnce(result(200))
+      .mockResolvedValueOnce(result(400));
+
+    expect(await store.update("gone", [0.1], { data: "a" })).toBe(false);
+    expect(
+      await store.update("id-1", [0.2], { data: "b", user_id: "u1" }),
+    ).toBe(true);
+    expect(await store.update("id-1", null, { data: "c" })).toBe(true);
+    await expect(store.update("id-1", [0.3], {})).rejects.toThrow(
+      /Update failed/,
+    );
+
+    expect(client.mergeOrUploadDocuments).not.toHaveBeenCalled();
+    const sent = client.mergeDocuments.mock.calls.map((c: any[]) => c[0][0]);
+    expect(sent[1]).toEqual({
+      id: "id-1",
+      vector: [0.2],
+      payload: JSON.stringify({ data: "b", user_id: "u1" }),
+      user_id: "u1",
+    });
+    expect(sent[2]).not.toHaveProperty("vector");
   });
 });
 
@@ -2291,6 +2332,51 @@ describe("Databricks – backward compat with mocked clients", () => {
     expect(updateSql).toMatch(/payload\s*=/);
   });
 
+  it("update() reports num_affected_rows, undefined without it, and never inserts", async () => {
+    const session = require("@databricks/sql").__mockSession;
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 1,
+    });
+    await store.initialize();
+    session.executeStatement.mockClear();
+    const result = (rows: any[]) => ({
+      fetchAll: jest.fn().mockResolvedValue(rows),
+      close: jest.fn().mockResolvedValue(undefined),
+    });
+
+    session.executeStatement.mockResolvedValueOnce(
+      result([{ num_affected_rows: 0 }]),
+    );
+    expect(await store.update("missing", [0, 1, 0], { topic: "x" })).toBe(
+      false,
+    );
+    session.executeStatement.mockResolvedValueOnce(
+      result([{ num_affected_rows: 1 }]),
+    );
+    expect(await store.update("id-1", [0, 1, 0], { topic: "y" })).toBe(true);
+    session.executeStatement.mockResolvedValueOnce(result([]));
+    expect(
+      await store.update("id-1", [0, 1, 0], { topic: "z" }),
+    ).toBeUndefined();
+    session.executeStatement.mockResolvedValueOnce(
+      result([{ num_affected_rows: null }]),
+    );
+    expect(
+      await store.update("id-1", [0, 1, 0], { topic: "w" }),
+    ).toBeUndefined();
+
+    const sql = session.executeStatement.mock.calls.map((c: [string]) => c[0]);
+    expect(sql).toHaveLength(4);
+    expect(sql.every((s: string) => s.trim().startsWith("UPDATE"))).toBe(true);
+  });
+
   it("list() rejects an unsafe-integer topK that would slip past Number.isInteger", async () => {
     const store = new DatabricksVectorStore({
       workspaceUrl: "https://workspace.databricks.com",
@@ -3462,7 +3548,9 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
               properties: parameters.properties || existing.properties,
             });
           }
-          return createMockResponse({ results: [{ success: true }] });
+          return createMockResponse({
+            results: existing ? [{ success: true }] : [],
+          });
         }
 
         if (queryString.includes("topK.byEmbedding")) {
@@ -3560,7 +3648,7 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
               properties: { ...parameters.properties },
             });
           }
-          return createMockResponse({ results: [] });
+          return createMockResponse({ results: existing ? [{ n: {} }] : [] });
         }
 
         if (
@@ -4244,6 +4332,32 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     ).toBe(true);
   });
 
+  it("update returns false for a missing node and never creates it", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+    await store.insert([[1, 2, 3]], ["id-1"], [{ data: "alpha" }]);
+    const merges = () =>
+      mockClient.send.mock.calls.filter(([command]: [any]) =>
+        String(command.input.queryString || "").includes("MERGE"),
+      ).length;
+    const mergesAfterInsert = merges();
+
+    expect(await store.update("missing", [3, 2, 1], { data: "x" })).toBe(false);
+    expect(await store.update("missing", [3, 2, 1], {})).toBe(false);
+    expect(await store.get("missing")).toBeNull();
+    expect(await store.update("id-1", [3, 2, 1], { data: "beta" })).toBe(true);
+    expect(await store.update("id-1", [], { data: "gamma" })).toBe(true);
+    expect(merges()).toBe(mergesAfterInsert);
+  });
+
   it("deletes the full Neptune collection with deleteCol()", async () => {
     const {
       NeptuneAnalyticsVectorStore,
@@ -4815,7 +4929,7 @@ describe("AzureMySQL – backward compat with mocked client", () => {
             if (rows.has(id)) {
               rows.set(id, { id, vector, payload });
             }
-            return [{ affectedRows: 1 }, []];
+            return [{ affectedRows: rows.has(id) ? 1 : 0 }, []];
           }
 
           // DELETE
@@ -5016,6 +5130,31 @@ describe("AzureMySQL – backward compat with mocked client", () => {
           embeddingModelDims: 4,
         }),
     ).toThrow("Invalid collectionName");
+  });
+
+  it("update returns false for a missing id without inserting, true when it exists", async () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    await store.initialize();
+    await store.insert([[1, 0, 0, 0]], ["id-1"], [{ data: "alpha" }]);
+
+    expect(await store.update("missing", [0, 1, 0, 0], { data: "x" })).toBe(
+      false,
+    );
+    expect(await store.get("missing")).toBeNull();
+    expect(await store.update("id-1", [0, 1, 0, 0], { data: "beta" })).toBe(
+      true,
+    );
+    expect((await store.get("id-1"))!.payload).toEqual({ data: "beta" });
+    const inserts = mockPool.execute.mock.calls.filter(([sql]: [string]) =>
+      sql.trim().startsWith("INSERT INTO `"),
+    );
+    expect(inserts).toHaveLength(1);
   });
 });
 
@@ -5526,5 +5665,29 @@ describe("WeaviateDB – backward compat with mocked client", () => {
     });
     await store.setUserId("custom-user");
     expect(await store.getUserId()).toBe("custom-user");
+  });
+
+  it("update maps a 404 to false and never inserts", async () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 3,
+    });
+    await store.initialize();
+    mockCol.data.update.mockRejectedValueOnce(
+      Object.assign(new Error("not found"), { code: 404 }),
+    );
+    expect(await store.update("missing", [0.1, 0.2, 0.3], { data: "x" })).toBe(
+      false,
+    );
+    expect(await store.update("id-1", [0.1, 0.2, 0.3], { data: "y" })).toBe(
+      true,
+    );
+    expect(mockCol.data.update).toHaveBeenLastCalledWith({
+      id: "id-1",
+      properties: { data: "y" },
+      vectors: [0.1, 0.2, 0.3],
+    });
+    expect(mockCol.data.insertMany).not.toHaveBeenCalled();
   });
 });

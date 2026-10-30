@@ -122,6 +122,11 @@ const EXCLUDED_KEYS = new Set([
   "updated_at",
 ]);
 
+// HSET alone creates a missing hash; the script checks and writes atomically.
+const HSET_IF_EXISTS =
+  "if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end " +
+  "redis.call('HSET', KEYS[1], unpack(ARGV)) return 1";
+
 // Utility function to convert object keys to snake_case
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   if (typeof obj !== "object" || obj === null) return obj;
@@ -574,7 +579,7 @@ export class RedisDB implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.initialize();
     const snakePayload = toSnakeCase(payload);
     const createdAt = snakePayload.created_at
@@ -589,8 +594,8 @@ export class RedisDB implements VectorStore {
       memory: snakePayload.data ?? "",
       created_at: createdAt,
       updated_at: updatedAt,
-      embedding: Buffer.from(new Float32Array(vector).buffer),
     };
+    if (vector) entry.embedding = Buffer.from(new Float32Array(vector).buffer);
 
     // Add optional fields
     ["agent_id", "run_id", "user_id"].forEach((field) => {
@@ -606,8 +611,40 @@ export class RedisDB implements VectorStore {
       ),
     );
 
+    const key = `${this.indexPrefix}:${vectorId}`;
     try {
-      await this.client.hSet(`${this.indexPrefix}:${vectorId}`, entry);
+      const updated = await this.client
+        .sendCommand([
+          "EVAL",
+          HSET_IF_EXISTS,
+          "1",
+          key,
+          ...Object.entries(entry).flatMap(([field, value]) => [
+            field,
+            typeof value === "number" ? String(value) : value,
+          ]),
+        ])
+        .catch(async (error: Error) => {
+          // ACL users without +@scripting: WATCH/MULTI is also atomic, but needs its own connection.
+          if (!String(error?.message).includes("NOPERM")) throw error;
+          const { WatchError } = await import("redis");
+          return this.client.executeIsolated(async (conn) => {
+            for (;;) {
+              await conn.watch(key);
+              if (!(await conn.exists(key))) {
+                await conn.unwatch();
+                return 0;
+              }
+              try {
+                await conn.multi().hSet(key, entry).exec();
+                return 1;
+              } catch (e) {
+                if (!(e instanceof WatchError)) throw e;
+              }
+            }
+          });
+        });
+      return updated === 1;
     } catch (error) {
       console.error("Error during vector update:", error);
       throw error;

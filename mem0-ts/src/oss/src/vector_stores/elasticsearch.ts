@@ -236,17 +236,24 @@ export class ElasticsearchDB implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.initialize();
     const doc: Record<string, any> = {};
     if (vector) doc.vector = vector;
     if (payload) doc.metadata = payload;
 
-    await this.client.update({
+    const request = this.client.update({
       index: this.collectionName,
       id: vectorId,
       doc,
     });
+    try {
+      await request;
+    } catch (error: any) {
+      if (error?.meta?.statusCode === 404) return false;
+      throw error;
+    }
+    return true;
   }
 
   async delete(vectorId: string): Promise<void> {

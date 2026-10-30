@@ -665,7 +665,7 @@ export class DatabricksVectorStore implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean | void> {
     await this.initialize();
     this.assertVectorDimension(vector, "Vector");
 
@@ -673,7 +673,8 @@ export class DatabricksVectorStore implements VectorStore {
     // are written once at insert(). Mirror Python's `excluded_keys`: update() must never rewrite
     // them from the payload -- a partial payload that omits these keys would otherwise SET them to
     // NULL and hide the row from every session-scoped search and list().
-    await this.executeSql(`
+    // A Delta UPDATE returns one row with num_affected_rows; without it we cannot tell.
+    const rows = await this.executeSql(`
       UPDATE ${this.fullTableName}
       SET embedding = ${formatSqlValue(vector)},
           payload = ${formatSqlValue(JSON.stringify(payload || {}))},
@@ -681,6 +682,10 @@ export class DatabricksVectorStore implements VectorStore {
       WHERE memory_id = ${formatSqlValue(vectorId)}
     `);
     this.requestIndexSync();
+    const raw = extractRowValue(rows[0] ?? {}, ["num_affected_rows"]);
+    // Number(null) and Number("") are 0, which would read as "missing".
+    const affected = raw == null || raw === "" ? NaN : Number(raw);
+    if (Number.isFinite(affected)) return affected > 0;
   }
 
   async delete(vectorId: string): Promise<void> {

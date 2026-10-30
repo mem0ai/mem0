@@ -271,12 +271,45 @@ describe("get", () => {
 
 describe("update", () => {
   it("updates a single record with embedding and metadata", async () => {
+    __mocks__.get.mockResolvedValue({ ids: ["vec-1"], metadatas: [{}] });
     const db = await initDb();
-    await db.update("vec-1", [1, 2, 3], { text: "updated" });
+    expect(await db.update("vec-1", [1, 2, 3], { text: "updated" })).toBe(true);
     expect(__mocks__.update).toHaveBeenCalledWith({
       ids: ["vec-1"],
       embeddings: [[1, 2, 3]],
       metadatas: [{ text: "updated" }],
+    });
+  });
+
+  it("returns false and inserts nothing when the id does not exist", async () => {
+    const db = await initDb();
+    expect(await db.update("missing", [1, 2, 3], { text: "x" })).toBe(false);
+    expect(__mocks__.get).toHaveBeenCalledWith({
+      ids: ["missing"],
+      include: [],
+    });
+    expect(__mocks__.add).not.toHaveBeenCalled();
+    expect(__mocks__.upsert).not.toHaveBeenCalled();
+  });
+
+  it("returns undefined, not an error, when the read-back after a landed update fails", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const db = await initDb();
+    __mocks__.get.mockRejectedValueOnce(new Error("chroma unavailable"));
+    expect(await db.update("vec-1", [1, 2, 3], { text: "x" })).toBeUndefined();
+    expect(__mocks__.update).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("supports a payload-only update", async () => {
+    __mocks__.get.mockResolvedValue({ ids: ["vec-1"], metadatas: [{}] });
+    const db = await initDb();
+    expect(await db.update("vec-1", null as any, { text: "only" })).toBe(true);
+    expect(__mocks__.update).toHaveBeenCalledWith({
+      ids: ["vec-1"],
+      embeddings: undefined,
+      metadatas: [{ text: "only" }],
     });
   });
 });
