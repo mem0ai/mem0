@@ -59,6 +59,77 @@ class TestConfig:
         config = load_config()
         assert config.platform.api_key == ""
 
+    def test_load_config_reads_utf8_json(self, isolate_config):
+        import json
+
+        from mem0_cli.config import CONFIG_FILE, ensure_config_dir
+
+        ensure_config_dir()
+        CONFIG_FILE.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "platform": {
+                        "api_key": "m0-test",
+                        "base_url": "https://api.mem0.ai",
+                        "user_email": "ünicode@example.com",
+                    },
+                    "defaults": {
+                        "user_id": "José 🚀",
+                        "app_id": "\u0881_app",
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        loaded = load_config()
+        assert loaded.platform.user_email == "ünicode@example.com"
+        assert loaded.defaults.user_id == "José 🚀"
+        assert loaded.defaults.app_id == "\u0881_app"
+
+    def test_save_config_writes_utf8_json(self, isolate_config):
+        import json
+
+        from mem0_cli.config import CONFIG_FILE
+
+        config = Mem0Config()
+        config.platform.user_email = "rené@example.com"
+        config.defaults.user_id = "user-🚀"
+
+        save_config(config)
+
+        data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        assert data["platform"]["user_email"] == "rené@example.com"
+        assert data["defaults"]["user_id"] == "user-🚀"
+
+    def test_config_roundtrip_non_ascii(self, isolate_config):
+        config = Mem0Config()
+        config.platform.user_email = "тест@example.com"
+        config.defaults.user_id = "山田太郎"
+        config.defaults.app_id = "app_🎉"
+
+        save_config(config)
+        loaded = load_config()
+
+        assert loaded.platform.user_email == "тест@example.com"
+        assert loaded.defaults.user_id == "山田太郎"
+        assert loaded.defaults.app_id == "app_🎉"
+
+    def test_telemetry_cache_email_utf8(self, isolate_config):
+        from mem0_cli.config import CONFIG_FILE
+        from mem0_cli.telemetry_sender import _cache_email
+
+        config = Mem0Config()
+        config.defaults.user_id = "user-🚀"
+        save_config(config)
+
+        _cache_email(str(CONFIG_FILE), "tést@example.com")
+        loaded = load_config()
+        assert loaded.platform.user_email == "tést@example.com"
+        assert loaded.defaults.user_id == "user-🚀"
+
     def test_config_file_permissions(self, isolate_config):
         config = Mem0Config()
         config.platform.api_key = "secret"
