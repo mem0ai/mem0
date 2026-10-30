@@ -60,6 +60,20 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 ```
 </CodeGroup>
 
+### Closing Python clients
+
+Call `Memory.close()` or `AsyncMemory.close()` after all operations finish. Their
+context managers (`with` and `async with`, respectively) also call `close()` on
+exit. Mem0 closes Qdrant clients it created, including an initialized telemetry
+store, and releases embedded directory locks without deleting stored memories.
+The entity store shares the main Qdrant client and does not close it separately.
+
+If you supply `vector_store.config.client`, you retain ownership: Mem0 leaves that
+client open so other users of the same client can continue working. Close it
+yourself when all users have finished. Repeated `Memory.close()` calls are safe.
+Applications must finish or drain their own background operations before closing;
+`close()` does not wait for concurrent writes.
+
 ### Hybrid keyword search
 
 Mem0 blends semantic similarity with BM25 keyword scoring. On the TypeScript SDK, Qdrant computes the BM25 vectors server-side, which requires Qdrant 1.15.2 or newer with inference enabled. Qdrant Cloud enables inference by default only for clusters created after 2025-07-07; older clusters must activate it from the Cluster Detail page. The Python SDK encodes BM25 locally instead and needs the `fastembed` package, so scores are not numerically comparable between the two SDKs.
