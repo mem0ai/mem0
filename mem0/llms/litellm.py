@@ -80,6 +80,8 @@ class LiteLLM(LLMBase):
         }
         if self._uses_max_completion_tokens(self.config.model):
             params["max_completion_tokens"] = self.config.max_tokens
+        elif self._uses_max_output_tokens(self.config.model):
+            params["max_output_tokens"] = self.config.max_tokens
         else:
             params["max_tokens"] = self.config.max_tokens
         if response_format:
