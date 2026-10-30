@@ -283,6 +283,27 @@ describe("Qdrant BM25 keyword search — insert / update", () => {
     expect(point.vector.bm25).toBeUndefined();
   });
 
+  it("update writes vector and payload in one update_only upsert", async () => {
+    const { store, client } = await freshStore();
+    client.retrieve.mockResolvedValueOnce([{ id: "mem-1" }]);
+    const payload = { data: "new", user_id: "u" };
+
+    await expect(store.update("mem-1", [0.4], payload)).resolves.toBe(true);
+    expect(client.upsert).toHaveBeenCalledTimes(1);
+    const body = client.upsert.mock.calls[0][1];
+    expect(body.update_mode).toBe("update_only");
+    expect(body.points[0]).toMatchObject({ id: "mem-1", payload });
+  });
+
+  it("update returns false when the point is gone after the write", async () => {
+    const { store, client } = await freshStore();
+    client.retrieve.mockResolvedValueOnce([]);
+
+    await expect(store.update("gone", [0.1], { data: "x" })).resolves.toBe(
+      false,
+    );
+  });
+
   it("inserts a plain dense vector (no named/sparse) on legacy collections", async () => {
     const client = buildMockClient(
       { createCollection: jest.fn().mockRejectedValue({ status: 409 }) },
@@ -485,6 +506,7 @@ describe("Qdrant BM25 keyword search — reactive downgrade on upsert failure", 
     expect(upsert).toHaveBeenCalledTimes(2);
     const retryPoint = upsert.mock.calls[1][1].points[0];
     expect(retryPoint.vector).toEqual([0.4, 0.5]);
+    expect(upsert.mock.calls[1][1].update_mode).toBe("update_only");
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(await store.keywordSearch("updat")).toBeNull();
   });

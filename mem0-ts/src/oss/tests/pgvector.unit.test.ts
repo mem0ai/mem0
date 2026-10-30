@@ -241,4 +241,29 @@ describe("PGVector", () => {
       ["[1,0,0]", 4],
     );
   });
+
+  test("update returns rowCount > 0 and only ever issues an UPDATE", async () => {
+    const store = new PGVector({
+      collectionName: "memories",
+      connectionString: "postgresql://postgres:postgres@localhost:5432/db",
+      embeddingModelDims: 3,
+      dimension: 3,
+    } as any);
+    await store.initialize();
+    const client = require("pg").__mock.clients[0];
+    client.query.mockClear();
+
+    client.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    expect(await store.update("missing", [1, 0, 0], { data: "x" })).toBe(false);
+    client.query.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    expect(await store.update("a", [0, 1, 0], { data: "y" })).toBe(true);
+
+    const queries = getClientQueries(client);
+    expect(queries).toHaveLength(2);
+    expect(queries.every((sql) => sql.trim().startsWith("UPDATE"))).toBe(true);
+    expect(client.query).toHaveBeenLastCalledWith(
+      expect.stringContaining("SET vector = $1::vector, payload = $2::jsonb"),
+      ["[0,1,0]", { data: "y" }, "a"],
+    );
+  });
 });
