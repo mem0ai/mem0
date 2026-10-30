@@ -263,3 +263,26 @@ def test_create_filter_in_operator(pinecone_db):
 def test_create_filter_ne_operator(pinecone_db):
     result = pinecone_db._create_filter({"status": {"ne": "deleted"}})
     assert result == {"status": {"$ne": "deleted"}}
+
+
+def test_init_raises_when_api_key_missing(monkeypatch):
+    """Pinecone requires an API key via config or PINECONE_API_KEY env var."""
+    monkeypatch.delenv("PINECONE_API_KEY", raising=False)
+
+    with pytest.raises(
+        ValueError,
+        match="Pinecone API key must be provided either as a parameter or as an environment variable",
+    ):
+        PineconeDB(
+            collection_name="test_index",
+            embedding_model_dims=128,
+            client=None,
+            api_key=None,
+            environment=None,
+            serverless_config=None,
+            pod_config=None,
+            hybrid_search=False,
+            metric="cosine",
+            batch_size=100,
+            extra_params=None,
+        )
