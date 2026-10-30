@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.exceptions import LLMError, VectorStoreError
+from mem0.exceptions import EmbeddingError, LLMError, VectorStoreError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -64,7 +64,9 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -102,6 +104,69 @@ class TestAddToVectorStoreErrors:
         # The documented LLMError contract is honoured, and the original
         # provider exception is preserved as the cause for debugging.
         assert isinstance(exc_info.value.__cause__, _ProviderError)
+
+    def test_embedding_failure_raises_embedding_error(self, mocker, mock_memory):
+        """When all extracted memories fail to embed, EmbeddingError must be raised."""
+        mock_memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": "Alice likes coffee"}]})
+        mocker.patch("mem0.memory.main.capture_event")
+        mock_memory.embedding_model.embed_batch.side_effect = Exception("Batch embed error")
+
+        def _embed(text, action="search"):
+            if action == "add":
+                raise Exception("Individual embed error")
+            return [0.1, 0.2, 0.3]
+
+        mock_memory.embedding_model.embed.side_effect = _embed
+
+        with pytest.raises(EmbeddingError) as exc_info:
+            mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I like coffee"}], metadata={}, filters={}, infer=True
+            )
+
+        assert exc_info.value.error_code == "EMBED_001"
+        assert "Alice likes coffee" in exc_info.value.details.get("missing", [])
+        mock_memory.db.save_messages.assert_called_once()
+
+    def test_batch_embedding_fallback_to_individual_embed(self, mocker, mock_memory):
+        """When batch embedding fails, fallback to individual embed and succeed."""
+        mock_memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": "Alice likes coffee"}]})
+        mocker.patch("mem0.memory.main.capture_event")
+        mock_memory.embedding_model.embed_batch.side_effect = Exception("Batch embed timeout")
+        mock_memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mock_memory.vector_store.search.return_value = []
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like coffee"}], metadata={}, filters={}, infer=True
+        )
+
+        assert len(result) == 1
+        assert result[0]["memory"] == "Alice likes coffee"
+        mock_memory.embedding_model.embed.assert_any_call("Alice likes coffee", "add")
+
+    def test_partial_embedding_failure_stores_successful_memories(self, mocker, mock_memory, caplog):
+        """When some memories fail to embed individually, remaining ones are still saved."""
+        mock_memory.llm.generate_response.return_value = json.dumps(
+            {"memory": [{"text": "Alice likes coffee"}, {"text": "Alice likes tea"}]}
+        )
+        mocker.patch("mem0.memory.main.capture_event")
+        mock_memory.embedding_model.embed_batch.side_effect = Exception("Batch fail")
+
+        def _embed(text, action="search"):
+            if action == "add" and text == "Alice likes tea":
+                raise Exception("Failed tea embed")
+            return [0.1, 0.2, 0.3]
+
+        mock_memory.embedding_model.embed.side_effect = _embed
+        mock_memory.vector_store.search.return_value = []
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I like coffee and tea"}], metadata={}, filters={}, infer=True
+            )
+
+        assert len(result) == 1
+        assert result[0]["memory"] == "Alice likes coffee"
+        assert any("have no embedding and are not stored" in record.message for record in caplog.records)
 
 
 class TestPromptOverridesCustomInstructions:
@@ -273,7 +338,9 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -313,6 +380,48 @@ class TestAsyncAddToVectorStoreErrors:
                 messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
             )
         assert isinstance(exc_info.value.__cause__, _ProviderError)
+
+    @pytest.mark.asyncio
+    async def test_async_embedding_failure_raises_embedding_error(self, mock_async_memory, mocker):
+        """When all extracted memories fail to embed in AsyncMemory, EmbeddingError must be raised."""
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
+        mock_async_memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": "Alice likes coffee"}]})
+        mocker.patch("mem0.memory.main.capture_event")
+        mock_async_memory.embedding_model.embed_batch.side_effect = Exception("Batch embed error")
+
+        def _embed(text, action="search"):
+            if action == "add":
+                raise Exception("Individual embed error")
+            return [0.1, 0.2, 0.3]
+
+        mock_async_memory.embedding_model.embed.side_effect = _embed
+
+        with pytest.raises(EmbeddingError) as exc_info:
+            await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I like coffee"}], metadata={}, effective_filters={}, infer=True
+            )
+
+        assert exc_info.value.error_code == "EMBED_001"
+        assert "Alice likes coffee" in exc_info.value.details.get("missing", [])
+        mock_async_memory.db.save_messages.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_async_batch_embedding_fallback_to_individual_embed(self, mock_async_memory, mocker):
+        """When batch embedding fails in AsyncMemory, fallback to individual embed and succeed."""
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
+        mock_async_memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": "Alice likes coffee"}]})
+        mocker.patch("mem0.memory.main.capture_event")
+        mock_async_memory.embedding_model.embed_batch.side_effect = Exception("Batch embed timeout")
+        mock_async_memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mock_async_memory.vector_store.search.return_value = []
+
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like coffee"}], metadata={}, effective_filters={}, infer=True
+        )
+
+        assert len(result) == 1
+        assert result[0]["memory"] == "Alice likes coffee"
+        mock_async_memory.embedding_model.embed.assert_any_call("Alice likes coffee", "add")
 
 
 def _build_memory_instance(mocker, memory_cls):
@@ -484,9 +593,7 @@ def test_add_metadata_cannot_set_identity_fields(mocker, caplog):
     memory = _build_memory_instance(mocker, Memory)
 
     with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
-        metadata = _captured_add_metadata(
-            memory, mocker, user_id="attacker", metadata=dict(_ATTACKER_ADD_METADATA)
-        )
+        metadata = _captured_add_metadata(memory, mocker, user_id="attacker", metadata=dict(_ATTACKER_ADD_METADATA))
 
     assert metadata["user_id"] == "attacker"
     for key in ("agent_id", "run_id", "actor_id"):
@@ -740,6 +847,7 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
+
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -1179,6 +1287,7 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
 
 class TestPartialInsertFailure:
     """Records the vector store rejects must never be reported as successful ADDs (#6911)."""
