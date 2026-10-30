@@ -269,6 +269,7 @@ describe("ElasticsearchDB", () => {
 
       expect(mockSearch).toHaveBeenCalledWith({
         index: "mem0",
+        size: 3,
         knn: {
           field: "vector",
           query_vector: [0.1, 0.2, 0.3, 0.4],
@@ -295,6 +296,7 @@ describe("ElasticsearchDB", () => {
 
       expect(mockSearch).toHaveBeenCalledWith({
         index: "mem0",
+        size: 5,
         knn: {
           field: "vector",
           query_vector: [0.1, 0.2, 0.3, 0.4],
@@ -312,6 +314,24 @@ describe("ElasticsearchDB", () => {
       });
     });
 
+    it("sets size to topK so KNN is not capped at ES default of 10", async () => {
+      const store = new ElasticsearchDB({
+        collectionName: "mem0",
+        embeddingModelDims: 4,
+        host: "localhost",
+      });
+
+      await store.search([0.1, 0.2, 0.3, 0.4], 60);
+
+      expect(mockSearch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          index: "mem0",
+          size: 60,
+          knn: expect.objectContaining({ k: 60 }),
+        }),
+      );
+    });
+
     it("rejects filter keys and values that are not safe scalars", async () => {
       const store = new ElasticsearchDB({
         collectionName: "mem0",
@@ -326,6 +346,78 @@ describe("ElasticsearchDB", () => {
         store.search([0.1, 0.2, 0.3, 0.4], 5, { user_id: { $ne: null } }),
       ).rejects.toThrow(/must be string, number, or boolean/);
       expect(mockSearch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("keywordSearch", () => {
+    it("queries metadata.textLemmatized for BM25 keyword search", async () => {
+      mockSearch.mockResolvedValue({
+        hits: {
+          hits: [
+            {
+              _id: "id-1",
+              _score: 1.2,
+              _source: {
+                metadata: { data: "test", textLemmatized: "test" },
+              },
+            },
+          ],
+        },
+      });
+
+      const store = new ElasticsearchDB({
+        collectionName: "mem0",
+        embeddingModelDims: 4,
+        host: "localhost",
+      });
+
+      const results = await store.keywordSearch("test", 5);
+
+      expect(results).toEqual([
+        {
+          id: "id-1",
+          score: 1.2,
+          payload: { data: "test", textLemmatized: "test" },
+        },
+      ]);
+
+      const searchArg = mockSearch.mock.calls[0][0];
+      expect(searchArg.index).toBe("mem0");
+      expect(searchArg.size).toBe(5);
+      expect(searchArg.query.bool.should).toEqual(
+        expect.arrayContaining([
+          { match: { "metadata.textLemmatized": "test" } },
+          { match: { "metadata.text_lemmatized": "test" } },
+          { match: { "metadata.data": "test" } },
+        ]),
+      );
+      expect(searchArg.query.bool.minimum_should_match).toBe(1);
+    });
+
+    it("applies metadata filters to keyword search", async () => {
+      const store = new ElasticsearchDB({
+        collectionName: "mem0",
+        embeddingModelDims: 4,
+        host: "localhost",
+      });
+
+      await store.keywordSearch("test", 3, { user_id: "u1" });
+
+      expect(mockSearch).toHaveBeenCalledWith({
+        index: "mem0",
+        size: 3,
+        query: {
+          bool: {
+            should: [
+              { match: { "metadata.textLemmatized": "test" } },
+              { match: { "metadata.text_lemmatized": "test" } },
+              { match: { "metadata.data": "test" } },
+            ],
+            minimum_should_match: 1,
+            filter: [{ term: { "metadata.user_id": "u1" } }],
+          },
+        },
+      });
     });
   });
 
