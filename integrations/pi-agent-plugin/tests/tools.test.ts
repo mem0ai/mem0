@@ -6,6 +6,7 @@ const mockMem0 = {
   search: vi.fn(),
   add: vi.fn(),
   getAll: vi.fn(),
+  update: vi.fn(),
   delete: vi.fn(),
   deleteAll: vi.fn(),
 };
@@ -38,11 +39,13 @@ describe("buildToolExecute", () => {
     expect(call[1].customCategories.length).toBe(10);
   });
 
-  it("search with scope=global filters by user_id with app_id wildcard", async () => {
+  it("search uses global scope only after the user selects it", async () => {
     mockMem0.search.mockResolvedValue({ results: [] });
-    await execute({ action: "search", query: "preferences", scope: "global" });
+    await expect(execute({ action: "search", query: "preferences", scope: "global" })).rejects.toThrow(/Select global/);
+    const globalExecute = buildToolExecute(mockMem0 as any, scopeCtx, "global");
+    await globalExecute({ action: "search", query: "preferences", scope: "global" });
     expect(mockMem0.search).toHaveBeenCalledWith("preferences", {
-      filters: { user_id: "testuser", app_id: "*" },
+      filters: { user_id: "testuser" },
     });
   });
 
@@ -57,5 +60,20 @@ describe("buildToolExecute", () => {
     mockMem0.delete.mockResolvedValue({ message: "deleted" });
     await execute({ action: "delete", memory_id: fullId });
     expect(mockMem0.delete).toHaveBeenCalledWith(fullId);
+  });
+
+  it("write actions accept the citation ID returned by search", async () => {
+    mockMem0.update.mockResolvedValue({ status: "updated" });
+    mockMem0.delete.mockResolvedValue({ message: "deleted" });
+    await execute({
+      action: "update",
+      memory_id: "[mem0:956e3d68-b420-4e07-a4e3-3019e7cebe6f]",
+      content: "updated memory",
+    });
+    await execute({ action: "delete", memory_id: "mem0:956e3d68-b420-4e07-a4e3-3019e7cebe6f" });
+    expect(mockMem0.update).toHaveBeenLastCalledWith("956e3d68-b420-4e07-a4e3-3019e7cebe6f", {
+      text: "updated memory",
+    });
+    expect(mockMem0.delete).toHaveBeenLastCalledWith("956e3d68-b420-4e07-a4e3-3019e7cebe6f");
   });
 });

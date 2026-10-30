@@ -1,5 +1,6 @@
 ---
-title: Delete Memory
+title: "Delete Memory Operation"
+sidebarTitle: "Delete Memory"
 description: Remove memories from Mem0 either individually, in bulk, or via filters.
 icon: "trash"
 iconType: "solid"
@@ -136,6 +137,10 @@ You can also filter by other parameters such as:
   **Breaking change:** `delete_all` previously wiped all project memories when called with no filters. It now **raises an error** if no filters are provided. Use `"*"` wildcards for intentional bulk deletion (see below).
 </Warning>
 
+<Warning>
+  Pass entity IDs as top-level arguments (`user_id="alice"` or `userId: "alice"`). `delete_all` does not accept `filters`. An empty or whitespace-only ID such as `user_id=""` matches every memory in the project, so the SDKs raise an error before sending the request. `delete_users` and `deleteUsers` apply the same check.
+</Warning>
+
 ### Wildcard deletes
 
 Setting a filter to `"*"` deletes **all memories** for that entity type across the entire project. This is an intentionally explicit opt-in to bulk deletion.
@@ -188,11 +193,16 @@ memory = Memory()
 memory.delete(memory_id="mem_123")
 memory.delete_all(user_id="alice")
 ```
-</CodeGroup>
 
-<Note>
-  The OSS JavaScript SDK does not yet expose deletion helpers: use the REST API or Python SDK when self-hosting.
-</Note>
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory();
+
+await memory.delete("mem_123");
+await memory.deleteAll({ userId: "alice" });
+```
+</CodeGroup>
 
 ## Use cases recap
 

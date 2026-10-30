@@ -1,17 +1,16 @@
-import { BaseLanguageModel } from "@langchain/core/language_models/base";
-import {
-  AIMessage,
-  HumanMessage,
-  SystemMessage,
-  BaseMessage,
-} from "@langchain/core/messages";
+import type { BaseLanguageModel } from "@langchain/core/language_models/base";
+import type { BaseMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types/index";
 // Import the schemas directly into LangchainLLM
 import { FactRetrievalSchema, MemoryUpdateSchema } from "../prompts";
 
-const convertToLangchainMessages = (messages: Message[]): BaseMessage[] => {
+const convertToLangchainMessages = async (
+  messages: Message[],
+): Promise<BaseMessage[]> => {
+  const { AIMessage, HumanMessage, SystemMessage } =
+    await import("@langchain/core/messages");
   return messages.map((msg) => {
     const content =
       typeof msg.content === "string"
@@ -62,7 +61,7 @@ export class LangchainLLM implements LLM {
     response_format?: { type: string },
     tools?: any[],
   ): Promise<string | LLMResponse> {
-    const langchainMessages = convertToLangchainMessages(messages);
+    const langchainMessages = await convertToLangchainMessages(messages);
     let runnable: any = this.llmInstance;
     const invokeOptions: Record<string, any> = {};
     let isStructuredOutput = false;
@@ -170,7 +169,7 @@ export class LangchainLLM implements LLM {
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
-    const langchainMessages = convertToLangchainMessages(messages);
+    const langchainMessages = await convertToLangchainMessages(messages);
     try {
       const response = await this.llmInstance.invoke(langchainMessages);
       if (response && typeof response.content === "string") {

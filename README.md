@@ -3,6 +3,17 @@
     <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
   </a>
 </p>
+
+<p align="center">
+  <a href="https://luma.com/mem0-oxfm">
+    <img src="docs/images/halloween-happy-hour.png" width="450px" alt="Mem0 OSS Halloween Happy Hour: The People Who Read the Source. Tuesday, Oct 27, 5:00 PM, San Francisco. Costumes encouraged.">
+  </a>
+  <br>
+  <a href="https://luma.com/mem0-oxfm"><strong>🎃 Register here →</strong></a> · Contributors get priority
+</p>
+
+
+
 <p align="center" style="display: flex; justify-content: center; gap: 20px; align-items: center;">
   <a href="https://trendshift.io/repositories/11194" target="blank">
     <img src="https://trendshift.io/api/badge/repositories/11194" alt="mem0ai%2Fmem0 | Trendshift" width="250" height="55"/>
@@ -46,12 +57,12 @@
 
 | Benchmark | Old | New  | Tokens  | Latency p50  |
 | --- | --- | --- | --- | --- |
-| **LoCoMo** | 71.4 | **91.6** | 7.0K  | 0.88s  |
-| **LongMemEval** | 67.8 | **94.8** | 6.8K  | 1.09s  |
+| **LoCoMo** | 71.4 | **92.5** | 7.0K  | 0.88s  |
+| **LongMemEval** | 67.8 | **94.4** | 6.8K  | 1.09s  |
 | **BEAM (1M)** | — | **64.1** | 6.7K  | 1.00s  |
 | **BEAM (10M)** | — | **48.6** | 6.9K  | 1.05s  |
 
-All benchmarks run on the same production-representative model stack. Single-pass retrieval (one call, no agentic loops).
+All benchmarks run on the same production-representative model stack. Single-pass retrieval (one call, no agentic loops) at a top_200 retrieval budget. Scores reflect Mem0's managed platform, which includes proprietary optimizations not available in the open-source SDK; open-source users should expect directionally similar gains but not identical numbers.
 
 **What changed:**
 - **Single-pass ADD-only extraction** -- one LLM call, no UPDATE/DELETE. Memories accumulate; nothing is overwritten.
@@ -63,8 +74,8 @@ All benchmarks run on the same production-representative model stack. Single-pas
 See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
 
 ## Research Highlights
-- **91.6 on LoCoMo** -- +20 points over the previous algorithm
-- **94.8 on LongMemEval** -- +27 points, with +53.6 on assistant memory recall
+- **92.5 on LoCoMo** -- +21 points over the previous algorithm
+- **94.4 on LongMemEval** -- +27 points, with 98.2 on assistant memory recall
 - **64.1 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
 - [Read the full paper](https://mem0.ai/research)
 

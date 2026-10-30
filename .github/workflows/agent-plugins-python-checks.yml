@@ -1,0 +1,97 @@
+name: Agent Plugins Python Checks
+
+# Python runtime, adapters, generated bundles, and portable plugin validation.
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main and manual runs remain standalone.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'integrations/agent-plugin-core/**'
+      - '!integrations/agent-plugin-core/typescript/**'
+      - 'integrations/mem0-agent-plugin/**'
+      - 'integrations/claude-code-plugin/**'
+      - 'integrations/cursor-plugin/**'
+      - 'integrations/codex-plugin/**'
+      - 'integrations/kimi-plugin/**'
+      - 'integrations/antigravity-plugin/**'
+      - 'marketplace.json'
+      - '.agents/plugins/marketplace.json'
+      - '.claude-plugin/marketplace.json'
+      - '.codex-plugin/marketplace.json'
+      - '.cursor-plugin/marketplace.json'
+      - '.kimi-plugin/marketplace.json'
+      - '.github/workflows/agent-plugins-python-checks.yml'
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install runtime test tooling
+        if: matrix.python-version == '3.10'
+        run: pip install pytest
+
+      - name: Install build and test tooling
+        if: matrix.python-version != '3.10'
+        run: pip install pytest ruff -r integrations/agent-plugin-core/requirements-dev.txt
+
+      - name: Check Python runtime compatibility
+        run: >-
+          python3 -m compileall -q
+          integrations/agent-plugin-core/python
+          integrations/claude-code-plugin/adapters
+          integrations/cursor-plugin/hooks
+          integrations/codex-plugin/hooks
+          integrations/kimi-plugin/hooks
+          integrations/antigravity-plugin/hooks
+
+      - name: Lint
+        if: matrix.python-version == '3.12'
+        run: >-
+          python3 -m ruff check
+          integrations/agent-plugin-core
+          integrations/claude-code-plugin
+          integrations/cursor-plugin
+          integrations/codex-plugin
+          integrations/kimi-plugin
+          integrations/antigravity-plugin
+
+      - name: Verify installable plugins are current
+        if: matrix.python-version == '3.12'
+        run: |
+          for host in claude-code cursor codex kimi antigravity; do
+            python3 integrations/agent-plugin-core/build/build.py "$host" --kind native --check
+          done
+          python3 integrations/agent-plugin-core/build/build.py mem0-agent-plugin --kind portable --check
+
+      - name: Run Python 3.10 runtime tests
+        if: matrix.python-version == '3.10'
+        run: >-
+          python3 -m pytest -q
+          integrations/claude-code-plugin/tests/test_memory_core.py
+          integrations/claude-code-plugin/tests/test_telemetry.py
+
+      - name: Run full tests
+        if: matrix.python-version != '3.10'
+        run: >-
+          python3 -m pytest -q
+          integrations/agent-plugin-core/tests
+          integrations/claude-code-plugin/tests
+          integrations/cursor-plugin/tests
+          integrations/codex-plugin/tests
+          integrations/kimi-plugin/tests
+          integrations/antigravity-plugin/tests
+          --ignore=integrations/claude-code-plugin/tests/integration

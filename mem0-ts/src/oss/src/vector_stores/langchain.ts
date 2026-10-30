@@ -1,5 +1,4 @@
-import { VectorStore as LangchainVectorStoreInterface } from "@langchain/core/vectorstores";
-import { Document } from "@langchain/core/documents";
+import type { VectorStore as LangchainVectorStoreInterface } from "@langchain/core/vectorstores";
 import { VectorStore } from "./base"; // mem0's VectorStore interface
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
@@ -77,6 +76,7 @@ export class LangchainVectorStore implements VectorStore {
     }
 
     // Convert payloads to Langchain Document metadata format
+    const { Document } = await import("@langchain/core/documents");
     const documents = payloads.map((payload, i) => {
       // Provide empty pageContent, store mem0 id and other data in metadata
       return new Document({

@@ -1,10 +1,13 @@
 import logging
-from typing import List, Dict, Any, Union
+from typing import Any, Dict, List, Union
+
 import numpy as np
 
-from mem0.reranker.base import BaseReranker
 from mem0.configs.rerankers.base import BaseRerankerConfig
-from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
+from mem0.configs.rerankers.sentence_transformer import (
+    SentenceTransformerRerankerConfig,
+)
+from mem0.reranker.base import BaseReranker
 
 try:
     from sentence_transformers import CrossEncoder
@@ -108,7 +111,10 @@ class SentenceTransformerReranker(BaseReranker):
         except Exception as e:
             # Fallback to original order if reranking fails
             logger.warning("SentenceTransformer reranking failed, falling back to original order: %s", e)
+            fallback_docs = []
             for doc in documents:
-                doc['rerank_score'] = 0.0
+                fallback_doc = doc.copy()
+                fallback_doc['rerank_score'] = 0.0
+                fallback_docs.append(fallback_doc)
             final_top_k = top_k or self.config.top_k
-            return documents[:final_top_k] if final_top_k else documents
+            return fallback_docs[:final_top_k] if final_top_k else fallback_docs

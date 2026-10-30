@@ -419,7 +419,10 @@ export default function SetupPage() {
                     <Label htmlFor="setup-llm-provider">LLM Provider</Label>
                     <Select
                       value={llmProvider}
-                      onValueChange={setLlmProvider}
+                      onValueChange={(value) => {
+                        setLlmProvider(value);
+                        setLlmApiKey("");
+                      }}
                       disabled={!providers}
                     >
                       <SelectTrigger id="setup-llm-provider">

@@ -3,8 +3,10 @@ from typing import Dict, List, Optional
 
 try:
     import litellm
-except ImportError:
-    raise ImportError("The 'litellm' library is required. Please install it using 'pip install litellm'.")
+except ImportError as e:
+    raise ImportError(
+        f"Failed to import the 'litellm' library ({e}). If it is not installed, run 'pip install litellm'."
+    ) from e
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase

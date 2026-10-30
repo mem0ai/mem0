@@ -15,10 +15,11 @@ description: >
 license: Apache-2.0
 metadata:
   author: mem0ai
-  version: "3.0.0"
+  version: "3.1.0"
   category: ai-memory
   tags: "memory, personalization, ai, python, typescript, vector-search"
-compatibility: Requires Python 3.10+ or Node.js 18+, pip install mem0ai or npm install mem0ai, MEM0_API_KEY env var (Platform), and internet access to api.mem0.ai. SDK v3 with v2 compatibility mode available.
+  mem0_tested_versions: "mem0ai (PyPI) >=2.0.0,<3.0.0; mem0ai (npm) >=3.0.0,<4.0.0"
+compatibility: Requires Python 3.10+ or Node.js 18+, pip install mem0ai or npm install mem0ai, MEM0_API_KEY env var (Platform), and internet access to api.mem0.ai. Targets the v3 API (Python mem0ai 2.x, TypeScript mem0ai 3.x).
 ---
 
 # Mem0 Platform Integration
@@ -134,20 +135,20 @@ def chat(user_input: str, user_id: str) -> str:
 
 ## Common edge cases
 
-- **Search returns empty:** Memories process asynchronously. Wait 2-3s after `add()` before searching. Also verify `user_id` matches exactly (case-sensitive) and use `filters={"user_id": "..."}` syntax.
+- **Search returns empty:** `add()` is asynchronous and returns `{"event_id": "...", "status": "PENDING"}` (`eventId` on the TS client). Memories are searchable once the event is `SUCCEEDED` (poll `GET /v1/event/{event_id}/`, or wait a few seconds). `infer=False` is synchronous. Also verify `user_id` matches exactly (case-sensitive) and use `filters={"user_id": "..."}` syntax.
 - **AND filter with user_id + agent_id returns empty:** Entities are stored separately. Use `OR` instead, or query separately.
 - **Duplicate memories:** Don't mix `infer=True` (default) and `infer=False` for the same data. Stick to one mode.
-- **Wrong import:** Always use `from mem0 import MemoryClient` (or `AsyncMemoryClient` for async). Do not use `from mem0 import Memory`.
-- **v3 defaults:** `top_k=20`, `threshold=0.1`, `rerank=False`. Adjust as needed for your use case.
+- **Wrong import:** For the hosted Platform use `from mem0 import MemoryClient` (or `AsyncMemoryClient` for async). `from mem0 import Memory` is the self-hosted OSS class and does not use `MEM0_API_KEY`.
+- **v3 defaults (Platform):** `top_k=10`, `rerank=False`. `threshold` is a server-side cutoff applied before score blending, not a floor on the returned `score` (the default and `0.0` return the same or nearly the same results). The client sends none of these unless you pass them. The OSS `Memory.search()` default is `top_k=20`. Adjust as needed for your use case.
 
 ## v2 Compatibility
 
-If you're using SDK v2.x, note these differences:
-- **Entity IDs:** Pass `user_id` as top-level kwarg to `search()` instead of inside `filters`
-- **Defaults:** `top_k=100`, no threshold, `rerank=True`
-- **Graph memory:** Available via `enable_graph=True`
+The "v2" line is Python SDK 1.x and TypeScript SDK 2.x. If you are still on it, note these differences from the current SDKs (Python 2.x, TypeScript 3.x):
+- **Entity IDs:** `user_id` / `agent_id` / `run_id` could be top-level kwargs on `search()` and `get_all()`. They now go inside `filters` (top-level raises an error)
+- **Defaults (Platform):** `threshold=0.3`, `rerank=False`. OSS: `top_k=100`, no threshold, `rerank=True`
+- **Graph memory:** `enable_graph=True` and `relations` are gone. Entity linking is built in (see [client/python.md](client/python.md) for OSS)
 
-See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for details.
+See the [Platform migration guide](https://docs.mem0.ai/migration/platform-v2-to-v3) and the [OSS migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for details.
 
 ## Live documentation search
 

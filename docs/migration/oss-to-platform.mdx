@@ -30,7 +30,7 @@ versionTo: "Platform"
 
 ### Plan
 
-1. **Sign up**: Create an account on <a href="https://app.mem0.ai?utm_source=oss&utm_medium=migration-oss-to-platform" rel="nofollow">Mem0 Platform</a>.
+1. **Sign up**: Create an account on <a href="https://app.mem0.ai?utm_source=oss&utm_medium=migration-oss-to-platform">Mem0 Platform</a>.
 2. **Get API Key**: Navigate to **Settings > API Keys** and generate a new key.
 3. **Review Usage**: Identify where you instantiate `Memory` and where you call `search` or `get_all`.
 
@@ -339,21 +339,22 @@ The Platform introduces powerful capabilities not available in OSS:
     </Info>
     ```python
     # Set custom categories for your project
-    client.projects.update_categories(
-        project_id="proj_123",
-        categories=[
-            "Customer Preferences",
-            "Product Feedback",
-            "Support Issues",
-            "Feature Requests"
+    client.project.update(
+        custom_categories=[
+            {"customer_preferences": "Likes, dislikes, and product preferences"},
+            {"product_feedback": "Feature requests and complaints about the product"},
+            {"support_issues": "Problems reported and how they were resolved"}
         ]
     )
 
-    # Memories will use these categories
+    # Mem0 assigns these categories automatically as memories come in
+    client.add("User wants dark mode in dashboard", user_id="alex")
+
+    # Or pass a different catalog for a single call
     client.add(
         "User wants dark mode in dashboard",
         user_id="alex",
-        categories=["Customer Preferences"]
+        custom_categories=[{"ui_requests": "Requests about interface and appearance"}]
     )
     ```
   </Accordion>
@@ -405,7 +406,7 @@ If you encounter issues, you can revert immediately by switching your import bac
 
 ## Next Steps
 
-- <a href="https://app.mem0.ai?utm_source=oss&utm_medium=migration-oss-to-platform" rel="nofollow">Platform Dashboard</a> - Monitor usage and manage settings.
+- <a href="https://app.mem0.ai?utm_source=oss&utm_medium=migration-oss-to-platform">Platform Dashboard</a> - Monitor usage and manage settings.
 - [Webhooks Setup](/platform/features/webhooks) - Configure real-time event notifications.
 - [Organizations & Projects](/api-reference/organizations-projects) - Set up multi-tenancy for your team.
 

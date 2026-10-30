@@ -60,9 +60,8 @@ mem0 delete <memory-id>
 | `mem0 entity` | List or delete entities (users, agents, apps, runs) |
 | `mem0 event` | Inspect background processing events (bulk deletes, large add jobs) |
 | `mem0 status` | Verify API connection and display current project |
-| `mem0 version` | Print the CLI version |
 
-Run `mem0 <command> --help` for detailed usage on any command.
+Run `mem0 <command> --help` for detailed usage on any command, or `mem0 --version` to print the CLI version.
 
 ## Agent mode
 

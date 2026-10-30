@@ -22,7 +22,6 @@ from mem0.configs.vector_stores.vertex_ai_vector_search import (
 from mem0.vector_stores.base import VectorStoreBase
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
@@ -35,7 +34,7 @@ class OutputData(BaseModel):
 class GoogleMatchingEngine(VectorStoreBase):
     def __init__(self, **kwargs):
         """Initialize Google Matching Engine client."""
-        logger.debug("Initializing Google Matching Engine with kwargs: %s", kwargs)
+        logger.debug("Initializing Google Matching Engine with config keys: %s", sorted(kwargs))
 
         # If collection_name is passed, use it as deployment_index_id if deployment_index_id is not provided
         if "collection_name" in kwargs and "deployment_index_id" not in kwargs:
@@ -47,7 +46,7 @@ class GoogleMatchingEngine(VectorStoreBase):
 
         try:
             config = GoogleMatchingEngineConfig(**kwargs)
-            logger.debug("Config created: %s", config.model_dump())
+            logger.debug("Config created with fields: %s", sorted(config.model_dump()))
             logger.debug("Config collection_name: %s", getattr(config, "collection_name", None))
         except Exception as e:
             logger.error("Failed to validate config: %s", str(e))

@@ -198,7 +198,7 @@ def search_memory_tool(query: str, user_id: str = "user") -> str:
         Relevant vector memories found or message if none found
     """
     try:
-        results = m.search(query, user_id=user_id)
+        results = m.search(query, filters={"user_id": user_id})
 
         if isinstance(results, dict) and 'results' in results:
             memory_list = results['results']
@@ -245,7 +245,7 @@ def search_graph_memory_tool(query: str, user_id: str = "user") -> str:
     """
     try:
         graph_query = f"relationships connections {query}"
-        results = m.search(graph_query, user_id=user_id)
+        results = m.search(graph_query, filters={"user_id": user_id})
 
         if isinstance(results, dict) and 'results' in results:
             memory_list = results['results']
@@ -290,7 +290,7 @@ def get_all_memories_tool(user_id: str = "user") -> str:
         All memories for the user or message if none found
     """
     try:
-        all_memories = m.get_all(user_id=user_id)
+        all_memories = m.get_all(filters={"user_id": user_id})
 
         if isinstance(all_memories, dict) and 'results' in all_memories:
             memory_list = all_memories['results']

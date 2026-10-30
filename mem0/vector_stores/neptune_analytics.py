@@ -232,6 +232,20 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             vector (Optional[List[float]]): New embedding vector.
             payload (Optional[Dict]): New metadata to replace existing payload.
         """
+        # ponytail: a combined update writes the payload before the embedding, and Neptune's
+        # vector index isn't transactional -- if the upsert below fails, the new payload would
+        # otherwise be left committed against the stale embedding. Capture the prior properties
+        # so a failed upsert can be restored; this is best-effort compensation, not a rollback.
+        # Only needed when both writes happen -- a payload-only or vector-only update can't desync.
+        # The restore assumes a single writer per vector_id -- concurrent updates to the same node
+        # can interleave and clobber each other's compensation. AWS advises against concurrent
+        # same-vertex writes to the Neptune Analytics vector index for exactly this reason.
+        prior_properties = None
+        if payload and vector:
+            prior = self.get(vector_id)
+            if prior is not None:
+                prior_properties = dict(prior.payload or {})
+                prior_properties[self._FIELD_LABEL] = self.collection_name
 
         if payload:
             # Replace payload
@@ -242,9 +256,9 @@ class NeptuneAnalyticsVector(VectorStoreBase):
                 "vector_id": vector_id
             }
             query_string_embedding = f"""
-            MATCH (n :{self.collection_name}) 
-                WHERE id(n) = $vector_id 
-                SET n = $properties       
+            MATCH (n :{self.collection_name})
+                WHERE id(n) = $vector_id
+                SET n = $properties
             """
             self.execute_query(query_string_embedding, para_payload)
 
@@ -254,14 +268,40 @@ class NeptuneAnalyticsVector(VectorStoreBase):
                 "vector_id": vector_id
             }
             query_string_embedding = f"""
-            MATCH (n :{self.collection_name}) 
-                WHERE id(n) = $vector_id 
-            WITH $embedding as embedding, n as n    
-            CALL neptune.algo.vectors.upsert(n, embedding) 
-            YIELD success 
-            RETURN success       
+            MATCH (n :{self.collection_name})
+                WHERE id(n) = $vector_id
+            WITH $embedding as embedding, n as n
+            CALL neptune.algo.vectors.upsert(n, embedding)
+            YIELD success
+            RETURN success
             """
-            self.execute_query(query_string_embedding, para_embedding)
+            try:
+                result = self.execute_query(query_string_embedding, para_embedding)
+                # A soft {"success": False} row desyncs the payload from the embedding just as
+                # much as a thrown error, so treat it as a failure and let the rollback below fire.
+                # Mirrors the TS store's assertSuccessfulResults() check (Python's
+                # _process_success_message only logs, so it cannot drive the rollback).
+                for row in result or []:
+                    if "success" in row and row["success"] is not True:
+                        raise RuntimeError(f"Neptune Analytics update upsert reported failure for {vector_id}")
+            except Exception:
+                if prior_properties is not None:
+                    try:
+                        restore_query = f"""
+                        MATCH (n :{self.collection_name})
+                            WHERE id(n) = $vector_id
+                            SET n = $properties
+                        """
+                        self.execute_query(
+                            restore_query,
+                            {"properties": prior_properties, "vector_id": vector_id},
+                        )
+                    except Exception:
+                        logger.error(
+                            f"Neptune Analytics: failed to restore prior payload for {vector_id} "
+                            "after a failed vector upsert"
+                        )
+                raise
 
 
     

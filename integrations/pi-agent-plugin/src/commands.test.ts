@@ -6,14 +6,6 @@ vi.mock("./telemetry.ts", () => ({
   captureCommandEvent: vi.fn(),
 }));
 
-vi.mock("./dream/index.ts", () => ({
-  acquireDreamLock: vi.fn(() => true),
-}));
-
-vi.mock("./dream/prompt.ts", () => ({
-  DREAM_PROTOCOL: "dream protocol text",
-}));
-
 function makeMem0() {
   return {
     search: vi.fn(),
@@ -56,7 +48,6 @@ const defaultConfig: Mem0Config = {
   defaultScope: "project",
   contextInjection: false,
   searchThreshold: 0.3,
-  dream: { enabled: false, auto: false, minHours: 24, minSessions: 5, minMemories: 20 },
 };
 
 const scopeCtx: ScopeContext = { userId: "test-user", appId: "test-app", runId: "test-run" };
@@ -74,14 +65,14 @@ describe("registerCommands", () => {
 
   it("registers all expected commands", () => {
     const names = [...pi._commands.keys()];
-    expect(names).toContain("mem0-remember");
-    expect(names).toContain("mem0-forget");
-    expect(names).toContain("mem0-search");
-    expect(names).toContain("mem0-tour");
-    expect(names).toContain("mem0-dream");
-    expect(names).toContain("mem0-pin");
-    expect(names).toContain("mem0-scope");
-    expect(names).toContain("mem0-status");
+    expect(names).toEqual([
+      "mem0-remember",
+      "mem0-forget",
+      "mem0-search",
+      "mem0-tour",
+      "mem0-scope",
+      "mem0-status",
+    ]);
   });
 
   describe("/mem0-forget", () => {
@@ -191,103 +182,6 @@ describe("registerCommands", () => {
       await pi._invoke("mem0-forget", "test", ctx);
 
       expect(mem0.delete).not.toHaveBeenCalled();
-      expect(pi.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ content: expect.stringContaining("Cancelled"), display: true }),
-      );
-    });
-  });
-
-  describe("/mem0-pin", () => {
-    it("uses update to pin in-place, preserving memory ID", async () => {
-      const ctx = makeCtx(true);
-      mem0.search.mockResolvedValue({ results: [{ id: "abc-123", memory: "important fact" }] });
-      mem0.update.mockResolvedValue([]);
-
-      await pi._invoke("mem0-pin", "important", ctx);
-
-      expect(ctx.ui.confirm).toHaveBeenCalledWith(
-        "Pin this memory?",
-        expect.stringContaining("important fact"),
-      );
-      expect(mem0.update).toHaveBeenCalledWith("abc-123", { text: "[PINNED] important fact" });
-      expect(mem0.add).not.toHaveBeenCalled();
-      expect(mem0.delete).not.toHaveBeenCalled();
-    });
-
-    it("sends a visible confirmation after pinning", async () => {
-      const ctx = makeCtx(true);
-      mem0.search.mockResolvedValue({ results: [{ id: "abc-123", memory: "important fact" }] });
-      mem0.update.mockResolvedValue([]);
-
-      await pi._invoke("mem0-pin", "important", ctx);
-
-      expect(pi.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          customType: "mem0-pin",
-          content: expect.stringContaining("Pinned"),
-          display: true,
-        }),
-      );
-    });
-
-    it("does not pin when user cancels", async () => {
-      const ctx = makeCtx(false);
-      mem0.search.mockResolvedValue({ results: [{ id: "abc-123", memory: "fact" }] });
-
-      await pi._invoke("mem0-pin", "fact", ctx);
-
-      expect(mem0.update).not.toHaveBeenCalled();
-    });
-
-    it("skips already-pinned memories with a visible message", async () => {
-      const ctx = makeCtx();
-      mem0.search.mockResolvedValue({ results: [{ id: "abc-123", memory: "[PINNED] fact" }] });
-
-      await pi._invoke("mem0-pin", "fact", ctx);
-
-      expect(ctx.ui.confirm).not.toHaveBeenCalled();
-      expect(mem0.add).not.toHaveBeenCalled();
-      expect(pi.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ content: expect.stringContaining("Already pinned"), display: true }),
-      );
-    });
-
-    it("uses select UI for multiple matches and pins chosen memory", async () => {
-      const ctx = makeCtx();
-      mem0.search.mockResolvedValue({
-        results: [
-          { id: "id-1", memory: "fact one" },
-          { id: "id-2", memory: "fact two" },
-        ],
-      });
-      mem0.update.mockResolvedValue([]);
-      ctx.ui.select = vi.fn(async (_title: string, options: string[]) => options[1]);
-
-      await pi._invoke("mem0-pin", "fact", ctx);
-
-      expect(ctx.ui.select).toHaveBeenCalledWith(
-        expect.stringContaining("which should I pin"),
-        expect.arrayContaining([
-          expect.stringContaining("fact one"),
-          expect.stringContaining("fact two"),
-        ]),
-      );
-      expect(mem0.update).toHaveBeenCalledWith("id-2", { text: "[PINNED] fact two" });
-    });
-
-    it("does not pin when user cancels select", async () => {
-      const ctx = makeCtx();
-      ctx.ui.select = vi.fn(async () => undefined);
-      mem0.search.mockResolvedValue({
-        results: [
-          { id: "id-1", memory: "fact one" },
-          { id: "id-2", memory: "fact two" },
-        ],
-      });
-
-      await pi._invoke("mem0-pin", "fact", ctx);
-
-      expect(mem0.update).not.toHaveBeenCalled();
       expect(pi.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({ content: expect.stringContaining("Cancelled"), display: true }),
       );
@@ -488,23 +382,4 @@ describe("registerCommands", () => {
     });
   });
 
-  describe("/mem0-dream", () => {
-    it("feeds the protocol to the agent and shows a clean status line", async () => {
-      const ctx = makeCtx();
-
-      await pi._invoke("mem0-dream", "", ctx);
-
-      expect(pi.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ customType: "mem0-dream", display: false }),
-        expect.objectContaining({ triggerTurn: true }),
-      );
-      expect(pi.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          customType: "mem0-dream",
-          content: expect.stringContaining("Dreaming"),
-          display: true,
-        }),
-      );
-    });
-  });
 });

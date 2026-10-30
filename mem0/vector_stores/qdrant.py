@@ -596,3 +596,11 @@ class Qdrant(VectorStoreBase):
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
         self.create_col(self.embedding_model_dims, self.on_disk)
+        if self.is_local:
+            # Local delete_collection() rmtree's with ignore_errors=True and leaves its
+            # sqlite handle open, so where an open file blocks unlink (Windows, NFS) the
+            # recreated collection re-adopts the old storage.sqlite. Drop what survived.
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=models.FilterSelector(filter=models.Filter(must=[])),
+            )

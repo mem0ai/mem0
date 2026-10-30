@@ -30,7 +30,7 @@ openai_client = OpenAI()
 
 def chat(user_input: str, user_id: str) -> str:
     # 1. Retrieve relevant memories
-    memories = mem0.search(user_input, user_id=user_id)
+    memories = mem0.search(user_input, filters={"user_id": user_id})
     context = "\n".join([f"- {m['memory']}" for m in memories.get("results", [])])
 
     # 2. Generate response with memory context
@@ -99,7 +99,7 @@ async function chat(userInput: string, userId: string): Promise<string> {
 ### Key Benefits
 
 - Context persists across app restarts — no session management needed
-- Memories are automatically deduplicated and updated
+- Facts are extracted automatically and accumulate (ADD-only: nothing is overwritten or deleted)
 - Works with any LLM provider (OpenAI, Anthropic, etc.)
 
 **Best for:** Fitness coaches, tutors, therapists — any assistant that needs to remember goals across sessions.
@@ -172,7 +172,7 @@ const client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY! });
 
 // Setup categories (one-time)
 await client.updateProject({
-    custom_categories: [
+    customCategories: [
         { support_tickets: 'Customer issues and resolutions' },
         { billing: 'Payment history and billing questions' },
         { product_feedback: 'Feature requests and feedback' },
@@ -226,7 +226,7 @@ def save_patient_info(user_id: str, information: str):
 
 def consult(user_id: str, question: str) -> str:
     # High threshold for medical accuracy
-    memories = mem0.search(question, user_id=user_id, top_k=5, threshold=0.7)
+    memories = mem0.search(question, filters={"user_id": user_id}, top_k=5, threshold=0.7)
     context = "\n".join([f"- {m['memory']}" for m in memories.get("results", [])])
 
     response = openai_client.chat.completions.create(
@@ -295,7 +295,7 @@ async function consult(userId: string, question: string): Promise<string> {
 
 ### Key Benefits
 
-- High threshold (0.7) ensures only confident matches for safety-critical retrieval
+- High threshold (0.7) drops weak matches for safety-critical retrieval (it is a server-side cutoff applied before score blending, so check `score` too)
 - Session scoping via `run_id` groups related health interactions
 - Metadata tagging separates patient info from conversation history
 
@@ -384,7 +384,7 @@ async function draftContent(userId: string, topic: string): Promise<string> {
 
 - Voice consistency across all content without repeating guidelines
 - Scoped sessions let you maintain different style profiles
-- Preferences update automatically as you refine them
+- Refined preferences are added alongside earlier ones (ADD-only), and retrieval ranks relevance
 
 **Best for:** Marketing teams, technical writers, agencies — consistent voice across all content.
 
@@ -426,7 +426,7 @@ def search_user_session(query: str, user_id: str, app_id: str, run_id: str):
     )
 
 def search_agent_knowledge(query: str, agent_id: str, app_id: str):
-    """Search all memories an agent has across all users."""
+    """Search facts attributed to an agent (from its assistant messages) in an app."""
     return client.search(
         query,
         filters={
@@ -449,7 +449,7 @@ store_scoped_memory(
 # User-scoped query: "What does Cam prefer?"
 user_mems = search_user_session("dietary restrictions?", "traveler_cam", "concierge_app", "tokyo-2025")
 
-# Agent-scoped query: "What do all travelers prefer?" (across users)
+# Agent-scoped query: facts attributed to the travel_planner agent, not user preferences
 agent_mems = search_agent_knowledge("common dietary restrictions?", "travel_planner", "concierge_app")
 ```
 
@@ -490,6 +490,7 @@ async function searchAgentKnowledge(query: string, agentId: string, appId: strin
 - Full isolation between users, agents, sessions, and apps
 - Query at any scope level — user, agent, session, or app-wide
 - No memory leakage between tenants
+- When `add` gets both `user_id` and `agent_id`, each fact is attributed to its speaker (user messages carry `user_id`, assistant messages carry `agent_id`), so an `AND` of both ids returns nothing; use `OR` (see [entity-scoped memory](https://docs.mem0.ai/platform/features/entity-scoped-memory))
 
 **Best for:** Multi-agent workflows, multi-tenant SaaS — proper isolation at every level.
 
@@ -516,7 +517,7 @@ Extract dietary preferences, location, interests, and purchase history."""
 
 def personalized_search(user_id: str, query: str, search_results: list) -> str:
     # Get user context from memory
-    memories = mem0.search(query, user_id=user_id, top_k=5)
+    memories = mem0.search(query, filters={"user_id": user_id}, top_k=5)
     user_context = "\n".join([f"- {m['memory']}" for m in memories.get("results", [])])
 
     response = openai_client.chat.completions.create(
@@ -599,7 +600,7 @@ def store_email(user_id: str, sender: str, subject: str, body: str, date: str):
 def search_emails(user_id: str, query: str):
     return client.search(
         query,
-        filters={"AND": [{"user_id": user_id}, {"categories": {"contains": "email"}}]},
+        filters={"AND": [{"user_id": user_id}, {"metadata": {"email_type": "incoming"}}]},
         top_k=10
     )
 
@@ -608,7 +609,7 @@ def get_emails_from_sender(user_id: str, sender: str):
         filters={
             "AND": [
                 {"user_id": user_id},
-                {"metadata": {"contains": sender}}
+                {"metadata": {"sender": sender}}
             ]
         }
     )
@@ -637,7 +638,7 @@ async function storeEmail(userId: string, sender: string, subject: string, body:
 
 async function searchEmails(userId: string, query: string) {
     return client.search(query, {
-        filters: { AND: [{ user_id: userId }, { categories: { contains: 'email' } }] },
+        filters: { AND: [{ user_id: userId }, { metadata: { email_type: 'incoming' } }] },
         topK: 10,
     });
 }
@@ -646,7 +647,7 @@ async function searchEmails(userId: string, query: string) {
 ### Key Benefits
 
 - Rich metadata enables multi-dimensional queries (sender, date, subject)
-- Category filtering separates emails from other memory types
+- Metadata filtering (`email_type`) separates emails from other memory types
 - Semantic search across all email content
 
 **Best for:** Inbox management, email automation — searchable email memories with metadata filtering.
@@ -661,7 +662,7 @@ Every use case follows the same 3-step loop:
 
 ```python
 # 1. Retrieve relevant context
-memories = mem0.search(user_input, user_id=user_id)
+memories = mem0.search(user_input, filters={"user_id": user_id})
 context = "\n".join([m["memory"] for m in memories.get("results", [])])
 
 # 2. Generate with context
@@ -717,4 +718,4 @@ client.project.update(
 
 ## More Examples
 
-For 30+ cookbooks with complete working code: [docs.mem0.ai/cookbooks](https://docs.mem0.ai/cookbooks)
+For 30+ cookbooks with complete working code: [docs.mem0.ai/cookbooks/overview](https://docs.mem0.ai/cookbooks/overview)

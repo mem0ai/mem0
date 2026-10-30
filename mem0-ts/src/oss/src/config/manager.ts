@@ -40,6 +40,10 @@ export class ConfigManager {
               | undefined);
 
           return {
+            // Spread first so provider-specific keys (e.g. the Vertex AI
+            // project/location/credentials) survive the merge, while the
+            // normalized values below still win.
+            ...userConf,
             apiKey:
               userConf?.apiKey !== undefined
                 ? userConf.apiKey
@@ -56,9 +60,14 @@ export class ConfigManager {
         })(),
       },
       vectorStore: {
-        provider:
+        // Every factory already matches the provider case-insensitively, so a capitalized
+        // name constructs the right store -- but the `provider === "memory"` comparisons that
+        // pick per-provider entity-store settings do not. Normalize once, here, so those
+        // comparisons cannot silently miss.
+        provider: (
           userConfig.vectorStore?.provider ||
-          DEFAULT_MEMORY_CONFIG.vectorStore.provider,
+          DEFAULT_MEMORY_CONFIG.vectorStore.provider
+        ).toLowerCase(),
         config: (() => {
           const defaultConf = DEFAULT_MEMORY_CONFIG.vectorStore.config;
           const userConf = userConfig.vectorStore?.config;
@@ -104,7 +113,18 @@ export class ConfigManager {
           const userConf = userConfig.llm?.config;
           const provider =
             userConfig.llm?.provider || DEFAULT_MEMORY_CONFIG.llm.provider;
-          let finalModel: string | any = defaultConf.model;
+          // DEFAULT_MEMORY_CONFIG.llm.config holds OpenAI's own defaults (baseURL and
+          // model). Handing those to any other provider shadows that provider's default
+          // *and* its env fallback (DEEPSEEK_API_BASE, XAI_API_BASE, ...), so a config
+          // copied from the docs for another provider ends up pointed at OpenAI with an
+          // OpenAI model name. vLLM already needed a carve-out here for exactly this
+          // reason; every non-OpenAI provider needs it.
+          const usesOpenAIDefaults =
+            provider.toLowerCase() === "openai" ||
+            provider.toLowerCase() === "openai_structured";
+          let finalModel: string | any = usesOpenAIDefaults
+            ? defaultConf.model
+            : undefined;
 
           if (userConf?.model && typeof userConf.model === "object") {
             finalModel = userConf.model;
@@ -122,9 +142,7 @@ export class ConfigManager {
               | string
               | undefined) ??
             userConf?.url ??
-            (provider.toLowerCase() === "vllm"
-              ? undefined
-              : defaultConf.baseURL);
+            (usesOpenAIDefaults ? defaultConf.baseURL : undefined);
           const temperature =
             userConf?.temperature ??
             (llmRaw?.temperature as number | undefined);
@@ -133,6 +151,11 @@ export class ConfigManager {
             userConf?.maxTokens ?? (llmRaw?.max_tokens as number | undefined);
 
           return {
+            // Spread user-provided config first so any additional fields
+            // (e.g. future aws_bedrock options) pass through without a
+            // manager.ts edit, matching the vectorStore.config pattern above
+            // and making the schema's .passthrough() on llm.config meaningful.
+            ...userConf,
             baseURL: llmBaseURL,
             url: userConf?.url,
             apiKey:
@@ -147,6 +170,20 @@ export class ConfigManager {
             temperature,
             topP,
             maxTokens,
+            // Pass through AWS Bedrock fields so the aws_bedrock provider works
+            // through the standard Memory config path (snake_case tolerated).
+            awsRegion:
+              userConf?.awsRegion ?? (llmRaw?.aws_region as string | undefined),
+            awsAccessKeyId:
+              userConf?.awsAccessKeyId ??
+              (llmRaw?.aws_access_key_id as string | undefined),
+            awsSecretAccessKey:
+              userConf?.awsSecretAccessKey ??
+              (llmRaw?.aws_secret_access_key as string | undefined),
+            awsSessionToken:
+              userConf?.awsSessionToken ??
+              (llmRaw?.aws_session_token as string | undefined),
+            client: userConf?.client,
           };
         })(),
       },
@@ -177,6 +214,7 @@ export class ConfigManager {
       })(),
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
+      reranker: userConfig.reranker,
     };
 
     // Validate the merged config

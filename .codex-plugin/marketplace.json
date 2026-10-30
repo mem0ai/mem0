@@ -8,7 +8,7 @@
       "name": "mem0",
       "source": {
         "source": "local",
-        "path": "./integrations/mem0-plugin"
+        "path": "./integrations/codex-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",

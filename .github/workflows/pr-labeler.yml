@@ -1,0 +1,64 @@
+name: PR Labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: pr-labeler-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Propagate labels from linked issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const allowed = new Set([
+              'sdk-python', 'sdk-typescript', 'vector-store', 'plugin',
+              'rest-api', 'documentation', 'ci', 'cli', 'integrations',
+            ]);
+            const umbrella = { plugin: 'integrations' };
+            const { repository } = await github.graphql(
+              `query ($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    closingIssuesReferences(first: 20) {
+                      nodes { labels(first: 50) { nodes { name } } }
+                    }
+                  }
+                }
+              }`,
+              { owner: context.repo.owner, repo: context.repo.repo, number: context.issue.number },
+            );
+
+            const labels = new Set();
+            for (const issue of repository.pullRequest.closingIssuesReferences.nodes) {
+              for (const label of issue.labels.nodes) {
+                if (allowed.has(label.name)) labels.add(label.name);
+              }
+            }
+
+            for (const label of [...labels]) {
+              if (umbrella[label]) labels.add(umbrella[label]);
+            }
+
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [...labels],
+              });
+            }

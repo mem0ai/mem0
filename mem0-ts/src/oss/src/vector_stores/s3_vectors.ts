@@ -1,21 +1,8 @@
-import {
-  CreateIndexCommand,
-  CreateVectorBucketCommand,
-  DeleteIndexCommand,
-  DeleteVectorsCommand,
-  GetIndexCommand,
-  GetVectorBucketCommand,
-  GetVectorsCommand,
-  ListVectorsCommand,
-  PutVectorsCommand,
-  QueryVectorsCommand,
-  S3VectorsClient,
-  type DistanceMetric,
-  type GetOutputVector,
-  type ListOutputVector,
-  type QueryOutputVector,
-  type S3VectorsClientConfig,
-  type VectorData,
+import type {
+  GetOutputVector,
+  ListOutputVector,
+  QueryOutputVector,
+  VectorData,
 } from "@aws-sdk/client-s3vectors";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
@@ -32,11 +19,13 @@ interface S3VectorsConfig extends VectorStoreConfig {
   collectionName: string;
   embeddingModelDims?: number;
   dimension?: number;
-  distanceMetric?: DistanceMetric | "cosine" | "euclidean";
+  distanceMetric?: "cosine" | "euclidean";
   region?: string;
   regionName?: string;
   client?: S3VectorsClientLike;
-  clientConfig?: S3VectorsClientConfig;
+  /** Pre-configured S3 Vectors client options (typed as `any` to keep the
+   *  optional SDK's types out of the published type declarations). */
+  clientConfig?: any;
 }
 
 interface S3VectorsClientLike {
@@ -44,11 +33,14 @@ interface S3VectorsClientLike {
 }
 
 export class S3Vectors implements VectorStore {
-  private readonly client: S3VectorsClientLike;
+  private readonly config: S3VectorsConfig;
   private readonly vectorBucketName: string;
   private readonly collectionName: string;
   private readonly dimension: number;
-  private readonly distanceMetric: DistanceMetric | "cosine" | "euclidean";
+  private readonly distanceMetric: "cosine" | "euclidean";
+  private client?: S3VectorsClientLike;
+  private clientPromise?: Promise<S3VectorsClientLike>;
+  private sdkPromise?: Promise<any>;
   private _initPromise?: Promise<void>;
   private cachedUserId?: string;
 
@@ -65,20 +57,53 @@ export class S3Vectors implements VectorStore {
       throw new Error("embeddingModelDims or dimension is required");
     }
 
+    this.config = config;
     this.vectorBucketName = config.vectorBucketName;
     this.collectionName = config.collectionName;
     this.dimension = dimension;
     this.distanceMetric = config.distanceMetric || "cosine";
-    this.client =
-      config.client ||
-      new S3VectorsClient({
-        ...(config.clientConfig || {}),
-        ...(config.region || config.regionName
-          ? { region: config.region || config.regionName }
-          : {}),
-      });
 
     void this.initialize().catch(console.error);
+  }
+
+  /**
+   * Lazily import the optional `@aws-sdk/client-s3vectors` peer so consumers
+   * who never use the S3 Vectors store don't need it installed.
+   */
+  private getSdk(): Promise<any> {
+    if (!this.sdkPromise) {
+      this.sdkPromise = import("@aws-sdk/client-s3vectors").catch(() => {
+        throw new Error(
+          "The '@aws-sdk/client-s3vectors' package is required to use the S3 Vectors store. Install it with: npm install @aws-sdk/client-s3vectors",
+        );
+      });
+    }
+    return this.sdkPromise;
+  }
+
+  /** Lazily construct (or reuse) the S3 Vectors client. */
+  private async getClient(): Promise<S3VectorsClientLike> {
+    if (this.client) return this.client;
+    if (!this.clientPromise) {
+      this.clientPromise = this.createClient();
+    }
+    this.client = await this.clientPromise;
+    return this.client;
+  }
+
+  private async createClient(): Promise<S3VectorsClientLike> {
+    const config = this.config;
+    if (config.client) {
+      return config.client;
+    }
+
+    const sdk = await this.getSdk();
+    return new sdk.S3VectorsClient({
+      ...(config.clientConfig || {}),
+      ...(config.region || config.regionName
+        ? { region: config.region || config.regionName }
+        : {}),
+    });
   }
 
   async initialize(): Promise<void> {
@@ -105,8 +130,10 @@ export class S3Vectors implements VectorStore {
     await this.initialize();
     this.assertBatchDimensions(vectors, "Insert");
 
-    await this.client.send(
-      new PutVectorsCommand({
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
+    await client.send(
+      new sdk.PutVectorsCommand({
         vectorBucketName: this.vectorBucketName,
         indexName: this.collectionName,
         vectors: vectors.map((vector, index) => ({
@@ -134,8 +161,10 @@ export class S3Vectors implements VectorStore {
     if (filter && this.isAlwaysFalseFilter(filter)) {
       return [];
     }
-    const response = await this.client.send(
-      new QueryVectorsCommand({
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
+    const response = await client.send(
+      new sdk.QueryVectorsCommand({
         vectorBucketName: this.vectorBucketName,
         indexName: this.collectionName,
         queryVector: this.toVectorData(query),
@@ -158,9 +187,11 @@ export class S3Vectors implements VectorStore {
   async get(vectorId: string): Promise<VectorStoreResult | null> {
     await this.initialize();
 
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
     try {
-      const response = await this.client.send(
-        new GetVectorsCommand({
+      const response = await client.send(
+        new sdk.GetVectorsCommand({
           vectorBucketName: this.vectorBucketName,
           indexName: this.collectionName,
           keys: [vectorId],
@@ -203,8 +234,10 @@ export class S3Vectors implements VectorStore {
 
     this.assertVectorDimension(nextVector, "Vector");
 
-    await this.client.send(
-      new PutVectorsCommand({
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
+    await client.send(
+      new sdk.PutVectorsCommand({
         vectorBucketName: this.vectorBucketName,
         indexName: this.collectionName,
         vectors: [
@@ -221,8 +254,10 @@ export class S3Vectors implements VectorStore {
   async delete(vectorId: string): Promise<void> {
     await this.initialize();
 
-    await this.client.send(
-      new DeleteVectorsCommand({
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
+    await client.send(
+      new sdk.DeleteVectorsCommand({
         vectorBucketName: this.vectorBucketName,
         indexName: this.collectionName,
         keys: [vectorId],
@@ -233,9 +268,11 @@ export class S3Vectors implements VectorStore {
   async deleteCol(): Promise<void> {
     await this.initialize();
 
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
     try {
-      await this.client.send(
-        new DeleteIndexCommand({
+      await client.send(
+        new sdk.DeleteIndexCommand({
           vectorBucketName: this.vectorBucketName,
           indexName: this.collectionName,
         }),
@@ -257,14 +294,16 @@ export class S3Vectors implements VectorStore {
     const filter = this.convertFilters(filters);
     const results: VectorStoreResult[] = [];
     let nextToken: string | undefined;
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
 
     // Stop paginating once we have topK matches. Both callers of list()
     // discard the count, so scanning the whole index just to total every
     // match is wasted round-trips (O(index size) on getAll/deleteAll).
     // Return the page length like qdrant does.
     do {
-      const response = await this.client.send(
-        new ListVectorsCommand({
+      const response = await client.send(
+        new sdk.ListVectorsCommand({
           vectorBucketName: this.vectorBucketName,
           indexName: this.collectionName,
           maxResults: DEFAULT_PAGE_SIZE,
@@ -298,8 +337,10 @@ export class S3Vectors implements VectorStore {
 
     await this.ensureMigrationIndex();
 
-    const response = await this.client.send(
-      new GetVectorsCommand({
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
+    const response = await client.send(
+      new sdk.GetVectorsCommand({
         vectorBucketName: this.vectorBucketName,
         indexName: MIGRATION_INDEX_NAME,
         keys: [MIGRATION_VECTOR_KEY],
@@ -325,8 +366,10 @@ export class S3Vectors implements VectorStore {
     await this.initialize();
     await this.ensureMigrationIndex();
 
-    await this.client.send(
-      new PutVectorsCommand({
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
+    await client.send(
+      new sdk.PutVectorsCommand({
         vectorBucketName: this.vectorBucketName,
         indexName: MIGRATION_INDEX_NAME,
         vectors: [
@@ -343,9 +386,11 @@ export class S3Vectors implements VectorStore {
   }
 
   private async ensureBucketExists(): Promise<void> {
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
     try {
-      await this.client.send(
-        new GetVectorBucketCommand({
+      await client.send(
+        new sdk.GetVectorBucketCommand({
           vectorBucketName: this.vectorBucketName,
         }),
       );
@@ -355,8 +400,8 @@ export class S3Vectors implements VectorStore {
       }
 
       try {
-        await this.client.send(
-          new CreateVectorBucketCommand({
+        await client.send(
+          new sdk.CreateVectorBucketCommand({
             vectorBucketName: this.vectorBucketName,
           }),
         );
@@ -371,11 +416,13 @@ export class S3Vectors implements VectorStore {
   private async ensureIndexExists(
     indexName: string,
     dimension: number,
-    distanceMetric: DistanceMetric | "cosine" | "euclidean",
+    distanceMetric: "cosine" | "euclidean",
   ): Promise<void> {
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
     try {
-      await this.client.send(
-        new GetIndexCommand({
+      await client.send(
+        new sdk.GetIndexCommand({
           vectorBucketName: this.vectorBucketName,
           indexName,
         }),
@@ -386,8 +433,8 @@ export class S3Vectors implements VectorStore {
       }
 
       try {
-        await this.client.send(
-          new CreateIndexCommand({
+        await client.send(
+          new sdk.CreateIndexCommand({
             vectorBucketName: this.vectorBucketName,
             indexName,
             dataType: "float32",
@@ -410,8 +457,10 @@ export class S3Vectors implements VectorStore {
   private async fetchStoredVector(
     vectorId: string,
   ): Promise<{ vector: number[]; payload: Record<string, any> } | null> {
-    const response = await this.client.send(
-      new GetVectorsCommand({
+    const sdk = await this.getSdk();
+    const client = await this.getClient();
+    const response = await client.send(
+      new sdk.GetVectorsCommand({
         vectorBucketName: this.vectorBucketName,
         indexName: this.collectionName,
         keys: [vectorId],
@@ -770,7 +819,7 @@ export class S3Vectors implements VectorStore {
 
   private normalizeQueryVector(
     vector: QueryOutputVector,
-    distanceMetric: DistanceMetric | "cosine" | "euclidean",
+    distanceMetric: "cosine" | "euclidean",
   ): VectorStoreResult {
     return {
       id: String(vector.key),
@@ -794,8 +843,7 @@ export class S3Vectors implements VectorStore {
 
   private normalizeScore(
     distance?: number,
-    distanceMetric: DistanceMetric | "cosine" | "euclidean" = this
-      .distanceMetric,
+    distanceMetric: "cosine" | "euclidean" = this.distanceMetric,
   ): number | undefined {
     if (distance === undefined || distance === null) {
       return undefined;

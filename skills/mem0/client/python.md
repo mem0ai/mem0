@@ -21,7 +21,7 @@ from mem0 import MemoryClient
 client = MemoryClient(api_key="m0-xxx")
 ```
 
-**Constructor:** `MemoryClient(api_key=None)`. If `api_key` is not provided, reads from `MEM0_API_KEY` environment variable. Raises `ValueError` if no key found.
+**Constructor:** `MemoryClient(api_key=None, host=None, client=None)`. If `api_key` is not provided, reads from `MEM0_API_KEY` environment variable. Raises `ValueError` if no key found. `host` overrides the base URL and `client` accepts a custom `httpx.Client`. `MEM0_SOURCE`, `MEM0_APPLICATION` and `MEM0_CLIENT_STACK` set the request identity headers for wrappers.
 
 - HTTP library: `httpx`
 - Timeout: 300 seconds
@@ -45,7 +45,7 @@ Same methods as `MemoryClient`, all `async`/`await`. Supports async context mana
 
 ### Memory Methods
 
-#### add(messages, **kwargs)
+#### add(messages, options=None, **kwargs)
 
 Store new memories from messages.
 
@@ -68,11 +68,13 @@ client.add(messages, user_id="alice")
 | `infer` | bool | True | If False, store raw text without LLM inference |
 | `custom_categories` | list | None | Override project categories |
 | `custom_instructions` | str | None | Override extraction instructions |
-| `timestamp` | int \| float \| str | None | Custom timestamp (Unix epoch or ISO 8601) |
+| `agent_custom_instructions` | str | None | Extraction instructions for agent-scoped memories |
+| `expiration_date` | str | None | `YYYY-MM-DD`, memory is hidden after this date |
+| `timestamp` | int | None | Custom timestamp (Unix epoch seconds) |
 
-**Returns:** `dict` -- list of events: `[{"id": "...", "event": "ADD", "data": {"memory": "..."}}]`
+**Returns:** `dict` -- asynchronous by default: `{"event_id": "...", "status": "PENDING"}`. Poll `GET /v1/event/{event_id}/` until `SUCCEEDED`. With `infer=False` it is synchronous and returns the stored `results`.
 
-#### search(query, **kwargs)
+#### search(query, options=None, **kwargs)
 
 Search memories by semantic similarity.
 
@@ -88,9 +90,13 @@ for mem in results.get("results", []):
 | `filters` | dict | None | Filter object with entity IDs and/or `AND`/`OR`/`NOT` conditions (e.g., `{"user_id": "alice"}`) |
 | `top_k` | int | 10 | Number of results |
 | `rerank` | bool | False | Enable deep semantic reranking (+150-200ms) |
-| `threshold` | float | 0.1 | Minimum similarity score |
-| `fields` | list | None | Specific fields to return |
-| `categories` | list | None | Filter by category |
+| `threshold` | float | server-side | Relevance cutoff (0.0 to 1.0), applied before score blending, so it is not a floor on the returned `score`. The default and `0.0` returned the same or nearly the same results in live tests |
+| `fields` | - | - | Not applied in v3 |
+| `categories` | - | - | Not applied in v3. Use `filters={"AND": [{"categories": {"in": [...]}}]}` |
+| `metadata` | - | - | Not applied in v3. Use `filters={"AND": [{"metadata": {...}}]}` |
+| `reference_date` | str \| int | None | Anchor for relative time queries (`YYYY-MM-DD`, ISO datetime, or Unix epoch) |
+| `show_expired` | bool | False | Include memories past their `expiration_date` |
+| `latest_only` | bool | None | Only return the latest version of a memory |
 
 **Returns:** `dict` -- `{"results": [{id, memory, user_id, categories, score, created_at, ...}]}`
 
@@ -104,9 +110,9 @@ memory = client.get(memory_id="ea925981-...")
 
 **Returns:** `dict` -- full memory object
 
-#### get_all(**kwargs)
+#### get_all(options=None, **kwargs)
 
-Retrieve all memories with optional filtering. Requires at least one entity identifier.
+Retrieve all memories with optional filtering. Requires non-empty `filters`; scope them with at least one entity identifier.
 
 ```python
 memories = client.get_all(filters={"user_id": "alice"})
@@ -117,15 +123,17 @@ memories = client.get_all(filters={"AND": [{"user_id": "alice"}, {"categories": 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `filters` | dict | None | Filter object with entity IDs and/or `AND`/`OR`/`NOT` conditions |
-| `top_k` | int | None | Limit results |
-| `page` | int | None | Page number |
-| `page_size` | int | None | Results per page |
+| `page` | int | 1 | Page number |
+| `page_size` | int | 100 | Results per page (max 200) |
+| `start_date` / `end_date` / `categories` | - | - | Not applied in v3. Use `filters` with `created_at` or `categories` |
+| `show_expired` | bool | False | Include expired memories |
+| `latest_only` | bool | None | Only return the latest version of a memory |
 
-**Returns:** `dict` -- `{"results": [...]}`
+**Returns:** `dict` -- `{"count": int, "next": str | None, "previous": str | None, "results": [...]}`
 
-#### update(memory_id, text=None, metadata=None, timestamp=None)
+#### update(memory_id, options=None, **kwargs)
 
-Update a memory's content, metadata, or timestamp. At least one parameter required.
+Update a memory's `text`, `metadata`, `timestamp`, or `expiration_date` (pass `expiration_date=None` to clear it). At least one required.
 
 ```python
 client.update("ea925981-...", text="Updated: vegan since 2024")
@@ -134,17 +142,18 @@ client.update("ea925981-...", metadata={"verified": True})
 
 **Returns:** `dict` -- updated memory
 
-#### delete(memory_id)
+#### delete(memory_id, delete_linked=False)
 
-Permanently delete a single memory.
+Permanently delete a single memory. With `delete_linked=True`, also deletes the older memories it superseded.
 
 ```python
 client.delete("ea925981-...")
+client.delete("ea925981-...", delete_linked=True)
 ```
 
-#### delete_all(**kwargs)
+#### delete_all(options=None, **kwargs)
 
-Delete all memories matching filters. Irreversible.
+Delete all memories matching the entity IDs (`user_id`, `agent_id`, `app_id`, `run_id`, passed as top-level kwargs). Irreversible.
 
 ```python
 client.delete_all(user_id="alice")
@@ -156,7 +165,7 @@ Get the change history of a memory.
 
 ```python
 history = client.history("ea925981-...")
-# Returns: [{previous_value, new_value, action, timestamps}]
+# Returns: [{id, memory_id, input, old_memory, new_memory, event, user_id, categories, metadata, created_at, updated_at}]
 ```
 
 ---
@@ -170,9 +179,11 @@ Update up to 1000 memories in a single request.
 ```python
 client.batch_update([
     {"memory_id": "uuid-1", "text": "Updated text"},
-    {"memory_id": "uuid-2", "text": "Another update", "metadata": {"verified": True}},
+    {"memory_id": "uuid-2", "text": "Another update"},
 ])
 ```
+
+Each item must include `text`. `metadata` on a batch item is ignored and a metadata-only item returns a 400. Use `update(memory_id, metadata=...)` to change metadata.
 
 #### batch_delete(memories)
 
@@ -208,7 +219,7 @@ client.delete_users(user_id="alice")
 
 #### reset()
 
-Delete ALL users, agents, sessions, and memories. Complete data reset.
+Delete ALL users, agents, sessions, and memories. Complete data reset. It only deletes the entities on the first page returned by `users()`, so with many entities re-run it until it raises `No entities to delete`, or delete per entity with `delete_users(user_id=...)`.
 
 ```python
 client.reset()
@@ -223,16 +234,14 @@ client.reset()
 Create a structured export of memories.
 
 ```python
-import json
-
-schema = json.dumps({
+schema = {
     "type": "object",
     "properties": {
         "name": {"type": "string"},
         "preferences": {"type": "array", "items": {"type": "string"}},
     }
-})
-export = client.create_memory_export(schema=schema, user_id="alice")
+}
+export = client.create_memory_export(schema=schema, filters={"AND": [{"user_id": "alice"}]})
 ```
 
 #### get_memory_export(**kwargs)
@@ -269,6 +278,19 @@ client.feedback(
 
 ---
 
+### User Profiles
+
+```python
+profile = client.get_profile("alice")
+client.generate_profile("alice")
+client.get_profile_settings()
+client.update_profile_settings(enabled=True)
+```
+
+`get_profile` returns `status` (`succeeded`, `pending`, `failed`, `not_enabled`, `insufficient_data`) plus `profile`; generation is asynchronous, so branch on `status`. Other methods: `sample_profiles(limit=None)` and `get_profile_job(job_id_or_status_url)`.
+
+---
+
 ### Webhooks
 
 ```python
@@ -284,10 +306,10 @@ webhook = client.create_webhook(
 )
 
 # Update
-client.update_webhook(webhook_id=123, name="Updated", url="https://new-url.com")
+client.update_webhook(webhook_id="wh_123", name="Updated", url="https://new-url.com")
 
 # Delete
-client.delete_webhook(webhook_id=123)
+client.delete_webhook(webhook_id="wh_123")
 ```
 
 ---
@@ -304,7 +326,9 @@ config = client.project.get(fields=["custom_categories", "custom_instructions"])
 client.project.update(
     custom_instructions="Extract dietary preferences and health info",
     custom_categories=[{"health": "Medical and dietary info"}],
+    agent_custom_instructions="Extract only what the agent learned about the user",
     multilingual=True,
+    decay=True,
 )
 
 # Create/delete project
@@ -326,6 +350,8 @@ client.project.remove_member(email="user@example.com")
 
 ```bash
 pip install mem0ai
+pip install "mem0ai[nlp]"      # optional: spaCy entity linking (Python 3.10-3.12)
+pip install "mem0ai[extras]"   # optional: fastembed for Qdrant BM25 keyword search
 ```
 
 ### Memory Class
@@ -333,8 +359,10 @@ pip install mem0ai
 ```python
 from mem0 import Memory
 
-m = Memory()  # Uses default config (OpenAI embedder + in-memory vector store)
+m = Memory()  # Defaults: OpenAI gpt-5-mini + text-embedding-3-small, local Qdrant at /tmp/qdrant
 ```
+
+`Memory(config)` takes a `MemoryConfig` object. For a plain dict use `Memory.from_config(config)`. Requires `OPENAI_API_KEY` for the default LLM and embedder.
 
 **Import:** `from mem0 import Memory` (NOT `MemoryClient` -- that is the Platform client)
 
@@ -343,28 +371,28 @@ m = Memory()  # Uses default config (OpenAI embedder + in-memory vector store)
 ```python
 config = {
     "llm": {
-        "provider": "openai",        # openai, groq, azure, ollama, lmstudio, google, anthropic, mistral
+        "provider": "openai",        # openai, anthropic, gemini, groq, ollama, lmstudio, azure_openai, aws_bedrock, together, deepseek, xai, vllm, litellm, ...
         "config": {
             "model": "gpt-5-mini",
             "api_key": "sk-xxx",
         }
     },
     "embedder": {
-        "provider": "openai",        # openai, ollama, azure, lmstudio, google, huggingface
+        "provider": "openai",        # openai, ollama, azure_openai, lmstudio, gemini, vertexai, huggingface, fastembed, aws_bedrock, together
         "config": {
             "model": "text-embedding-3-small",
             "api_key": "sk-xxx",
         }
     },
     "vector_store": {
-        "provider": "qdrant",        # faiss, qdrant, pgvector, redis, supabase, azure_ai_search, memory
+        "provider": "qdrant",        # qdrant (default), chroma, pgvector, pinecone, milvus, redis, supabase, faiss, azure_ai_search, ...
         "config": {
             "collection_name": "my_memories",
             "host": "localhost",
             "port": 6333,
         }
     },
-    "history_db_path": "history.db",              # SQLite path for change history
+    "history_db_path": "history.db",              # SQLite path for change history (default ~/.mem0/history.db)
     "custom_instructions": "...",                  # Custom LLM prompt for extraction
 }
 
@@ -374,7 +402,7 @@ m = Memory.from_config(config)
 ### Context Manager
 
 ```python
-with Memory(config) as m:
+with Memory.from_config(config) as m:
     m.add("I prefer dark mode", user_id="alice")
     results = m.search("preferences", filters={"user_id": "alice"})
 # SQLite connections released automatically
@@ -384,7 +412,7 @@ with Memory(config) as m:
 
 All methods mirror the Platform client but run locally:
 
-#### add(messages, *, user_id, agent_id, run_id, metadata, infer=True)
+#### add(messages, *, user_id, agent_id, run_id, metadata, expiration_date, infer=True, memory_type, prompt)
 
 ```python
 m.add("I'm a vegetarian", user_id="alice")
@@ -396,9 +424,11 @@ m.add([
 
 At least one of `user_id`, `agent_id`, `run_id` required.
 
-**Returns:** `{"results": [...], "relations": [...]}`
+`timestamp` raises `ValueError` in OSS (Platform only).
 
-#### search(query, *, filters=None, top_k=20, threshold=0.1, rerank=False)
+**Returns:** `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
+
+#### search(query, *, top_k=20, filters=None, threshold=0.1, rerank=False, explain=False, show_expired=False)
 
 ```python
 results = m.search("dietary preferences", filters={"user_id": "alice"}, top_k=5)
@@ -406,11 +436,11 @@ results = m.search("dietary preferences", filters={"user_id": "alice"}, top_k=5)
 
 Entity IDs (`user_id`, `agent_id`, `run_id`) must be passed inside the `filters` dict.
 
-Supports filter operators: `eq`, `ne`, `in`, `nin`, `gt`, `gte`, `lt`, `lte`, `contains`, `not_contains`.
+Supports filter operators: `eq`, `ne`, `in`, `nin`, `gt`, `gte`, `lt`, `lte`, `contains`, `icontains`, plus `AND` / `OR` / `NOT`. `reference_date` raises `ValueError` in OSS (Platform only).
 
-#### get(memory_id) / get_all(**kwargs) / update(memory_id, data, metadata=None) / delete(memory_id) / delete_all(**kwargs) / history(memory_id)
+#### get(memory_id) / get_all(*, filters, top_k=20, show_expired=False) / update(memory_id, text=None, metadata=None, expiration_date) / delete(memory_id) / delete_all(user_id=None, agent_id=None, run_id=None) / history(memory_id)
 
-Same interface as Platform client.
+`get_all()` requires entity IDs inside `filters` and returns `{"results": [...]}`. `update()` takes `text` (`data` is a deprecated alias) and needs at least one of `text`, `metadata`, `expiration_date`. `delete_all()` needs at least one entity ID and takes them top-level. `m.project.update()` raises `ValueError` in OSS.
 
 #### reset()
 
@@ -429,7 +459,7 @@ Release SQLite connections. Called automatically when using context manager.
 ```python
 from mem0 import AsyncMemory
 
-m = AsyncMemory(config)
+m = AsyncMemory.from_config(config)
 await m.add("text", user_id="alice")
 results = await m.search("query", filters={"user_id": "alice"})
 ```
@@ -459,10 +489,10 @@ results = await m.search("query", filters={"user_id": "alice"})
 
 ## v2 Compatibility
 
-If you're using SDK v2.x or the v2 API:
+The "v2" line is Python SDK 1.x (TypeScript SDK 2.x). If you are still on it, these are the differences from Python 2.x:
 
 **API Changes:**
-- **Entity IDs in search/get_all:** Pass `user_id`, `agent_id` as top-level kwargs instead of inside `filters`
+- **Entity IDs in search/get_all:** `user_id`, `agent_id` were top-level kwargs, now they go inside `filters` (top-level raises `ValueError`)
   ```python
   # v2
   results = client.search("query", user_id="alice")
@@ -470,18 +500,23 @@ If you're using SDK v2.x or the v2 API:
   results = client.search("query", filters={"user_id": "alice"})
   ```
 - **add() returns:** v2 returns ADD, UPDATE, DELETE events; v3 returns ADD only
+- **Platform add() is async:** returns `{"event_id": "...", "status": "PENDING"}`
 
 **Default Changes:**
-| Param | v2 | v3 |
-|-------|----|----|
-| `top_k` | 100 | 20 |
-| `threshold` | None | 0.1 |
-| `rerank` | True | False |
+| Param | v2 Platform | v3 Platform | v2 OSS | v3 OSS |
+|-------|-------------|-------------|--------|--------|
+| `top_k` | 10 | 10 | 100 | 20 |
+| `threshold` | 0.3 | server-side cutoff | None | 0.1 |
+| `rerank` | False | False | True | False |
 
 **Removed Parameters:**
 - Constructor: `org_id`, `project_id`
-- add(): `async_mode`, `output_format`, `enable_graph`, `immutable`, `expiration_date`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`
+- add(): `async_mode`, `output_format`, `enable_graph`, `immutable`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`
 - search()/get_all(): `enable_graph`
-- Config: `enable_graph`, `graph_store`, `custom_fact_extraction_prompt` (renamed to `custom_instructions`)
+- Config: `enable_graph`, `graph_store`, `custom_fact_extraction_prompt` (renamed to `custom_instructions`), `custom_update_memory_prompt` (deprecated)
+
+`expiration_date` is still supported on `add()` and `update()`.
+
+**Graph memory:** the external graph store (Neo4j, Memgraph, Kuzu, AGE) was removed from OSS. Entity linking is built in (spaCy via `mem0ai[nlp]`, stored in a `{collection}_entities` vector collection) and falls back to semantic-only search without it.
 
 See the [v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for full details.

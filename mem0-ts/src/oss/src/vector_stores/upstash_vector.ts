@@ -1,41 +1,62 @@
-import { Index, QueryResult, Vector } from "@upstash/vector";
+import type { Index, QueryResult, Vector } from "@upstash/vector";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 interface UpstashVectorConfig extends VectorStoreConfig {
   collectionName: string;
   url?: string;
   token?: string;
-  client?: Index<Record<string, unknown>>;
+  /** Pre-configured Upstash Vector client instance (typed as `any` to keep
+   *  the optional driver's types out of the published type declarations). */
+  client?: any;
 }
 
 type UpstashMetadata = Record<string, unknown>;
 
 export class UpstashVector implements VectorStore {
-  private readonly client: Index<UpstashMetadata>;
+  private client!: Index<UpstashMetadata>;
+  private readonly config: UpstashVectorConfig;
   private readonly collectionName: string;
 
   constructor(config: UpstashVectorConfig) {
     if (!config.collectionName) {
       throw new Error("collectionName is required for Upstash Vector.");
     }
-
-    if (config.client) {
-      this.client = config.client;
-    } else if (config.url && config.token) {
-      this.client = new Index({
-        url: config.url,
-        token: config.token,
-      });
-    } else {
+    if (!config.client && !(config.url && config.token)) {
       throw new Error("Either a client or url and token must be provided.");
     }
 
+    this.config = config;
     this.collectionName = config.collectionName;
   }
 
+  /**
+   * Lazily construct (or reuse) the Upstash Vector client, importing the
+   * optional `@upstash/vector` peer only when the store is first used so
+   * consumers that never touch Upstash Vector don't need it installed.
+   */
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+
+    const config = this.config;
+    if (config.client) {
+      this.client = config.client;
+    } else {
+      const sdk = await loadPeer(
+        "@upstash/vector",
+        "Upstash Vector store",
+        () => import("@upstash/vector"),
+      );
+      this.client = new sdk.Index({
+        url: config.url,
+        token: config.token,
+      });
+    }
+  }
+
   async initialize(): Promise<void> {
-    return;
+    await this.ensureClient();
   }
 
   async insert(
@@ -43,6 +64,7 @@ export class UpstashVector implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    await this.initialize();
     const upsertData = vectors.map((vector, idx) => {
       return {
         id: ids[idx],
@@ -59,6 +81,7 @@ export class UpstashVector implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
+    await this.initialize();
     const response = await this.client.query<UpstashMetadata>(
       {
         vector: query,
@@ -77,6 +100,7 @@ export class UpstashVector implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
+    await this.initialize();
     try {
       const response = await this.client.query<UpstashMetadata>(
         {
@@ -96,6 +120,7 @@ export class UpstashVector implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    await this.initialize();
     const response = await this.client.fetch<UpstashMetadata>([vectorId], {
       includeMetadata: true,
       namespace: this.collectionName,
@@ -117,6 +142,7 @@ export class UpstashVector implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    await this.initialize();
     // Upstash's `update` can't set the vector and metadata in one call (its
     // payload is a discriminated union of vector | data | metadata), so a
     // single `upsert` replaces both atomically, the same way insert() writes.
@@ -131,10 +157,12 @@ export class UpstashVector implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
+    await this.initialize();
     await this.client.delete(vectorId, { namespace: this.collectionName });
   }
 
   async deleteCol(): Promise<void> {
+    await this.initialize();
     await this.client.reset({ namespace: this.collectionName });
   }
 
@@ -142,6 +170,7 @@ export class UpstashVector implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    await this.initialize();
     const results: VectorStoreResult[] = [];
     let cursor = "0";
 

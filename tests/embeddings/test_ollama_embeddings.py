@@ -1,3 +1,6 @@
+import builtins
+import importlib
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -94,3 +97,25 @@ def test_embed_batch_count_mismatch_raises(mock_ollama_client):
 
     with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def test_missing_ollama_raises_actionable_import_error(monkeypatch):
+    """Missing ollama raises a catchable ImportError naming the install command, never input()/sys.exit()."""
+    monkeypatch.delitem(sys.modules, "mem0.embeddings.ollama", raising=False)
+    monkeypatch.delitem(sys.modules, "ollama", raising=False)
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "ollama":
+            raise ImportError("No module named 'ollama'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    with patch("builtins.input") as mock_input, patch("sys.exit") as mock_exit:
+        with pytest.raises(ImportError, match="pip install ollama"):
+            importlib.import_module("mem0.embeddings.ollama")
+
+    mock_input.assert_not_called()
+    mock_exit.assert_not_called()

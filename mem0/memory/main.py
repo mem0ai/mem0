@@ -22,18 +22,15 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
-from mem0.exceptions import LLMError
+from mem0.exceptions import LLMError, VectorStoreError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
-from mem0.memory.setup import mem0_dir, setup_config
-from mem0.memory.storage import SQLiteManager
-from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
-    detect_scale_threshold_from_add_result,
-    detect_scale_threshold_from_top_k,
     detect_decay_usage_from_delete,
     detect_decay_usage_from_delete_all,
+    detect_scale_threshold_from_add_result,
+    detect_scale_threshold_from_top_k,
     detect_temporal_usage_from_metadata,
     detect_temporal_usage_from_search,
     display_decay_usage_notice,
@@ -51,6 +48,9 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
+from mem0.memory.setup import mem0_dir, setup_config
+from mem0.memory.storage import SQLiteManager
+from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     extract_json,
     parse_messages,
@@ -133,6 +133,33 @@ _SENSITIVE_SUFFIXES = (
 
 # Entity parameters that must be passed via filters, not top-level kwargs
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
+DELETE_ALL_BATCH_SIZE = 1000
+
+# Tenant-scoping fields that caller-supplied metadata must never set, on either the
+# creation or the update path (issues #4490, #6277, #6655).
+_IDENTITY_KEYS = ENTITY_PARAMS | {"actor_id"}
+
+
+def _strip_identity_keys(
+    metadata: Dict[str, Any],
+    existing_payload: Dict[str, Any],
+    *,
+    context: str = "update()",
+) -> Dict[str, Any]:
+    """Drop identity keys from caller metadata; scope is set by the entity params, not metadata.
+
+    On the update path `existing_payload` carries the memory's current scope, so
+    re-sending an identical value is silently accepted; only a changed value warns.
+    On the creation path there is no prior payload, so pass an empty dict and every
+    identity key present in `metadata` is dropped with a warning.
+    """
+    clean = {}
+    for key, value in metadata.items():
+        if key not in _IDENTITY_KEYS:
+            clean[key] = value
+        elif value != existing_payload.get(key):
+            logger.warning(f"{context}: ignoring metadata['{key}'] - identity fields cannot be set through metadata")
+    return clean
 
 
 def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) -> None:
@@ -145,9 +172,10 @@ def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) ->
         )
 
 
-def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[str]:
+def _validate_and_trim_entity_id(value: Optional[Any], name: str) -> Optional[str]:
     """
     Validates and normalizes an entity ID.
+    - Coerces non-string values (e.g. integer ids) to str
     - Trims leading/trailing whitespace
     - Rejects empty or whitespace-only strings
     - Rejects strings containing internal whitespace
@@ -164,6 +192,11 @@ def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[st
     """
     if value is None:
         return None
+    # Callers commonly pass integer ids (e.g. a database primary key). Coerce
+    # to str at this single validation point so scoping stays consistent across
+    # add/search/get_all/delete_all instead of crashing on `.strip()`.
+    if not isinstance(value, str):
+        value = str(value)
     trimmed = value.strip()
     if trimmed == "":
         raise ValueError(
@@ -350,7 +383,9 @@ def _build_filters_and_metadata(
     for flexible session scoping and optionally narrows queries to a specific `actor_id`. It returns two dicts:
 
     1. `base_metadata_template`: Used as a template for metadata when storing new memories.
-       It includes all provided session identifier(s) and any `input_metadata`.
+       It includes all provided session identifier(s) and any `input_metadata`. Identity
+       scope is set from the entity params only; identity keys in `input_metadata` are
+       dropped, so freeform metadata cannot place a memory into an unrequested scope.
     2. `effective_query_filters`: Used for querying existing memories. It includes all
        provided session identifier(s), any `input_filters`, and a resolved actor
        identifier for targeted filtering if specified by any actor-related inputs.
@@ -378,7 +413,12 @@ def _build_filters_and_metadata(
               scoped to the provided session(s) and potentially a resolved actor.
     """
 
-    base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
+    # Identity scope is set below from the entity params only. Stripping the keys here
+    # stops caller metadata from placing a memory into a scope the caller did not pass,
+    # which the re-pins below cannot prevent for a param that was left unset (issue #6655).
+    base_metadata_template = (
+        _strip_identity_keys(deepcopy(input_metadata), {}, context="add()") if input_metadata else {}
+    )
     effective_query_filters = deepcopy(input_filters) if input_filters else {}
 
     # ---------- validate and add all provided session ids ----------
@@ -420,13 +460,18 @@ def _build_filters_and_metadata(
     return base_metadata_template, effective_query_filters
 
 
+def _escape_scope_value(val: Any) -> str:
+    """Escape the structural delimiters of the session scope key."""
+    return str(val).replace("%", "%25").replace("&", "%26").replace("=", "%3D")
+
+
 def _build_session_scope(filters):
     """Build deterministic session scope string from entity IDs."""
     parts = []
     for key in sorted(["user_id", "agent_id", "run_id"]):
         val = filters.get(key)
         if val:
-            parts.append(f"{key}={val}")
+            parts.append(f"{key}={_escape_scope_value(val)}")
     return "&".join(parts)
 
 
@@ -474,7 +519,6 @@ class _OSSProject:
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[list] = None,
-        retrieval_criteria: Optional[list] = None,
         multilingual: Optional[bool] = None,
         decay: Optional[bool] = None,
     ):
@@ -488,7 +532,6 @@ class _AsyncOSSProject:
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[list] = None,
-        retrieval_criteria: Optional[list] = None,
         multilingual: Optional[bool] = None,
         decay: Optional[bool] = None,
     ):
@@ -809,6 +852,11 @@ class Memory(MemoryBase):
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
 
+        Note:
+            `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
+            they reject top-level `user_id`/`agent_id`/`run_id` arguments. `add()` accepts them top-level, but passing
+            the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
+
 
         Returns:
             dict: A dictionary containing the result of the memory addition operation, typically
@@ -860,6 +908,8 @@ class Memory(MemoryBase):
 
         messages = _validate_add_messages(messages)
 
+        # TODO: Remove procedural-memory support in a future breaking release.
+        # Remove memory_type and its helpers from Memory and AsyncMemory together.
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
             scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
@@ -1057,19 +1107,31 @@ class Memory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        # Only records confirmed to be stored make it into history, entity
+        # links, and the returned results — a record the store rejected must
+        # never be reported back as a successful ADD.
+        persisted_records = []
         try:
             self.vector_store.insert(
                 vectors=all_vectors,
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            persisted_records = records
         except Exception:
             # Fallback: insert one by one
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+            for rec in records:
                 try:
-                    self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    self.vector_store.insert(vectors=[rec[2]], ids=[rec[0]], payloads=[rec[3]])
+                    persisted_records.append(rec)
                 except Exception as e:
-                    logger.error(f"Failed to insert memory {mid}: {e}")
+                    logger.error(f"Failed to insert memory {rec[0]}: {e}")
+
+        if not persisted_records:
+            self.db.save_messages(messages, session_scope)
+            raise VectorStoreError(
+                f"Failed to insert any of the {len(records)} extracted memories into the vector store"
+            )
 
         # Batch history
         history_records = [
@@ -1081,7 +1143,7 @@ class Memory(MemoryBase):
                 "created_at": r[3].get("created_at"),
                 "is_deleted": 0,
             }
-            for r in records
+            for r in persisted_records
         ]
         try:
             self.db.batch_add_history(history_records)
@@ -1095,12 +1157,12 @@ class Memory(MemoryBase):
 
         # Phase 7: Batch entity linking
         try:
-            all_texts = [r[1] for r in records]
+            all_texts = [r[1] for r in persisted_records]
             all_entities = extract_entities_batch(all_texts)
 
             # 7a: Global dedup — collect unique entities across all memories
             global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
-            for idx, (memory_id, text, embedding, payload) in enumerate(records):
+            for idx, (memory_id, text, embedding, payload) in enumerate(persisted_records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
                     key = self._normalize_entity_text(entity_text)
@@ -1204,7 +1266,7 @@ class Memory(MemoryBase):
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in records
+            for r in persisted_records
         ]
 
         keys, encoded_ids = process_telemetry_filters(filters)
@@ -1825,30 +1887,43 @@ class Memory(MemoryBase):
     def update(
         self,
         memory_id,
-        data: Optional[str] = None,
+        text: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         expiration_date: Any = _UNSET,
+        data: Optional[str] = None,
     ):
         """
         Update a memory by ID.
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (str, optional): New content to update the memory with.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
+                ``user_id``/``agent_id``/``run_id``/``actor_id`` are ignored here - they are
+                immutable after creation.
             expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
+            data (str, optional): Deprecated alias for ``text``. Will be removed in the next
+                major release; use ``text`` instead.
 
         Returns:
             dict: Success message indicating the memory was updated.
 
         Example:
-            >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            >>> m.update(memory_id="mem_123", text="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
-        if data is None and metadata is None and expiration_date is _UNSET:
-            raise ValueError("At least one of data, metadata, or expiration_date must be provided.")
+        if data is not None:
+            logger.warning(
+                "The `data` argument to update() is deprecated and will be removed in the "
+                "next major release. Use `text` instead."
+            )
+            if text is None:
+                text = data
+
+        if text is None and metadata is None and expiration_date is _UNSET:
+            raise ValueError("At least one of text, metadata, or expiration_date must be provided.")
 
         update_metadata = deepcopy(metadata) if metadata is not None else None
         if expiration_date is not _UNSET:
@@ -1856,10 +1931,10 @@ class Memory(MemoryBase):
             update_metadata["expiration_date"] = _normalize_expiration_date(expiration_date)
 
         existing_embeddings = {}
-        if data is not None:
-            existing_embeddings[data] = self.embedding_model.embed(data, "update")
+        if text is not None:
+            existing_embeddings[text] = self.embedding_model.embed(text, "update")
 
-        self._update_memory(memory_id, data, existing_embeddings, update_metadata)
+        self._update_memory(memory_id, text, existing_embeddings, update_metadata)
         display_first_run_notice(self, "sync", "update")
         return {"message": "Memory updated successfully!"}
 
@@ -1912,14 +1987,28 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        # Keep listing after each batch is deleted. Most vector stores cap
+        # list() at 100 results by default, which silently truncates deletes.
+        deleted_count = 0
+        seen_batches = set()
+        while True:
+            memories = self.vector_store.list(
+                filters=filters, top_k=DELETE_ALL_BATCH_SIZE
+            )[0]
+            if not memories:
+                break
+            batch_ids = tuple(sorted(str(memory.id) for memory in memories))
+            if batch_ids in seen_batches:
+                logger.warning("Stopping delete_all after a repeated memory batch")
+                break
+            seen_batches.add(batch_ids)
+            for memory in memories:
+                self._delete_memory(memory.id)
+            deleted_count += len(memories)
 
-        logger.info(f"Deleted {len(memories)} memories")
+        logger.info(f"Deleted {deleted_count} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
         else:
@@ -2000,6 +2089,12 @@ class Memory(MemoryBase):
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
 
+        if not procedural_memory:
+            raise ValueError(
+                "The LLM returned no content for the procedural memory summary. "
+                "The model may have declined the request or returned an empty response."
+            )
+
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
 
@@ -2034,17 +2129,13 @@ class Memory(MemoryBase):
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
-            new_metadata.update(metadata)
+            new_metadata.update(_strip_identity_keys(metadata, existing_memory.payload))
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        # actor_id is immutable after creation (issue #4490)
-        if "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -2145,6 +2236,13 @@ class Memory(MemoryBase):
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
@@ -2444,6 +2542,12 @@ class AsyncMemory(MemoryBase):
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
+
+        Note:
+            `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
+            they reject top-level `user_id`/`agent_id`/`run_id` arguments. `add()` accepts them top-level, but passing
+            the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
+
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
@@ -2479,6 +2583,8 @@ class AsyncMemory(MemoryBase):
 
         messages = _validate_add_messages(messages)
 
+        # TODO: Remove procedural-memory support in a future breaking release.
+        # Remove memory_type and its helpers from Memory and AsyncMemory together.
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
@@ -2682,6 +2788,10 @@ class AsyncMemory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        # Only records confirmed to be stored make it into history, entity
+        # links, and the returned results — a record the store rejected must
+        # never be reported back as a successful ADD.
+        persisted_records = []
         try:
             await asyncio.to_thread(
                 self.vector_store.insert,
@@ -2689,12 +2799,22 @@ class AsyncMemory(MemoryBase):
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            persisted_records = records
         except Exception:
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+            for rec in records:
                 try:
-                    await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
+                    await asyncio.to_thread(
+                        self.vector_store.insert, vectors=[rec[2]], ids=[rec[0]], payloads=[rec[3]]
+                    )
+                    persisted_records.append(rec)
                 except Exception as e:
-                    logger.error(f"Failed to insert memory {mid} (async): {e}")
+                    logger.error(f"Failed to insert memory {rec[0]} (async): {e}")
+
+        if not persisted_records:
+            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+            raise VectorStoreError(
+                f"Failed to insert any of the {len(records)} extracted memories into the vector store"
+            )
 
         # Batch history
         history_records = [
@@ -2706,7 +2826,7 @@ class AsyncMemory(MemoryBase):
                 "created_at": r[3].get("created_at"),
                 "is_deleted": 0,
             }
-            for r in records
+            for r in persisted_records
         ]
         try:
             await asyncio.to_thread(self.db.batch_add_history, history_records)
@@ -2722,12 +2842,12 @@ class AsyncMemory(MemoryBase):
 
         # Phase 7: Batch entity linking
         try:
-            all_texts = [r[1] for r in records]
+            all_texts = [r[1] for r in persisted_records]
             all_entities = await asyncio.to_thread(extract_entities_batch, all_texts)
 
             # 7a: Global dedup
             global_entities = {}
-            for idx, (memory_id, text, embedding, payload) in enumerate(records):
+            for idx, (memory_id, text, embedding, payload) in enumerate(persisted_records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
                     key = self._normalize_entity_text(entity_text)
@@ -2829,7 +2949,7 @@ class AsyncMemory(MemoryBase):
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in records
+            for r in persisted_records
         ]
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
@@ -3447,30 +3567,43 @@ class AsyncMemory(MemoryBase):
     async def update(
         self,
         memory_id,
-        data: Optional[str] = None,
+        text: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         expiration_date: Any = _UNSET,
+        data: Optional[str] = None,
     ):
         """
         Update a memory by ID asynchronously.
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (str, optional): New content to update the memory with.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
+                ``user_id``/``agent_id``/``run_id``/``actor_id`` are ignored here - they are
+                immutable after creation.
             expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
+            data (str, optional): Deprecated alias for ``text``. Will be removed in the next
+                major release; use ``text`` instead.
 
         Returns:
             dict: Success message indicating the memory was updated.
 
         Example:
-            >>> await m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            >>> await m.update(memory_id="mem_123", text="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
 
-        if data is None and metadata is None and expiration_date is _UNSET:
-            raise ValueError("At least one of data, metadata, or expiration_date must be provided.")
+        if data is not None:
+            logger.warning(
+                "The `data` argument to update() is deprecated and will be removed in the "
+                "next major release. Use `text` instead."
+            )
+            if text is None:
+                text = data
+
+        if text is None and metadata is None and expiration_date is _UNSET:
+            raise ValueError("At least one of text, metadata, or expiration_date must be provided.")
 
         update_metadata = deepcopy(metadata) if metadata is not None else None
         if expiration_date is not _UNSET:
@@ -3478,11 +3611,11 @@ class AsyncMemory(MemoryBase):
             update_metadata["expiration_date"] = _normalize_expiration_date(expiration_date)
 
         existing_embeddings = {}
-        if data is not None:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
-            existing_embeddings[data] = embeddings
+        if text is not None:
+            embeddings = await asyncio.to_thread(self.embedding_model.embed, text, "update")
+            existing_embeddings[text] = embeddings
 
-        await self._update_memory(memory_id, data, existing_embeddings, update_metadata)
+        await self._update_memory(memory_id, text, existing_embeddings, update_metadata)
         await display_first_run_notice_async(self, "async", "update")
         return {"message": "Memory updated successfully!"}
 
@@ -3535,26 +3668,45 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
-
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
-
-        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+        deleted_count = 0
+        errors = []
+        seen_batches = set()
+        while True:
+            memories = await asyncio.to_thread(
+                self.vector_store.list,
+                filters=filters,
+                top_k=DELETE_ALL_BATCH_SIZE,
+            )
+            batch = memories[0] if memories else []
+            if not batch:
+                break
+            batch_ids = tuple(sorted(str(memory.id) for memory in batch))
+            if batch_ids in seen_batches:
+                logger.warning("Stopping delete_all after a repeated memory batch")
+                break
+            seen_batches.add(batch_ids)
+            delete_tasks = [
+                self._delete_memory(memory.id, skip_entity_cleanup=True)
+                for memory in batch
+            ]
+            results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+            batch_errors = [
+                result for result in results if isinstance(result, BaseException)
+            ]
+            errors.extend(batch_errors)
+            deleted_count += len(results) - len(batch_errors)
 
         if self._entity_store is not None:
             await self._bulk_clear_entity_store(filters)
 
-        errors = [r for r in results if isinstance(r, BaseException)]
         if errors:
-            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
+            logger.warning("Failed to delete %d memories", len(errors))
             for err in errors:
                 logger.warning("Delete error: %s", err)
 
-        logger.info(f"Deleted {len(results) - len(errors)} memories")
+        logger.info(f"Deleted {deleted_count} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
         else:
@@ -3623,16 +3775,6 @@ class AsyncMemory(MemoryBase):
             llm (llm, optional): LLM to use for the procedural memory creation. Defaults to None.
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
-        try:
-            from langchain_core.messages.utils import (
-                convert_to_messages,  # type: ignore
-            )
-        except Exception:
-            logger.error(
-                "Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory."
-            )
-            raise
-
         logger.info("Creating procedural memory")
 
         parsed_messages = [
@@ -3643,16 +3785,35 @@ class AsyncMemory(MemoryBase):
 
         try:
             if llm is not None:
+                # langchain-core is only needed to adapt messages for a custom
+                # LangChain LLM. The default path uses self.llm and must not
+                # require the optional dependency, mirroring the sync version.
+                try:
+                    from langchain_core.messages.utils import (
+                        convert_to_messages,  # type: ignore
+                    )
+                except ImportError as e:
+                    raise ImportError(
+                        "langchain-core is required to pass a custom LLM to procedural memory. "
+                        "Install it with 'pip install langchain-core'."
+                    ) from e
+
                 parsed_messages = convert_to_messages(parsed_messages)
                 response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
                 procedural_memory = remove_code_blocks(response.content)
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
-        
+
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
+
+        if not procedural_memory:
+            raise ValueError(
+                "The LLM returned no content for the procedural memory summary. "
+                "The model may have declined the request or returned an empty response."
+            )
 
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
@@ -3688,17 +3849,13 @@ class AsyncMemory(MemoryBase):
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
-            new_metadata.update(metadata)
+            new_metadata.update(_strip_identity_keys(metadata, existing_memory.payload))
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        # actor_id is immutable after creation (issue #4490)
-        if "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -3803,6 +3960,13 @@ class AsyncMemory(MemoryBase):
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")

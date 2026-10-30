@@ -43,7 +43,7 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movie_recom
 
 <Step title="Search memories">
 ```ts
-const results = await memory.search("What do you know about me?", { filters: { userId: "alice" } });
+const results = await memory.search("What do you know about me?", { filters: { user_id: "alice" } });
 console.log(results);
 ```
 

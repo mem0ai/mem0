@@ -49,3 +49,14 @@ def test_regular_model_sends_sampling_params(mock_openai_client):
     assert "max_tokens" in call_kwargs  # standard sampling params still forwarded
     assert "top_p" in call_kwargs
     assert call_kwargs["model"] == "gpt-4o"
+
+
+def test_uses_openai_base_url_environment_variable(monkeypatch):
+    base_url = "https://gateway.example/v1"
+    monkeypatch.setenv("OPENAI_API_BASE", "https://legacy.example/v1")
+    monkeypatch.setenv("OPENAI_BASE_URL", base_url)
+
+    with patch("mem0.llms.openai_structured.OpenAI") as mock_openai:
+        OpenAIStructuredLLM(OpenAIConfig(api_key="test-api-key"))
+
+    mock_openai.assert_called_once_with(api_key="test-api-key", base_url=base_url)

@@ -36,7 +36,7 @@ icon: "bolt"
     | Search memories | `await memory.search(...)` | Returns dict with `results`, identical shape. |
     | List memories | `await memory.get_all(...)` | Filter by `user_id`, `agent_id`, `run_id`. |
     | Retrieve memory | `await memory.get(memory_id=...)` | Raises `ValueError` if ID is invalid. |
-    | Update memory | `await memory.update(memory_id=..., data=...)` | Accepts partial updates. |
+    | Update memory | `await memory.update(memory_id=..., text=...)` | Accepts partial updates. |
     | Delete memory | `await memory.delete(memory_id=...)` | Returns confirmation payload. |
     | Delete in bulk | `await memory.delete_all(...)` | Requires at least one scope filter. |
     | History | `await memory.history(memory_id=...)` | Fetches change log for auditing. |
@@ -185,7 +185,7 @@ specific_memory = await memory.get(memory_id="memory-id-here")
 # Update a memory
 updated_memory = await memory.update(
     memory_id="memory-id-here",
-    data="I'm travelling to Seattle"
+    text="I'm travelling to Seattle"
 )
 
 # Delete a memory

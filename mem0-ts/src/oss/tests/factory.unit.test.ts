@@ -40,6 +40,11 @@ jest.mock("../src/embeddings/lmstudio", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "lmstudio-embedder", config })),
 }));
+jest.mock("../src/embeddings/vertexai", () => ({
+  VertexAIEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "vertexai-embedder", config })),
+}));
 jest.mock("../src/embeddings/together", () => ({
   TogetherEmbedder: jest
     .fn()
@@ -138,6 +143,11 @@ jest.mock("../src/vector_stores/qdrant", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "qdrant", config })),
 }));
+jest.mock("../src/vector_stores/baidu", () => ({
+  BaiduDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "baidu", config })),
+}));
 jest.mock("../src/vector_stores/redis", () => ({
   RedisDB: jest
     .fn()
@@ -173,6 +183,17 @@ jest.mock("../src/vector_stores/pgvector", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "pgvector", config })),
 }));
+jest.mock("../src/vector_stores/databricks", () => ({
+  DatabricksVectorStore: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "databricks", config })),
+}));
+jest.mock("../src/vector_stores/neptune_analytics", () => ({
+  NeptuneAnalyticsVectorStore: jest.fn().mockImplementation((config) => ({
+    type: "neptune-analytics",
+    config,
+  })),
+}));
 jest.mock("../src/vector_stores/upstash_vector", () => ({
   UpstashVector: jest
     .fn()
@@ -192,6 +213,11 @@ jest.mock("../src/vector_stores/s3_vectors", () => ({
   S3Vectors: jest
     .fn()
     .mockImplementation((config) => ({ type: "s3-vectors", config })),
+}));
+jest.mock("../src/vector_stores/weaviate", () => ({
+  WeaviateDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "weaviate", config })),
 }));
 jest.mock("../src/storage/SupabaseHistoryManager", () => ({
   SupabaseHistoryManager: jest
@@ -231,6 +257,7 @@ describe("EmbedderFactory", () => {
     ["fastembed"],
     ["langchain"],
     ["lmstudio"],
+    ["vertexai"],
     ["together"],
   ])("creates embedder for provider '%s'", (provider) => {
     expect(() =>
@@ -315,6 +342,7 @@ describe("VectorStoreFactory", () => {
   });
 
   test.each([
+    ["baidu"],
     ["qdrant"],
     ["redis"],
     ["valkey"],
@@ -323,15 +351,42 @@ describe("VectorStoreFactory", () => {
     ["vectorize"],
     ["azure-ai-search"],
     ["pgvector"],
+    ["databricks"],
+    ["neptune"],
+    ["neptune-analytics"],
     ["upstash_vector"],
     ["azure_mysql"],
     ["cassandra"],
     ["s3-vectors"],
     ["s3_vectors"],
+    ["weaviate"],
   ])("creates vector store for provider '%s'", (provider) => {
-    expect(() =>
-      VectorStoreFactory.create(provider, dummyVSConfig),
-    ).not.toThrow();
+    const result = VectorStoreFactory.create(provider, dummyVSConfig) as any;
+    expect(result.config).toBe(dummyVSConfig);
+  });
+
+  test("passes Neptune endpoint URI config through the factory", () => {
+    const config = {
+      collectionName: "test",
+      dimension: 4,
+      endpoint: "neptune-graph://g-1234567890",
+      region: "us-east-1",
+    };
+    const store = VectorStoreFactory.create("neptune", config) as any;
+
+    expect(store.config).toEqual(config);
+  });
+
+  test("keeps neptune-analytics as a compatibility alias", () => {
+    const config = {
+      collectionName: "test",
+      dimension: 4,
+      endpoint: "neptune-graph://g-1234567890",
+      region: "us-east-1",
+    };
+    const store = VectorStoreFactory.create("neptune-analytics", config) as any;
+
+    expect(store.config).toEqual(config);
   });
 
   test("throws for unsupported provider", () => {

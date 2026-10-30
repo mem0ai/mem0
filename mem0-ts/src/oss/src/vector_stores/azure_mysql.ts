@@ -1,7 +1,7 @@
-import { createPool } from "mysql2/promise";
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 const SAFE_IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]{0,127}$/;
 
@@ -92,6 +92,14 @@ export class AzureMySQLDB implements VectorStore {
           rejectUnauthorized: true,
           ...(this.config.sslCa ? { ca: this.config.sslCa } : {}),
         };
+
+    // Loaded dynamically: mysql2 is an optional peer dependency, so a static value import
+    // would break `import { Memory } from "mem0ai/oss"` for everyone else.
+    const { createPool }: typeof import("mysql2/promise") = await loadPeer(
+      "mysql2",
+      "Azure MySQL vector store",
+      () => import("mysql2/promise"),
+    );
 
     this.pool = createPool({
       host: this.config.host,

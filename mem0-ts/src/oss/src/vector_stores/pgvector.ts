@@ -1,8 +1,11 @@
 import type { Client as ClientType, ClientConfig } from "pg";
-import pkg from "pg";
-const { Client, escapeIdentifier } = pkg;
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
+
+function escapeIdentifier(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}
 
 const SAFE_IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]{0,127}$/;
 
@@ -212,7 +215,7 @@ function buildClientConfig(
 }
 
 export class PGVector implements VectorStore {
-  private client: ClientType;
+  private client!: ClientType;
   private collectionName: string;
   private useDiskann: boolean;
   private useHnsw: boolean;
@@ -234,13 +237,6 @@ export class PGVector implements VectorStore {
       ? ""
       : validateIdentifier(config.dbname || "vector_store", "dbname");
     this.config = config;
-
-    this.client = new Client(
-      buildClientConfig(
-        config,
-        this.useDirectConnection ? undefined : "postgres",
-      ),
-    );
     this.initialize().catch(console.error);
   }
 
@@ -257,6 +253,18 @@ export class PGVector implements VectorStore {
 
   private async _doInitialize(): Promise<void> {
     try {
+      const pg = await loadPeer(
+        "pg",
+        "PGVector vector store",
+        () => import("pg"),
+      );
+      const { Client } = pg.default ?? pg;
+      this.client = new Client(
+        buildClientConfig(
+          this.config,
+          this.useDirectConnection ? undefined : "postgres",
+        ),
+      );
       await this.client.connect();
 
       if (!this.useDirectConnection) {
@@ -345,6 +353,7 @@ export class PGVector implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    await this.initialize();
     const values = vectors.map((vector, i) => ({
       id: ids[i],
       vector: `[${vector.join(",")}]`,
@@ -368,6 +377,7 @@ export class PGVector implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
+    await this.initialize();
     try {
       const {
         conditions,
@@ -406,6 +416,7 @@ export class PGVector implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
+    await this.initialize();
     const queryVector = `[${query.join(",")}]`;
     const {
       conditions,
@@ -435,6 +446,7 @@ export class PGVector implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    await this.initialize();
     const result = await this.client.query(
       `SELECT id, payload FROM ${this.col()} WHERE id = $1`,
       [vectorId],
@@ -453,6 +465,7 @@ export class PGVector implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    await this.initialize();
     const vectorStr = `[${vector.join(",")}]`;
     await this.client.query(
       `
@@ -465,12 +478,14 @@ export class PGVector implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
+    await this.initialize();
     await this.client.query(`DELETE FROM ${this.col()} WHERE id = $1`, [
       vectorId,
     ]);
   }
 
   async deleteCol(): Promise<void> {
+    await this.initialize();
     await this.client.query(`DROP TABLE IF EXISTS ${this.col()}`);
   }
 
@@ -487,6 +502,7 @@ export class PGVector implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    await this.initialize();
     const {
       conditions,
       values: filterValues,
@@ -525,10 +541,11 @@ export class PGVector implements VectorStore {
   }
 
   async close(): Promise<void> {
-    await this.client.end();
+    await this.client?.end();
   }
 
   async getUserId(): Promise<string> {
+    await this.initialize();
     const result = await this.client.query(
       "SELECT user_id FROM memory_migrations LIMIT 1",
     );
@@ -549,6 +566,7 @@ export class PGVector implements VectorStore {
   }
 
   async setUserId(userId: string): Promise<void> {
+    await this.initialize();
     await this.client.query("DELETE FROM memory_migrations");
     await this.client.query(
       "INSERT INTO memory_migrations (user_id) VALUES ($1)",
