@@ -228,3 +228,52 @@ def test_update_entity_payload_without_hash_and_timestamps():
     assert data_dict["hash"] == ""
     assert data_dict["created_at"] == 0
     assert data_dict["updated_at"] == 0
+
+
+def test_search_wildcard_filter_means_field_exists():
+    """The documented '*' filter value means "the field exists" (#6539).
+    Tag equality escapes the star into a literal '\\*' tag that matches
+    nothing; it must become a tag wildcard query instead."""
+    db, mock_index = _make_redis_db()
+    mock_index.query.return_value = []
+
+    db.search("query", [0.1, 0.2, 0.3, 0.4], filters={"agent_id": "*"})
+
+    vector_query = mock_index.query.call_args[0][0]
+    assert str(vector_query.filter) == "@agent_id:{w'*'}"
+
+
+def test_search_wildcard_combines_with_tag_equality():
+    db, mock_index = _make_redis_db()
+    mock_index.query.return_value = []
+
+    db.search("query", [0.1, 0.2, 0.3, 0.4], filters={"user_id": "alice", "agent_id": "*"})
+
+    vector_query = mock_index.query.call_args[0][0]
+    assert str(vector_query.filter) == "(@user_id:{alice} @agent_id:{w'*'})"
+
+
+def test_keyword_search_wildcard_filter_means_field_exists():
+    db, mock_index = _make_redis_db()
+    mock_index.query.return_value = []
+
+    db.keyword_search("query", filters={"agent_id": "*"})
+
+    text_query = mock_index.query.call_args[0][0]
+    assert str(text_query.filter) == "@agent_id:{w'*'}"
+
+
+def test_list_wildcard_filter_means_field_exists():
+    """list() builds a raw redis-py Query, which does not send DIALECT by
+    default; the w'...' wildcard syntax requires dialect 2."""
+    db, mock_index = _make_redis_db()
+    mock_index.search.return_value = MagicMock(docs=[])
+
+    db.list(filters={"agent_id": "*"})
+
+    query = mock_index.search.call_args[0][0]
+    assert query.query_string() == "@agent_id:{w'*'}"
+    args = query.get_args()
+    assert "DIALECT" in args
+    assert args[args.index("DIALECT") + 1] == 2
+

@@ -9,7 +9,7 @@ import redis
 from redis.commands.search.query import Query
 from redisvl.index import SearchIndex
 from redisvl.query import TextQuery, VectorQuery
-from redisvl.query.filter import Tag
+from redisvl.query.filter import FilterExpression, Tag
 
 from mem0.memory.utils import extract_json
 from mem0.vector_stores.base import VectorStoreBase
@@ -36,6 +36,21 @@ DEFAULT_FIELDS = [
 ]
 
 excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
+
+
+def _filter_condition(key, value):
+    """Translate a single metadata filter into a redisvl filter expression.
+
+    The documented '*' filter value means "the field exists, regardless of
+    value". Tag equality escapes the star into a literal '\\*' tag that
+    matches nothing, so build a tag wildcard query instead — it matches any
+    record with a non-empty value for the field (RediSearch does not index
+    missing or empty tag values). The w'...' wildcard syntax requires query
+    dialect 2, redisvl's default.
+    """
+    if value == "*":
+        return FilterExpression(f"@{key}:{{w'*'}}")
+    return Tag(key) == value
 
 
 class MemoryResult:
@@ -148,7 +163,7 @@ class RedisDB(VectorStoreBase):
     def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None):
         filter = None
         if filters:
-            conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
+            conditions = [_filter_condition(key, value) for key, value in filters.items() if value is not None]
             if conditions:
                 filter = reduce(lambda x, y: x & y, conditions)
 
@@ -202,7 +217,7 @@ class RedisDB(VectorStoreBase):
         """
         filter_expression = None
         if filters:
-            conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
+            conditions = [_filter_condition(key, value) for key, value in filters.items() if value is not None]
             if conditions:
                 filter_expression = reduce(lambda x, y: x & y, conditions)
 
@@ -327,10 +342,15 @@ class RedisDB(VectorStoreBase):
         """
         filter = None
         if filters:
-            conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
+            conditions = [_filter_condition(key, value) for key, value in filters.items() if value is not None]
             if conditions:
                 filter = reduce(lambda x, y: x & y, conditions)
         query = Query(str(filter) if filter is not None else "*").sort_by("created_at", asc=False)
+        if filters and any(value == "*" for value in filters.values()):
+            # The w'...' wildcard syntax needs query dialect 2. redisvl queries
+            # default to it, but redis-py's raw Query does not send DIALECT at
+            # all in the supported <6.0 range, leaving the server default (1).
+            query = query.dialect(2)
         if top_k is not None:
             query = query.paging(0, top_k)
 
