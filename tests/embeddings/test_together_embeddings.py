@@ -85,3 +85,29 @@ def test_explicit_config_overrides_defaults(mock_together_client):
     mock_together_client.embeddings.create.return_value = Mock(data=[Mock(embedding=[0.0] * 768)])
     embedder.embed("hello")
     mock_together_client.embeddings.create.assert_called_once_with(model="BAAI/bge-base-en-v1.5", input="hello")
+
+
+def test_together_embedding_base_url(monkeypatch):
+    # case1: default config uses Together's official base url
+    monkeypatch.delenv("TOGETHER_API_BASE", raising=False)
+    config = BaseEmbedderConfig(model=DEFAULT_MODEL, embedding_dims=DEFAULT_EMBEDDING_DIMS, api_key="api_key")
+    embedder = TogetherEmbedding(config)
+    assert str(embedder.client.base_url) == "https://api.together.ai/v1/"
+
+    # case2: with env variable TOGETHER_API_BASE
+    provider_base_url = "https://api.provider.com/v1/"
+    monkeypatch.setenv("TOGETHER_API_BASE", provider_base_url)
+    config = BaseEmbedderConfig(model=DEFAULT_MODEL, embedding_dims=DEFAULT_EMBEDDING_DIMS, api_key="api_key")
+    embedder = TogetherEmbedding(config)
+    assert str(embedder.client.base_url) == provider_base_url
+
+    # case3: with config.together_base_url (explicit config beats env var)
+    config_base_url = "https://api.config.com/v1/"
+    config = BaseEmbedderConfig(
+        model=DEFAULT_MODEL,
+        embedding_dims=DEFAULT_EMBEDDING_DIMS,
+        api_key="api_key",
+        together_base_url=config_base_url,
+    )
+    embedder = TogetherEmbedding(config)
+    assert str(embedder.client.base_url) == config_base_url
