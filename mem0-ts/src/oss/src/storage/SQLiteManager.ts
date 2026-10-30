@@ -1,17 +1,36 @@
-import Database from "better-sqlite3";
+import type Database from "better-sqlite3";
 import { randomUUID } from "crypto";
 import { HistoryManager } from "./base";
-import { ensureSQLiteDirectory } from "../utils/sqlite";
+import { openSQLiteDatabase } from "../utils/sqlite";
 
 export class SQLiteManager implements HistoryManager {
-  private db: Database.Database;
+  private db!: Database.Database;
   private stmtInsert!: Database.Statement;
   private stmtSelect!: Database.Statement;
+  private readonly dbPath: string;
+  private opening?: Promise<void>;
 
   constructor(dbPath: string) {
-    ensureSQLiteDirectory(dbPath);
-    this.db = new Database(dbPath);
-    this.init();
+    this.dbPath = dbPath;
+  }
+
+  private ensureOpen(): Promise<void> {
+    if (!this.opening) {
+      this.opening = openSQLiteDatabase(
+        this.dbPath,
+        "SQLite history store",
+      ).then(
+        (db) => {
+          this.db = db;
+          this.init();
+        },
+        (error) => {
+          this.opening = undefined;
+          throw error;
+        },
+      );
+    }
+    return this.opening;
   }
 
   private init(): void {
@@ -56,6 +75,7 @@ export class SQLiteManager implements HistoryManager {
     updatedAt?: string,
     isDeleted: number = 0,
   ): Promise<void> {
+    await this.ensureOpen();
     this.stmtInsert.run(
       memoryId,
       previousValue,
@@ -68,6 +88,7 @@ export class SQLiteManager implements HistoryManager {
   }
 
   async getHistory(memoryId: string): Promise<any[]> {
+    await this.ensureOpen();
     return this.stmtSelect.all(memoryId) as any[];
   }
 
@@ -76,6 +97,7 @@ export class SQLiteManager implements HistoryManager {
     sessionScope: string,
   ): Promise<void> {
     if (!messages.length) return;
+    await this.ensureOpen();
 
     const insertMsg = this.db.prepare(
       `INSERT INTO messages (id, session_scope, role, content, name, created_at)
@@ -113,6 +135,7 @@ export class SQLiteManager implements HistoryManager {
   ): Promise<
     Array<{ role: string; content: string; name?: string; createdAt: string }>
   > {
+    await this.ensureOpen();
     const rows = this.db
       .prepare(
         `SELECT role, content, name, created_at FROM (
@@ -149,6 +172,7 @@ export class SQLiteManager implements HistoryManager {
       isDeleted?: number;
     }>,
   ): Promise<void> {
+    await this.ensureOpen();
     const txn = this.db.transaction(() => {
       for (const record of records) {
         this.stmtInsert.run(
@@ -166,12 +190,13 @@ export class SQLiteManager implements HistoryManager {
   }
 
   async reset(): Promise<void> {
+    await this.ensureOpen();
     this.db.exec("DROP TABLE IF EXISTS memory_history");
     this.db.exec("DROP TABLE IF EXISTS messages");
     this.init();
   }
 
   close(): void {
-    this.db.close();
+    this.db?.close();
   }
 }

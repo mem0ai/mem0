@@ -1,11 +1,11 @@
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
-import Database from "better-sqlite3";
+import type Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import {
-  ensureSQLiteDirectory,
   getDefaultVectorStoreDbPath,
+  openSQLiteDatabase,
 } from "../utils/sqlite";
 
 interface MemoryVector {
@@ -15,9 +15,10 @@ interface MemoryVector {
 }
 
 export class MemoryVectorStore implements VectorStore {
-  private db: Database.Database;
+  private db!: Database.Database;
   private dimension: number;
   private dbPath: string;
+  private opening?: Promise<void>;
 
   private static readonly CAMEL_TO_SNAKE: Record<string, string> = {
     userId: "user_id",
@@ -50,10 +51,25 @@ export class MemoryVectorStore implements VectorStore {
         );
       }
     }
+  }
 
-    ensureSQLiteDirectory(this.dbPath);
-    this.db = new Database(this.dbPath);
-    this.init();
+  private ensureOpen(): Promise<void> {
+    if (!this.opening) {
+      this.opening = openSQLiteDatabase(
+        this.dbPath,
+        "memory vector store",
+      ).then(
+        (db) => {
+          this.db = db;
+          this.init();
+        },
+        (error) => {
+          this.opening = undefined;
+          throw error;
+        },
+      );
+    }
+    return this.opening;
   }
 
   private init(): void {
@@ -225,6 +241,7 @@ export class MemoryVectorStore implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    await this.ensureOpen();
     const stmt = this.db.prepare(
       `INSERT OR REPLACE INTO vectors (id, vector, payload) VALUES (?, ?, ?)`,
     );
@@ -253,6 +270,7 @@ export class MemoryVectorStore implements VectorStore {
     topK: number = 10,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
+    await this.ensureOpen();
     try {
       const rows = this.db.prepare(`SELECT * FROM vectors`).all() as any[];
 
@@ -359,6 +377,7 @@ export class MemoryVectorStore implements VectorStore {
         `Query dimension mismatch. Expected ${this.dimension}, got ${query.length}`,
       );
     }
+    await this.ensureOpen();
 
     const rows = this.db.prepare(`SELECT * FROM vectors`).all() as any[];
     const results: VectorStoreResult[] = [];
@@ -391,6 +410,7 @@ export class MemoryVectorStore implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    await this.ensureOpen();
     const row = this.db
       .prepare(`SELECT * FROM vectors WHERE id = ?`)
       .get(vectorId) as any;
@@ -413,6 +433,7 @@ export class MemoryVectorStore implements VectorStore {
         `Vector dimension mismatch. Expected ${this.dimension}, got ${vector.length}`,
       );
     }
+    await this.ensureOpen();
     const vectorBuffer = Buffer.from(new Float32Array(vector).buffer);
     const result = this.db
       .prepare(`UPDATE vectors SET vector = ?, payload = ? WHERE id = ?`)
@@ -421,10 +442,12 @@ export class MemoryVectorStore implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
+    await this.ensureOpen();
     this.db.prepare(`DELETE FROM vectors WHERE id = ?`).run(vectorId);
   }
 
   async deleteCol(): Promise<void> {
+    await this.ensureOpen();
     this.db.exec(`DROP TABLE IF EXISTS vectors`);
     this.init();
   }
@@ -433,6 +456,7 @@ export class MemoryVectorStore implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    await this.ensureOpen();
     const rows = this.db.prepare(`SELECT * FROM vectors`).all() as any[];
     const results: VectorStoreResult[] = [];
 
@@ -462,6 +486,7 @@ export class MemoryVectorStore implements VectorStore {
   }
 
   async getUserId(): Promise<string> {
+    await this.ensureOpen();
     const row = this.db
       .prepare(`SELECT user_id FROM memory_migrations LIMIT 1`)
       .get() as any;
@@ -480,6 +505,7 @@ export class MemoryVectorStore implements VectorStore {
   }
 
   async setUserId(userId: string): Promise<void> {
+    await this.ensureOpen();
     this.db.prepare(`DELETE FROM memory_migrations`).run();
     this.db
       .prepare(`INSERT INTO memory_migrations (user_id) VALUES (?)`)
@@ -487,6 +513,6 @@ export class MemoryVectorStore implements VectorStore {
   }
 
   async initialize(): Promise<void> {
-    this.init();
+    await this.ensureOpen();
   }
 }
