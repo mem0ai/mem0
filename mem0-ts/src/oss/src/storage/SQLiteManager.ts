@@ -81,10 +81,13 @@ export class SQLiteManager implements HistoryManager {
       `INSERT INTO messages (id, session_scope, role, content, name, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
     );
+    // A batched save stamps one created_at on every row, so ordering by
+    // created_at ties and SQLite falls back to retaining the oldest rows.
+    // Order by rowid (insertion order) to keep the newest instead.
     const evict = this.db.prepare(
       `DELETE FROM messages WHERE session_scope = ? AND id NOT IN (
          SELECT id FROM (
-           SELECT id FROM messages WHERE session_scope = ? ORDER BY created_at DESC LIMIT 10
+           SELECT id FROM messages WHERE session_scope = ? ORDER BY rowid DESC LIMIT 10
          )
        )`,
     );
@@ -113,15 +116,17 @@ export class SQLiteManager implements HistoryManager {
   ): Promise<
     Array<{ role: string; content: string; name?: string; createdAt: string }>
   > {
+    // rowid (insertion order) avoids created_at ties within a batched save; it
+    // is selected in the inner query so the outer ORDER BY rowid can resolve it.
     const rows = this.db
       .prepare(
         `SELECT role, content, name, created_at FROM (
-           SELECT role, content, name, created_at
+           SELECT rowid, role, content, name, created_at
            FROM messages
            WHERE session_scope = ?
-           ORDER BY created_at DESC
+           ORDER BY rowid DESC
            LIMIT ?
-         ) ORDER BY created_at ASC`,
+         ) ORDER BY rowid ASC`,
       )
       .all(sessionScope, limit) as Array<{
       role: string;
