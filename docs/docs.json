@@ -87,7 +87,8 @@
                           "platform/advanced-memory-operations",
                           "platform/features/custom-instructions",
                           "platform/features/memory-decay",
-                          "platform/features/dream"
+                          "platform/features/dream",
+                          "platform/features/byok"
                         ]
                       },
                       {
@@ -115,7 +116,8 @@
                     "group": "Support",
                     "icon": "life-buoy",
                     "pages": [
-                      "platform/faqs"
+                      "platform/faqs",
+                      "platform/pricing"
                     ]
                   },
                   {

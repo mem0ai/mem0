@@ -1,0 +1,126 @@
+---
+title: "Bring Your Own Key (BYOK)"
+sidebarTitle: "BYOK"
+description: "Run memory creation on your own LLM provider and model, billed to your own API key."
+---
+
+## Overview
+
+With Bring Your Own Key (BYOK), Mem0 runs the LLM calls that turn your messages into memories on a model you choose, using your own API key. Mem0 sends your message text to that provider under your account, and your provider bills you directly. If your key stops working, Mem0 doesn't switch to its own key. The add fails and shows why. Embeddings, search and reranking still run on Mem0.
+
+## Where to find it
+
+BYOK is set per organization, in **Settings → BYOK** in the [Mem0 dashboard](https://app.mem0.ai/dashboard/settings?tab=org-llm). Only organization owners see this tab. One key covers every project in the organization.
+
+<Note>
+  Organizations created through the Vercel Marketplace are managed from Vercel and can't use BYOK.
+</Note>
+
+## Supported providers
+
+| Provider | What you need | Model |
+|---|---|---|
+| OpenAI | An OpenAI API key | Pick from the list or enter any OpenAI model ID. GPT-6 Luna is recommended for best value. |
+| Anthropic | An Anthropic API key | Pick from the list or enter any Claude model ID. Claude Haiku 5.5 is recommended for best value. |
+| OpenRouter | An OpenRouter API key | Pick from the list or enter any OpenRouter model ID, such as `deepseek/deepseek-v4.1-flash`. DeepSeek V4.1 Flash is recommended for best value. |
+| Azure OpenAI | An API key and your endpoint URL | Your deployment name |
+
+For Azure OpenAI, use your resource's endpoint from the Azure portal, such as `https://your-resource.openai.azure.com/`.
+
+## Set up BYOK
+
+<Steps>
+<Step title="Open the BYOK tab">
+Go to **Settings → BYOK** in the dashboard.
+</Step>
+<Step title="Choose a provider">
+Pick OpenAI, Anthropic, OpenRouter or Azure OpenAI from the **Provider** list.
+</Step>
+<Step title="Choose a model">
+The **Model** list shows the models we tested, with a **Recommended** tag on our pick for that provider. Under the model, the tab shows its estimated cost per 1,000 adds on your provider account.
+
+To use a model that isn't in the list, choose **Other model ID** and type the model ID exactly as your provider names it. For Azure OpenAI, type your deployment name in **Deployment / Model**.
+</Step>
+<Step title="Paste your API key">
+Paste your key into **API key**. For Azure OpenAI, also fill in **Endpoint URL**.
+</Step>
+<Step title="Save the key">
+Click **Save key**. Mem0 sends a short test request to your provider with your key and model, then saves them. When the test passes, the top of the tab shows your provider and model, such as **Running on OpenAI · gpt-6-luna**.
+</Step>
+</Steps>
+
+Mem0 encrypts your key and never shows it again. To change only the model, pick the new model and leave **API key** empty to keep the saved key. To stop using BYOK, click **Remove key**. New adds then run on Mem0's default model, within your plan's limits.
+
+## Errors and rate limits
+
+### When you save a key
+
+If the test request finds one of these problems, Mem0 doesn't save the key:
+
+| Message | What to check |
+|---|---|
+| The provider rejected the API key. Double-check the key and try again. | The key is wrong, revoked, or from a different provider. |
+| The provider couldn't find that model or deployment. Double-check the Model name and try again. | The model ID is misspelled, your account can't use that model, or the Azure deployment doesn't exist on that resource. |
+| Could not reach the endpoint. Double-check the Endpoint URL and try again. | The Azure OpenAI **Endpoint URL** is misspelled, doesn't exist, or isn't reachable. |
+| The Endpoint URL responded unexpectedly (HTTP …). Double-check the Endpoint URL and try again. | The Azure OpenAI **Endpoint URL** doesn't point to an Azure OpenAI resource. |
+| Could not reach the provider. Try again in a moment. | Mem0 couldn't connect to your provider. This is usually brief. |
+| The provider responded unexpectedly (HTTP …). Try again in a moment. | Your provider returned an error Mem0 didn't expect. |
+
+Some problems don't stop the save, because they can be fixed on your provider's side without changing anything in Mem0. In that case Mem0 saves the key and shows a warning at the top of the tab that names your provider. For example, with an OpenAI key:
+
+- **No credit:** "Key saved, but OpenAI says this account has no credit. Adds will fail until you add credit with OpenAI."
+- **Rate limited:** "Key saved, but OpenAI is rate limiting requests right now. Adds may fail until the limit resets."
+
+After you add credit or the limit resets, click **Check again** to run the test again on the saved key.
+
+### When an add fails
+
+Adds run in the background. Each add returns an `event_id`, and you can follow it with [Get Event](/api-reference/events/get-event). When an add fails for one of the reasons below, the event ends as `FAILED` and its `error` field says why:
+
+```json
+{
+  "id": "6f1d3a2e-8c4b-4f6a-9d2e-1b7c5a9e0f42",
+  "event_type": "ADD",
+  "status": "FAILED",
+  "error": "The configured LLM provider account is out of quota or credits."
+}
+```
+
+| `error` | What to do |
+|---|---|
+| The configured LLM provider rejected the API credentials. | Save a valid key in **Settings → BYOK**. |
+| The configured LLM provider account is out of quota or credits. | Add credit with your provider. |
+| The configured LLM model or deployment was not found. | Pick a model your account can use, or fix the Azure deployment name. |
+| The configured LLM provider returned a response that could not be parsed. | Switch to a model from the **Model** list. This model replied in a format Mem0 couldn't read. |
+| The configured LLM credentials could not be read. Please re-save your provider settings. | Save your key again in **Settings → BYOK**. |
+| Input exceeds the model's context window. | Send shorter messages, or pick a model with a larger context window. |
+
+In the dashboard, open the failed add on the **Requests** page to see the same reason. Mem0 doesn't retry these adds, so send them again after you fix the cause.
+
+### Rate limits and temporary errors
+
+When your provider rate limits a request, times out or returns a server error, Mem0 retries it automatically, so the add can take longer to finish. If this happens often, raise the rate limits on your provider account.
+
+## Choose a model
+
+Three things decide which model fits:
+
+- **Accuracy:** how well the memories a model writes answer questions later.
+- **Cost:** what your provider charges for the calls behind one add.
+- **Latency:** how long it takes from sending an add until its memories show up in search.
+
+We measured these on [LoCoMo](https://github.com/snap-research/locomo), a public benchmark of long conversations, for a limited set of popular models. Your own data can give different results. Based on what we measured, these are our picks: **Best value** balances accuracy and price, **Best under \$1** is the most accurate model under \$1 per 1,000 add requests, and **Best quality** has the highest accuracy.
+
+<Frame>
+  <img src="/images/platform/byok-picks.png" alt="The three picks. Best value: DeepSeek V4.1 Flash, open weights, on OpenRouter: 92.9% accuracy, $5.34 per 1,000 add requests, 18.5 s latency at p95. Best under $1: Amazon Nova Micro, closed, on OpenRouter: 88.0% accuracy, $0.86 per 1,000 add requests, 10.2 s latency at p95. Best quality: Claude Opus 5.5, closed, on Anthropic, OpenRouter: 93.5% accuracy, $158.55 per 1,000 add requests, 18.1 s latency at p95." />
+</Frame>
+
+<Note>
+The latency above is for adds, which run asynchronously: the add call returns an event ID right away, and the memories become searchable once processing finishes. Search doesn't use your model, and its server-side latency is about 270 ms at p50 and 640 ms at p95.
+</Note>
+
+Accuracy against cost for every model we tested. The green line marks the best accuracy available at each price, the gold area holds the models under $2 per 1,000 add requests, and the gray dashed line is Mem0's default model, at 92.5%.
+
+<Frame>
+  <img src="/images/platform/byok-accuracy-vs-cost.png" alt="Scatter chart of accuracy against cost per 1,000 add requests on a log scale, one ring per model, each labelled with its accuracy. Mistral Nemo sits at the far left at $0.68 and 84.1%; Claude Opus 5.5 at the far right at $158.55 and 93.5%. A dashed gray line marks Mem0's default model (free tier) at 92.5%. A green shaded region holds the models above it for under $10 per 1,000 add requests, a gold one the models under $2 per 1,000 add requests, and a dashed green line marks the best accuracy available at each price. Tags mark our picks: best value, DeepSeek V4.1 Flash; best under $1, Amazon Nova Micro; best quality, Claude Opus 5.5." />
+</Frame>
