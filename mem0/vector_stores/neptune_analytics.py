@@ -240,6 +240,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         # The restore assumes a single writer per vector_id -- concurrent updates to the same node
         # can interleave and clobber each other's compensation. AWS advises against concurrent
         # same-vertex writes to the Neptune Analytics vector index for exactly this reason.
+        updated = None
         prior_properties = None
         if payload and vector:
             prior = self.get(vector_id)
@@ -259,8 +260,9 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             MATCH (n :{self.collection_name})
                 WHERE id(n) = $vector_id
                 SET n = $properties
+                RETURN id(n) AS id
             """
-            self.execute_query(query_string_embedding, para_payload)
+            updated = bool(self.execute_query(query_string_embedding, para_payload))
 
         if vector:
             para_embedding = {
@@ -302,6 +304,8 @@ class NeptuneAnalyticsVector(VectorStoreBase):
                             "after a failed vector upsert"
                         )
                 raise
+            updated = bool(result)
+        return updated
 
 
     

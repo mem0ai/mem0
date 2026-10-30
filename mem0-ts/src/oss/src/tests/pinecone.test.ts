@@ -9,12 +9,13 @@
 // so `beforeEach` can reach them before the lazy import has fired; the factory,
 // which runs on first use, just returns a reference to the Pinecone class mock.
 const upsert = jest.fn().mockResolvedValue(undefined);
+const update = jest.fn().mockResolvedValue(undefined);
 const query = jest.fn().mockResolvedValue({ matches: [] });
 const fetch = jest.fn().mockResolvedValue({ records: {} });
 const deleteOne = jest.fn().mockResolvedValue(undefined);
 const deleteAll = jest.fn().mockResolvedValue(undefined);
 
-const nsHandle = { upsert, query, fetch, deleteOne, deleteAll };
+const nsHandle = { upsert, update, query, fetch, deleteOne, deleteAll };
 const namespace = jest.fn().mockReturnValue(nsHandle);
 
 const describeIndexStats = jest
@@ -26,6 +27,7 @@ const indexHandle = {
   describeIndexStats,
   // expose ops directly for the no-namespace path
   upsert,
+  update,
   query,
   fetch,
   deleteOne,
@@ -45,6 +47,7 @@ const Pinecone = jest.fn().mockImplementation(() => ({
 
 const __mocks__ = {
   upsert,
+  update,
   query,
   fetch,
   deleteOne,
@@ -104,6 +107,7 @@ beforeEach(() => {
 
   const nsHandle = {
     upsert: __mocks__.upsert,
+    update: __mocks__.update,
     query: __mocks__.query,
     fetch: __mocks__.fetch,
     deleteOne: __mocks__.deleteOne,
@@ -114,6 +118,7 @@ beforeEach(() => {
     namespace: __mocks__.namespace,
     describeIndexStats: __mocks__.describeIndexStats,
     upsert: __mocks__.upsert,
+    update: __mocks__.update,
     query: __mocks__.query,
     fetch: __mocks__.fetch,
     deleteOne: __mocks__.deleteOne,
@@ -399,14 +404,27 @@ describe("get", () => {
 });
 
 describe("update", () => {
-  it("upserts a single record", async () => {
+  it("updates by id and never upserts", async () => {
     const db = await initDb();
-    await db.update("vec-1", [1, 2, 3, 4], { text: "updated" });
-    expect(__mocks__.upsert).toHaveBeenCalledWith({
-      records: [
-        { id: "vec-1", values: [1, 2, 3, 4], metadata: { text: "updated" } },
-      ],
+    await expect(
+      db.update("vec-1", [1, 2, 3, 4], { text: "updated" }),
+    ).resolves.toBeUndefined();
+    expect(__mocks__.update).toHaveBeenCalledWith({
+      id: "vec-1",
+      values: [1, 2, 3, 4],
+      metadata: { text: "updated" },
     });
+    expect(__mocks__.upsert).not.toHaveBeenCalled();
+  });
+
+  it("payload-only update leaves the vector values alone", async () => {
+    const db = await initDb();
+    await db.update("vec-1", null as any, { text: "renamed" });
+    expect(__mocks__.update).toHaveBeenCalledWith({
+      id: "vec-1",
+      metadata: { text: "renamed" },
+    });
+    expect(__mocks__.upsert).not.toHaveBeenCalled();
   });
 });
 

@@ -367,7 +367,7 @@ class GoogleMatchingEngine(VectorStoreBase):
 
         except google.api_core.exceptions.GoogleAPIError as e:
             logger.error("API error during update: %s", str(e))
-            return False
+            raise
         except Exception as e:
             logger.error("Unexpected error during update: %s", str(e))
             logger.error("Stack trace: %s", traceback.format_exc())

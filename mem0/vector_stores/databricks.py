@@ -653,6 +653,12 @@ class Databricks(VectorStoreBase):
 
             if response.status.state.value == "SUCCEEDED":
                 logger.info(f"Successfully updated vector with ID {vector_id}")
+                # A Delta UPDATE returns one num_affected_rows row; without that we cannot tell, so return None.
+                schema = response.manifest.schema if response.manifest else None
+                rows = response.result.data_array if response.result else None
+                if schema and schema.columns and schema.columns[0].name == "num_affected_rows" and rows and rows[0]:
+                    if str(rows[0][0]).isdigit():
+                        return int(rows[0][0]) > 0
             else:
                 logger.error(f"Failed to update vector with ID {vector_id}: {response.status.error}")
         except Exception as e:

@@ -16,8 +16,9 @@ class TestPGVector(unittest.TestCase):
         """Set up test fixtures."""
         self.mock_conn = MagicMock()
         self.mock_cursor = MagicMock()
+        self.mock_cursor.rowcount = 1
         self.mock_conn.cursor.return_value = self.mock_cursor
-        
+
         # Mock connection pool
         self.mock_pool_psycopg2 = MagicMock()
         self.mock_pool_psycopg2.getconn.return_value = self.mock_conn
@@ -2121,6 +2122,43 @@ class TestPGVector(unittest.TestCase):
         payload_update_calls = [call for call in self.mock_cursor.execute.call_args_list
                                if "UPDATE" in str(call) and "SET payload" in str(call)]
         self.assertTrue(len(payload_update_calls) > 0, "Empty payload {} should still trigger UPDATE")
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_update_reports_whether_the_record_exists(self, mock_get_cursor, mock_connection_pool):
+        """update() returns False for a missing ID without inserting, and True for an existing ID."""
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        self.mock_cursor.fetchall.return_value = [("test_collection",)]
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+
+        self.mock_cursor.rowcount = 0
+        self.assertIs(pgvector.update("missing-id", vector=[0.1, 0.2, 0.3], payload={"data": "x"}), False)
+        statements = [str(c.args[0]) for c in self.mock_cursor.execute.call_args_list]
+        self.assertFalse([s for s in statements if "INSERT" in s or "ON CONFLICT" in s])
+
+        self.mock_cursor.rowcount = 1
+        self.mock_cursor.execute.reset_mock()
+        self.assertIs(pgvector.update("existing-id", payload={"data": "y"}), True)
+        query, params = self.mock_cursor.execute.call_args.args
+        self.assertIn("SET payload = %s WHERE id = %s", str(query))
+        self.assertEqual((params[0].obj, params[1]), ({"data": "y"}, "existing-id"))
+        self.assertEqual(self.mock_cursor.execute.call_count, 1)
+
+        self.mock_cursor.execute.reset_mock()
+        self.assertIs(pgvector.update("existing-id", vector=[0.4, 0.5, 0.6]), True)
+        self.assertEqual(self.mock_cursor.execute.call_args.args[1], ([0.4, 0.5, 0.6], "existing-id"))
+        self.assertIsNone(pgvector.update("existing-id"))
 
     # Enhanced Tests for Connection String Handling
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
