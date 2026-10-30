@@ -73,6 +73,11 @@ class LiteLLM(LLMBase):
             raise ValueError(f"Model '{self.config.model}' in litellm does not support function calling.")
 
         params = self._get_supported_params(messages=messages)
+        # Reasoning-model filtering must not discard the configured output cap.
+        token_parameter = (
+            "max_completion_tokens" if self._uses_max_completion_tokens(self.config.model) else "max_tokens"
+        )
+        params[token_parameter] = self.config.max_tokens
         params["model"] = self.config.model
         params["messages"] = messages
         if response_format:

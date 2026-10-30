@@ -182,3 +182,20 @@ def test_generate_response_reasoning_model_passes_reasoning_effort(mock_litellm)
     _, kwargs = mock_litellm.completion.call_args
     assert kwargs["reasoning_effort"] == "medium"
     assert "temperature" not in kwargs
+
+
+@pytest.mark.parametrize(
+    "model,token_parameter",
+    [("o3-mini", "max_tokens"), ("gpt-5", "max_completion_tokens")],
+)
+def test_reasoning_model_retains_configured_token_limit(mock_litellm, model, token_parameter):
+    config = BaseLlmConfig(model=model, max_tokens=123)
+    llm = litellm.LiteLLM(config)
+    mock_litellm.completion.return_value = Mock(choices=[Mock(message=Mock(content="done"))])
+
+    llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    kwargs = mock_litellm.completion.call_args.kwargs
+    assert kwargs[token_parameter] == 123
+    assert "temperature" not in kwargs
+    assert "top_p" not in kwargs
