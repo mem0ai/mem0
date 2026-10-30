@@ -504,6 +504,143 @@ def test_normalize_facts_filters_empty_strings():
     assert normalize_facts(["", "valid", ""]) == ["valid"]
 
 
+def _make_add_validation_memory(memory_cls):
+    from contextlib import ExitStack
+
+    with ExitStack() as stack:
+        mock_embedder_factory = stack.enter_context(patch("mem0.utils.factory.EmbedderFactory.create"))
+        mock_vector_factory = stack.enter_context(patch("mem0.utils.factory.VectorStoreFactory.create"))
+        mock_llm_factory = stack.enter_context(patch("mem0.utils.factory.LlmFactory.create"))
+        mock_sqlite = stack.enter_context(patch("mem0.memory.main.SQLiteManager"))
+
+        mock_embedder = MagicMock()
+        mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+        mock_embedder.config = MagicMock(embedding_dims=3)
+        mock_embedder_factory.return_value = mock_embedder
+
+        mock_vector_store = MagicMock()
+        mock_vector_store.search.return_value = []
+        mock_vector_store.keyword_search.return_value = []
+        mock_vector_factory.return_value = mock_vector_store
+
+        mock_llm = MagicMock()
+        mock_llm.generate_response.return_value = json.dumps({"memory": []})
+        mock_llm_factory.return_value = mock_llm
+        mock_sqlite.return_value = MagicMock()
+
+        memory = memory_cls(MemoryConfig())
+
+    return memory, mock_embedder, mock_vector_store
+
+
+def _assert_mem0_validation_error(exc_info, error_code):
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+
+    assert isinstance(exc_info.value, Mem0ValidationError)
+    assert exc_info.value.error_code == error_code
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        [],
+        "",
+        "   ",
+        [{"role": "user", "content": ""}],
+        [{"role": "user", "content": "   "}],
+        [{"role": "user", "content": None}],
+        [{"role": "user", "content": []}],
+        [{"role": "user", "content": [{"type": "text", "text": "   "}]}],
+    ],
+)
+def test_add_validation_rejects_empty_messages(messages):
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+
+    memory, _, _ = _make_add_validation_memory(Memory)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty") as exc_info:
+        memory.add(messages, user_id="test_user")
+
+    _assert_mem0_validation_error(exc_info, "VALIDATION_004")
+
+
+@pytest.mark.parametrize(
+    ("messages", "invalid_type", "index"),
+    [
+        (["hello"], "str", 0),
+        (["", {"role": "user", "content": ""}], "str", 0),
+        ([{"role": "user", "content": "valid"}, 42], "int", 1),
+    ],
+)
+def test_add_validation_rejects_non_dict_list_items(messages, invalid_type, index):
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+
+    memory, _, _ = _make_add_validation_memory(Memory)
+
+    with pytest.raises(Mem0ValidationError, match="messages list items must be dictionaries") as exc_info:
+        memory.add(messages, user_id="test_user")
+
+    _assert_mem0_validation_error(exc_info, "VALIDATION_005")
+    assert {"index": index, "type": invalid_type} in exc_info.value.details["invalid_message_types"]
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        (123, "123"),
+        ([{"type": "text", "text": "hello"}], "hello"),
+    ],
+)
+def test_add_validation_accepts_non_string_content(content, expected):
+    memory, mock_embedder, _ = _make_add_validation_memory(Memory)
+
+    result = memory.add([{"role": "user", "content": content}], user_id="test_user", infer=False)
+
+    assert result["results"][0]["memory"] == expected
+    mock_embedder.embed.assert_any_call(expected, "add")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("messages", "error_code", "match"),
+    [
+        ([], "VALIDATION_004", "messages must not be empty"),
+        ([{"role": "user", "content": "   "}], "VALIDATION_004", "messages must not be empty"),
+        ([{"role": "user", "content": None}], "VALIDATION_004", "messages must not be empty"),
+        (["", {"role": "user", "content": ""}], "VALIDATION_005", "messages list items must be dictionaries"),
+    ],
+)
+async def test_async_add_validation_matches_sync(messages, error_code, match):
+    from mem0 import AsyncMemory
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+
+    memory, _, _ = _make_add_validation_memory(AsyncMemory)
+
+    with pytest.raises(Mem0ValidationError, match=match) as exc_info:
+        await memory.add(messages, user_id="test_user")
+
+    _assert_mem0_validation_error(exc_info, error_code)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        (456, "456"),
+        ([{"type": "text", "text": "async hello"}], "async hello"),
+    ],
+)
+async def test_async_add_validation_accepts_non_string_content(content, expected):
+    from mem0 import AsyncMemory
+
+    memory, mock_embedder, _ = _make_add_validation_memory(AsyncMemory)
+
+    result = await memory.add([{"role": "user", "content": content}], user_id="test_user", infer=False)
+
+    assert result["results"][0]["memory"] == expected
+    mock_embedder.embed.assert_any_call(expected, "add")
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
