@@ -596,6 +596,27 @@ def cmd_delete_all(
     from mem0_cli.state import is_agent_mode, set_current_command
 
     set_current_command("delete-all")
+    if dry_run:
+        if all_:
+            # No count endpoint for project scope: preview without any writes.
+            print_info(console, "Would delete ALL memories across the ENTIRE project.")
+            print_info(console, "No changes made (dry run).")
+            return
+        # List matching memories and show count
+        try:
+            results = backend.list_memories(
+                user_id=user_id,
+                agent_id=agent_id,
+                app_id=app_id,
+                run_id=run_id,
+            )
+        except Exception as e:
+            print_error(err_console, str(e))
+            raise typer.Exit(1) from None
+        count = len(results)
+        print_info(console, f"Would delete {count} memor{'y' if count == 1 else 'ies'}.")
+        print_info(console, "No changes made (dry run).")
+        return
     if is_agent_mode():
         output = "agent"
         if not force:
@@ -603,7 +624,6 @@ def cmd_delete_all(
             raise typer.Exit(1)
     if all_:
         # Project-wide wipe using wildcard entity IDs
-        # Note: --dry-run is ignored here because the API has no count-before-delete endpoint.
 
         if not force:
             confirm = typer.confirm(
@@ -642,23 +662,6 @@ def cmd_delete_all(
                 print_info(console, "Deletion started. Memories will be removed in the background.")
             else:
                 print_success(console, f"All project memories deleted ({_elapsed:.2f}s)")
-        return
-
-    if dry_run:
-        # List matching memories and show count
-        try:
-            results = backend.list_memories(
-                user_id=user_id,
-                agent_id=agent_id,
-                app_id=app_id,
-                run_id=run_id,
-            )
-        except Exception as e:
-            print_error(err_console, str(e))
-            raise typer.Exit(1) from None
-        count = len(results)
-        print_info(console, f"Would delete {count} memor{'y' if count == 1 else 'ies'}.")
-        print_info(console, "No changes made (dry run).")
         return
 
     if not force:
