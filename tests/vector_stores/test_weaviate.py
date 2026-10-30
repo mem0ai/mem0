@@ -265,5 +265,71 @@ class TestWeaviateDB(unittest.TestCase):
         self.assertNotIn("properties", vector_updates[0].kwargs)
 
 
+    def test_search_filter_not_dropped_for_falsy_value(self):
+        """A filter value of 0, False, or '' must not be silently dropped."""
+        mock_response = MagicMock()
+        mock_response.objects = []
+        mock_hybrid = MagicMock(return_value=mock_response)
+        self.client_mock.collections.get.return_value.query.hybrid = mock_hybrid
+
+        for falsy_value in [0, False, ""]:
+            self.client_mock.reset_mock()
+            self.weaviate_db.search(
+                query="",
+                vectors=[[0.1] * 1536],
+                top_k=5,
+                filters={"user_id": falsy_value},
+            )
+            call_kwargs = mock_hybrid.call_args[1]
+            # The filter must be passed, not None
+            self.assertIsNotNone(call_kwargs.get("filters"))
+
+    def test_list_filter_not_dropped_for_falsy_value(self):
+        """list() must not drop filter conditions whose value is falsy."""
+        mock_response = MagicMock()
+        mock_response.objects = []
+        mock_fetch = MagicMock(return_value=mock_response)
+        self.client_mock.collections.get.return_value.query.fetch_objects = mock_fetch
+
+        self.weaviate_db.list(filters={"user_id": ""}, top_k=10)
+
+        call_kwargs = mock_fetch.call_args[1]
+        self.assertIsNotNone(call_kwargs.get("filters"))
+
+    def test_keyword_search_filter_not_dropped_for_falsy_value(self):
+        """keyword_search() must not drop filter conditions whose value is falsy."""
+        mock_response = MagicMock()
+        mock_response.objects = []
+        mock_bm25 = MagicMock(return_value=mock_response)
+        self.client_mock.collections.get.return_value.query.bm25 = mock_bm25
+
+        self.weaviate_db.keyword_search(
+            query="test",
+            top_k=5,
+            filters={"user_id": 0},
+        )
+
+        call_kwargs = mock_bm25.call_args[1]
+        self.assertIsNotNone(call_kwargs.get("filters"))
+
+    def test_search_filter_dropped_for_none_value(self):
+        """A filter value of None should still be dropped (None means unset)."""
+        mock_response = MagicMock()
+        mock_response.objects = []
+        mock_hybrid = MagicMock(return_value=mock_response)
+        self.client_mock.collections.get.return_value.query.hybrid = mock_hybrid
+
+        self.weaviate_db.search(
+            query="",
+            vectors=[[0.1] * 1536],
+            top_k=5,
+            filters={"user_id": None},
+        )
+
+        call_kwargs = mock_hybrid.call_args[1]
+        # None means "no filter for this key"; combined_filter should be None
+        self.assertIsNone(call_kwargs.get("filters"))
+
+
 if __name__ == "__main__":
     unittest.main()
