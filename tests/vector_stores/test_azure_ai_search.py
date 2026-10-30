@@ -515,11 +515,11 @@ def test_update_allows_empty_payload(azure_ai_search_instance):
     """Test updating with an empty payload explicitly clears stored payload data."""
     instance, mock_search_client, _ = azure_ai_search_instance
 
-    mock_search_client.merge_or_upload_documents.return_value = [{"status": True, "id": "doc1", "status_code": 200}]
+    mock_search_client.merge_documents.return_value = [Mock(succeeded=True, status_code=200)]
 
-    instance.update("doc1", payload={})
+    assert instance.update("doc1", payload={}) is True
 
-    mock_search_client.merge_or_upload_documents.assert_called_once_with(
+    mock_search_client.merge_documents.assert_called_once_with(
         documents=[{"id": "doc1", "payload": "{}", "user_id": None, "run_id": None, "agent_id": None}]
     )
 
@@ -528,11 +528,42 @@ def test_update_allows_empty_vector(azure_ai_search_instance):
     """Test updating with an empty vector still sends the vector field to Azure."""
     instance, mock_search_client, _ = azure_ai_search_instance
 
-    mock_search_client.merge_or_upload_documents.return_value = [{"status": True, "id": "doc1", "status_code": 200}]
+    mock_search_client.merge_documents.return_value = [Mock(succeeded=True, status_code=200)]
 
-    instance.update("doc1", vector=[])
+    assert instance.update("doc1", vector=[]) is True
 
-    mock_search_client.merge_or_upload_documents.assert_called_once_with(documents=[{"id": "doc1", "vector": []}])
+    mock_search_client.merge_documents.assert_called_once_with(documents=[{"id": "doc1", "vector": []}])
+
+
+def test_update_existing_document_merges_vector_and_payload(azure_ai_search_instance):
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_documents.return_value = [Mock(succeeded=True, status_code=200)]
+    payload = {"data": "new", "user_id": "u1"}
+
+    assert instance.update("doc1", vector=[0.1, 0.2, 0.3], payload=payload) is True
+
+    expected = {"id": "doc1", "vector": [0.1, 0.2, 0.3], "payload": json.dumps(payload)}
+    expected.update({"user_id": "u1", "run_id": None, "agent_id": None})
+    mock_search_client.merge_documents.assert_called_once_with(documents=[expected])
+    mock_search_client.merge_or_upload_documents.assert_not_called()
+
+
+def test_update_missing_document_returns_false_without_upload(azure_ai_search_instance):
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_documents.return_value = [Mock(succeeded=False, status_code=404)]
+    mock_search_client.merge_or_upload_documents.return_value = [Mock(succeeded=True, status_code=201)]
+
+    assert instance.update("gone", vector=[0.1, 0.2, 0.3], payload={"data": "new"}) is False
+    mock_search_client.merge_or_upload_documents.assert_not_called()
+    mock_search_client.upload_documents.assert_not_called()
+
+
+def test_update_other_failure_raises(azure_ai_search_instance):
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_documents.return_value = [Mock(succeeded=False, status_code=503)]
+
+    with pytest.raises(Exception, match="Update failed for document doc1"):
+        instance.update("doc1", payload={"data": "new"})
 
 
 # --- Tests for search method ---

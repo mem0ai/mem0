@@ -3,7 +3,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 try:
-    from elasticsearch import Elasticsearch
+    from elasticsearch import Elasticsearch, NotFoundError
     from elasticsearch.helpers import bulk
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
@@ -233,15 +233,19 @@ class ElasticsearchDB(VectorStoreBase):
         """Delete a vector by ID."""
         self.client.delete(index=self.collection_name, id=vector_id)
 
-    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> None:
-        """Update a vector and its payload."""
+    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> bool:
+        """Update a vector and its payload. Returns False if no document has this ID."""
         doc = {}
         if vector is not None:
             doc["vector"] = vector
         if payload is not None:
             doc["metadata"] = payload
 
-        self.client.update(index=self.collection_name, id=vector_id, body={"doc": doc})
+        try:
+            self.client.update(index=self.collection_name, id=vector_id, body={"doc": doc})
+        except NotFoundError:
+            return False
+        return True
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """Retrieve a vector by ID."""

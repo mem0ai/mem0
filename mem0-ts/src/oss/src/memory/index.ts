@@ -1990,7 +1990,15 @@ export class Memory {
       updatedAt: new Date().toISOString(),
     };
 
-    await this.vectorStore.update(memoryId, embedding, newMetadata);
+    const updated = await this.vectorStore.update(
+      memoryId,
+      embedding,
+      newMetadata,
+    );
+    // The memory was deleted between the get above and this write.
+    if (updated === false) {
+      throw new Error(`Memory with ID ${memoryId} not found`);
+    }
     await this.db.addHistory(
       memoryId,
       prevValue,

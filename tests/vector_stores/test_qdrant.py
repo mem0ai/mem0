@@ -4,7 +4,10 @@ import unittest
 import uuid
 from unittest.mock import MagicMock, patch
 
+import grpc
+import httpx
 from qdrant_client import QdrantClient, models
+from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import (
     DatetimeRange,
     Distance,
@@ -350,52 +353,150 @@ class TestQdrant(unittest.TestCase):
         updated_vector = [0.2, 0.3]
         updated_payload = {"key": "updated_value"}
 
-        self.qdrant.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload)
+        self.assertTrue(self.qdrant.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload))
 
-        self.client_mock.upsert.assert_called_once()
-        point = self.client_mock.upsert.call_args[1]["points"][0]
-        self.assertEqual(point.id, vector_id)
-        # v3 uses named vectors: dense vector stored under "" key
-        self.assertIn("", point.vector)
-        self.assertEqual(point.vector[""], updated_vector)
-        self.assertEqual(point.payload, updated_payload)
+        self.client_mock.batch_update_points.assert_not_called()
+        mode = {"update_mode": models.UpdateMode.UPDATE_ONLY} if hasattr(models, "UpdateMode") else {}
+        self.client_mock.upsert.assert_called_once_with(
+            collection_name="test_collection",
+            points=[PointStruct(id=vector_id, vector={"": updated_vector}, payload=updated_payload)],
+            **mode,
+        )
+
+    def test_full_update_reports_false_when_the_point_is_gone_after_the_write(self):
+        self.client_mock.retrieve.return_value = []
+
+        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"}), False)
+
+    def test_full_update_without_update_mode_support_upserts_as_before(self):
+        update_mode = vars(models).pop("UpdateMode", None)
+        try:
+            self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"})
+        finally:
+            if update_mode is not None:
+                models.UpdateMode = update_mode
+
+        self.assertNotIn("update_mode", self.client_mock.upsert.call_args[1])
 
     def test_update_with_none_vector_uses_set_payload(self):
-        """Test that update with vector=None uses set_payload instead of upsert (fixes #3708)."""
+        """Test that update with vector=None merges the payload and leaves the vector alone (fixes #3708)."""
         vector_id = str(uuid.uuid4())
         updated_payload = {"key": "updated_value"}
 
         self.qdrant.update(vector_id=vector_id, vector=None, payload=updated_payload)
 
         self.client_mock.upsert.assert_not_called()
-        self.client_mock.set_payload.assert_called_once_with(
+        self.client_mock.batch_update_points.assert_called_once_with(
             collection_name="test_collection",
-            payload=updated_payload,
-            points=[vector_id],
+            update_operations=[
+                models.SetPayloadOperation(set_payload=models.SetPayload(payload=updated_payload, points=[vector_id]))
+            ],
         )
 
     def test_update_with_none_payload_uses_update_vectors(self):
-        """Test that update with payload=None uses update_vectors instead of upsert."""
         vector_id = str(uuid.uuid4())
         updated_vector = [0.2, 0.3]
 
         self.qdrant.update(vector_id=vector_id, vector=updated_vector, payload=None)
 
         self.client_mock.upsert.assert_not_called()
-        self.client_mock.update_vectors.assert_called_once_with(
+        self.client_mock.batch_update_points.assert_called_once_with(
             collection_name="test_collection",
-            points=[PointVectors(id=vector_id, vector=updated_vector)],
+            update_operations=[
+                models.UpdateVectorsOperation(
+                    update_vectors=models.UpdateVectors(points=[PointVectors(id=vector_id, vector=updated_vector)])
+                )
+            ],
         )
 
     def test_update_with_both_none_is_noop(self):
         """Test that update with both vector=None and payload=None is a no-op."""
         vector_id = str(uuid.uuid4())
 
-        self.qdrant.update(vector_id=vector_id, vector=None, payload=None)
+        self.assertIsNone(self.qdrant.update(vector_id=vector_id, vector=None, payload=None))
 
         self.client_mock.upsert.assert_not_called()
-        self.client_mock.set_payload.assert_not_called()
-        self.client_mock.update_vectors.assert_not_called()
+        self.client_mock.batch_update_points.assert_not_called()
+
+    def test_update_missing_point_on_server_returns_false(self):
+        self.client_mock.batch_update_points.side_effect = UnexpectedResponse(
+            404, "Not Found", b'{"status":{"error":"Not found: No point with id 1 found"}}', httpx.Headers()
+        )
+
+        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=None, payload={"k": "v"}), False)
+        self.client_mock.upsert.assert_not_called()
+
+    def test_update_reraises_other_not_found_errors(self):
+        self.client_mock.batch_update_points.side_effect = UnexpectedResponse(
+            404, "Not Found", b'{"status":{"error":"Not found: Collection `x` doesn\'t exist!"}}', httpx.Headers()
+        )
+
+        with self.assertRaises(UnexpectedResponse):
+            self.qdrant.update(vector_id=str(uuid.uuid4()), vector=None, payload={"k": "v"})
+
+    def test_local_update_checks_the_point_exists_first(self):
+        self.qdrant._local = True
+        self.client_mock.retrieve.return_value = []
+
+        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"}), False)
+        self.client_mock.upsert.assert_not_called()
+
+    def test_update_missing_point_over_grpc_returns_false(self):
+        class NotFound(grpc.RpcError):
+            def code(self):
+                return grpc.StatusCode.NOT_FOUND
+
+            def details(self):
+                return "Not found: No point with id 1 found"
+
+        self.client_mock.batch_update_points.side_effect = NotFound()
+
+        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=None, payload={"k": "v"}), False)
+
+    def test_stores_sharing_a_local_client_share_one_write_lock(self):
+        client = QdrantClient(":memory:")
+        memories = Qdrant(collection_name="memories", embedding_model_dims=4, client=client)
+        entities = Qdrant(collection_name="entities", embedding_model_dims=4, client=client)
+
+        self.assertIs(memories._write_lock, entities._write_lock)
+        client.close()
+
+    def test_local_update_and_delete_hold_the_write_lock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Qdrant(collection_name="lock", embedding_model_dims=4, path=os.path.join(tmp, "qdrant"))
+            pid = str(uuid.uuid4())
+            store.insert(vectors=[[0.1] * 4], payloads=[{"data": "a"}], ids=[pid])
+            held = []
+            for name in ("upsert", "delete"):
+                real = getattr(store.client, name)
+                setattr(store.client, name, lambda *a, _real=real, **k: held.append(store._write_lock._is_owned()) or _real(*a, **k))
+
+            store.update(vector_id=pid, vector=[0.2] * 4, payload={"data": "b"})
+            store.delete(vector_id=pid)
+
+            self.assertEqual(held, [True, True])
+            store.client.close()
+
+    def test_full_update_sends_no_bm25_when_new_text_has_no_keywords(self):
+        self.qdrant._has_bm25_slot = True
+
+        self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"data": ""})
+
+        self.assertEqual(self.client_mock.upsert.call_args[1]["points"][0].vector, {"": [0.2, 0.3]})
+
+    def test_update_never_recreates_a_deleted_point_on_local_qdrant(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Qdrant(collection_name="no_resurrect", embedding_model_dims=4, path=os.path.join(tmp, "qdrant"))
+            live, gone = str(uuid.uuid4()), str(uuid.uuid4())
+            store.insert(vectors=[[0.1] * 4, [0.1] * 4], payloads=[{"data": "a", "x": 1}, {"data": "b"}], ids=[live, gone])
+            store.delete(vector_id=gone)
+
+            self.assertIs(store.update(vector_id=gone, vector=[0.2] * 4, payload={"data": "b2"}), False)
+            self.assertIs(store.update(vector_id=gone.upper(), vector=[0.2] * 4, payload={"data": "b2"}), False)
+            self.assertIsNone(store.get(gone))
+            self.assertTrue(store.update(vector_id=live, vector=[0.2] * 4, payload={"data": "a2"}))
+            self.assertEqual(store.get(live).payload, {"data": "a2"})
+            store.client.close()
 
     def test_get(self):
         vector_id = str(uuid.uuid4())

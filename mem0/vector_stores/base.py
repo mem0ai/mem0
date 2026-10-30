@@ -32,7 +32,11 @@ class VectorStoreBase(ABC):
 
     @abstractmethod
     def update(self, vector_id, vector=None, payload=None):
-        """Update a vector and its payload."""
+        """Update an existing vector and/or its payload without ever creating a record.
+
+        Return False if no record with vector_id exists, True if it was updated. None means the store
+        cannot tell, and callers treat it as updated.
+        """
         pass
 
     @abstractmethod

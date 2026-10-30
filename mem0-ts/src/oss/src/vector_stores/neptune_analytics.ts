@@ -173,7 +173,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean | void> {
     if (vector.length > 0) {
       this.assertVectorDimension(vector, "Vector");
     }
@@ -195,7 +195,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
 
     if (hasPayload) {
       const properties = this.buildStoredPayload(payload);
-      await this.executeQuery(
+      const payloadResults = await this.executeQuery(
         `
           MATCH (n:${this.collectionLabelExpr} {\`~id\`: $vectorId})
           SET n = $properties
@@ -206,6 +206,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
           properties,
         },
       );
+      if (payloadResults.length === 0) return false;
     }
 
     if (hasVector) {
@@ -224,6 +225,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
           },
         );
         this.assertSuccessfulResults(updateResults, "Update");
+        if (updateResults.length === 0) return false;
       } catch (error) {
         if (priorResult) {
           try {
@@ -249,6 +251,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
         throw error;
       }
     }
+    if (hasPayload || hasVector) return true;
   }
 
   async delete(vectorId: string): Promise<void> {

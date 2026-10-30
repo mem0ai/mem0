@@ -37,6 +37,11 @@ DEFAULT_FIELDS = [
 
 excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
 
+# HSET creates a missing key; a Lua script runs atomically, so no delete can land between the check and the write.
+_HSET_IF_EXISTS = (
+    "if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end redis.call('HSET', KEYS[1], unpack(ARGV)) return 1"
+)
+
 
 class MemoryResult:
     def __init__(self, id: str, payload: dict, score: float = None):
@@ -267,7 +272,23 @@ class RedisDB(VectorStoreBase):
                 data[field] = payload[field]
 
         data["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in excluded_keys})
-        self.index.load(data=[data], keys=[f"{self.schema['index']['prefix']}:{vector_id}"], id_field="memory_id")
+        key = f"{self.schema['index']['prefix']}:{vector_id}"
+        try:
+            return bool(self.client.eval(_HSET_IF_EXISTS, 1, key, *[x for item in data.items() for x in item]))
+        except redis.exceptions.NoPermissionError:
+            # Scripting denied by ACL: WATCH aborts EXEC if the key changes after the check; the retry re-checks.
+            with self.client.pipeline() as pipe:
+                while True:
+                    try:
+                        pipe.watch(key)
+                        if not pipe.exists(key):
+                            return False
+                        pipe.multi()
+                        pipe.hset(key, mapping=data)
+                        pipe.execute()
+                        return True
+                    except redis.exceptions.WatchError:
+                        continue
 
     def get(self, vector_id):
         result = self.index.fetch(vector_id)

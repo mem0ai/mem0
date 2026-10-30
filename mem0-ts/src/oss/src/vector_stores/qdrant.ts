@@ -319,9 +319,13 @@ export class Qdrant implements VectorStore {
   // named-vector and BM25-inference shapes are not typed.
   private async upsertPoints(
     points: { id: string | number; vector: any; payload?: any }[],
+    options: { update_mode?: "update_only" } = {},
   ): Promise<void> {
     try {
-      await this.client.upsert(this.collectionName, { points: points as any });
+      await this.client.upsert(this.collectionName, {
+        points: points as any,
+        ...options,
+      });
     } catch (error) {
       if (!this._hasBm25Slot) {
         throw error;
@@ -338,6 +342,7 @@ export class Qdrant implements VectorStore {
       }));
       await this.client.upsert(this.collectionName, {
         points: denseOnly as any,
+        ...options,
       });
     }
   }
@@ -430,7 +435,7 @@ export class Qdrant implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.initialize();
     const point = {
       id: vectorId,
@@ -439,7 +444,15 @@ export class Qdrant implements VectorStore {
       payload,
     };
 
-    await this.upsertPoints([point]);
+    // One write keeps the vector and payload of concurrent updates together.
+    // update_only (Qdrant 1.17+) never creates a point; older servers upsert as before.
+    await this.upsertPoints([point], { update_mode: "update_only" });
+    const found = await this.client.retrieve(this.collectionName, {
+      ids: [vectorId],
+      with_payload: false,
+      with_vector: false,
+    });
+    return found.length > 0;
   }
 
   async delete(vectorId: string): Promise<void> {

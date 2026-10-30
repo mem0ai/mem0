@@ -293,7 +293,9 @@ class MongoDB(VectorStoreBase):
         except PyMongoError as e:
             logger.error(f"Error deleting document: {e}")
 
-    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> None:
+    def update(
+        self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None
+    ) -> Optional[bool]:
         """
         Update a vector and its payload.
 
@@ -301,6 +303,9 @@ class MongoDB(VectorStoreBase):
             vector_id (str): ID of the vector to update.
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
+
+        Returns:
+            Optional[bool]: True if the document exists and was updated, False if no document has this ID.
         """
         update_fields = {}
         if vector is not None:
@@ -314,8 +319,9 @@ class MongoDB(VectorStoreBase):
                 result = self.collection.update_one({"_id": vector_id}, {"$set": update_fields})
                 if result.matched_count > 0:
                     logger.info(f"Updated document with ID '{vector_id}'.")
-                else:
-                    logger.warning(f"No document found with ID '{vector_id}' to update.")
+                    return True
+                logger.warning(f"No document found with ID '{vector_id}' to update.")
+                return False
             except PyMongoError as e:
                 logger.error(f"Error updating document: {e}")
 

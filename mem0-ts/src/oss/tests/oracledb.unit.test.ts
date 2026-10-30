@@ -411,6 +411,44 @@ describe("OracleAIVectorSearch SQL", () => {
     expect(results).toEqual([]);
     expect(count).toBe(0);
   });
+
+  function storeWithRowsAffected(calls: Call[], rowsAffected: number) {
+    const connection: any = fakeConnection(calls, []);
+    const execute = connection.execute;
+    connection.execute = async (sql: string, binds: any = {}) => ({
+      ...(await execute(sql, binds)),
+      rowsAffected,
+    });
+    return makeStore(calls, [], { client: connection });
+  }
+
+  it("returns false from update and inserts nothing when the id is missing", async () => {
+    const calls: Call[] = [];
+    const store = storeWithRowsAffected(calls, 0);
+    expect(await store.update("missing", [1, 2, 3], { a: 1 })).toBe(false);
+    expect(calls.some((c) => /^(INSERT|MERGE)/.test(c.sql))).toBe(false);
+  });
+
+  it("returns undefined from update when the driver gives no rowsAffected", async () => {
+    const store = storeWithRowsAffected([], undefined as any);
+    expect(await store.update("id-1", [1, 2, 3], { a: 1 })).toBeUndefined();
+  });
+
+  it("returns true from update and binds the same values for an existing id", async () => {
+    const calls: Call[] = [];
+    const store = storeWithRowsAffected(calls, 1);
+    expect(await store.update("id-1", [1, 2, 3], { a: 1 })).toBe(true);
+    expect(await store.update("id-1", null as any, { b: 2 })).toBe(true);
+    const updates = calls.filter((c) => c.sql.startsWith("UPDATE"));
+    expect(updates[0].sql).toBe(
+      'UPDATE "mem0" SET vector = :vector, payload = :payload WHERE id = :vector_id',
+    );
+    expect(updates[0].binds.vector.val).toEqual(new Float32Array([1, 2, 3]));
+    expect(updates[0].binds.payload.val).toEqual({ a: 1 });
+    expect(updates[1].sql).toBe(
+      'UPDATE "mem0" SET payload = :payload WHERE id = :vector_id',
+    );
+  });
 });
 
 describe("OracleAIVectorSearch initialization failure", () => {

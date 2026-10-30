@@ -4,7 +4,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 try:
-    from opensearchpy import OpenSearch, RequestsHttpConnection
+    from opensearchpy import NotFoundError, OpenSearch, RequestsHttpConnection
 except ImportError:
     raise ImportError("OpenSearch requires extra dependencies. Install with `pip install opensearch-py`") from None
 
@@ -316,8 +316,8 @@ class OpenSearchDB(VectorStoreBase):
         # Delete using the actual document ID
         self.client.delete(index=self.collection_name, id=opensearch_id)
 
-    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> None:
-        """Update a vector and its payload using the custom 'id' field."""
+    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> bool:
+        """Update a vector and its payload using the custom 'id' field. Returns False if no document has this ID."""
         if vector is not None:
             if len(vector) == 0:
                 raise ValueError("Cannot update with an empty vector.")
@@ -335,7 +335,7 @@ class OpenSearchDB(VectorStoreBase):
         hits = response.get("hits", {}).get("hits", [])
 
         if not hits:
-            return
+            return False
 
         opensearch_id = hits[0]["_id"]  # The actual document ID in OpenSearch
 
@@ -349,9 +349,12 @@ class OpenSearchDB(VectorStoreBase):
         if doc:
             try:
                 response = self.client.update(index=self.collection_name, id=opensearch_id, body={"doc": doc})
+            except NotFoundError:
+                return False
             except Exception as e:
                 logger.error(f"Error updating vector {vector_id}: {e}", exc_info=True)
                 raise
+        return True
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """Retrieve a vector by ID."""
