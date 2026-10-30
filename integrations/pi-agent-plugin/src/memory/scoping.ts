@@ -8,6 +8,18 @@ import {
 } from "../../../agent-plugin-core/typescript/src/scoping.ts";
 
 export function detectAppId(cwd: string): string {
+  // An explicitly pinned project identity is the highest-precedence source
+  // of app_id, so a caller can pin it across git worktrees. Empty,
+  // whitespace-only, and wildcard values are treated as unset: they cannot
+  // identify a project, and writing "*" as an app_id would turn read filters
+  // into cross-project searches.
+  const pinned = process.env.MEM0_APP_ID;
+  if (pinned !== undefined) {
+    const appId = pinned.trim();
+    if (appId !== "" && appId !== "*") {
+      return appId;
+    }
+  }
   try {
     const root = execFileSync("git", ["rev-parse", "--show-toplevel"], {
       cwd,

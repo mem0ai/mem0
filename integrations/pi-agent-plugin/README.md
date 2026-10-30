@@ -52,6 +52,8 @@ Or create a config file at `~/.pi/agent/mem0-config.json`:
 
 Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 
+Set `MEM0_APP_ID` to pin the project identity used for project-scoped memories — for example, to share one memory pool across git worktrees. When it is unset (or empty, whitespace-only, or `*`), the plugin detects the project from the git repository root.
+
 `searchThreshold` (default `0.3`) is the minimum similarity score (0–1) a memory must reach to count as a match for `/mem0-search` and `/mem0-forget`. It is passed to the mem0 search API (along with reranking for higher-precision ordering), so a query with no sufficiently similar memory reports no match instead of returning the closest unrelated memories. Raise it to be stricter; lower it if relevant results are missed.
 
 ## Commands
