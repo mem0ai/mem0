@@ -20,6 +20,15 @@ test("one lifecycle owns recall state and resets it for a new session", async ()
   assert.match(await lifecycle.recall("package manager", true, search), /Use pnpm/);
 });
 
+test("recall leaves memories unseen when delivery is not allowed", async () => {
+  const lifecycle = createMemoryLifecycle({ recallTimeoutMs: 50 });
+  const search = async () => ({ results: [{ id: "m1", memory: "Use pnpm" }] });
+
+  assert.match(await lifecycle.recall("package manager", true, search, () => false), /Use pnpm/);
+  assert.match(await lifecycle.recall("package manager", true, search), /Use pnpm/);
+  assert.equal(await lifecycle.recall("package manager", true, search), "");
+});
+
 test("one lifecycle owns capture preparation", () => {
   const lifecycle = createMemoryLifecycle();
 
