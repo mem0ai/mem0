@@ -1,7 +1,9 @@
+import functools
 import json
 import logging
 import os
 import pickle
+import threading
 import uuid
 import warnings
 from pathlib import Path
@@ -29,6 +31,17 @@ except ImportError:
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+
+def _locked(method):
+    """Hold the instance lock so update's existence check and its write cannot interleave with a delete."""
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 class SafeUnpickler(pickle.Unpickler):
@@ -154,6 +167,7 @@ class FAISS(VectorStoreBase):
         self.index = None
         self.docstore = {}
         self.index_to_id = {}
+        self._lock = threading.RLock()
 
         # Create directory if it doesn't exist
         if self.path:
@@ -442,6 +456,7 @@ class FAISS(VectorStoreBase):
 
         return True
 
+    @_locked
     def delete(self, vector_id: str):
         """
         Delete a vector by ID.
@@ -483,6 +498,7 @@ class FAISS(VectorStoreBase):
         else:
             logger.warning(f"Vector {vector_id} not found in collection {self.collection_name}")
 
+    @_locked
     def update(
         self,
         vector_id: str,
@@ -501,7 +517,7 @@ class FAISS(VectorStoreBase):
             raise ValueError("Collection not initialized. Call create_col first.")
 
         if vector_id not in self.docstore:
-            raise ValueError(f"Vector {vector_id} not found")
+            return False
 
         current_payload = self.docstore[vector_id].copy()
 
@@ -516,6 +532,7 @@ class FAISS(VectorStoreBase):
             self._save()
 
         logger.info(f"Updated vector {vector_id} in collection {self.collection_name}")
+        return True
 
     def get(self, vector_id: str) -> OutputData:
         """

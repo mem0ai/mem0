@@ -93,11 +93,18 @@ def test_search_vectors(pinecone_db):
     assert results[0].score == 0.9
 
 
-def test_update_vector(pinecone_db):
-    pinecone_db.update("id1", vector=[0.5] * 128, payload={"name": "updated"})
-    pinecone_db.index.upsert.assert_called_with(
-        vectors=[{"id": "id1", "values": [0.5] * 128, "metadata": {"name": "updated"}}],
-        namespace="test_namespace",
+def test_update_vector_never_upserts(pinecone_db):
+    assert pinecone_db.update("id1", vector=[0.5] * 128, payload={"name": "updated"}) is None
+    pinecone_db.index.update.assert_called_once_with(
+        id="id1", values=[0.5] * 128, set_metadata={"name": "updated"}, namespace="test_namespace"
+    )
+    pinecone_db.index.upsert.assert_not_called()
+
+
+def test_update_payload_only(pinecone_db):
+    assert pinecone_db.update("id1", payload={"name": "updated"}) is None
+    pinecone_db.index.update.assert_called_once_with(
+        id="id1", set_metadata={"name": "updated"}, namespace="test_namespace"
     )
 
 

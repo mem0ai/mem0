@@ -168,6 +168,14 @@ def test_error_handling(vector_store, mock_vertex_ai):
     assert "Invalid request" in str(exc_info.value)
 
 
+def test_update_raises_api_errors(vector_store, mock_vertex_ai):
+    mock_vertex_ai["index"].upsert_datapoints.side_effect = exceptions.ServiceUnavailable("down")
+
+    with patch.object(vector_store, "get", return_value=Mock()):
+        with pytest.raises(exceptions.ServiceUnavailable):
+            vector_store.update(vector_id="test-id", vector=[0.1, 0.2, 0.3], payload={"name": "test"})
+
+
 def test_debug_logs_never_carry_service_account_key(caplog):
     """Regression for #7503: constructor DEBUG lines must not log the inline credential.
 

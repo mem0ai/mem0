@@ -167,14 +167,18 @@ class Supabase(VectorStoreBase):
             vector (List[float], optional): Updated vector
             payload (Dict, optional): Updated payload
         """
-        if vector is None:
-            # If only updating metadata, we need to get the existing vector
-            existing = self.get(vector_id)
-            if existing and existing.payload:
-                vector = existing.payload.get("vector", [])
+        values = {}
+        if vector is not None:
+            values["vec"] = vector
+        if payload is not None:
+            values["metadata"] = payload
+        if not values:
+            return bool(self.collection.fetch([vector_id]))
 
-        if vector:
-            self.collection.upsert([(vector_id, vector, payload or {})])
+        # vecs only offers upsert; an UPDATE on its own table changes an existing row and never inserts one.
+        table = self.collection.table
+        with self.collection.client.Session() as sess, sess.begin():
+            return sess.execute(table.update().where(table.c.id == vector_id).values(**values)).rowcount > 0
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
