@@ -1,0 +1,106 @@
+---
+title: Screenpipe
+sidebarTitle: Screenpipe
+description: "Turn reviewed screen and meeting context from Screenpipe into persistent Mem0 memories your agents can recall."
+icon: desktop
+---
+
+[Screenpipe](https://screenpipe.com) captures screen and audio context locally. Connect it to Mem0 to turn selected observations into durable facts that your agents can recall across conversations.
+
+<Info>
+  You need Screenpipe running on the same machine, Python 3.10+, and a [Mem0 Platform API key](https://app.mem0.ai/dashboard/api-keys). Set `SCREENPIPE_API_KEY` privately if your local Screenpipe API requires authentication.
+</Info>
+
+<Note>
+  This is a terminal-based developer integration for Mem0 Platform. Run the importer on the computer running Screenpipe: it reads the local API and sends only your reviewed export to Mem0. The hosted Mem0 app does not connect to localhost. There is no automatic background sync or self-hosted Mem0 mode, and Screenpipe's Mem0 connection is not required.
+</Note>
+
+## Install
+
+Get the importer from the Mem0 repository and install its SDK dependency:
+
+```sh
+git clone https://github.com/mem0ai/mem0.git
+cd mem0
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install 'mem0ai>=2.2.1,<3'
+python examples/screenpipe-memory-source/sync_screenpipe.py --help
+```
+
+<Info icon="check">
+  Help should list `export`, `import`, and `search`. Configure `MEM0_API_KEY` in your environment before importing or searching. Export and preview do not contact Mem0.
+</Info>
+
+## Select and review your context
+
+Choose a time range that contains your Screenpipe recordings. Replace the example dates and query below with your own; keep a stable name for the source device.
+
+```sh
+python examples/screenpipe-memory-source/sync_screenpipe.py export \
+  --source-id work-laptop --start 2026-10-02T09:00:00Z --end 2026-10-02T09:30:00Z \
+  --query Cedar --limit 20 --output reviewed.json
+
+python examples/screenpipe-memory-source/sync_screenpipe.py import \
+  --input reviewed.json --user-id alice --receipts receipts.json
+```
+
+<Info icon="check">
+  Export reports the number of observations and `uploaded: false`. Preview shows the exact source text and provenance with no Mem0 write. An empty export means the selected range/query has no matches; `truncated: true` means you should narrow the range or increase the limit (maximum 200).
+</Info>
+
+Review `reviewed.json` and remove any observations you do not want to send. It may contain private screen text, transcripts, window titles, and URLs. Keep exports and receipts out of Git.
+
+## Extract and recall memories
+
+Explicitly import only the snapshot you reviewed:
+
+```sh
+python examples/screenpipe-memory-source/sync_screenpipe.py import \
+  --input reviewed.json --user-id alice --receipts receipts.json --apply
+```
+
+<Info icon="check">
+  `stored` means Mem0 finished extraction and the importer read back the resulting memories. `no_facts` means processing succeeded without adding or updating a fact. Keep the receipt file: repeating an unchanged import returns `already_processed`.
+</Info>
+
+Open another terminal, activate the environment, and configure the same Mem0 project key. Query the same user ID without supplying the source document:
+
+```sh
+python examples/screenpipe-memory-source/sync_screenpipe.py search \
+  --user-id alice --query 'When are Cedar progress reports sent?'
+```
+
+<Info icon="check">
+  Inspect the returned memory text, IDs, and source metadata. Search retrieves current memories using `latest_only=True`, reranking, and the user filter. The API key controls authorization; user IDs are not an independent tenant security boundary.
+</Info>
+
+## What happens to your data
+
+Screenpipe remains the source of observations; Mem0 extracts facts with `infer=True`. Source timestamps, device identity, record IDs, audio segment offsets, and timeline links remain attached as metadata. Unknown speakers are not assumed to be the account owner. Input events and existing Screenpipe memories are excluded.
+
+Import newer observations after older ones. Mem0 decides whether they add, update, or duplicate a fact. Current-memory search excludes superseded history. Deleting a local export does not delete remote memories; use Mem0's normal deletion API or dashboard.
+
+## Verify with a correction
+
+Import an observation containing a project decision, recall it from a new process, then import a newer observation that changes the decision. Query again: the current result should reflect the correction. Replaying the same export should skip the write, and a different user filter should return none of those memories.
+
+The [recorded acceptance run](https://github.com/mem0ai/mem0/pull/7533) exercises this sequence against real Screenpipe and Mem0 APIs with explicitly synthetic transcripts: Friday report schedule → Monday correction, fresh-process recall, unchanged replay, separate user scope, and cleanup. The recording tests memory ingestion and retrieval, not microphone capture or transcription accuracy.
+
+## Troubleshooting
+
+- **Connection refused or unauthorized export:** verify Screenpipe is running and the local bearer token is set when required. The default API is `http://localhost:3030`; use `--api-url` for another local port.
+- **Pending processing:** rerun with the same receipt file to resume polling instead of submitting another write.
+- **Failed or uncertain write:** inspect the Mem0 event/dashboard before reconciliation. Do not delete receipts to force a retry; an uncertain acknowledgment may already have written memory.
+- **Receipt lock after a crash:** first verify the importer has stopped, then remove its stale `.lock`. Use one importer per receipt file. Different receipts or rotated keys do not share deduplication.
+
+Based on Chirag Arora's [original proposal](https://github.com/mem0ai/mem0/pull/5596), updated to use Screenpipe's supported HTTP API.
+
+<CardGroup cols={2}>
+  <Card title="Importer source and tests" icon="code" href="https://github.com/mem0ai/mem0/tree/main/examples/screenpipe-memory-source">
+    Inspect the importer, operational limits, and test commands.
+  </Card>
+  <Card title="Use memories in your agent" icon="plug" href="/platform/mem0-mcp">
+    Connect an AI client to the same Mem0 memory layer.
+  </Card>
+</CardGroup>
