@@ -1,4 +1,5 @@
 # Copyright (c) 2026, Oracle and/or its affiliates.
+import array
 import os
 import uuid
 from contextlib import nullcontext
@@ -423,6 +424,28 @@ def test_search_and_list_follow_base_contract():
     assert search_cursor.execute.call_args.kwargs["f_0"] == 5
     assert isinstance(list_results[0], list)
     assert list_results[0][0].payload["name"] == "listed"
+
+
+def test_update_reports_whether_the_record_exists():
+    cursor = MagicMock()
+    store = object.__new__(OracleAIVectorSearch)
+    store.collection_name = '"MEM0"'
+    store._get_cursor = MagicMock(side_effect=lambda commit=False: nullcontext(cursor))
+
+    cursor.rowcount = 0
+    assert store.update("missing", vector=[0.5, 0.25], payload={"name": "x"}) is False
+    assert [c.args[0].split()[0] for c in cursor.execute.call_args_list] == ["UPDATE"]
+
+    cursor.rowcount = 1
+    cursor.execute.reset_mock()
+    assert store.update("row-1", vector=[0.5, 0.25], payload={"name": "new"}) is True
+    sql, params = cursor.execute.call_args.args
+    assert sql == 'UPDATE "MEM0" SET vector = :vector, payload = :payload WHERE id = :vector_id'
+    assert params == {"vector_id": "row-1", "vector": array.array("f", [0.5, 0.25]), "payload": {"name": "new"}}
+
+    cursor.execute.reset_mock()
+    assert store.update("row-1", payload={"name": "only"}) is True
+    assert cursor.execute.call_args.args[1] == {"vector_id": "row-1", "payload": {"name": "only"}}
 
 
 def test_build_filters_wildcard_requires_field_existence():
@@ -897,11 +920,15 @@ def test_update(oracle_db: OracleAIVectorSearch):
 
     updated_vec = [0.02] * DIM
     updated_payload = {"name": "new"}
-    oracle_db.update(vector_id=target_id, vector=updated_vec, payload=updated_payload)
+    assert oracle_db.update(vector_id=target_id, vector=updated_vec, payload=updated_payload) is True
 
     got = oracle_db.get(vector_id=target_id)
     assert got is not None
     assert got.payload.get("name") == "new"
+
+    oracle_db.delete(vector_id=target_id)
+    assert oracle_db.update(vector_id=target_id, payload=updated_payload) is False
+    assert oracle_db.get(vector_id=target_id) is None
 
 
 def test_list_cols(oracle_db: OracleAIVectorSearch):

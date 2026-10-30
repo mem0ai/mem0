@@ -458,7 +458,7 @@ class OracleAIVectorSearch(VectorStoreBase):
         vector_id: str,
         vector: Optional[List[float]] = None,
         payload: Optional[Dict[str, Any]] = None,
-    ) -> None:
+    ) -> Optional[bool]:
         """
         Update a vector and its payload.
 
@@ -481,6 +481,7 @@ class OracleAIVectorSearch(VectorStoreBase):
                 params["payload"] = payload
                 cursor.setinputsizes(payload=oracledb.DB_TYPE_JSON)
             cursor.execute(f"UPDATE {self.collection_name} SET {', '.join(sets)} WHERE id = :vector_id", params)
+            return cursor.rowcount > 0
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """

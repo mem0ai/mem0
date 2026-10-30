@@ -413,7 +413,13 @@ class AzureMySQL(VectorStoreBase):
             vector (List[float], optional): Updated vector
             payload (Dict, optional): Updated payload
         """
+        if vector is None and payload is None:
+            return None
         with self._get_cursor(commit=True) as cur:
+            # MySQL's rowcount leaves out matched rows whose values did not change, so check existence under a row lock.
+            cur.execute(f"SELECT 1 FROM `{self.collection_name}` WHERE id = %s FOR UPDATE", (vector_id,))
+            if cur.fetchone() is None:
+                return False
             if vector is not None:
                 cur.execute(
                     f"UPDATE `{self.collection_name}` SET vector = %s WHERE id = %s",
@@ -424,6 +430,7 @@ class AzureMySQL(VectorStoreBase):
                     f"UPDATE `{self.collection_name}` SET payload = %s WHERE id = %s",
                     (json.dumps(payload), vector_id),
                 )
+        return True
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
