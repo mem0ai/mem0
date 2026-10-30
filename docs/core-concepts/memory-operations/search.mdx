@@ -176,6 +176,35 @@ console.log(results.results[0].score_details);
 
 Each result includes `score_details` with the semantic score, normalized BM25 score, entity boost, raw combined score, maximum possible score, final score, and threshold used for filtering. The field is omitted unless `explain` is enabled, so existing response shapes stay unchanged.
 
+### Cap OSS search results by token budget
+
+`top_k` limits how many memories come back, but not how much context they take up. When you put search results into a prompt, pass `token_budget` with a `token_counter` so the memories' combined text stays within a number of tokens:
+
+```python Python
+import tiktoken
+
+encoding = tiktoken.get_encoding("cl100k_base")
+
+results = m.search(
+    "food preferences",
+    filters={"user_id": "alice"},
+    top_k=10,
+    token_budget=800,
+    token_counter=lambda text: len(encoding.encode(text)),
+)
+```
+
+- The budget is applied after retrieval and reranking. Memories are taken in ranked order. A memory is kept only if the memories kept so far plus this one still fit. A memory that does not fit is skipped and the next one is checked.
+- Only the `memory` text is counted. The texts are joined with a newline (`"\n"`) before counting. IDs, scores and metadata are not counted.
+- Memories are never truncated. Kept results keep their content, order, scores and response shape.
+- `token_counter` is required with `token_budget`. It can be any callable that returns the token count of a string, so use your model's tokenizer.
+- `token_budget=0` returns no memories. A negative or non-integer budget raises `ValueError`.
+- `AsyncMemory.search()` takes the same parameters. Without `token_budget`, search behaves as before.
+
+<Note>
+  `token_budget` is available in the Python OSS SDK only. It is not part of the Platform API or the JavaScript SDK.
+</Note>
+
 ## Filter patterns
 
 Filters help narrow down search results. Common use cases:
