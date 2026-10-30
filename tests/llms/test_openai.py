@@ -416,6 +416,25 @@ def test_gpt4_uses_max_tokens(mock_openai_client):
     assert "max_completion_tokens" not in call_kwargs
 
 
+@pytest.mark.parametrize("model", ["gemma-4-31b", "google.gemma-4-31b"])
+def test_gemma_does_not_send_max_tokens(mock_openai_client, model):
+    """Gemma endpoints can reject max_tokens even through the OpenAI-compatible API."""
+    config = OpenAIConfig(model=model, temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "max_tokens" not in call_kwargs
+    assert call_kwargs["temperature"] == 0.7
+    assert call_kwargs["top_p"] == 1.0
+
+
 def test_callback_with_tools(mock_openai_client):
     mock_callback = Mock()
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", response_callback=mock_callback)
