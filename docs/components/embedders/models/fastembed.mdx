@@ -29,6 +29,13 @@ from mem0 import Memory
 os.environ["OPENAI_API_KEY"] = "your_api_key" # For LLM
 
 config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "fastembed_memories",
+            "embedding_model_dims": 1024,
+        },
+    },
     "embedder": {
         "provider": "fastembed",
         "config": {
@@ -75,6 +82,10 @@ const messages = [
 await memory.add(messages, { userId: "john" });
 ```
 </CodeGroup>
+
+<Note>
+  In Python, the Qdrant collection dimension must match the embedding model. The example sets `embedding_model_dims` to `1024` for `thenlper/gte-large`; Qdrant otherwise defaults to `1536`. Use a fresh collection name if an existing collection was created with a different dimension, and update the dimension when changing models.
+</Note>
 
 <Note>
   **The Python and TypeScript SDKs default to different models.** Python defaults to `thenlper/gte-large` (1024 dimensions), while TypeScript defaults to `fast-bge-small-en-v1.5` (384 dimensions). The TypeScript package (`fastembed` on npm) ships a fixed set of ONNX models and does not include `thenlper/gte-large`. Because the two defaults produce vectors of different dimensions, do not point both SDKs at the same vector store collection unless you configure them to use the same model.
