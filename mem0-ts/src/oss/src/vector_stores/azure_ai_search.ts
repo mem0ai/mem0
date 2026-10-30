@@ -65,6 +65,12 @@ interface AzureAISearchConfig extends VectorStoreConfig {
   vectorFilterMode?: string;
 }
 
+const AZURE_AI_SEARCH_FILTERABLE_FIELDS = [
+  "user_id",
+  "run_id",
+  "agent_id",
+] as const;
+
 /**
  * Azure AI Search vector store implementation
  * Supports vector search with hybrid search, compression, and filtering
@@ -301,28 +307,51 @@ export class AzureAISearch implements VectorStore {
   }
 
   /**
-   * Sanitize filter keys to remove non-alphanumeric characters
-   */
-  private sanitizeKey(key: string): string {
-    return key.replace(/[^\w]/g, "");
-  }
-
-  /**
    * Build OData filter expression from SearchFilters
    */
-  private buildFilterExpression(filters: SearchFilters): string {
+  private buildFilterExpression(filters?: SearchFilters): string | undefined {
+    if (filters === undefined) {
+      return undefined;
+    }
+
+    if (
+      typeof filters !== "object" ||
+      filters === null ||
+      Array.isArray(filters) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(filters))
+    ) {
+      throw new Error("Azure AI Search filters must be a plain object.");
+    }
+
+    if (Object.keys(filters).length === 0) {
+      return undefined;
+    }
+
+    const filterableFields = new Set<string>(AZURE_AI_SEARCH_FILTERABLE_FIELDS);
     const filterConditions: string[] = [];
 
     for (const [key, value] of Object.entries(filters)) {
-      const safeKey = this.sanitizeKey(key);
-
-      if (typeof value === "string") {
-        // Escape single quotes in string values
-        const safeValue = value.replace(/'/g, "''");
-        filterConditions.push(`${safeKey} eq '${safeValue}'`);
-      } else {
-        filterConditions.push(`${safeKey} eq ${value}`);
+      if (value === null || value === undefined) {
+        throw new Error(
+          `Azure AI Search filter '${key}' must not be null or undefined.`,
+        );
       }
+
+      if (!filterableFields.has(key)) {
+        throw new Error(
+          `Unsupported Azure AI Search filter key '${key}'. Supported keys: ${AZURE_AI_SEARCH_FILTERABLE_FIELDS.join(", ")}.`,
+        );
+      }
+
+      if (typeof value !== "string") {
+        throw new Error(
+          `Unsupported Azure AI Search filter value for '${key}': expected string, received ${typeof value}.`,
+        );
+      }
+
+      // Escape single quotes in string values.
+      const safeValue = value.replace(/'/g, "''");
+      filterConditions.push(`${key} eq '${safeValue}'`);
     }
 
     return filterConditions.join(" and ");
@@ -352,14 +381,11 @@ export class AzureAISearch implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
-    await this.initialize();
-    try {
-      const filterExpression = filters
-        ? this.buildFilterExpression(filters)
-        : undefined;
+    const filterExpression = this.buildFilterExpression(filters);
 
+    try {
       const searchResults = await this.searchClient.search(query, {
-        filter: filterExpression,
+        ...(filterExpression && { filter: filterExpression }),
         top: topK,
         searchFields: ["payload"],
       });
@@ -392,10 +418,7 @@ export class AzureAISearch implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
-    await this.initialize();
-    const filterExpression = filters
-      ? this.buildFilterExpression(filters)
-      : undefined;
+    const filterExpression = this.buildFilterExpression(filters);
 
     const vectorQuery: VectorizedQuery<any> = {
       kind: "vector",
@@ -413,7 +436,7 @@ export class AzureAISearch implements VectorStore {
           queries: [vectorQuery],
           filterMode: this.vectorFilterMode as any,
         },
-        filter: filterExpression,
+        ...(filterExpression && { filter: filterExpression }),
         top: topK,
         searchFields: ["payload"],
       });
@@ -424,7 +447,7 @@ export class AzureAISearch implements VectorStore {
           queries: [vectorQuery],
           filterMode: this.vectorFilterMode as any,
         },
-        filter: filterExpression,
+        ...(filterExpression && { filter: filterExpression }),
         top: topK,
       });
     }
@@ -566,13 +589,10 @@ export class AzureAISearch implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
-    await this.initialize();
-    const filterExpression = filters
-      ? this.buildFilterExpression(filters)
-      : undefined;
+    const filterExpression = this.buildFilterExpression(filters);
 
     const searchResults = await this.searchClient.search("*", {
-      filter: filterExpression,
+      ...(filterExpression && { filter: filterExpression }),
       top: topK,
     });
 
