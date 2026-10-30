@@ -474,7 +474,7 @@ export class AzureAISearch implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.initialize();
     const document: Record<string, any> = { id: vectorId };
 
@@ -493,15 +493,19 @@ export class AzureAISearch implements VectorStore {
       }
     }
 
-    const response = await this.searchClient.mergeOrUploadDocuments([document]);
+    const response = await this.searchClient.mergeDocuments([document]);
 
     for (const result of response.results) {
+      if (result.statusCode === 404) {
+        return false;
+      }
       if (!result.succeeded) {
         throw new Error(
           `Update failed for document ${vectorId}: ${result.errorMessage}`,
         );
       }
     }
+    return true;
   }
 
   /**

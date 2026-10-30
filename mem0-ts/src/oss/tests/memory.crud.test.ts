@@ -165,6 +165,30 @@ describe("Memory - update()", () => {
     expect(result.message).toBe("Memory updated successfully!");
   });
 
+  test("a delete that lands between get and update is not undone", async () => {
+    const addResult: SearchResult = await memory.add("Race me", {
+      userId,
+      infer: false,
+    });
+    const id = addResult.results[0].id;
+    const store = (memory as any).vectorStore;
+    const realUpdate = store.update.bind(store);
+    const updateSpy = jest
+      .spyOn(store, "update")
+      .mockImplementationOnce(async (...args: any[]) => {
+        await memory.delete(id);
+        return realUpdate(...args);
+      });
+
+    await expect(memory.update(id, { text: "Resurrected" })).rejects.toThrow(
+      `Memory with ID ${id} not found`,
+    );
+    updateSpy.mockRestore();
+    expect(await memory.get(id)).toBeNull();
+    const actions = (await memory.history(id)).map((h) => h.action);
+    expect(actions).toEqual(["DELETE", "ADD"]);
+  });
+
   test("persists the updated text", async () => {
     const addResult: SearchResult = await memory.add("Before update", {
       userId,
