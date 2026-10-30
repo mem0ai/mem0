@@ -44,6 +44,16 @@ class VectorStoreBase(ABC):
         """Retrieve a vector by ID."""
         pass
 
+    def get_by_ids(self, ids, filters=None):
+        """Retrieve several vectors, applying the complete optional filter.
+
+        Providers that can perform a native scoped batch read should override
+        this method.  The base implementation deliberately has no unfiltered
+        per-ID fallback: RRF entity-only candidates must never bypass the
+        caller's scope or metadata predicates.
+        """
+        raise NotImplementedError("This vector store does not support scoped batch reads")
+
     @abstractmethod
     def list_cols(self):
         """List all collections."""

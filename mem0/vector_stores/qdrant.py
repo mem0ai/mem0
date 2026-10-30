@@ -14,6 +14,7 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    HasIdCondition,
     MatchAny,
     MatchExcept,
     MatchText,
@@ -597,6 +598,34 @@ class Qdrant(VectorStoreBase):
         """
         result = self.client.retrieve(collection_name=self.collection_name, ids=[vector_id], with_payload=True)
         return result[0] if result else None
+
+    def get_by_ids(self, ids, filters=None) -> list:
+        """Retrieve requested IDs with the complete Qdrant filter applied.
+
+        Entity links are only identity-scoped, so hydration must add the
+        caller's complete filter to a HasId condition.  A single scroll keeps
+        the operation bounded by the entity route window and requests payloads
+        without vectors.
+        """
+        requested_ids = list(ids or [])
+        if not requested_ids:
+            return []
+
+        query_filter = self._create_filter(filters) if filters else None
+        scoped_filter = Filter(must=[HasIdCondition(has_id=requested_ids)])
+        if query_filter is not None:
+            scoped_filter.must.append(query_filter)
+
+        result = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=scoped_filter,
+            limit=len(requested_ids),
+            with_payload=True,
+            with_vectors=False,
+        )
+        # Qdrant returns (points, next_offset); accepting a bare list keeps
+        # lightweight provider doubles and older clients compatible.
+        return result[0] if isinstance(result, tuple) else result
 
     def list_cols(self) -> list:
         """

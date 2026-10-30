@@ -460,6 +460,35 @@ export class PGVector implements VectorStore {
     };
   }
 
+  async getByIds(
+    ids: string[],
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[]> {
+    if (ids.length === 0) return [];
+    await this.initialize();
+
+    const { conditions, values: filterValues } = buildFilterConditions(
+      filters,
+      2,
+    );
+    const filterClause =
+      conditions.length > 0 ? "AND " + conditions.join(" AND ") : "";
+    const result = await this.client.query(
+      `
+      SELECT id, payload
+      FROM ${this.col()}
+      WHERE id = ANY($1::uuid[])
+      ${filterClause}
+      `,
+      [ids, ...filterValues],
+    );
+
+    return result.rows.map((row: any) => ({
+      id: String(row.id),
+      payload: (row.payload as Record<string, any>) || {},
+    }));
+  }
+
   async update(
     vectorId: string,
     vector: number[],
