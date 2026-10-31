@@ -132,20 +132,20 @@ export class Qdrant implements VectorStore {
    * Build a single field condition from a key-value filter pair.
    * Supports enhanced filter syntax with comparison operators.
    */
-  private buildFieldCondition(key: string, value: any): QdrantCondition | null {
+  private buildFieldConditions(key: string, value: any): QdrantCondition[] {
     // Handle non-dict values
     if (typeof value !== "object" || value === null) {
       // Wildcard: match any value - skip this filter
       if (value === "*") {
-        return null;
+        return [];
       }
       // Simple equality
-      return { key, match: { value } };
+      return [{ key, match: { value } }];
     }
 
     // Handle array shorthand: {"field": ["a", "b"]} treated as "in" operator
     if (Array.isArray(value)) {
-      return { key, match: { any: value } };
+      return [{ key, match: { any: value } }];
     }
 
     const ops = Object.keys(value);
@@ -168,44 +168,56 @@ export class Qdrant implements VectorStore {
           range[op] = value[op];
         }
       }
-      return { key, range };
+      return [{ key, range }];
     }
 
-    // Handle comparison operators
+    // Handle comparison operators. A field may carry several at once; every
+    // operator becomes its own must condition so all of them apply (#7762).
+    // The two exclusion operators merge into one `except` match, which is
+    // exactly Qdrant's semantics for ne + nin on the same field. Positive
+    // matches are emitted before exclusions.
+    const conditions: QdrantCondition[] = [];
     if ("eq" in value) {
-      return { key, match: { value: value.eq } };
-    }
-    if ("ne" in value) {
-      return { key, match: { except: [value.ne] } };
+      conditions.push({ key, match: { value: value.eq } });
     }
     if ("in" in value) {
-      return { key, match: { any: value.in } };
-    }
-    if ("nin" in value) {
-      return { key, match: { except: value.nin } };
+      conditions.push({ key, match: { any: value.in } });
     }
     if ("contains" in value || "icontains" in value) {
-      const text = value.contains || value.icontains;
-      return { key, match: { text } };
+      const text = value.contains ?? value.icontains;
+      conditions.push({ key, match: { text } });
+    }
+    const exclusions: any[] = [];
+    if ("ne" in value) {
+      exclusions.push(value.ne);
+    }
+    if ("nin" in value) {
+      exclusions.push(...value.nin);
+    }
+    if (exclusions.length > 0) {
+      conditions.push({ key, match: { except: exclusions } });
     }
 
-    // Unknown operator - treat as nested object for simple match
-    const supportedOps = [
-      "eq",
-      "ne",
-      "gt",
-      "gte",
-      "lt",
-      "lte",
-      "in",
-      "nin",
-      "contains",
-      "icontains",
-    ];
-    throw new Error(
-      `Unsupported filter operator(s) for field '${key}': ${ops.join(", ")}. ` +
-        `Supported operators: ${supportedOps.join(", ")}`,
-    );
+    if (conditions.length === 0) {
+      // Unknown operator - treat as nested object for simple match
+      const supportedOps = [
+        "eq",
+        "ne",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "in",
+        "nin",
+        "contains",
+        "icontains",
+      ];
+      throw new Error(
+        `Unsupported filter operator(s) for field '${key}': ${ops.join(", ")}. ` +
+          `Supported operators: ${supportedOps.join(", ")}`,
+      );
+    }
+    return conditions;
   }
 
   /**
@@ -273,8 +285,7 @@ export class Qdrant implements VectorStore {
         }
       } else {
         // Regular field condition
-        const condition = this.buildFieldCondition(key, value);
-        if (condition !== null) {
+        for (const condition of this.buildFieldConditions(key, value)) {
           must.push(condition);
         }
       }

@@ -2156,13 +2156,32 @@ export class Memory {
 
     for (const [key, value] of Object.entries(metadataFilters)) {
       if (key === "AND") {
-        // Logical AND: combine multiple conditions
+        // Logical AND: combine multiple conditions. A field appearing in
+        // several branches merges its operators instead of the last branch
+        // winning — AND [{ status: { ne: a } }, { status: { nin: [b] } }]
+        // must narrow, not overwrite (#7762).
         if (!Array.isArray(value)) {
           throw new Error("AND operator requires a list of conditions");
         }
         for (const condition of value) {
           for (const [subKey, subValue] of Object.entries(condition)) {
-            Object.assign(processedFilters, processCondition(subKey, subValue));
+            const processed = processCondition(subKey, subValue);
+            for (const [fieldKey, fieldValue] of Object.entries(processed)) {
+              const existing = processedFilters[fieldKey];
+              if (
+                existing !== undefined &&
+                typeof existing === "object" &&
+                existing !== null &&
+                !Array.isArray(existing) &&
+                typeof fieldValue === "object" &&
+                fieldValue !== null &&
+                !Array.isArray(fieldValue)
+              ) {
+                processedFilters[fieldKey] = { ...existing, ...fieldValue };
+              } else {
+                processedFilters[fieldKey] = fieldValue;
+              }
+            }
           }
         }
       } else if (key === "OR") {
