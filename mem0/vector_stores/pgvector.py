@@ -12,6 +12,7 @@ try:
     from psycopg import sql
     from psycopg.types.json import Json
     from psycopg_pool import ConnectionPool
+
     PSYCOPG_VERSION = 3
     logger = logging.getLogger(__name__)
     logger.info("Using psycopg (psycopg3) with ConnectionPool for PostgreSQL connections")
@@ -20,6 +21,7 @@ except ImportError:
         from psycopg2 import sql
         from psycopg2.extras import Json, execute_values
         from psycopg2.pool import ThreadedConnectionPool as ConnectionPool
+
         PSYCOPG_VERSION = 2
         logger = logging.getLogger(__name__)
         logger.info("Using psycopg2 with ThreadedConnectionPool for PostgreSQL connections")
@@ -186,10 +188,11 @@ class PGVector(VectorStoreBase):
         self.embedding_model_dims = embedding_model_dims
         self.connection_pool = None
         self._collection_ensured = False
+        self._owns_pool = False
 
         # Connection setup with priority: connection_pool > connection_string > individual parameters
         if connection_pool is not None:
-            # Use provided connection pool
+            # Use provided connection pool; ownership stays with the caller.
             self.connection_pool = connection_pool
         elif connection_string:
             if sslmode:
@@ -198,8 +201,9 @@ class PGVector(VectorStoreBase):
             connection_string = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
             if sslmode:
                 connection_string = _with_sslmode(connection_string, sslmode)
-        
+
         if self.connection_pool is None:
+            self._owns_pool = True
             if PSYCOPG_VERSION == 3:
                 # open=False avoids blocking when DB DNS is not yet resolvable (e.g. Docker startup)
                 self.connection_pool = ConnectionPool(
@@ -212,6 +216,23 @@ class PGVector(VectorStoreBase):
             else:
                 # psycopg2 ThreadedConnectionPool
                 self.connection_pool = ConnectionPool(minconn=minconn, maxconn=maxconn, dsn=connection_string)
+
+    def close(self) -> None:
+        """Release the internally created connection pool; borrowed pools remain open.
+
+        ``Memory.close()`` calls this on every store it holds. Safe to call
+        repeatedly; ``__del__`` delegates here.
+        """
+        if self._owns_pool and self.connection_pool is not None:
+            try:
+                if PSYCOPG_VERSION == 3:
+                    self.connection_pool.close()
+                else:
+                    self.connection_pool.closeall()
+            except Exception:
+                logger.warning("Failed to close pgvector connection pool", exc_info=True)
+            finally:
+                self._owns_pool = False
 
     def _ensure_collection(self):
         if self._collection_ensured:
@@ -432,7 +453,7 @@ class PGVector(VectorStoreBase):
             return None
         with self._get_cursor(commit=True) as cur:
             if vector is not None:
-               cur.execute(
+                cur.execute(
                     sql.SQL("UPDATE {} SET vector = %s WHERE id = %s").format(self._col()),
                     (vector, vector_id),
                 )
@@ -451,7 +472,6 @@ class PGVector(VectorStoreBase):
                         (Json(payload), vector_id),
                     )
             return cur.rowcount > 0
-
 
     def get(self, vector_id: str) -> OutputData:
         """
@@ -513,11 +533,7 @@ class PGVector(VectorStoreBase):
             result = cur.fetchone()
         return {"name": result[0], "count": result[1], "size": result[2]}
 
-    def list(
-        self,
-        filters: Optional[dict] = None,
-        top_k: Optional[int] = 100
-    ) -> List[OutputData]:
+    def list(self, filters: Optional[dict] = None, top_k: Optional[int] = 100) -> List[OutputData]:
         """
         List all vectors in a collection.
 
@@ -547,14 +563,11 @@ class PGVector(VectorStoreBase):
 
     def __del__(self) -> None:
         """
-        Close the database connection pool when the object is deleted.
+        Close the internally created connection pool when the object is deleted.
+        Borrowed pools stay with their owner.
         """
         try:
-            # Close pool appropriately
-            if PSYCOPG_VERSION == 3:
-                self.connection_pool.close()
-            else:
-                self.connection_pool.closeall()
+            self.close()
         except Exception:
             pass
 
