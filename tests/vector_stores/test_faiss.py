@@ -238,7 +238,7 @@ def test_update(faiss_instance, mock_faiss_index):
     # This requires mocking the delete and insert methods
     with patch.object(faiss_instance, "delete") as mock_delete:
         with patch.object(faiss_instance, "insert") as mock_insert:
-            new_vector = [0.7, 0.8, 0.9]
+            new_vector = [0.7] * mock_faiss_index.d
             assert faiss_instance.update(vector_id="id2", vector=new_vector) is True
 
             # Verify delete and insert were called

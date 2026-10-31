@@ -519,6 +519,12 @@ class FAISS(VectorStoreBase):
         if vector_id not in self.docstore:
             return False
 
+        # Validate before delete() persists removal of the existing memory.
+        if vector is not None:
+            vector_np = np.array(vector, dtype=np.float32)
+            if vector_np.shape != (self.index.d,):
+                raise ValueError(f"Expected a vector with {self.index.d} dimensions")
+
         current_payload = self.docstore[vector_id].copy()
 
         if payload is not None:
