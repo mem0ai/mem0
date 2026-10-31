@@ -63,6 +63,13 @@ describe("extractProvider", () => {
     expect(extractProvider("mistral.mistral-large-2407-v1:0")).toBe("mistral");
   });
 
+  it("detects OpenAI models, keeping gpt-oss separate", () => {
+    expect(extractProvider("us.openai.gpt-6-sol")).toBe("openai");
+    expect(extractProvider("global.openai.gpt-6-luna")).toBe("openai");
+    expect(extractProvider("openai.gpt-5.6-sol")).toBe("openai");
+    expect(extractProvider("openai.gpt-oss-120b-1:0")).toBe("gpt-oss");
+  });
+
   it("throws on an unknown provider", () => {
     expect(() => extractProvider("totally-unknown-model")).toThrow(
       /Unknown provider/,
@@ -134,6 +141,38 @@ describe("AWSBedrockLLM", () => {
     });
     await llm.generateResponse([{ role: "user", content: "hi" }]);
     expect(client.lastInput.inferenceConfig.topP).toBe(0.9);
+  });
+
+  it("omits temperature and topP for OpenAI GPT-5.6 / GPT-6 models", async () => {
+    // Bedrock: "This model doesn't support the temperature field."
+    const client = new FakeBedrockClient({
+      output: {
+        message: {
+          content: [
+            { reasoningContent: { redactedContent: new Uint8Array([1]) } },
+            { text: "pong" },
+          ],
+        },
+      },
+    });
+    const llm = makeLLM(client, {
+      model: "us.openai.gpt-6-sol",
+      temperature: 0.7,
+      topP: 0.9,
+    });
+    const out = await llm.generateResponse([{ role: "user", content: "ping" }]);
+    expect(out).toBe("pong");
+    expect(client.lastInput.inferenceConfig).toEqual({ maxTokens: 2000 });
+  });
+
+  it("keeps temperature for gpt-oss", async () => {
+    const client = new FakeBedrockClient(textResponse);
+    const llm = makeLLM(client, {
+      model: "openai.gpt-oss-120b-1:0",
+      temperature: 0.2,
+    });
+    await llm.generateResponse([{ role: "user", content: "hi" }]);
+    expect(client.lastInput.inferenceConfig.temperature).toBe(0.2);
   });
 
   it("converts OpenAI-style tools to Converse toolConfig and parses toolUse", async () => {
