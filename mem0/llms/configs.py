@@ -29,6 +29,7 @@ class LlmConfig(BaseModel):
             "lmstudio",
             "vllm",
             "langchain",
+            "bailian",
         ):
             return v
         else:

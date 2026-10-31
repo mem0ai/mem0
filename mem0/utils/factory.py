@@ -15,6 +15,7 @@ from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.configs.llms.vllm import VllmConfig
 from mem0.configs.llms.xai import XAIConfig
+from mem0.configs.llms.bailian import BailianConfig
 from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.cohere import CohereRerankerConfig
 from mem0.configs.rerankers.huggingface import HuggingFaceRerankerConfig
@@ -23,6 +24,7 @@ from mem0.configs.rerankers.sentence_transformer import (
     SentenceTransformerRerankerConfig,
 )
 from mem0.configs.rerankers.zero_entropy import ZeroEntropyRerankerConfig
+from mem0.configs.rerankers.bailian import BailianRerankerConfig
 from mem0.embeddings.mock import MockEmbeddings
 
 
@@ -58,6 +60,7 @@ class LlmFactory:
         "lmstudio": ("mem0.llms.lmstudio.LMStudioLLM", LMStudioConfig),
         "vllm": ("mem0.llms.vllm.VllmLLM", VllmConfig),
         "langchain": ("mem0.llms.langchain.LangchainLLM", BaseLlmConfig),
+        "bailian": ("mem0.llms.bailian.BaiLianLLM", BailianConfig),
     }
 
     @classmethod
@@ -162,6 +165,7 @@ class EmbedderFactory:
         "langchain": "mem0.embeddings.langchain.LangchainEmbedding",
         "aws_bedrock": "mem0.embeddings.aws_bedrock.AWSBedrockEmbedding",
         "fastembed": "mem0.embeddings.fastembed.FastEmbedEmbedding",
+        "bailian": "mem0.embeddings.bailian.BaiLianEmbedding",
     }
 
     @classmethod
@@ -239,6 +243,7 @@ class RerankerFactory:
         "zero_entropy": ("mem0.reranker.zero_entropy_reranker.ZeroEntropyReranker", ZeroEntropyRerankerConfig),
         "llm_reranker": ("mem0.reranker.llm_reranker.LLMReranker", LLMRerankerConfig),
         "huggingface": ("mem0.reranker.huggingface_reranker.HuggingFaceReranker", HuggingFaceRerankerConfig),
+        "bailian": ("mem0.reranker.bailian_reranker.bailian_reranker", BailianRerankerConfig),
     }
 
     @classmethod
