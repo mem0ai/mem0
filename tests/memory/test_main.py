@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from mem0.exceptions import LLMError, VectorStoreError
-from mem0.memory.main import AsyncMemory, Memory
+from mem0.memory.main import AsyncMemory, Memory, _normalize_iso_timestamp_to_utc
 
 
 def _setup_mocks(mocker):
@@ -362,6 +362,51 @@ def test_create_memory_preserves_existing_created_at(mocker):
     payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
     assert payload["created_at"] == custom_ts
     assert payload["updated_at"] == custom_ts
+
+
+def test_create_memory_coerces_epoch_created_at_to_iso(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={"created_at": 1735689600})
+    payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    assert isinstance(payload["created_at"], str)
+    _assert_utc_timestamp(payload["created_at"])
+    assert payload["updated_at"] == payload["created_at"]
+
+
+def test_create_memory_coerces_datetime_created_at_to_iso(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    custom_dt = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={"created_at": custom_dt})
+    payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    assert payload["created_at"] == "2025-01-01T00:00:00+00:00"
+    assert payload["updated_at"] == payload["created_at"]
+
+
+def test_create_memory_rejects_created_at_that_is_not_a_timestamp(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    with pytest.raises(ValueError, match="created_at must be an ISO 8601 string"):
+        memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={"created_at": [2025, 1, 1]})
+
+
+def test_normalize_iso_timestamp_to_utc_coerces_legacy_non_string_values():
+    # Records written before add() coerced created_at can hold epoch or
+    # datetime values; the delete paths normalize them instead of crashing.
+    assert _normalize_iso_timestamp_to_utc(1735689600) == "2025-01-01T00:00:00+00:00"
+    assert _normalize_iso_timestamp_to_utc(datetime(2025, 1, 1, tzinfo=timezone.utc)) == "2025-01-01T00:00:00+00:00"
+    # Junk that cannot be a timestamp passes through untouched so callers that
+    # only need to read or delete the record still work.
+    junk = [2025, 1, 1]
+    assert _normalize_iso_timestamp_to_utc(junk) is junk
+
+
+@pytest.mark.asyncio
+async def test_async_create_memory_coerces_epoch_created_at_to_iso(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    await memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={"created_at": 1735689600})
+    payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    assert isinstance(payload["created_at"], str)
+    _assert_utc_timestamp(payload["created_at"])
+    assert payload["updated_at"] == payload["created_at"]
 
 
 def test_update_memory_uses_utc_timestamps(mocker):

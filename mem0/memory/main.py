@@ -298,10 +298,39 @@ def _safe_deepcopy_config(config):
             return type("Config", (), clone_dict)()
 
 
+def _coerce_created_at_value(value: Any) -> str:
+    """Coerce a caller-supplied ``created_at`` into a storable timestamp string.
+
+    Strings pass through unchanged, ``datetime`` values become ISO 8601, and
+    epoch-second numbers become ISO 8601 in UTC. Anything else is rejected with
+    ``ValueError`` before it can be stored, because a non-string ``created_at``
+    later fails the ``MemoryItem`` schema on every read and crashes the delete
+    paths, leaving the user's memories unreadable and undeletable.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return datetime.fromtimestamp(value, timezone.utc).isoformat()
+    raise ValueError(
+        "created_at must be an ISO 8601 string, a datetime, or epoch seconds; "
+        f"got {type(value).__name__}"
+    )
+
+
 def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
     """Normalize timezone-aware ISO timestamps to UTC without rewriting naive values."""
     if not timestamp:
         return timestamp
+    if not isinstance(timestamp, str):
+        # Records written before add() coerced created_at can hold a datetime or
+        # epoch value; normalize them instead of crashing the delete paths that
+        # a user needs to clean such records up with.
+        try:
+            return _coerce_created_at_value(timestamp)
+        except ValueError:
+            return timestamp
     try:
         parsed = datetime.fromisoformat(timestamp)
     except ValueError:
@@ -1032,7 +1061,9 @@ class Memory(MemoryBase):
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
             mem_metadata["hash"] = mem_hash
-            if "created_at" not in mem_metadata:
+            if "created_at" in mem_metadata:
+                mem_metadata["created_at"] = _coerce_created_at_value(mem_metadata["created_at"])
+            else:
                 mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
@@ -1982,7 +2013,9 @@ class Memory(MemoryBase):
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        if "created_at" not in new_metadata:
+        if "created_at" in new_metadata:
+            new_metadata["created_at"] = _coerce_created_at_value(new_metadata["created_at"])
+        else:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
@@ -2713,7 +2746,9 @@ class AsyncMemory(MemoryBase):
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
             mem_metadata["hash"] = mem_hash
-            if "created_at" not in mem_metadata:
+            if "created_at" in mem_metadata:
+                mem_metadata["created_at"] = _coerce_created_at_value(mem_metadata["created_at"])
+            else:
                 mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
@@ -3681,7 +3716,9 @@ class AsyncMemory(MemoryBase):
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        if "created_at" not in new_metadata:
+        if "created_at" in new_metadata:
+            new_metadata["created_at"] = _coerce_created_at_value(new_metadata["created_at"])
+        else:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
