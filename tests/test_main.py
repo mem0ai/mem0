@@ -5,7 +5,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory, _validate_and_trim_entity_id
+from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.memory.main import AsyncMemory, Memory, _validate_and_trim_entity_id
 
 
 @pytest.fixture(autouse=True)
@@ -51,6 +52,23 @@ def memory_custom_instance():
             custom_instructions="custom prompt extracting memory in json format",
         )
         return Memory(config)
+
+
+@pytest.fixture
+def async_memory_instance():
+    with (
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_vector_store.create.return_value.search.return_value = []
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        return AsyncMemory(config)
 
 
 def test_add(memory_instance):
@@ -561,3 +579,22 @@ class TestSearchParamValidation:
             result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
 
         assert "results" in result
+
+
+class TestMemoryTypeValidation:
+    """Tests for invalid memory_type rejection in add() (sync and async parity)."""
+
+    def test_add_rejects_invalid_memory_type(self, memory_instance):
+        """Sync add() should raise Mem0ValidationError with VALIDATION_002."""
+        with pytest.raises(Mem0ValidationError, match="Invalid 'memory_type'") as exc_info:
+            memory_instance.add("test message", user_id="test_user", memory_type="invalid_type")
+
+        assert exc_info.value.error_code == "VALIDATION_002"
+
+    @pytest.mark.asyncio
+    async def test_async_add_rejects_invalid_memory_type(self, async_memory_instance):
+        """Async add() must raise the same Mem0ValidationError as the sync path."""
+        with pytest.raises(Mem0ValidationError, match="Invalid 'memory_type'") as exc_info:
+            await async_memory_instance.add("test message", user_id="test_user", memory_type="invalid_type")
+
+        assert exc_info.value.error_code == "VALIDATION_002"
