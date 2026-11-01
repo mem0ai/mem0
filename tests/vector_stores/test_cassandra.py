@@ -132,11 +132,34 @@ def test_update(cassandra_instance):
 
     mock_prepared = Mock()
     cassandra_instance.session.prepare = Mock(return_value=mock_prepared)
+    mock_row = Mock()
+    mock_result = Mock()
+    mock_result.one = Mock(return_value=mock_row)
+    cassandra_instance.session.execute = Mock(return_value=mock_result)
 
-    cassandra_instance.update(vector_id="test_id", vector=new_vector, payload=new_payload)
+    assert cassandra_instance.update(vector_id="test_id", vector=new_vector, payload=new_payload) is True
 
     assert cassandra_instance.session.prepare.called
     assert cassandra_instance.session.execute.called
+
+
+def test_update_missing_row_returns_false_without_writing(cassandra_instance):
+    """A CQL UPDATE is an upsert, so update() must SELECT first and never write a missing row."""
+    mock_prepared = Mock()
+    cassandra_instance.session.prepare = Mock(return_value=mock_prepared)
+    missing_result = Mock()
+    missing_result.one = Mock(return_value=None)
+    cassandra_instance.session.execute = Mock(return_value=missing_result)
+
+    cassandra_instance.delete(vector_id="gone")
+    cassandra_instance.session.execute.reset_mock()
+    cassandra_instance.session.prepare.reset_mock()
+
+    assert cassandra_instance.update(vector_id="gone", vector=[0.1], payload={"text": "x"}) is False
+
+    # Only the existence SELECT ran; no UPDATE reached the session.
+    assert cassandra_instance.session.execute.call_count == 1
+    assert "SELECT id" in cassandra_instance.session.prepare.call_args[0][0]
 
 
 def test_get(cassandra_instance):

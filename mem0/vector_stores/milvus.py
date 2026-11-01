@@ -278,19 +278,23 @@ class MilvusDB(VectorStoreBase):
         """
         self.client.delete(collection_name=self.collection_name, ids=[vector_id])
 
-    def update(self, vector_id=None, vector=None, payload=None):
+    def update(self, vector_id=None, vector=None, payload=None) -> Optional[bool]:
         """
-        Update a vector and its payload.
+        Update an existing vector and its payload. Never creates a record.
 
         Args:
             vector_id (str): ID of the vector to update.
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
+
+        Returns:
+            Optional[bool]: True if the record exists and was updated, False if no record has this ID.
         """
+        # Milvus upserts unconditionally, so verify the record exists before writing.
+        existing = self.client.get(collection_name=self.collection_name, ids=vector_id)
+        if not existing:
+            return False
         if vector is None or payload is None:
-            existing = self.client.get(collection_name=self.collection_name, ids=vector_id)
-            if not existing:
-                raise ValueError(f"Vector with id {vector_id} not found in collection {self.collection_name}")
             if vector is None:
                 vector = existing[0].get("vectors")
                 if vector is None:
@@ -305,6 +309,7 @@ class MilvusDB(VectorStoreBase):
                 text = (payload.get("text_lemmatized") or payload.get("data", ""))[:65535]
             schema["text"] = text
         self.client.upsert(collection_name=self.collection_name, data=schema)
+        return True
 
     def get(self, vector_id) -> Optional[OutputData]:
         """

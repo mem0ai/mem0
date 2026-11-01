@@ -221,15 +221,23 @@ class TurbopufferDB(VectorStoreBase):
         vector_id: Union[str, int],
         vector: Optional[List[float]] = None,
         payload: Optional[Dict] = None,
-    ):
+    ) -> Optional[bool]:
         """
-        Update a vector and its payload.
+        Update an existing vector and/or its payload. Never creates a record.
 
         Args:
             vector_id (Union[str, int]): ID of the vector to update.
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
+
+        Returns:
+            Optional[bool]: False if no row has this ID, True if it was updated, None if nothing was given.
         """
+        if vector is None and payload is None:
+            return None
+        # upsert_rows recreates a concurrently deleted id, so confirm it exists before writing.
+        if self.get(vector_id) is None:
+            return False
         if vector is not None:
             row = {}
             if payload:
@@ -244,6 +252,7 @@ class TurbopufferDB(VectorStoreBase):
             row = dict(payload)
             row["id"] = str(vector_id)
             self.namespace.write(patch_rows=[row])
+        return True
 
     def get(self, vector_id: Union[str, int]) -> Optional[OutputData]:
         """

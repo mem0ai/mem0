@@ -146,12 +146,22 @@ class Langchain(VectorStoreBase):
         """
         self.client.delete(ids=[vector_id])
 
-    def update(self, vector_id, vector=None, payload=None):
+    def update(self, vector_id, vector=None, payload=None) -> Optional[bool]:
         """
-        Update a vector and its payload.
+        Update an existing vector and its payload. Never creates a record.
+
+        Returns:
+            Optional[bool]: True if the record exists and was updated, False if no record has this ID,
+                None if neither vector nor payload was given.
         """
+        if vector is None and payload is None:
+            return None
+        # delete+insert would recreate a concurrently deleted id, so verify it exists first.
+        if self.get(vector_id) is None:
+            return False
         self.delete(vector_id)
         self.insert([vector], [payload], [vector_id])
+        return True
 
     def get(self, vector_id):
         """

@@ -285,6 +285,7 @@ def test_update_wraps_vector_and_payload_in_lists(langchain_instance):
     update() must wrap vector and payload in lists before calling insert(),
     which expects List[List[float]] and List[Dict] respectively.
     """
+    langchain_instance.client.get_by_ids = Mock(return_value=[Mock(metadata={"data": "old"}, id="id1")])
     langchain_instance.client.delete = Mock()
     langchain_instance.client.add_embeddings = Mock()
 
@@ -292,9 +293,37 @@ def test_update_wraps_vector_and_payload_in_lists(langchain_instance):
     payload = {"data": "updated text", "name": "updated"}
     vector_id = "id1"
 
-    langchain_instance.update(vector_id=vector_id, vector=vector, payload=payload)
+    assert langchain_instance.update(vector_id=vector_id, vector=vector, payload=payload) is True
 
     langchain_instance.client.delete.assert_called_once_with(ids=[vector_id])
     langchain_instance.client.add_embeddings.assert_called_once_with(
         embeddings=[vector], metadatas=[payload], ids=[vector_id]
+    )
+
+
+def test_update_missing_id_returns_false_without_reinsert(langchain_instance):
+    """A memory deleted after Memory read it must stay deleted: update() returns False and never re-inserts."""
+    langchain_instance.client.get_by_ids = Mock(return_value=[])
+    langchain_instance.client.delete = Mock()
+    langchain_instance.client.add_embeddings = Mock()
+    langchain_instance.client.add_texts = Mock()
+
+    assert langchain_instance.update(vector_id="gone", vector=[0.1, 0.2, 0.3], payload={"data": "d"}) is False
+    assert langchain_instance.update(vector_id="gone", vector=None, payload={"data": "d"}) is False
+
+    langchain_instance.client.delete.assert_not_called()
+    langchain_instance.client.add_embeddings.assert_not_called()
+    langchain_instance.client.add_texts.assert_not_called()
+
+
+def test_update_existing_id_returns_true(langchain_instance):
+    langchain_instance.client.get_by_ids = Mock(return_value=[Mock(metadata={"data": "old"}, id="id1")])
+    langchain_instance.client.delete = Mock()
+    langchain_instance.client.add_embeddings = Mock()
+
+    assert langchain_instance.update(vector_id="id1", vector=[0.4, 0.5, 0.6], payload={"data": "new"}) is True
+
+    langchain_instance.client.delete.assert_called_once_with(ids=["id1"])
+    langchain_instance.client.add_embeddings.assert_called_once_with(
+        embeddings=[[0.4, 0.5, 0.6]], metadatas=[{"data": "new"}], ids=["id1"]
     )

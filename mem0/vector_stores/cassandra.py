@@ -312,16 +312,28 @@ class CassandraDB(VectorStoreBase):
         vector_id: str,
         vector: Optional[List[float]] = None,
         payload: Optional[Dict] = None,
-    ):
+    ) -> Optional[bool]:
         """
-        Update a vector and its payload.
+        Update an existing vector and its payload. Never creates a record.
 
         Args:
             vector_id (str): ID of the vector to update
             vector (List[float], optional): Updated vector
             payload (Dict, optional): Updated payload
+
+        Returns:
+            Optional[bool]: True if the row exists and was updated, False if no row has this ID.
         """
         try:
+            # A CQL UPDATE is an upsert, so verify the row exists before writing.
+            exists_query = f"""
+                SELECT id
+                FROM {self.keyspace}.{self.collection_name}
+                WHERE id = ?
+            """
+            prepared = self.session.prepare(exists_query)
+            if self.session.execute(prepared, (vector_id,)).one() is None:
+                return False
             if vector is not None:
                 query = f"""
                     UPDATE {self.keyspace}.{self.collection_name}
@@ -341,6 +353,7 @@ class CassandraDB(VectorStoreBase):
                 self.session.execute(prepared, (json.dumps(payload), vector_id))
 
             logger.info(f"Updated vector with id: {vector_id}")
+            return True
         except Exception as e:
             logger.error(f"Failed to update vector: {e}")
             raise

@@ -411,6 +411,7 @@ class TestDelete:
 
 class TestUpdate:
     def test_update_with_vector_and_payload(self, db):
+        db.namespace.query.return_value = MagicMock(rows=[_make_row("id1")])
         db.update("id1", vector=[0.5, 0.6, 0.7, 0.8], payload={"data": "updated"})
 
         db.namespace.write.assert_called_once()
@@ -422,6 +423,7 @@ class TestUpdate:
         assert call_kwargs["distance_metric"] == "cosine_distance"
 
     def test_update_vector_only(self, db):
+        db.namespace.query.return_value = MagicMock(rows=[_make_row("id1")])
         db.update("id1", vector=[0.5, 0.6, 0.7, 0.8])
 
         call_kwargs = db.namespace.write.call_args[1]
@@ -432,6 +434,7 @@ class TestUpdate:
 
     def test_update_payload_only_uses_patch(self, db):
         """Payload-only updates should use patch_rows, not upsert_rows."""
+        db.namespace.query.return_value = MagicMock(rows=[_make_row("id1")])
         db.update("id1", vector=None, payload={"data": "patched", "user_id": "u1"})
 
         call_kwargs = db.namespace.write.call_args[1]
@@ -443,6 +446,7 @@ class TestUpdate:
 
     def test_update_payload_does_not_overwrite_id(self, db):
         """Payload with an 'id' key must not overwrite the actual vector ID."""
+        db.namespace.query.return_value = MagicMock(rows=[_make_row("real_id")])
         db.update("real_id", vector=None, payload={"id": "fake_id", "data": "test"})
         call_kwargs = db.namespace.write.call_args[1]
         row = call_kwargs["patch_rows"][0]
@@ -452,6 +456,25 @@ class TestUpdate:
         """Neither vector nor payload: should not call write."""
         db.update("id1")
         db.namespace.write.assert_not_called()
+        db.namespace.query.assert_not_called()
+
+    def test_update_missing_row_returns_false_without_upsert(self, db):
+        """A memory deleted after Memory read it must stay deleted: upsert_rows must not recreate it."""
+        db.namespace.query.return_value = MagicMock(rows=[])
+        db.delete("gone")
+
+        assert db.update("gone", vector=[0.5, 0.6, 0.7, 0.8], payload={"data": "d"}) is False
+        assert db.update("gone", vector=None, payload={"data": "d"}) is False
+
+        for call in db.namespace.write.call_args_list:
+            assert "upsert_rows" not in call.kwargs and "patch_rows" not in call.kwargs
+
+    def test_update_existing_row_returns_true(self, db):
+        db.namespace.query.return_value = MagicMock(rows=[_make_row("id1", data="old")])
+
+        assert db.update("id1", vector=[0.5, 0.6, 0.7, 0.8], payload={"data": "updated"}) is True
+
+        db.namespace.write.assert_called_once()
 
 
 # ── get ──────────────────────────────────────────────────────────────

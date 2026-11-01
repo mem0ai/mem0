@@ -262,6 +262,42 @@ def test_delete(mock_boto_client):
     )
 
 
+def test_update_missing_vector_returns_false_without_put(mock_boto_client):
+    """A memory deleted after Memory read it must stay deleted: put_vectors must not recreate it."""
+    mock_boto_client.get_vectors.return_value = {"vectors": []}
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+
+    store.delete("gone")
+
+    assert store.update("gone", vector=[0.1, 0.2], payload={"meta": "new"}) is False
+    assert store.update("gone", vector=None, payload={"meta": "new"}) is False
+
+    mock_boto_client.put_vectors.assert_not_called()
+
+
+def test_update_existing_vector_returns_true(mock_boto_client):
+    mock_boto_client.get_vectors.return_value = {
+        "vectors": [{"key": "id1", "metadata": {"meta": "old"}}]
+    }
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+
+    assert store.update("id1", vector=[0.1, 0.2], payload={"meta": "new"}) is True
+
+    mock_boto_client.put_vectors.assert_called_once_with(
+        vectorBucketName=BUCKET_NAME,
+        indexName=INDEX_NAME,
+        vectors=[{"key": "id1", "data": {"float32": [0.1, 0.2]}, "metadata": {"meta": "new"}}],
+    )
+
+
 def test_reset(mock_boto_client):
     """Test resetting the vector index."""
     # GIVEN: The index does not exist, so it gets created on init and reset

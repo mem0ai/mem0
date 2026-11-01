@@ -289,17 +289,25 @@ class BaiduDB(VectorStoreBase):
         """
         self._table.delete(primary_key={"id": vector_id})
 
-    def update(self, vector_id=None, vector=None, payload=None):
+    def update(self, vector_id=None, vector=None, payload=None) -> Optional[bool]:
         """
-        Update a vector and its payload.
+        Update an existing vector and its payload. Never creates a record.
 
         Args:
             vector_id (str): ID of the vector to update.
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
+
+        Returns:
+            Optional[bool]: True if the row exists and was updated, False if no row has this ID.
         """
+        # Mochow's upsert creates a missing id, so verify the row exists before writing.
+        result = self._table.query(primary_key={"id": vector_id}, projections=["id"])
+        if not getattr(result, "row", None):
+            return False
         row = Row(id=vector_id, vector=vector, metadata=payload)
         self._table.upsert(rows=[row])
+        return True
 
     def get(self, vector_id):
         """

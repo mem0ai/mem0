@@ -185,7 +185,11 @@ def test_update(mochow_instance, mock_mochow_client):
     new_vector = [0.7, 0.8, 0.9]
     new_payload = {"name": "updated_vector"}
 
-    mochow_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload)
+    mock_result = Mock()
+    mock_result.row = {"id": vector_id}
+    mochow_instance._table.query.return_value = mock_result
+
+    assert mochow_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload) is True
 
     mochow_instance._table.upsert.assert_called_once()
     call_args = mochow_instance._table.upsert.call_args
@@ -194,6 +198,29 @@ def test_update(mochow_instance, mock_mochow_client):
     assert row._data["id"] == vector_id
     assert row._data["vector"] == new_vector
     assert row._data["metadata"] == new_payload
+
+
+def test_update_missing_row_returns_false_without_upsert(mochow_instance, mock_mochow_client):
+    """A memory deleted after Memory read it must stay deleted: update() returns False and never upserts."""
+    missing_result = Mock()
+    missing_result.row = None
+    mochow_instance._table.query.return_value = missing_result
+
+    mochow_instance.delete(vector_id="gone")
+
+    assert mochow_instance.update(vector_id="gone", vector=[0.1, 0.2, 0.3], payload={"name": "x"}) is False
+
+    mochow_instance._table.upsert.assert_not_called()
+
+
+def test_update_existing_row_returns_true(mochow_instance, mock_mochow_client):
+    mock_result = Mock()
+    mock_result.row = {"id": "id1"}
+    mochow_instance._table.query.return_value = mock_result
+
+    assert mochow_instance.update(vector_id="id1", vector=[0.7, 0.8, 0.9], payload={"name": "updated"}) is True
+
+    mochow_instance._table.upsert.assert_called_once()
 
 
 def test_get(mochow_instance, mock_mochow_client):

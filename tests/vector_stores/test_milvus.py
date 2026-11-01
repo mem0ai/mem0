@@ -167,17 +167,28 @@ class TestMilvusDB:
         vector_id = "test_id"
         vector = [0.1] * 1536
         payload = {"user_id": "alice", "data": "Updated memory"}
-        
-        milvus_db.update(vector_id=vector_id, vector=vector, payload=payload)
-        
+        mock_milvus_client.get.return_value = [{"id": vector_id, "vectors": vector, "metadata": payload}]
+
+        assert milvus_db.update(vector_id=vector_id, vector=vector, payload=payload) is True
+
         # Verify upsert was called (not delete+insert)
         mock_milvus_client.upsert.assert_called_once()
-        
+
         call_args = mock_milvus_client.upsert.call_args
         assert call_args[1]['collection_name'] == "test_collection"
         assert call_args[1]['data']['id'] == vector_id
         assert call_args[1]['data']['vectors'] == vector
         assert call_args[1]['data']['metadata'] == payload
+
+    def test_update_missing_id_returns_false_without_upsert(self, milvus_db, mock_milvus_client):
+        """A memory deleted after Memory read it must stay deleted: update() returns False and never upserts."""
+        mock_milvus_client.get.return_value = []
+        milvus_db.delete("gone")
+
+        assert milvus_db.update(vector_id="gone", vector=[0.1] * 1536, payload={"data": "test"}) is False
+        assert milvus_db.update(vector_id="gone", vector=None, payload={"data": "test"}) is False
+
+        mock_milvus_client.upsert.assert_not_called()
 
     def test_delete(self, milvus_db, mock_milvus_client):
         """Test vector deletion."""
@@ -302,12 +313,11 @@ class TestMilvusDB:
         assert call_args[1]['data']['vectors'] == existing_vector
         assert call_args[1]['data']['metadata'] == existing_metadata
 
-    def test_update_with_none_vector_raises_on_missing_record(self, milvus_db, mock_milvus_client):
-        """Test that update raises ValueError when the record doesn't exist."""
+    def test_update_with_none_vector_returns_false_on_missing_record(self, milvus_db, mock_milvus_client):
+        """Test that update returns False (the update-only contract) when the record doesn't exist."""
         mock_milvus_client.get.return_value = []
 
-        with pytest.raises(ValueError, match="not found"):
-            milvus_db.update(vector_id="nonexistent", vector=None, payload={"data": "test"})
+        assert milvus_db.update(vector_id="nonexistent", vector=None, payload={"data": "test"}) is False
 
     def test_update_with_none_vector_raises_on_missing_vector_data(self, milvus_db, mock_milvus_client):
         """Test that update raises ValueError when existing record has no vector."""

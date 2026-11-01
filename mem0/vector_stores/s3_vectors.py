@@ -133,17 +133,23 @@ class S3Vectors(VectorStoreBase):
             keys=[vector_id],
         )
 
-    def update(self, vector_id, vector=None, payload=None):
-        # S3 Vectors uses put_vectors for updates (overwrite).
+    def update(self, vector_id, vector=None, payload=None) -> Optional[bool]:
+        """Update an existing vector and/or its payload. Never creates a record.
+
+        Returns:
+            Optional[bool]: True if the key exists and was updated, False if no key has this ID,
+                None if the existing vector data could not be fetched.
+        """
+        # put_vectors overwrites, so a concurrent delete would be silently undone;
+        # verify the key exists before writing.
+        existing = self.get(vector_id)
+        if existing is None:
+            return False
         # When vector=None (e.g. metadata-only update triggered by event=NONE),
         # fetch the existing vector data first to avoid passing None to boto3
         # which causes a parameter validation error:
         #   "Invalid type for parameter vectors[0].data.float32, value: None"
         if vector is None:
-            existing = self.get(vector_id)
-            if existing is None:
-                logger.warning(f"update called with vector=None but {vector_id} not found; skipping")
-                return
             try:
                 response = self.client.get_vectors(
                     vectorBucketName=self.vector_bucket_name,
@@ -155,17 +161,18 @@ class S3Vectors(VectorStoreBase):
                 vectors = response.get("vectors", [])
                 if not vectors:
                     logger.warning(f"update: no vector data found for {vector_id}; skipping")
-                    return
+                    return None
                 vector = vectors[0].get("data", {}).get("float32")
                 if vector is None:
                     logger.warning(f"update: float32 data is None for {vector_id}; skipping")
-                    return
+                    return None
                 if payload is None:
                     payload = existing.payload
             except Exception as e:
                 logger.error(f"update: failed to fetch existing vector for {vector_id}: {e}")
-                return
+                return None
         self.insert(vectors=[vector], payloads=[payload], ids=[vector_id])
+        return True
 
     def get(self, vector_id) -> Optional[OutputData]:
         response = self.client.get_vectors(
