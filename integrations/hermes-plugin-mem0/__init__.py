@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # calls for _BREAKER_COOLDOWN_SECS to avoid hammering a down server.
 _BREAKER_THRESHOLD, _BREAKER_COOLDOWN_SECS, _PREFETCH_WAIT_SECS = 5, 120, 3
 _CLIENT_ERROR_TYPES = ("MemoryNotFoundError", "ValidationError")
-# Placeholder user_id. initialize() treats it as "no operator-configured user_id"
+# Default pool name. Operators may also select it explicitly in mem0.json/MEM0_USER_ID (#7799);
 # so legacy mem0.json files written by the wizard don't override gateway-native ids.
 _DEFAULT_USER_ID = "hermes-user"
 
@@ -229,9 +229,10 @@ class Mem0MemoryProvider(MemoryProvider):
         self._config = cfg = _load_config()
         self._mode, self._api_key, self._host, self._agent_id = cfg.get("mode", "platform"), cfg.get("api_key", ""), cfg.get("host", ""), cfg.get("agent_id", "hermes")
         # user_id precedence: operator-configured (env/mem0.json) > gateway-native id (kwargs) > _DEFAULT_USER_ID.
-        # The literal placeholder counts as unset so wizard users still get gateway-native ids.
+        # An operator picking the default pool name explicitly is a real choice (#7799): the
+        # configured value wins even when it equals _DEFAULT_USER_ID.
         configured = cfg.get("user_id")
-        self._user_id = (None if configured == _DEFAULT_USER_ID else configured) or kwargs.get("user_id") or _DEFAULT_USER_ID
+        self._user_id = configured or kwargs.get("user_id") or _DEFAULT_USER_ID
         # Persisted rerank preference: default for mem0_search when the model omits ``rerank``. Platform-only.
         _rr = cfg.get("rerank", False)
         self._rerank_default = _rr.lower() in ("true", "1", "yes") if isinstance(_rr, str) else bool(_rr)

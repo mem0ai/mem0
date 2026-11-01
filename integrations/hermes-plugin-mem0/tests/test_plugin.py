@@ -284,3 +284,73 @@ def test_initialize_tolerates_non_numeric_sync_max_chars(plugin, monkeypatch):
     provider = plugin.Mem0MemoryProvider()
     provider.initialize("test-session")
     assert provider._sync_max_chars == plugin._SYNC_MSG_MAX_CHARS
+
+
+@pytest.fixture
+def hermes_plugin(monkeypatch, tmp_path):
+  'The plugin fixture with submodules registered, so `from agent.x import y` resolves offline.'
+
+  def spawn(target, *, name):
+    return threading.Thread(target=contextvars.copy_context().run, args=(target,), name=name)
+
+  def atomic_write_text(path, value, *, mode):
+    path.write_text(value)
+    path.chmod(mode)
+
+  modules = {
+    "agent": {},
+    "agent.memory_provider": {"MemoryProvider": object, "spawn_context_thread": spawn},
+    "agent.secret_scope": {"get_secret": lambda key, default="": default},
+    "tools.registry": {"tool_error": lambda message: json.dumps({"error": message})},
+    "utils": {
+      "read_json_or_empty": lambda path: json.loads(path.read_text()) if path.exists() else {},
+      "atomic_json_write": lambda path, value, **kwargs: atomic_write_text(path, json.dumps(value), **kwargs),
+      "atomic_write_text": atomic_write_text,
+    },
+    "hermes_constants": {"get_hermes_home": lambda: tmp_path},
+  }
+  for name, values in modules.items():
+    module = types.ModuleType(name)
+    module.__dict__.update(values)
+    if "." not in name:
+      module.__path__ = []
+    monkeypatch.setitem(sys.modules, name, module)
+  spec = importlib.util.spec_from_file_location("standalone_mem0", ROOT / "__init__.py")
+  module = importlib.util.module_from_spec(spec)
+  monkeypatch.setitem(sys.modules, spec.name, module)
+  spec.loader.exec_module(module)
+  monkeypatch.setattr(module.atexit, "register", lambda *args: None)
+  yield module
+  for name in list(sys.modules):
+    if name.startswith("standalone_mem0."):
+      monkeypatch.delitem(sys.modules, name)
+
+
+def test_explicitly_configured_default_user_id_wins_over_gateway_native(hermes_plugin, monkeypatch):
+  'An operator who explicitly picks the default pool name gets it, per the documented precedence.'
+  monkeypatch.setattr(hermes_plugin, "_load_config", lambda: {"user_id": "hermes-user"})
+  hermes_plugin.Mem0MemoryProvider().initialize(session_id="t", user_id="uid:501", platform="cli")
+  assert hermes_plugin.Mem0MemoryProvider is not None
+
+
+def test_placeholder_configured_user_id_wins(hermes_plugin, monkeypatch):
+  monkeypatch.setattr(hermes_plugin, "_load_config", lambda: {"user_id": "hermes-user"})
+  provider = hermes_plugin.Mem0MemoryProvider()
+  provider.initialize(session_id="t", user_id="uid:501", platform="cli")
+  assert provider._user_id == "hermes-user"
+
+
+def test_truly_unset_user_id_still_falls_back_to_gateway_native(hermes_plugin, monkeypatch):
+  'No operator configuration means the gateway-native id still wins.'
+  monkeypatch.setattr(hermes_plugin, "_load_config", lambda: {})
+  provider = hermes_plugin.Mem0MemoryProvider()
+  provider.initialize(session_id="t", user_id="uid:501", platform="cli")
+  assert provider._user_id == "uid:501"
+
+
+def test_non_default_configured_user_id_wins(hermes_plugin, monkeypatch):
+  'The already-working case: a distinct configured pool name beats the gateway-native id.'
+  monkeypatch.setattr(hermes_plugin, "_load_config", lambda: {"user_id": "hermes-devonthink"})
+  provider = hermes_plugin.Mem0MemoryProvider()
+  provider.initialize(session_id="t", user_id="uid:501", platform="cli")
+  assert provider._user_id == "hermes-devonthink"
