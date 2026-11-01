@@ -38,7 +38,6 @@ mem0/
 ├── llms/            24 providers
 ├── embeddings/      15 providers
 ├── vector_stores/   30 providers
-├── graphs/          4 providers
 └── reranker/        5 providers
 ```
 
@@ -51,7 +50,6 @@ Every category follows the same shape: a `base.py` with the abstract class, one 
 | LLMs | 24 | OpenAI, Anthropic, AWS Bedrock, Azure OpenAI, Gemini, Groq, Ollama, Together, DeepSeek, vLLM, LiteLLM, LM Studio, xAI |
 | Vector stores | 30 | Qdrant, Pinecone, Chroma, Weaviate, Milvus, MongoDB, Redis, Elasticsearch, pgvector, Supabase, Faiss, S3 Vectors |
 | Embeddings | 15 | OpenAI, Azure OpenAI, Gemini, HuggingFace, FastEmbed, Together, AWS Bedrock, Ollama, Vertex AI |
-| Graph stores | 4 | Neo4j, Memgraph, Kuzu, Apache AGE |
 | Rerankers | 5 | Cohere, HuggingFace, LLM-based, Sentence Transformer, Zero Entropy |
 
 ### Adding a provider
@@ -100,6 +98,6 @@ Changing any of these signatures means updating `docs/` in the same PR.
 | Embedding provider | `from mem0.embeddings.<provider> import <ProviderEmbedding>` |
 | Vector store provider | `from mem0.vector_stores.<provider> import <ProviderVectorStore>` |
 
-## Graph memory
+## Graph memory — platform-only since OSS v3
 
-An optional layer on top of vector memory for relationship-aware retrieval, configured through the `graph` section of `MemoryConfig`. It supplements vector search rather than replacing it.
+Graph memory moved to the hosted Mem0 Platform in OSS v3. `mem0/` no longer ships a `graphs/` provider tree and `MemoryConfig` has no `graph` field. See `docs/migration/oss-v2-to-v3.mdx` for the migration notes.
