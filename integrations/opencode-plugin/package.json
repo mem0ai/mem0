@@ -55,10 +55,10 @@
     ]
   },
   "dependencies": {
-    "@opencode-ai/plugin": "^1.0.162",
     "mem0ai": "^3.0.8"
   },
   "devDependencies": {
+    "@opencode/plugin": "^2.2.5",
     "bun-types": ">=1.3.14",
     "typescript": "^5.7.3"
   }

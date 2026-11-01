@@ -31,10 +31,33 @@ function home(): string {
   return mkdtempSync(join(tmpdir(), "mem0-api-key-"));
 }
 
-function pluginContext(logs: unknown[]) {
+/** Minimal V2 promise-style host: records tool/skill/hook registrations. */
+function pluginContext(hooks: Record<string, number>, toolNames: string[]) {
+  const registration = {dispose: () => Promise.resolve()};
   return {
-    client: {app: {log: async (entry: unknown) => logs.push(entry)}},
-    $: () => ({quiet: async () => ({stdout: ""})}),
+    tool: {
+      transform: (callback: (editor: {add: (tool: {name: string}) => void}) => void) => {
+        callback({add: (tool) => toolNames.push(tool.name)});
+        return Promise.resolve(registration);
+      },
+      hook: (name: string) => {
+        hooks[name] = (hooks[name] ?? 0) + 1;
+        return Promise.resolve(registration);
+      },
+    },
+    session: {
+      hook: (name: string) => {
+        hooks[name] = (hooks[name] ?? 0) + 1;
+        return Promise.resolve(registration);
+      },
+    },
+    shell: {
+      hook: (name: string) => {
+        hooks[name] = (hooks[name] ?? 0) + 1;
+        return Promise.resolve(registration);
+      },
+    },
+    skill: {transform: () => Promise.resolve(registration)},
   } as any;
 }
 
@@ -119,17 +142,27 @@ describe("resolveApiKey", () => {
     stubFetch();
     testCleanups.push(captureDeferredPluginCleanup());
 
-    const logs: unknown[] = [];
-    const plugin = await Mem0Plugin(pluginContext(logs));
+    // The V2 setup logs the missing key through the server console (the promise
+    // Context has no client.app.log) and registers nothing.
+    const errors: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => {
+      errors.push(args.map(String).join(" "));
+    };
+    const hooks: Record<string, number> = {};
+    const toolNames: string[] = [];
+    try {
+      const cleanup = await Mem0Plugin.setup(pluginContext(hooks, toolNames));
 
-    expect(logs).toHaveLength(1);
-    expect(logs[0]).toMatchObject({
-      body: {
-        level: "error",
-        message: "MEM0_API_KEY environment variable not set. Get one at https://app.mem0.ai/dashboard/api-keys",
-      },
-    });
-    expect(plugin).toEqual({});
+      expect(cleanup).toBeUndefined();
+      expect(toolNames).toEqual([]);
+      expect(hooks).toEqual({});
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("MEM0_API_KEY environment variable not set");
+      expect(errors[0]).toContain("https://app.mem0.ai/dashboard/api-keys");
+    } finally {
+      console.error = originalError;
+    }
   });
 
   test("recovers the issue's shell-profile startup path", async () => {
@@ -143,11 +176,30 @@ describe("resolveApiKey", () => {
     stubFetch();
     testCleanups.push(captureDeferredPluginCleanup());
 
-    const logs: unknown[] = [];
-    const plugin = await Mem0Plugin(pluginContext(logs));
+    const hooks: Record<string, number> = {};
+    const toolNames: string[] = [];
+    const cleanup = await Mem0Plugin.setup(pluginContext(hooks, toolNames));
 
-    expect(logs).toHaveLength(0);
-    expect(Object.keys(plugin)).toContain("chat.message");
-    expect(plugin).toHaveProperty("tool");
+    // All ten memory tools register, and the lifecycle hooks attach.
+    expect(toolNames).toEqual([
+      "add_memory",
+      "search_memories",
+      "get_memories",
+      "get_memory",
+      "update_memory",
+      "delete_memory",
+      "delete_all_memories",
+      "delete_entities",
+      "list_entities",
+      "get_event_status",
+    ]);
+    expect(hooks["prompt"]).toBe(1);
+    expect(hooks["context"]).toBe(1);
+    expect(hooks["compaction"]).toBe(1);
+    expect(hooks["execute.before"]).toBe(1);
+    expect(hooks["execute.after"]).toBe(1);
+    expect(hooks["create.before"]).toBe(1);
+    cleanup?.();
+    cleanup?.();
   });
 });
