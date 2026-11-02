@@ -66,6 +66,9 @@ def bootstrap_via_backend(
             ``mem0 identify <name>``. Sent to the backend in the request body
             and saved into ``platform.agent_caller`` for local introspection.
 
+    Under ``--json`` the success path prints exactly one JSON envelope on
+    stdout instead of the Rich banners, so an agent can parse the result.
+
     Raises typer.Exit(1) on failure.
     """
     base_url = (config.platform.base_url or "https://api.mem0.ai").rstrip("/")
@@ -124,13 +127,46 @@ def bootstrap_via_backend(
     config.defaults.user_id = envelope["default_user_id"]
     save_config(config)
 
-    print_success(console, f"Agent Mode active. Default user_id: {envelope['default_user_id']}")
     notice = envelope.get("mem0_notice")
+    claim_cmd = envelope.get("claim_command", "mem0 init --email <your-email>")
+
+    from mem0_cli.config import CONFIG_FILE
+    from mem0_cli.output import format_json_envelope
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        # --json: one machine-readable object on stdout and nothing else.
+        # The key is saved to config.json only. MCP hosts (Codex, Cursor, ...)
+        # read MEM0_API_KEY from their own environment, which this bootstrap
+        # never writes, so a freshly minted key is not MCP-ready yet.
+        data: dict[str, Any] = {
+            "api_key_saved": True,
+            "api_key_source": "agent_mode",
+            "agent_mode": True,
+            "default_user_id": envelope["default_user_id"],
+            "config_path": str(CONFIG_FILE),
+            "mcp_ready": False,
+            "next_step": (
+                "Export MEM0_API_KEY (value in config_path) in the MCP host's "
+                "environment and restart the host. CLI commands already work."
+            ),
+            "claim_command": claim_cmd,
+        }
+        if notice:
+            data["mem0_notice"] = notice
+        if not agent_caller:
+            data["identify_hint"] = (
+                "If you are an AI agent, identify yourself: "
+                "`mem0 identify <your-name>` (e.g. claude-code, cursor)."
+            )
+        format_json_envelope(console, command="init", data=data)
+        return
+
+    print_success(console, f"Agent Mode active. Default user_id: {envelope['default_user_id']}")
     if notice:
         console.print(f"\n[yellow]🔔 {notice}[/yellow]\n")
     else:
         # Fallback if the backend hasn't deployed the unified notice yet.
-        claim_cmd = envelope.get("claim_command", "mem0 init --email <your-email>")
         console.print(f"  [{DIM_COLOR}]To claim this account later: {claim_cmd}[/]")
 
     if not agent_caller:
