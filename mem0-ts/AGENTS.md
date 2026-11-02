@@ -38,7 +38,7 @@ mem0-ts/src/
     ├── llms/
     ├── embeddings/
     ├── vector_stores/
-    └── graphs/
+    └── rerankers/
 ```
 
 ## Public API
