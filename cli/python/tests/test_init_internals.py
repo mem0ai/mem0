@@ -213,7 +213,12 @@ def test_bootstrap_403_permission_surfaces_ratelimit(monkeypatch, capsys) -> Non
 
 
 def _fake_bootstrap_ok(monkeypatch, envelope: dict) -> None:
-    """Make httpx.Client.post return a 200 with the given bootstrap envelope."""
+    """Make httpx.Client.post return a 200 with the given bootstrap envelope.
+
+    Also stubs ``sync_api_key``: ``save_config`` calls it, and its targets are the
+    developer's real ``~/.claude/settings.json`` and shell rc files.
+    """
+    monkeypatch.setattr("mem0_cli.plugin_sync.sync_api_key", lambda _key: [])
     fake_resp = MagicMock()
     fake_resp.status_code = 200
     fake_resp.json = MagicMock(return_value=envelope)
@@ -264,6 +269,7 @@ def test_bootstrap_json_mode_emits_single_envelope(monkeypatch, capsys) -> None:
     assert data["default_user_id"] == "agent-u1"
     assert data["mcp_ready"] is False
     assert "MEM0_API_KEY" in data["next_step"]
+    assert "restart" in data["next_step"]
     assert data["claim_command"] == "mem0 init --email <your-email>"
     assert "identify_hint" not in data  # caller already identified itself
     assert "To claim this account later" not in out

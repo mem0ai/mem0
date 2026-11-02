@@ -136,9 +136,10 @@ def bootstrap_via_backend(
 
     if is_agent_mode():
         # --json: one machine-readable object on stdout and nothing else.
-        # The key is saved to config.json only. MCP hosts (Codex, Cursor, ...)
-        # read MEM0_API_KEY from their own environment, which this bootstrap
-        # never writes, so a freshly minted key is not MCP-ready yet.
+        # MCP hosts (Codex, Cursor, ...) read MEM0_API_KEY from their own
+        # environment. We only get here when no valid key was found, and
+        # save_config() refreshes only MEM0_API_KEY entries that already exist,
+        # so a host has either no key or a stale one until it restarts.
         data: dict[str, Any] = {
             "api_key_saved": True,
             "api_key_source": "agent_mode",
@@ -147,8 +148,8 @@ def bootstrap_via_backend(
             "config_path": str(CONFIG_FILE),
             "mcp_ready": False,
             "next_step": (
-                "Export MEM0_API_KEY (value in config_path) in the MCP host's "
-                "environment and restart the host. CLI commands already work."
+                "Set MEM0_API_KEY (value in config_path) in the MCP host's environment "
+                "if it is not there yet, then restart the host. CLI commands already work."
             ),
             "claim_command": claim_cmd,
         }
