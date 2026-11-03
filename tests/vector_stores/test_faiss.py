@@ -58,31 +58,14 @@ def test_create_col(faiss_instance, mock_faiss_index):
             mock_index_flat_ip.assert_called_once_with(faiss_instance.embedding_model_dims)
 
 
-def test_insert(faiss_instance, mock_faiss_index):
-    # Prepare test data
-    vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
-    payloads = [{"name": "vector1"}, {"name": "vector2"}]
-    ids = ["id1", "id2"]
-
-    # Mock the numpy array conversion
-    with patch("numpy.array", return_value=np.array(vectors, dtype=np.float32)) as mock_np_array:
-        # Mock index.add
-        mock_faiss_index.add.return_value = None
-
-        # Call insert
-        faiss_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
-
-        # Verify numpy.array was called
-        mock_np_array.assert_called_once_with(vectors, dtype=np.float32)
-
-        # Verify index.add was called
-        mock_faiss_index.add.assert_called_once()
-
-        # Verify docstore and index_to_id were updated
-        assert faiss_instance.docstore["id1"] == {"name": "vector1"}
-        assert faiss_instance.docstore["id2"] == {"name": "vector2"}
-        assert faiss_instance.index_to_id[0] == "id1"
-        assert faiss_instance.index_to_id[1] == "id2"
+def test_insert(tmp_path):
+    store = FAISS("insert", path=str(tmp_path), embedding_model_dims=2)
+    store.insert([[1.0, 0.0], [0.0, 1.0]], payloads=[{"name": "one"}, {"name": "two"}], ids=["id1", "id2"])
+    loaded = FAISS("insert", path=str(tmp_path), embedding_model_dims=2)
+    assert loaded.col_info()["count"] == 2
+    assert loaded.get("id1").payload == {"name": "one"}
+    assert loaded.get("id2").payload == {"name": "two"}
+    assert loaded.search("", [0.0, 1.0])[0].id == "id2"
 
 
 def test_search(faiss_instance, mock_faiss_index):
@@ -200,29 +183,15 @@ def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_
     assert [r.id for r in results] == ["id3", "id4"]
 
 
-def test_delete(faiss_instance, mock_faiss_index):
-    # Setup the docstore and index_to_id mapping
-    faiss_instance.docstore = {"id1": {"name": "vector1"}, "id2": {"name": "vector2"}}
-    faiss_instance.index_to_id = {0: "id1", 1: "id2"}
-
-    # Mock reconstruct to return vectors for remaining entries
-    mock_faiss_index.reconstruct.side_effect = lambda idx: np.array(
-        [0.1, 0.2, 0.3] if idx == 0 else [0.4, 0.5, 0.6], dtype=np.float32
-    )
-
-    # Call delete
-    faiss_instance.delete(vector_id="id1")
-
-    # Verify the vector was removed from docstore
-    assert "id1" not in faiss_instance.docstore
-    assert "id2" in faiss_instance.docstore
-
-    # Verify the FAISS index was rebuilt
-    mock_faiss_index.reset.assert_called_once()
-    mock_faiss_index.add.assert_called_once()
-
-    # Verify index_to_id was remapped contiguously
-    assert faiss_instance.index_to_id == {0: "id2"}
+def test_delete(tmp_path):
+    store = FAISS("delete", path=str(tmp_path), embedding_model_dims=2)
+    store.insert([[1.0, 0.0], [0.0, 1.0]], payloads=[{"name": "one"}, {"name": "two"}], ids=["id1", "id2"])
+    store.delete("id1")
+    loaded = FAISS("delete", path=str(tmp_path), embedding_model_dims=2)
+    assert loaded.get("id1") is None
+    assert loaded.get("id2").payload == {"name": "two"}
+    assert loaded.col_info()["count"] == 1
+    assert [row.id for row in loaded.search("", [0.0, 1.0])] == ["id2"]
 
 
 def test_update(tmp_path):
@@ -352,23 +321,12 @@ def test_delete_col(faiss_instance):
             assert faiss_instance.index_to_id == {}
 
 
-def test_normalize_L2(faiss_instance, mock_faiss_index):
-    # Setup a FAISS instance with normalize_L2=True
-    faiss_instance.normalize_L2 = True
-
-    # Prepare test data
-    vectors = [[0.1, 0.2, 0.3]]
-
-    # Mock numpy array conversion
-    # Mock numpy array conversion
-    with patch("numpy.array", return_value=np.array(vectors, dtype=np.float32)):
-        # Mock faiss.normalize_L2
-        with patch("faiss.normalize_L2") as mock_normalize:
-            # Call insert
-            faiss_instance.insert(vectors=vectors, ids=["id1"])
-
-            # Verify faiss.normalize_L2 was called
-            mock_normalize.assert_called_once()
+def test_normalize_L2(tmp_path):
+    store = FAISS("normalized", path=str(tmp_path), embedding_model_dims=3, normalize_L2=True)
+    store.insert([[0.1, 0.2, 0.3]], ids=["id1"])
+    loaded = FAISS("normalized", path=str(tmp_path), embedding_model_dims=3, normalize_L2=True)
+    assert np.linalg.norm(loaded.index.reconstruct(0)) == pytest.approx(1.0)
+    assert loaded.search("", [1.0, 2.0, 3.0])[0].score == pytest.approx(1.0)
 
 
 # =============================================================================

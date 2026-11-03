@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import pickle
+import re
 import shutil
 import tempfile
 import threading
@@ -262,6 +263,16 @@ class FAISS(VectorStoreBase):
         os.close(fd)
         return name
 
+    def _cleanup_temporary_files(self):
+        # mkstemp's eight-character suffix makes ownership unambiguous even
+        # when another collection name starts with this collection's name.
+        pattern = re.compile(re.escape(f".{self.collection_name}-") + r"[a-z0-9_]{8}")
+        directory = Path(self.path)
+        if directory.exists():
+            for entry in directory.iterdir():
+                if pattern.fullmatch(entry.name) and entry.is_file():
+                    entry.unlink(missing_ok=True)
+
     def _recover_save(self):
         """Undo an interrupted two-file save before exposing either file to readers.
 
@@ -271,6 +282,7 @@ class FAISS(VectorStoreBase):
         """
         journal = Path(self.path) / f"{self.collection_name}.rollback"
         if not journal.exists():
+            self._cleanup_temporary_files()
             return
         with zipfile.ZipFile(journal) as backup:
             for suffix in ("faiss", "json"):
@@ -291,6 +303,7 @@ class FAISS(VectorStoreBase):
         self._sync_directory()
         journal.unlink()
         self._sync_directory()
+        self._cleanup_temporary_files()
 
     def _save(self, index=None, docstore=None, index_to_id=None):
         """Commit the index and JSON together using a recoverable rollback journal.
@@ -470,14 +483,17 @@ class FAISS(VectorStoreBase):
         if self._should_normalize():
             faiss.normalize_L2(vectors_np)
 
-        self.index.add(vectors_np)
-
-        starting_idx = len(self.index_to_id)
+        staged_index = faiss.clone_index(self.index)
+        staged_index.add(vectors_np)
+        staged_docstore = self.docstore.copy()
+        staged_mapping = self.index_to_id.copy()
+        starting_idx = len(staged_mapping)
         for i, (vector_id, payload) in enumerate(zip(ids, payloads)):
-            self.docstore[vector_id] = payload.copy()
-            self.index_to_id[starting_idx + i] = vector_id
+            staged_docstore[vector_id] = payload.copy()
+            staged_mapping[starting_idx + i] = vector_id
 
-        self._save()
+        self._save(staged_index, staged_docstore, staged_mapping)
+        self.index, self.docstore, self.index_to_id = staged_index, staged_docstore, staged_mapping
 
         logger.info(f"Inserted {len(vectors)} vectors into collection {self.collection_name}")
 
@@ -579,14 +595,15 @@ class FAISS(VectorStoreBase):
                 new_index_to_id[new_idx] = self.index_to_id[old_idx]
                 new_idx += 1
 
-            self.index.reset()
+            staged_index = faiss.clone_index(self.index)
+            staged_index.reset()
             if remaining_vectors:
-                self.index.add(np.array(remaining_vectors, dtype=np.float32))
+                staged_index.add(np.array(remaining_vectors, dtype=np.float32))
 
-            self.docstore.pop(vector_id, None)
-            self.index_to_id = new_index_to_id
-
-            self._save()
+            staged_docstore = self.docstore.copy()
+            staged_docstore.pop(vector_id, None)
+            self._save(staged_index, staged_docstore, new_index_to_id)
+            self.index, self.docstore, self.index_to_id = staged_index, staged_docstore, new_index_to_id
 
             logger.info(f"Deleted vector {vector_id} from collection {self.collection_name}")
         else:

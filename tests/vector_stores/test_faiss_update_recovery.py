@@ -108,6 +108,7 @@ store.update('original', [0.5, 0.5], {'data': 'replacement'})
         assert_original(store)
     assert store.col_info()["count"] == 2
     assert not (tmp_path / "memories.rollback").exists()
+    assert not list(tmp_path.glob(".memories-*"))
 
 
 def test_failed_rollback_can_be_retried_on_reopen(tmp_path, monkeypatch):
@@ -183,6 +184,7 @@ else:
         assert result.returncode == 73, result.stderr.decode()
         assert (tmp_path / "memories.rollback").exists()
     assert_original(FAISS("memories", path=str(tmp_path), embedding_model_dims=2))
+    assert not list(tmp_path.glob(".memories-*"))
 
 
 def test_corrupt_metadata_does_not_open_an_empty_store(tmp_path):
