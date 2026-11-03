@@ -56,8 +56,10 @@ class GCPAuthenticator:
             credentials = service_account.Credentials.from_service_account_file(
                 credentials_path, scopes=scopes
             )
-            # Extract project_id from the file
-            with open(credentials_path, 'r') as f:
+            # Extract project_id from the file. Service account JSON is UTF-8
+            # (RFC 8259 / Google's credential file spec), so read it as UTF-8
+            # instead of the platform default encoding.
+            with open(credentials_path, "r", encoding="utf-8") as f:
                 cred_data = json.load(f)
                 project_id = cred_data.get("project_id")
 
@@ -68,8 +70,8 @@ class GCPAuthenticator:
                 credentials = service_account.Credentials.from_service_account_file(
                     env_path, scopes=scopes
                 )
-                # Extract project_id from the file
-                with open(env_path, 'r') as f:
+                # Extract project_id from the file (UTF-8, see above)
+                with open(env_path, "r", encoding="utf-8") as f:
                     cred_data = json.load(f)
                     project_id = cred_data.get("project_id")
 
