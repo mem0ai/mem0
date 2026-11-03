@@ -225,35 +225,26 @@ def test_delete(faiss_instance, mock_faiss_index):
     assert faiss_instance.index_to_id == {0: "id2"}
 
 
-def test_update(faiss_instance, mock_faiss_index):
-    # Setup the docstore and index_to_id mapping
-    faiss_instance.docstore = {"id1": {"name": "vector1"}, "id2": {"name": "vector2"}}
-    faiss_instance.index_to_id = {0: "id1", 1: "id2"}
-
-    # Test updating payload only
-    assert faiss_instance.update(vector_id="id1", payload={"name": "updated_vector1"}) is True
-    assert faiss_instance.docstore["id1"] == {"name": "updated_vector1"}
-
-    # Test updating vector
-    # This requires mocking the delete and insert methods
-    with patch.object(faiss_instance, "delete") as mock_delete:
-        with patch.object(faiss_instance, "insert") as mock_insert:
-            new_vector = [0.7] * mock_faiss_index.d
-            assert faiss_instance.update(vector_id="id2", vector=new_vector) is True
-
-            # Verify delete and insert were called
-            # Match the actual call signature (positional arg instead of keyword)
-            mock_delete.assert_called_once_with("id2")
-            mock_insert.assert_called_once()
+def test_update(tmp_path):
+    store = FAISS("updates", path=str(tmp_path), embedding_model_dims=2)
+    store.insert([[1., 0.], [0., 1.]], ids=["id1", "id2"], payloads=[{"name": "one"}, {"name": "two"}])
+    assert store.update("id1", payload={"name": "updated"}) is True
+    assert store.get("id1").payload == {"name": "updated"}
+    assert store.search("", [1., 0.])[0].id == "id1"
+    assert store.update("id2", vector=[0.7, 0.8]) is True
+    loaded = FAISS("updates", path=str(tmp_path), embedding_model_dims=2)
+    assert loaded.get("id2").payload == {"name": "two"}
+    assert loaded.search("", [0.7, 0.8])[0].score == pytest.approx(1.)
+    assert loaded.get("id1").payload == {"name": "updated"}
 
 
-def test_update_missing_id_returns_false_without_writing(faiss_instance):
-    faiss_instance.docstore = {"id1": {"name": "vector1"}}
-    with patch.object(faiss_instance, "delete") as mock_delete, patch.object(faiss_instance, "insert") as mock_insert:
-        assert faiss_instance.update(vector_id="gone", vector=[0.1, 0.2], payload={"name": "x"}) is False
-    mock_delete.assert_not_called()
-    mock_insert.assert_not_called()
-    assert "gone" not in faiss_instance.docstore
+def test_update_missing_id_returns_false_without_writing(tmp_path):
+    store = FAISS("missing", path=str(tmp_path), embedding_model_dims=2)
+    before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    assert store.update("gone", [1., 0.], {"data": "new"}) is False
+    assert store.get("gone") is None
+    assert store.col_info()["count"] == 0
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
 
 
 def test_update_cannot_recreate_a_vector_deleted_during_the_update(tmp_path):
@@ -723,6 +714,7 @@ class TestFAISSSecurityIntegration:
 
             with patch("faiss.IndexFlatL2"):
                 faiss_store = FAISS.__new__(FAISS)
+                faiss_store._lock = threading.RLock()
                 faiss_store.collection_name = "test_del"
                 faiss_store.path = faiss_path
                 faiss_store.index = Mock()

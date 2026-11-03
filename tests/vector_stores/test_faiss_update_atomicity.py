@@ -8,7 +8,7 @@ def test_invalid_update_preserves_persisted_memory(tmp_path, vector):
     store = FAISS("memories", path=str(tmp_path), embedding_model_dims=2)
     store.insert([[1.0, 0.0]], ids=["original"], payloads=[{"data": "original"}])
 
-    with pytest.raises((ValueError, AssertionError)):
+    with pytest.raises(ValueError):
         store.update("original", vector=vector, payload={"data": "replacement"})
 
     assert store.get("original").payload == {"data": "original"}

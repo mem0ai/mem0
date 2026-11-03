@@ -3,9 +3,12 @@ import json
 import logging
 import os
 import pickle
+import shutil
+import tempfile
 import threading
 import uuid
 import warnings
+import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -34,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 def _locked(method):
-    """Hold the instance lock so update's existence check and its write cannot interleave with a delete."""
+    """Serialize operations on this instance, including publishing staged updates."""
 
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
@@ -173,6 +176,8 @@ class FAISS(VectorStoreBase):
         if self.path:
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
 
+            self._recover_save()
+
             # Try to load existing index if available
             index_path = f"{self.path}/{collection_name}.faiss"
             json_docstore_path = f"{self.path}/{collection_name}.json"
@@ -182,6 +187,13 @@ class FAISS(VectorStoreBase):
             if os.path.exists(index_path) and (os.path.exists(json_docstore_path) or os.path.exists(pkl_docstore_path)):
                 # _load will prefer JSON over pickle and auto-migrate
                 self._load(index_path, pkl_docstore_path)
+                if self.index is not None and self.index.d != self.embedding_model_dims:
+                    logger.warning(
+                        "Configured embedding dimension %s differs from loaded FAISS index dimension %s; "
+                        "use a compatible embedder or rebuild the collection before writing new vectors.",
+                        self.embedding_model_dims,
+                        self.index.d,
+                    )
             else:
                 self.create_col(collection_name)
 
@@ -234,33 +246,112 @@ class FAISS(VectorStoreBase):
             logger.error(f"Security error loading FAISS docstore: {e}")
             raise ValueError(f"Failed to load FAISS docstore: potentially malicious pickle file. {e}") from e
         except Exception as e:
-            logger.warning(f"Failed to load FAISS index: {e}")
-            self.docstore = {}
-            self.index_to_id = {}
+            raise ValueError(f"Failed to load FAISS collection: {e}") from e
 
-    def _save(self):
-        """Save FAISS index and docstore to disk using JSON format (secure)."""
-        if not self.path or not self.index:
+    def _sync_directory(self):
+        # Directory fsync orders the rollback journal, replacements, and commit on POSIX.
+        if os.name == "posix":
+            fd = os.open(self.path, os.O_RDONLY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+
+    def _temporary_file(self):
+        fd, name = tempfile.mkstemp(prefix=f".{self.collection_name}-", dir=self.path)
+        os.close(fd)
+        return name
+
+    def _recover_save(self):
+        """Undo an interrupted two-file save before exposing either file to readers.
+
+        The journal is retained until both old files have been restored, so recovery
+        can itself be interrupted and retried. One instance must own the collection;
+        this journal is not a lock between processes or independent store instances.
+        """
+        journal = Path(self.path) / f"{self.collection_name}.rollback"
+        if not journal.exists():
             return
+        with zipfile.ZipFile(journal) as backup:
+            for suffix in ("faiss", "json"):
+                target = Path(self.path) / f"{self.collection_name}.{suffix}"
+                if suffix not in backup.namelist():
+                    target.unlink(missing_ok=True)
+                    continue
+                temporary = self._temporary_file()
+                try:
+                    with open(temporary, "wb") as output:
+                        with backup.open(suffix) as source:
+                            shutil.copyfileobj(source, output)
+                        output.flush()
+                        os.fsync(output.fileno())
+                    os.replace(temporary, target)
+                finally:
+                    Path(temporary).unlink(missing_ok=True)
+        self._sync_directory()
+        journal.unlink()
+        self._sync_directory()
 
+    def _save(self, index=None, docstore=None, index_to_id=None):
+        """Commit the index and JSON together using a recoverable rollback journal.
+
+        Errors propagate to the caller. A journal left by a failed recovery must be
+        recovered by reopening the collection before another write is attempted.
+        """
+        index = self.index if index is None else index
+        docstore = self.docstore if docstore is None else docstore
+        index_to_id = self.index_to_id if index_to_id is None else index_to_id
+        if not self.path or index is None:
+            return
+        os.makedirs(self.path, exist_ok=True)
+        journal = Path(self.path) / f"{self.collection_name}.rollback"
+        if journal.exists():
+            raise RuntimeError("Interrupted FAISS save: reopen the collection to recover before writing")
+        data = json.dumps({"docstore": docstore, "index_to_id": {str(k): v for k, v in index_to_id.items()}}, indent=2)
+        temporaries = []
+        journal_published = False
         try:
-            os.makedirs(self.path, exist_ok=True)
-            index_path = f"{self.path}/{self.collection_name}.faiss"
-            json_docstore_path = f"{self.path}/{self.collection_name}.json"
-
-            faiss.write_index(self.index, index_path)
-
-            # Save docstore as JSON (safe format, no code execution risk)
-            # JSON keys must be strings, so convert int keys to str
-            data = {
-                "docstore": self.docstore,
-                "index_to_id": {str(k): v for k, v in self.index_to_id.items()},
-            }
-            with open(json_docstore_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-
-        except Exception as e:
-            logger.warning(f"Failed to save FAISS index: {e}")
+            staged_index = self._temporary_file()
+            temporaries.append(staged_index)
+            faiss.write_index(index, staged_index)
+            with open(staged_index, "rb") as f:
+                os.fsync(f.fileno())
+            staged_json = self._temporary_file()
+            temporaries.append(staged_json)
+            with open(staged_json, "w", encoding="utf-8") as f:
+                f.write(data)
+                f.flush()
+                os.fsync(f.fileno())
+            staged_journal = self._temporary_file()
+            temporaries.append(staged_journal)
+            with zipfile.ZipFile(staged_journal, "w") as backup:
+                for suffix in ("faiss", "json"):
+                    target = Path(self.path) / f"{self.collection_name}.{suffix}"
+                    if target.exists():
+                        backup.write(target, suffix)
+            with open(staged_journal, "rb") as f:
+                os.fsync(f.fileno())
+            os.replace(staged_journal, journal)
+            journal_published = True
+            self._sync_directory()
+            os.replace(staged_index, Path(self.path) / f"{self.collection_name}.faiss")
+            os.replace(staged_json, Path(self.path) / f"{self.collection_name}.json")
+            self._sync_directory()
+            journal.unlink()  # Commit point: both new files are already complete.
+            journal_published = False
+        except Exception:
+            if journal_published:
+                self._recover_save()
+            raise
+        finally:
+            for temporary in temporaries:
+                Path(temporary).unlink(missing_ok=True)
+        # A failure after commit cannot be reported as a rejected update: disk now
+        # contains the new pair. Report directory durability problems explicitly.
+        try:
+            self._sync_directory()
+        except OSError as error:
+            logger.warning("FAISS save committed, but directory sync failed: %s", error)
 
     def _should_normalize(self) -> bool:
         """Whether vectors must be L2-normalized before indexing/searching.
@@ -320,6 +411,7 @@ class FAISS(VectorStoreBase):
 
         return results
 
+    @_locked
     def create_col(self, name: str, distance: str = None):
         """
         Create a new collection.
@@ -346,6 +438,7 @@ class FAISS(VectorStoreBase):
 
         return self
 
+    @_locked
     def insert(
         self,
         vectors: List[list],
@@ -388,6 +481,7 @@ class FAISS(VectorStoreBase):
 
         logger.info(f"Inserted {len(vectors)} vectors into collection {self.collection_name}")
 
+    @_locked
     def search(
         self, query: str, vectors: List[list], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
@@ -519,27 +613,37 @@ class FAISS(VectorStoreBase):
         if vector_id not in self.docstore:
             return False
 
-        # Validate before delete() persists removal of the existing memory.
+        # Validate against the live index before preparing a replacement.
         if vector is not None:
             vector_np = np.array(vector, dtype=np.float32)
             if vector_np.shape != (self.index.d,):
                 raise ValueError(f"Expected a vector with {self.index.d} dimensions")
 
         current_payload = self.docstore[vector_id].copy()
-
         if payload is not None:
-            self.docstore[vector_id] = payload.copy()
-            current_payload = self.docstore[vector_id].copy()
-
+            current_payload = payload.copy()
+        staged_docstore = self.docstore.copy()
+        staged_docstore[vector_id] = current_payload
+        staged_index = self.index
+        staged_mapping = self.index_to_id.copy()
         if vector is not None:
-            self.delete(vector_id)
-            self.insert([vector], [current_payload], [vector_id])
-        else:
-            self._save()
+            position = next(key for key, value in self.index_to_id.items() if value == vector_id)
+            staged_index = faiss.clone_index(self.index)
+            staged_index.remove_ids(np.array([position], dtype=np.int64))
+            replacement = vector_np.reshape(1, -1)
+            if self._should_normalize():
+                faiss.normalize_L2(replacement)
+            staged_index.add(replacement)
+            remaining = [value for key, value in sorted(self.index_to_id.items()) if key != position]
+            staged_mapping = dict(enumerate(remaining + [vector_id]))
+
+        self._save(staged_index, staged_docstore, staged_mapping)
+        self.index, self.docstore, self.index_to_id = staged_index, staged_docstore, staged_mapping
 
         logger.info(f"Updated vector {vector_id} in collection {self.collection_name}")
         return True
 
+    @_locked
     def get(self, vector_id: str) -> OutputData:
         """
         Retrieve a vector by ID.
@@ -584,11 +688,13 @@ class FAISS(VectorStoreBase):
             logger.warning(f"Failed to list collections: {e}")
             return [self.collection_name] if self.index else []
 
+    @_locked
     def delete_col(self):
         """
         Delete a collection.
         """
         if self.path:
+            self._recover_save()
             try:
                 index_path = f"{self.path}/{self.collection_name}.faiss"
                 json_docstore_path = f"{self.path}/{self.collection_name}.json"
@@ -610,6 +716,7 @@ class FAISS(VectorStoreBase):
         self.docstore = {}
         self.index_to_id = {}
 
+    @_locked
     def col_info(self) -> Dict:
         """
         Get information about a collection.
@@ -627,6 +734,7 @@ class FAISS(VectorStoreBase):
             "distance": self.distance_strategy,
         }
 
+    @_locked
     def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> List[OutputData]:
         """
         List all vectors in a collection.
@@ -664,6 +772,7 @@ class FAISS(VectorStoreBase):
 
         return [results]
 
+    @_locked
     def reset(self):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")
