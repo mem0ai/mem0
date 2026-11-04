@@ -16,6 +16,21 @@ def mock_lm_studio_client():
         yield mock_client
 
 
+def test_default_embedding_dims_match_default_model(mock_lm_studio_client):
+    """The default model (nomic-embed-text-v1.5) produces 768-dimensional vectors."""
+    embedder = LMStudioEmbedding(BaseEmbedderConfig())
+
+    assert embedder.config.model == "nomic-ai/nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.f16.gguf"
+    assert embedder.config.embedding_dims == 768
+
+
+def test_explicit_embedding_dims_are_preserved(mock_lm_studio_client):
+    """A dimension the user configured is not overwritten by the default."""
+    embedder = LMStudioEmbedding(BaseEmbedderConfig(embedding_dims=1536))
+
+    assert embedder.config.embedding_dims == 1536
+
+
 def test_embed_text(mock_lm_studio_client):
     config = BaseEmbedderConfig(model="nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.f16.gguf", embedding_dims=512)
     embedder = LMStudioEmbedding(config)
