@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import pickle
@@ -785,3 +786,50 @@ class TestCosineNormalization:
 
             assert results[0].id == "x"
             assert results[0].score == pytest.approx(1.0, abs=1e-5)
+
+
+def test_save_serializes_datetime_and_numpy_payloads(tmp_path):
+    """Payloads with datetime/numpy values must persist instead of truncating the docstore (#7811)."""
+    store = FAISS(
+        collection_name="payload_types",
+        path=str(tmp_path / "payload_types"),
+        embedding_model_dims=3,
+    )
+    store.insert(
+        vectors=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        payloads=[
+            {"when": datetime.datetime(2026, 11, 5, 12, 30, 0), "score": np.float32(0.75)},
+            {"tags": np.array(["a", "b"]), "flag": np.bool_(True)},
+        ],
+        ids=["dt", "np"],
+    )
+
+    # Reload from disk and confirm nothing was lost.
+    reloaded = FAISS(
+        collection_name="payload_types",
+        path=str(tmp_path / "payload_types"),
+        embedding_model_dims=3,
+    )
+    got = {r.id: r.payload for r in reloaded.list()[0]}
+    assert got["dt"]["when"] == "2026-11-05T12:30:00"
+    assert got["dt"]["score"] == pytest.approx(0.75, abs=1e-6)
+    assert got["np"]["tags"] == ["a", "b"]
+    assert got["np"]["flag"] is True
+
+
+def test_save_atomic_write_keeps_previous_docstore_on_failure(tmp_path):
+    """A payload that stays unserializable must not corrupt or truncate the live docstore."""
+    store = FAISS(
+        collection_name="atomic",
+        path=str(tmp_path / "atomic"),
+        embedding_model_dims=3,
+    )
+    store.insert(vectors=[[1.0, 0.0, 0.0]], payloads=[{"name": "keep"}], ids=["keep"])
+    json_path = tmp_path / "atomic" / "atomic.json"
+    before = json_path.read_text(encoding="utf-8")
+
+    store.insert(vectors=[[0.0, 1.0, 0.0]], payloads=[{"bad": object()}], ids=["bad"])
+
+    # The live docstore file still holds the previous, intact contents.
+    assert json_path.read_text(encoding="utf-8") == before
+    assert not (tmp_path / "atomic" / "atomic.json.tmp").exists()

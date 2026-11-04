@@ -1,3 +1,4 @@
+import datetime
 import functools
 import json
 import logging
@@ -238,6 +239,28 @@ class FAISS(VectorStoreBase):
             self.docstore = {}
             self.index_to_id = {}
 
+    @staticmethod
+    def _json_default(obj: Any) -> Any:
+        """Coerce payload values JSON cannot represent into stable JSON-safe forms.
+
+        Without this, a payload containing e.g. a datetime or a numpy scalar made
+        ``json.dump`` raise ``TypeError``, which ``_save`` swallowed as a warning:
+        the in-memory index kept the data but the on-disk docstore was truncated
+        or left stale, silently losing the memory on the next reload.
+        """
+        if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
+            return obj.isoformat()
+        if isinstance(obj, Path):
+            return str(obj)
+        if hasattr(obj, "tolist"):
+            # numpy arrays (and numpy scalars, whose tolist() yields a plain value)
+            return obj.tolist()
+        if hasattr(obj, "item"):
+            return obj.item()
+        if isinstance(obj, bytes):
+            return obj.decode("utf-8", errors="replace")
+        raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
     def _save(self):
         """Save FAISS index and docstore to disk using JSON format (secure)."""
         if not self.path or not self.index:
@@ -256,8 +279,22 @@ class FAISS(VectorStoreBase):
                 "docstore": self.docstore,
                 "index_to_id": {str(k): v for k, v in self.index_to_id.items()},
             }
-            with open(json_docstore_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
+            # Write to a temp file and atomically replace, so a serialization
+            # failure cannot truncate the live docstore.
+            tmp_docstore_path = f"{json_docstore_path}.tmp"
+            try:
+                with open(tmp_docstore_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, default=self._json_default)
+                os.replace(tmp_docstore_path, json_docstore_path)
+            except Exception:
+                # Remove the partially written temp file; the live docstore
+                # keeps its previous contents.
+                if os.path.exists(tmp_docstore_path):
+                    try:
+                        os.remove(tmp_docstore_path)
+                    except OSError:
+                        pass
+                raise
 
         except Exception as e:
             logger.warning(f"Failed to save FAISS index: {e}")
