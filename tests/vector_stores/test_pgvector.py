@@ -2563,3 +2563,111 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_in_accepts_list_value(self):
         conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
         self.assertEqual(params, ["user_id", ["alice", "bob"]])
+
+
+class TestPGVectorEmbeddingDimensions(unittest.TestCase):
+    """The vector dimension of a collection must match the configured embedding size."""
+
+    def setUp(self):
+        self.mock_cursor = MagicMock()
+        self.mock_cursor.rowcount = 1
+
+    def _pgvector(self, embedding_model_dims=768):
+        return PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=embedding_model_dims,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+        )
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_insert_rejects_vector_with_wrong_dimension(self, mock_get_cursor, mock_connection_pool):
+        """A vector of a different size must fail loudly instead of being dropped."""
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = self._pgvector(embedding_model_dims=768)
+
+        with self.assertRaises(ValueError) as ctx:
+            pgvector.insert(
+                vectors=[[0.1, 0.2, 0.3]],
+                payloads=[{"key": "value"}],
+                ids=[str(uuid.uuid4())],
+            )
+
+        self.assertIn("Embedding dimension mismatch", str(ctx.exception))
+        self.assertIn("768", str(ctx.exception))
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_update_rejects_vector_with_wrong_dimension(self, mock_get_cursor, mock_connection_pool):
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = self._pgvector(embedding_model_dims=768)
+
+        with self.assertRaises(ValueError) as ctx:
+            pgvector.update(vector_id=str(uuid.uuid4()), vector=[0.1, 0.2, 0.3])
+
+        self.assertIn("Embedding dimension mismatch", str(ctx.exception))
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_existing_collection_with_other_dimension_is_rejected(self, mock_get_cursor, mock_connection_pool):
+        """A collection created with another dimension must not accept writes silently."""
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = [("test_collection",)]
+        self.mock_cursor.fetchone.return_value = ("vector(1536)",)
+
+        pgvector = self._pgvector(embedding_model_dims=768)
+
+        with self.assertRaises(ValueError) as ctx:
+            pgvector._ensure_collection()
+
+        self.assertIn("stores 1536-dimension vectors", str(ctx.exception))
+        self.assertIn("embedding dimension is 768", str(ctx.exception))
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_existing_collection_with_matching_dimension_is_accepted(self, mock_get_cursor, mock_connection_pool):
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = [("test_collection",)]
+        self.mock_cursor.fetchone.return_value = ("vector(768)",)
+
+        pgvector = self._pgvector(embedding_model_dims=768)
+
+        pgvector._ensure_collection()
+
+        self.assertTrue(pgvector._collection_ensured)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_existing_collection_without_fixed_dimension_is_accepted(self, mock_get_cursor, mock_connection_pool):
+        """A column created without a fixed dimension cannot be compared, so it is left alone."""
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = [("test_collection",)]
+        self.mock_cursor.fetchone.return_value = ("vector",)
+
+        pgvector = self._pgvector(embedding_model_dims=768)
+
+        pgvector._ensure_collection()
+
+        self.assertTrue(pgvector._collection_ensured)

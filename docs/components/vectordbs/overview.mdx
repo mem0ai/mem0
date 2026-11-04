@@ -49,8 +49,14 @@ For a comprehensive list of available parameters for vector database configurati
 
 ### Using Model with Different Dimensions
 
-If you are using a customized model with different dimensions other than 1536 (for example, 768), you may encounter the following error:
+Vector store configurations default `embedding_model_dims` to `1536`, the dimension of OpenAI's `text-embedding-3-small`. Mem0 infers the dimension from the embedder you configured, so switching to a provider with a different dimension (for example Gemini with 768 dimensions) creates the collection with the correct vector size automatically.
 
-`ValueError: shapes (0,1536) and (768,) not aligned: 1536 (dim 1) != 768 (dim 0)`
+If you set `embedding_model_dims` explicitly, it has to match the dimension of the configured embedder. Mem0 raises a `ValueError` when the two disagree:
 
-You can add `"embedding_model_dims": 768,` to the config of the vector_store to resolve this issue.
+`ValueError: Embedding dimension mismatch: the configured embedder produces 768-dimension vectors, but the 'pgvector' vector store is configured with embedding_model_dims=1536.`
+
+Add `"embedding_model_dims": 768,` to the config of the vector_store to match your embedder. This is required for embedders that do not report their dimension, such as a custom LangChain embedder.
+
+<Note>
+  An existing collection keeps the dimension it was created with. After changing the embedder, point the vector store at a new collection or drop the old one, otherwise writes fail with a dimension mismatch instead of being stored.
+</Note>

@@ -219,7 +219,77 @@ class PGVector(VectorStoreBase):
         collections = self.list_cols()
         if self.collection_name not in collections:
             self.create_col()
+        else:
+            self._validate_collection_dimension()
         self._collection_ensured = True
+
+    def _get_collection_dimension(self) -> Optional[int]:
+        """Return the dimension of the ``vector`` column of the collection table.
+
+        Returns ``None`` when the dimension cannot be determined (e.g. the column
+        was created without a fixed dimension).
+        """
+        with self._get_cursor() as cur:
+            cur.execute(
+                sql.SQL("""
+                SELECT format_type(a.atttypid, a.atttypmod)
+                FROM pg_attribute a
+                WHERE a.attrelid = to_regclass({})
+                  AND a.attname = 'vector'
+                  AND a.attnum > 0
+                  AND NOT a.attisdropped
+                """).format(sql.Identifier(self.collection_name)),
+            )
+            row = cur.fetchone()
+
+        if not row:
+            return None
+
+        column_type = row[0] if isinstance(row, (tuple, list)) else None
+        if not isinstance(column_type, str):
+            return None
+
+        match = re.search(r"vector\((\d+)\)", column_type)
+        return int(match.group(1)) if match else None
+
+    def _validate_collection_dimension(self) -> None:
+        """Fail fast when the existing collection does not match the configured dimension.
+
+        The collection is created with ``CREATE TABLE IF NOT EXISTS``, so an existing
+        table keeps the dimension it was created with. Writing vectors of a different
+        size into it is rejected by PostgreSQL, which used to surface as a silent
+        data loss. Raise a clear, actionable error instead.
+        """
+        if not self.embedding_model_dims:
+            return
+
+        existing_dims = self._get_collection_dimension()
+        if existing_dims is None or existing_dims == self.embedding_model_dims:
+            return
+
+        raise ValueError(
+            f"The '{self.collection_name}' collection stores {existing_dims}-dimension vectors, but the "
+            f"configured embedding dimension is {self.embedding_model_dims}. Drop and recreate the "
+            f"collection (DROP TABLE IF EXISTS {self.collection_name};) to store vectors with the new "
+            f"dimension, or configure an embedder that produces {existing_dims}-dimension vectors."
+        )
+
+    def _validate_vector_dimensions(self, vectors: list) -> None:
+        """Fail fast when a vector does not match the configured dimension."""
+        if not self.embedding_model_dims:
+            return
+
+        for vector in vectors:
+            if vector is None:
+                continue
+            if len(vector) != self.embedding_model_dims:
+                raise ValueError(
+                    f"Embedding dimension mismatch: the embedder produced a {len(vector)}-dimension vector, "
+                    f"but the '{self.collection_name}' collection is configured with "
+                    f"embedding_model_dims={self.embedding_model_dims}. Set the vector store's "
+                    f"embedding_model_dims to {len(vector)}, or use an embedder that produces "
+                    f"{self.embedding_model_dims}-dimension vectors."
+                )
 
     @contextmanager
     def _get_cursor(self, commit: bool = False):
@@ -310,6 +380,7 @@ class PGVector(VectorStoreBase):
 
     def insert(self, vectors: list[list[float]], payloads=None, ids=None) -> None:
         self._ensure_collection()
+        self._validate_vector_dimensions(vectors)
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         json_payloads = [json.dumps(payload) for payload in payloads]
 
@@ -430,6 +501,8 @@ class PGVector(VectorStoreBase):
         self._ensure_collection()
         if vector is None and payload is None:
             return None
+        if vector is not None:
+            self._validate_vector_dimensions([vector])
         with self._get_cursor(commit=True) as cur:
             if vector is not None:
                cur.execute(
