@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 from typing import Any, Dict, List
@@ -143,19 +144,35 @@ def extract_json(text):
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
     If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
     If that also fails, returns the text as-is.
+
+    Candidates are tried in order of how strong a signal they are, and the first one that actually
+    parses wins. Taking the first fenced block unconditionally breaks on models that put their
+    reasoning in a code block before the answer, since the reasoning is what gets returned.
     """
     text = text.strip()
-    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
-    if match:
-        json_str = match.group(1)
-    else:
-        start_idx = text.find("{")
-        end_idx = text.rfind("}")
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_str = text[start_idx : end_idx + 1]
-        else:
-            json_str = text
-    return json_str
+
+    candidates = []
+    candidates += re.findall(r"```json\s*(.*?)\s*```", text, re.DOTALL)  # explicitly tagged
+    candidates += re.findall(r"```[a-zA-Z0-9]*\s*(.*?)\s*```", text, re.DOTALL)  # any fenced block
+    start_idx = text.find("{")
+    end_idx = text.rfind("}")
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        candidates.append(text[start_idx : end_idx + 1])
+
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except ValueError:
+            continue
+        # Parsing is not enough on its own: a scratch block whose contents happen to be a bare
+        # scalar (42, "done", true, null) is valid JSON and would win over the real answer.
+        # Every caller indexes the result as an object, so require one.
+        if isinstance(parsed, dict):
+            return candidate
+
+    # Nothing parsed. Return what the old behaviour would have returned so the caller's own
+    # json.loads still raises with the same content in the message.
+    return candidates[0] if candidates else text
 
 
 def get_image_description(image_obj, llm, vision_details):
