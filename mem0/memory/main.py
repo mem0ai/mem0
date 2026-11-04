@@ -302,6 +302,11 @@ def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
     """Normalize timezone-aware ISO timestamps to UTC without rewriting naive values."""
     if not timestamp:
         return timestamp
+    if not isinstance(timestamp, str):
+        # A non-string created_at (e.g. epoch seconds from a bad import) was
+        # stored before validation existed; leave it unchanged rather than
+        # crashing every read and delete for the affected user.
+        return timestamp
     try:
         parsed = datetime.fromisoformat(timestamp)
     except ValueError:
@@ -309,6 +314,25 @@ def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
     if parsed.tzinfo is None:
         return timestamp
     return parsed.astimezone(timezone.utc).isoformat()
+
+
+def _normalize_created_at(value: Any) -> str:
+    """Validate a caller-supplied ``created_at`` metadata value.
+
+    Accepts ``datetime`` (converted to a UTC ISO string) and ``str``; anything
+    else raises ``ValueError`` so a bad value never reaches the store — one
+    non-string record previously made every read and delete for that user
+    fail with a pydantic ``ValidationError`` or ``TypeError``.
+    """
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc).isoformat()
+    if isinstance(value, str):
+        return value
+    raise ValueError(
+        f"metadata['created_at'] must be a str or datetime, got {type(value).__name__}."
+    )
 
 
 def _build_filters_and_metadata(
@@ -1032,7 +1056,9 @@ class Memory(MemoryBase):
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
             mem_metadata["hash"] = mem_hash
-            if "created_at" not in mem_metadata:
+            if "created_at" in mem_metadata:
+                mem_metadata["created_at"] = _normalize_created_at(mem_metadata["created_at"])
+            else:
                 mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
@@ -1982,7 +2008,9 @@ class Memory(MemoryBase):
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        if "created_at" not in new_metadata:
+        if "created_at" in new_metadata:
+            new_metadata["created_at"] = _normalize_created_at(new_metadata["created_at"])
+        else:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
@@ -2713,7 +2741,9 @@ class AsyncMemory(MemoryBase):
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
             mem_metadata["hash"] = mem_hash
-            if "created_at" not in mem_metadata:
+            if "created_at" in mem_metadata:
+                mem_metadata["created_at"] = _normalize_created_at(mem_metadata["created_at"])
+            else:
                 mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
@@ -3681,7 +3711,9 @@ class AsyncMemory(MemoryBase):
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        if "created_at" not in new_metadata:
+        if "created_at" in new_metadata:
+            new_metadata["created_at"] = _normalize_created_at(new_metadata["created_at"])
+        else:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)

@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory, _validate_and_trim_entity_id
+from mem0.memory.main import Memory, _normalize_created_at, _validate_and_trim_entity_id
 
 
 @pytest.fixture(autouse=True)
@@ -561,3 +561,63 @@ class TestSearchParamValidation:
             result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
 
         assert "results" in result
+
+
+class TestNormalizeCreatedAt:
+    """add() must reject non-string created_at values before they reach the store.
+
+    A non-string created_at (e.g. epoch seconds from a bad import) used to be
+    stored as-is; from then on every read raised a pydantic ValidationError
+    and every delete raised TypeError, making the user's memories unrecoverable.
+    """
+
+    def test_accepts_string(self):
+        assert _normalize_created_at("2025-01-01T00:00:00+00:00") == "2025-01-01T00:00:00+00:00"
+
+    def test_converts_datetime(self):
+        from datetime import datetime, timezone
+        dt = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        result = _normalize_created_at(dt)
+        assert result == "2025-01-01T12:00:00+00:00"
+
+    def test_rejects_int(self):
+        with pytest.raises(ValueError, match="must be a str or datetime"):
+            _normalize_created_at(1735689600)
+
+    def test_rejects_float(self):
+        with pytest.raises(ValueError, match="must be a str or datetime"):
+            _normalize_created_at(1735689600.5)
+
+    def test_rejects_none(self):
+        with pytest.raises(ValueError, match="must be a str or datetime"):
+            _normalize_created_at(None)
+
+    def test_add_rejects_non_string_created_at(self, memory_instance):
+        """add(infer=False) must surface a ValueError instead of storing the bad value."""
+        with patch.object(memory_instance, "embedding_model") as mock_embedder:
+            mock_embedder.embed.return_value = [0.1] * 10
+            with pytest.raises(ValueError, match="must be a str or datetime"):
+                memory_instance.add(
+                    "alice likes tea",
+                    user_id="alice",
+                    infer=False,
+                    metadata={"created_at": 1735689600},
+                )
+
+    def test_add_accepts_datetime_created_at(self, memory_instance):
+        """add(infer=False) converts a datetime created_at to an ISO string."""
+        from datetime import datetime, timezone
+        with patch.object(memory_instance, "embedding_model") as mock_embedder:
+            mock_embedder.embed.return_value = [0.1] * 10
+            dt = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+            memory_instance.add(
+                "alice likes tea",
+                user_id="alice",
+                infer=False,
+                metadata={"created_at": dt},
+            )
+            inserted = memory_instance.vector_store.insert.call_args
+            payloads = inserted.kwargs.get("payloads") or inserted[1].get("payloads")
+            assert isinstance(payloads[0]["created_at"], str)
+            assert payloads[0]["created_at"] == "2025-01-01T12:00:00+00:00"
+
