@@ -278,12 +278,17 @@ class SQLiteManager:
                     )
                 # Evict old messages beyond the most recent 10 for this scope.
                 # Wrapped in a derived table to force SQLite to materialize the
-                # ORDER BY before the outer NOT IN evaluates it.
+                # ORDER BY before the outer NOT IN evaluates it. `rowid` is the
+                # tiebreaker: every message of a single save_messages() call
+                # shares one `created_at`, so ranking on `created_at` alone left
+                # the LIMIT free to pick the *oldest* rows of the batch and evict
+                # the newest ones.
                 self.connection.execute(
                     """
                     DELETE FROM messages WHERE session_scope = ? AND id NOT IN (
                         SELECT id FROM (
-                            SELECT id FROM messages WHERE session_scope = ? ORDER BY created_at DESC LIMIT 10
+                            SELECT id FROM messages WHERE session_scope = ?
+                            ORDER BY created_at DESC, rowid DESC LIMIT 10
                         )
                     )
                 """,
@@ -298,16 +303,19 @@ class SQLiteManager:
     def get_last_messages(self, session_scope: str, limit: int = 10) -> List[Dict[str, Any]]:
         with self._lock:
             # Subquery picks the latest N rows (DESC + LIMIT), outer query
-            # re-sorts them chronologically (ASC) for the caller.
+            # re-sorts them chronologically (ASC) for the caller. `rowid`
+            # breaks the ties left by a batch of messages sharing one
+            # `created_at`, so ties resolve to insertion order instead of an
+            # arbitrary order.
             cur = self.connection.execute(
                 """
                 SELECT role, content, name, created_at FROM (
-                    SELECT role, content, name, created_at
+                    SELECT role, content, name, created_at, rowid AS seq
                     FROM messages
                     WHERE session_scope = ?
-                    ORDER BY created_at DESC
+                    ORDER BY created_at DESC, rowid DESC
                     LIMIT ?
-                ) ORDER BY created_at ASC
+                ) ORDER BY created_at ASC, seq ASC
             """,
                 (session_scope, limit),
             )

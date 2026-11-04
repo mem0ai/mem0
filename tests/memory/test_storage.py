@@ -299,3 +299,48 @@ class TestSQLiteManager:
         assert msg_count == 0
         assert hist_count == 0
         mgr2.close()
+
+
+class TestSessionMessageBuffer:
+    """The per-scope message buffer must keep the newest messages, in order."""
+
+    BUFFER_SIZE = 10
+
+    @pytest.fixture
+    def memory_manager(self):
+        """Create in-memory SQLiteManager instance."""
+        manager = SQLiteManager(":memory:")
+        yield manager
+        if manager.connection:
+            manager.close()
+
+    @staticmethod
+    def _messages(prefix, count):
+        return [{"role": "user", "content": f"{prefix}{i}", "name": None} for i in range(count)]
+
+    def _stored_contents(self, manager, session_scope):
+        return [
+            row[0]
+            for row in manager.connection.execute(
+                "SELECT content FROM messages WHERE session_scope = ? ORDER BY rowid", (session_scope,)
+            )
+        ]
+
+    def test_batch_larger_than_buffer_evicts_the_oldest_messages(self, memory_manager):
+        """One save_messages() call must drop the oldest rows, never the newest ones."""
+        memory_manager.save_messages(self._messages("m", 12), "scope")
+
+        assert self._stored_contents(memory_manager, "scope") == [f"m{i}" for i in range(2, 12)]
+
+    def test_get_last_messages_returns_the_newest_rows_of_one_batch(self, memory_manager):
+        """Rows of one batch share created_at, so ties must resolve to insertion order."""
+        memory_manager.save_messages(self._messages("m", 4), "scope")
+
+        assert [m["content"] for m in memory_manager.get_last_messages("scope", 2)] == ["m2", "m3"]
+
+    def test_get_last_messages_is_chronological_across_batches(self, memory_manager):
+        """Distinct created_at values keep ranking the batches themselves."""
+        memory_manager.save_messages(self._messages("m", 3), "scope")
+        memory_manager.save_messages(self._messages("n", 3), "scope")
+
+        assert [m["content"] for m in memory_manager.get_last_messages("scope", 4)] == ["m2", "n0", "n1", "n2"]
