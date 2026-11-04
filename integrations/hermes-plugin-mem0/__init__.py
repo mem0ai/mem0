@@ -33,6 +33,26 @@ _CLIENT_ERROR_TYPES = ("MemoryNotFoundError", "ValidationError")
 # so legacy mem0.json files written by the wizard don't override gateway-native ids.
 _DEFAULT_USER_ID = "hermes-user"
 
+# Only these initialize() fields may leave the host, and only with consent.
+# gateway_user_id remains distinct from an operator-configured shared store ID.
+_PROVENANCE_KWARGS = (
+    ("user_id", "gateway_user_id"),
+    ("user_id_alt", "gateway_user_id_alt"),
+    ("user_name", "user_name"),
+    ("chat_id", "chat_id"),
+    ("chat_name", "chat_name"),
+    ("chat_type", "chat_type"),
+    ("thread_id", "thread_id"),
+    ("session_title", "session_title"),
+)
+_PROVENANCE_VALUE_MAX_CHARS = 256
+
+
+def _context_sharing_enabled(value: Any) -> bool:
+    """Accept explicit opt-in only; malformed/truthy config must not export IDs."""
+    return value is True or (isinstance(value, str) and value.strip().lower() in ("true", "1", "yes"))
+
+
 # sync_turn sends the whole turn to the backend for fact extraction. OSS embedding
 # models often have small context windows (bge-small-zh-v1.5: 512 tokens ≈ 500 chars;
 # jina-embeddings-v3: 8192), and oversized turns make backend.add() raise — Ollama
@@ -131,6 +151,9 @@ class Mem0MemoryProvider(MemoryProvider):
         self._config = self._backend = self._sync_thread = self._prefetch_thread = None
         self._mode, self._api_key, self._host, self._user_id, self._agent_id = "platform", "", "", _DEFAULT_USER_ID, "hermes"
         self._rerank_default, self._channel = False, "cli"  # channel = gateway name (cli/telegram/discord/...)
+        self._share_conversation_context = False
+        self._session_id = ""
+        self._session_meta: Dict[str, str] = {}
         self._sync_max_chars = _SYNC_MSG_MAX_CHARS
         self._prefetch_query = self._prefetch_result = ""
         self._prefetch_done = self._atexit_registered = False
@@ -161,6 +184,7 @@ class Mem0MemoryProvider(MemoryProvider):
             {"key": "user_id", "description": "User identifier", "default": "hermes-user"},
             {"key": "agent_id", "description": "Agent identifier", "default": "hermes"},
             {"key": "rerank", "description": "Enable reranking for recall", "default": "false", "choices": ["true", "false"]},
+            {"key": "share_conversation_context", "type": "boolean", "description": "Share conversation context with the memory backend (user names/IDs, chat names/IDs and type, thread IDs, session title/ID; restart Hermes to apply)", "default": "false"},
         ]
 
     def post_setup(self, hermes_home: str, config: dict) -> None:
@@ -236,6 +260,14 @@ class Mem0MemoryProvider(MemoryProvider):
         _rr = cfg.get("rerank", False)
         self._rerank_default = _rr.lower() in ("true", "1", "yes") if isinstance(_rr, str) else bool(_rr)
         self._channel = kwargs.get("platform") or "cli"
+        self._share_conversation_context = _context_sharing_enabled(cfg.get("share_conversation_context"))
+        self._session_id = session_id or ""
+        self._session_meta = {}
+        if self._share_conversation_context:
+            self._session_meta = {
+                key: str(kwargs[arg])[:_PROVENANCE_VALUE_MAX_CHARS]
+                for arg, key in _PROVENANCE_KWARGS if kwargs.get(arg) is not None and kwargs[arg] != ""
+            }
         try:
             self._sync_max_chars = int(cfg.get("sync_max_chars") or _SYNC_MSG_MAX_CHARS)
         except (ValueError, TypeError):
@@ -250,8 +282,26 @@ class Mem0MemoryProvider(MemoryProvider):
         # principal; writes attach agent_id and metadata.channel so narrower views remain possible at query time.
         return (backend or self._backend).search(query, filters={"user_id": self._user_id}, top_k=top_k, rerank=rerank)
 
-    def _add(self, messages: list, infer: bool):
+    def on_session_switch(self, new_session_id: str, **kwargs) -> None:
+        if new_session_id != self._session_id:
+            # Hermes does not supply the destination session's title in this hook.
+            self._session_meta.pop("session_title", None)
+        self._session_id = new_session_id or ""
+
+    def _write_metadata(self, *, session_id: str = "") -> Dict[str, Any]:
         metadata = {"channel": self._channel} if self._channel else {}
+        if self._share_conversation_context:
+            metadata.update(self._session_meta)
+            effective_session = session_id or self._session_id
+            if effective_session != self._session_id:
+                metadata.pop("session_title", None)
+            if effective_session:
+                metadata["session_id"] = str(effective_session)[:_PROVENANCE_VALUE_MAX_CHARS]
+        return metadata
+
+    def _add(self, messages: list, infer: bool, *, metadata: dict | None = None):
+        if metadata is None:
+            metadata = self._write_metadata()
         return self._backend.add(messages, user_id=self._user_id, agent_id=self._agent_id, infer=infer, metadata=metadata)
 
     def system_prompt_block(self) -> str:
@@ -307,13 +357,16 @@ class Mem0MemoryProvider(MemoryProvider):
         if self._backend is None or self._is_breaker_open():
             return
 
+        # Snapshot before scheduling: a session switch must not relabel queued turns.
+        metadata = self._write_metadata(session_id=session_id)
+
         def _sync():
             if self._backend is not None:
                 messages = [
                     {"role": "user", "content": _truncate_for_sync(user_content, self._sync_max_chars)},
                     {"role": "assistant", "content": _truncate_for_sync(assistant_content, self._sync_max_chars)},
                 ]
-                self._try(lambda: self._add(messages, infer=True), logger.warning, "Mem0 sync failed: %s")
+                self._try(lambda: self._add(messages, infer=True, metadata=metadata), logger.warning, "Mem0 sync failed: %s")
 
         with self._sync_lock:
             prev = self._sync_thread
