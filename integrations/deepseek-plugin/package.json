@@ -29,13 +29,21 @@
   "publishConfig": {
     "access": "public"
   },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
   "files": [
     "dist",
+    "cordis.patch.yml",
+    "cordis.example.yml",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "build": "tsup",
+    "prepack": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
