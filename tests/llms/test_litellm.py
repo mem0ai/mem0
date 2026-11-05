@@ -96,6 +96,89 @@ def test_generate_response_legacy_model_uses_max_tokens(mock_litellm):
     assert "max_completion_tokens" not in kwargs
 
 
+def test_generate_response_passes_reasoning_effort_from_config(mock_litellm):
+    config = BaseLlmConfig(
+        model="gemini/gemini-3-flash-preview",
+        temperature=0.2,
+        max_tokens=4000,
+        top_p=0.9,
+        reasoning_effort="low",
+    )
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Solve this"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Done"))]
+    mock_litellm.completion.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert kwargs["model"] == "gemini/gemini-3-flash-preview"
+    assert kwargs["reasoning_effort"] == "low"
+    assert response == "Done"
+
+
+def test_generate_response_passes_model_dict_params(mock_litellm):
+    config = BaseLlmConfig(
+        model={
+            "name": "gemini/gemini-3-flash-preview",
+            "reasoning_effort": "medium",
+            "frequency_penalty": 0.5,
+            "presence_penalty": 0.1,
+            "seed": 42,
+            "stop": ["END"],
+        },
+        temperature=0.5,
+        max_tokens=2000,
+        top_p=0.95,
+    )
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Generate text"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Generated text."))]
+    mock_litellm.completion.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert kwargs["model"] == "gemini/gemini-3-flash-preview"
+    assert kwargs["max_tokens"] == 2000
+    assert kwargs["reasoning_effort"] == "medium"
+    assert kwargs["frequency_penalty"] == 0.5
+    assert kwargs["presence_penalty"] == 0.1
+    assert kwargs["seed"] == 42
+    assert kwargs["stop"] == ["END"]
+    assert response == "Generated text."
+
+
+def test_generate_response_model_dict_uses_name_for_max_completion_tokens(mock_litellm):
+    config = BaseLlmConfig(model={"name": "openai/gpt-5.4-mini", "reasoning_effort": "high"}, max_tokens=100)
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_litellm.completion.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert kwargs["model"] == "openai/gpt-5.4-mini"
+    assert kwargs["max_completion_tokens"] == 100
+    assert "max_tokens" not in kwargs
+    assert kwargs["reasoning_effort"] == "high"
+
+
+def test_get_model_name_with_dict_without_name_uses_default(mock_litellm):
+    config = BaseLlmConfig(model={"reasoning_effort": "low"})
+    llm = litellm.LiteLLM(config)
+
+    assert llm._get_model_name() == "gpt-5-mini"
+    assert llm.config.model["reasoning_effort"] == "low"
+
+
 def test_generate_response_with_tools(mock_litellm):
     config = BaseLlmConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1)
     llm = litellm.LiteLLM(config)
@@ -134,7 +217,13 @@ def test_generate_response_with_tools(mock_litellm):
     response = llm.generate_response(messages, tools=tools)
 
     mock_litellm.completion.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1, tools=tools, tool_choice="auto"
+        model="gpt-4.1-nano-2025-04-14",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1,
+        tools=tools,
+        tool_choice="auto",
     )
 
     assert response["content"] == "I've added the memory for you."
