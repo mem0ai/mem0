@@ -117,7 +117,10 @@ def remove_code_blocks(content: str) -> str:
     Removes enclosing code block markers ```[language] and ``` from a given string.
 
     Remarks:
-    - The function uses a regex pattern to match code blocks that may start with ``` followed by an optional language tag (letters or numbers) and end with ```.
+    - Reasoning `<think>...</think>` blocks are removed first, so a code block that only
+      becomes the outermost one after they are gone (some reasoning models wrap their
+      answer that way) still gets unwrapped.
+    - The function uses a regex pattern to match code blocks that may start with ``` followed by an optional language tag and end with ```; the closing marker does not need a newline of its own.
     - If a code block is detected, it returns only the inner content, stripping out the markers.
     - If no code block markers are found, the original content is returned as-is.
     """
@@ -131,10 +134,10 @@ def remove_code_blocks(content: str) -> str:
         content = "".join(parts)
     if not isinstance(content, str):
         return ""
-    pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
-    match = re.match(pattern, content.strip())
-    match_res=match.group(1).strip() if match else content.strip()
-    return re.sub(r"<think>.*?</think>", "", match_res, flags=re.DOTALL).strip()
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+    pattern = r"^```[a-zA-Z0-9_+\-#.]*\r?\n([\s\S]*?)\r?\n?```$"
+    match = re.match(pattern, content)
+    return match.group(1).strip() if match else content
 
 
 

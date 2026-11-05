@@ -118,18 +118,28 @@ class TestRemoveCodeBlocks:
         parsed = json.loads(result)
         assert parsed == {"memory": []}
 
-    def test_think_tags_before_code_block_not_handled(self):
-        """Think tags before code block cause regex to miss — fallback needed.
-
-        This is a known limitation of remove_code_blocks: it matches the code
-        block regex first, and only strips think tags from the result. When
-        think tags come before the code block, the regex fails entirely.
-        The fallback chain (extract_json) handles this case.
-        """
+    def test_think_tags_before_code_block(self):
+        """Think tags before the code block are stripped, then the block is unwrapped."""
         text = '<think>reasoning here</think>\n```json\n{"memory": []}\n```'
         result = remove_code_blocks(text)
-        with pytest.raises(json.JSONDecodeError):
-            json.loads(result)
+        parsed = json.loads(result)
+        assert parsed == {"memory": []}
+
+    def test_think_tags_before_markdown_block(self):
+        """Reasoning models wrap their answer in a non-JSON block: still unwrap it."""
+        text = "<think>\nsome reasoning\n</think>\n```markdown\n# Procedure\n1. do it\n```"
+        result = remove_code_blocks(text)
+        assert result == "# Procedure\n1. do it"
+
+    def test_code_block_without_trailing_newline(self):
+        text = '```markdown\n# Procedure\n1. do it\n2. done```'
+        assert remove_code_blocks(text) == "# Procedure\n1. do it\n2. done"
+
+    def test_code_block_with_language_tag_containing_symbols(self):
+        assert remove_code_blocks("```c++\nint x;\n```") == "int x;"
+
+    def test_think_only_content(self):
+        assert remove_code_blocks("<think>only reasoning</think>") == ""
 
 
 # --- Test the full fallback chain (remove_code_blocks -> extract_json) ---
