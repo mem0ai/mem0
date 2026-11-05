@@ -369,6 +369,13 @@
                 "tab": "Agent Plugins",
                 "groups": [
                   {
+                    "group": "Overview",
+                    "icon": "puzzle-piece",
+                    "pages": [
+                      "integrations/agent-plugins"
+                    ]
+                  },
+                  {
                     "group": "Coding Agents",
                     "icon": "terminal",
                     "pages": [
