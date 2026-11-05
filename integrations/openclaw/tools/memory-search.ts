@@ -48,7 +48,7 @@ export function createMemorySearchTool(deps: ToolDeps) {
 
         if (scope === "session") {
           if (currentSessionId) {
-            results = await provider.search(query, applyFilters(buildSearchOptions(uid, limit, undefined, currentSessionId)));
+            results = await provider.search(query, applyFilters(buildSearchOptions(uid, limit, currentSessionId)));
           }
         } else if (scope === "long-term") {
           results = await provider.search(query, applyFilters(buildSearchOptions(uid, limit)));
@@ -56,7 +56,7 @@ export function createMemorySearchTool(deps: ToolDeps) {
           const longTerm = await provider.search(query, applyFilters(buildSearchOptions(uid, limit)));
           let session: MemoryItem[] = [];
           if (currentSessionId) {
-            session = await provider.search(query, applyFilters(buildSearchOptions(uid, limit, undefined, currentSessionId)));
+            session = await provider.search(query, applyFilters(buildSearchOptions(uid, limit, currentSessionId)));
           }
           const seen = new Set(longTerm.map((r) => r.id));
           results = [...longTerm, ...session.filter((r) => !seen.has(r.id))];
