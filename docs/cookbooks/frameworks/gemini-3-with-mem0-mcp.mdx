@@ -46,7 +46,7 @@ npx mcp-add \
 ### Install dependencies
 
 ```bash
-pip install pydantic-ai nest-asyncio python-dotenv google-genai
+pip install "pydantic-ai-slim[mcp]" nest-asyncio python-dotenv google-genai
 ```
 
 ### Environment Setup
@@ -75,7 +75,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 from pydantic_ai import Agent
-from pydantic_ai.mcp import MCPServerHTTP
+from pydantic_ai.mcp import MCPToolset
 
 # Load environment variables
 load_dotenv()
@@ -91,9 +91,7 @@ class MemoryAgent:
     def _setup(self):
         """Initialize the agent with MCP tools"""
         # Connect to Mem0's cloud MCP server
-        self.server = MCPServerHTTP(
-            url="https://mcp.mem0.ai/mcp"
-        )
+        self.server = MCPToolset("https://mcp.mem0.ai/mcp")
 
         # Create agent with Gemini and memory tools
         self.agent = Agent(
