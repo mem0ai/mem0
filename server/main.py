@@ -116,6 +116,13 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-5-mini")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
+# The underlying OpenAI LLM/embedder classes already resolve openai_base_url from
+# config, falling back to the shared OPENAI_BASE_URL env var if unset. That's fine
+# when LLM and embedder are the same backend, but self-hosting an OpenAI-compatible
+# LLM and a separate OpenAI-compatible embedder (e.g. two different local servers)
+# needs them addressable independently — the server never wired that through.
+LLM_BASE_URL = os.environ.get("MEM0_LLM_BASE_URL")
+EMBEDDER_BASE_URL = os.environ.get("MEM0_EMBEDDER_BASE_URL")
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
@@ -132,9 +139,21 @@ DEFAULT_CONFIG = {
     },
     "llm": {
         "provider": "openai",
-        "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
+        "config": {
+            "api_key": OPENAI_API_KEY,
+            "temperature": 0.2,
+            "model": DEFAULT_LLM_MODEL,
+            **({"openai_base_url": LLM_BASE_URL} if LLM_BASE_URL else {}),
+        },
     },
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}},
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "api_key": OPENAI_API_KEY,
+            "model": DEFAULT_EMBEDDER_MODEL,
+            **({"openai_base_url": EMBEDDER_BASE_URL} if EMBEDDER_BASE_URL else {}),
+        },
+    },
     "history_db_path": HISTORY_DB_PATH,
 }
 
