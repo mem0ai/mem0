@@ -281,6 +281,7 @@
       "better-sqlite3"
     ],
     "overrides": {
+      "@azure/identity@<4.14.1": ">=4.14.1 <5.0.0",
       "form-data@<4.0.6": ">=4.0.6",
       "picomatch@<2.3.2": "^2.3.2",
       "picomatch@>=4.0.0 <4.0.4": "^4.0.4",
