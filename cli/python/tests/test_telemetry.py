@@ -78,3 +78,29 @@ def test_load_context_falls_back_to_argv(monkeypatch):
     ctx = _load_context()
 
     assert ctx["payload"]["event"] == "argv"
+
+
+def test_cache_email_round_trips_utf8_config(tmp_path):
+    from mem0_cli.telemetry_sender import _cache_email
+
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_bytes(
+        json.dumps(
+            {
+                "platform": {
+                    "api_key": "k",
+                    "user_email": "用户@example.com",
+                    "display_name": "José 東京",
+                }
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+    )
+
+    _cache_email(str(cfg_path), "new@example.com")
+
+    data = json.loads(cfg_path.read_bytes().decode("utf-8"))
+    assert data["platform"]["user_email"] == "new@example.com"
+    # Fields the write does not touch must survive byte-identical: without
+    # explicit UTF-8 I/O a non-UTF-8 locale silently corrupts them (#7227).
+    assert data["platform"]["display_name"] == "José 東京"
