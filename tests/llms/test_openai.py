@@ -464,3 +464,53 @@ def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):
     llm = OpenAILLM(config)
     assert llm.config.http_client_proxies == "http://proxy.local:8080"
     assert isinstance(llm.config.http_client, httpx.Client)
+
+
+def test_extra_headers_forwarded_to_client(mock_openai_client):
+    """Custom headers configured by the user must reach the OpenAI client.
+
+    Users of observability proxies (Helicone) and corporate API gateways need to
+    attach headers such as `Helicone-Auth` to outbound LLM calls. See
+    https://github.com/mem0ai/mem0/issues/3851
+    """
+    headers = {"Helicone-Auth": "Bearer sk-helicone-test", "Custom-Header": "value"}
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", api_key="api_key", extra_headers=headers)
+
+    with patch("mem0.llms.openai.OpenAI") as mock_openai:
+        mock_openai.return_value = mock_openai_client
+        llm = OpenAILLM(config)
+
+    assert mock_openai.call_args.kwargs["default_headers"] == headers
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+    llm.generate_response([{"role": "user", "content": "Hello"}])
+
+    # Headers ride on the client, so the per-request payload stays untouched.
+    assert "extra_headers" not in mock_openai_client.chat.completions.create.call_args.kwargs
+
+
+def test_extra_headers_absent_by_default(mock_openai_client):
+    """With `extra_headers` unset, nothing changes: no stray kwarg is passed."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", api_key="api_key")
+    assert config.extra_headers is None
+
+    with patch("mem0.llms.openai.OpenAI") as mock_openai:
+        mock_openai.return_value = mock_openai_client
+        OpenAILLM(config)
+
+    assert "default_headers" not in mock_openai.call_args.kwargs
+
+
+def test_extra_headers_forwarded_on_openrouter_path(monkeypatch, mock_openai_client):
+    """The OpenRouter client branch must honour `extra_headers` too."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-openrouter-test")
+    headers = {"Helicone-Auth": "Bearer sk-helicone-test"}
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", extra_headers=headers)
+
+    with patch("mem0.llms.openai.OpenAI") as mock_openai:
+        mock_openai.return_value = mock_openai_client
+        OpenAILLM(config)
+
+    assert mock_openai.call_args.kwargs["default_headers"] == headers
