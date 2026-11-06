@@ -279,11 +279,15 @@ class SQLiteManager:
                 # Evict old messages beyond the most recent 10 for this scope.
                 # Wrapped in a derived table to force SQLite to materialize the
                 # ORDER BY before the outer NOT IN evaluates it.
+                # created_at is stamped once per call, so every row of one
+                # batch shares it and ORDER BY created_at alone leaves the
+                # survivors to chance. rowid breaks the tie in insertion order.
                 self.connection.execute(
                     """
                     DELETE FROM messages WHERE session_scope = ? AND id NOT IN (
                         SELECT id FROM (
-                            SELECT id FROM messages WHERE session_scope = ? ORDER BY created_at DESC LIMIT 10
+                            SELECT id FROM messages WHERE session_scope = ?
+                            ORDER BY created_at DESC, rowid DESC LIMIT 10
                         )
                     )
                 """,
@@ -302,12 +306,12 @@ class SQLiteManager:
             cur = self.connection.execute(
                 """
                 SELECT role, content, name, created_at FROM (
-                    SELECT role, content, name, created_at
+                    SELECT role, content, name, created_at, rowid AS seq
                     FROM messages
                     WHERE session_scope = ?
-                    ORDER BY created_at DESC
+                    ORDER BY created_at DESC, seq DESC
                     LIMIT ?
-                ) ORDER BY created_at ASC
+                ) ORDER BY created_at ASC, seq ASC
             """,
                 (session_scope, limit),
             )

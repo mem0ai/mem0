@@ -299,3 +299,53 @@ class TestSQLiteManager:
         assert msg_count == 0
         assert hist_count == 0
         mgr2.close()
+
+    def test_save_messages_keeps_the_newest_rows_of_an_oversized_batch(self):
+        """One save_messages() call sharing one created_at must not evict the tail.
+
+        Every row of a batch is stamped with the same timestamp, so
+        ORDER BY created_at DESC alone let SQLite pick the first ten rows of
+        the batch and delete the two newest ones.
+        """
+        mgr = SQLiteManager(":memory:")
+        mgr.save_messages([{"role": "user", "content": f"m{i}"} for i in range(12)], "user_id=alice")
+
+        contents = [r["content"] for r in mgr.get_last_messages("user_id=alice", 10)]
+
+        assert contents == [f"m{i}" for i in range(2, 12)]
+        mgr.close()
+
+    def test_save_messages_keeps_the_newest_ten_across_batches(self):
+        mgr = SQLiteManager(":memory:")
+        for start in (0, 5, 10):
+            mgr.save_messages(
+                [{"role": "user", "content": f"m{i}"} for i in range(start, start + 5)],
+                "user_id=alice",
+            )
+
+        contents = [r["content"] for r in mgr.get_last_messages("user_id=alice", 10)]
+
+        assert contents == [f"m{i}" for i in range(5, 15)]
+        mgr.close()
+
+    def test_get_last_messages_still_orders_by_timestamp(self):
+        """rowid is only a tiebreaker; different timestamps still sort by time."""
+        mgr = SQLiteManager(":memory:")
+        mgr.save_messages([{"role": "user", "content": "older"}], "sess1")
+        mgr.connection.execute("UPDATE messages SET created_at = '2020-01-01T00:00:00+00:00'")
+        mgr.connection.commit()
+        mgr.save_messages([{"role": "user", "content": "newer"}], "sess1")
+
+        contents = [r["content"] for r in mgr.get_last_messages("sess1", 10)]
+
+        assert contents == ["older", "newer"]
+        mgr.close()
+
+    def test_get_last_messages_respects_a_smaller_limit(self):
+        mgr = SQLiteManager(":memory:")
+        mgr.save_messages([{"role": "user", "content": f"m{i}"} for i in range(12)], "user_id=alice")
+
+        contents = [r["content"] for r in mgr.get_last_messages("user_id=alice", 3)]
+
+        assert contents == ["m9", "m10", "m11"]
+        mgr.close()
