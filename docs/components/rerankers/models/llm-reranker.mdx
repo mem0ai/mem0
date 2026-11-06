@@ -38,8 +38,8 @@ m = Memory.from_config(config)
 | `top_k` | int | None | Number of top documents to return after reranking |
 | `temperature` | float | 0.0 | LLM temperature for consistency |
 | `max_tokens` | int | 100 | Maximum tokens for LLM response |
-| `scoring_prompt` | str | None | Custom prompt template for scoring documents |
-| `llm` | dict | None | Optional nested LLM config for provider-specific fields (e.g., `ollama_base_url`, `azure_endpoint`). Overrides top-level `provider`/`model`/`api_key` when provided. |
+| `scoring_prompt` | str | None | Custom prompt template for scoring documents (deprecated; emits a `DeprecationWarning`) |
+| `llm` | dict | None | Optional nested LLM config for provider-specific fields (e.g., `ollama_base_url`, or `azure_kwargs` for the Azure endpoint and deployment). Overrides top-level `provider`/`model`/`api_key` when provided. |
 
 ### Advanced Configuration
 
@@ -164,6 +164,8 @@ config = {
 
 ### Azure OpenAI
 
+For Azure OpenAI, the endpoint and deployment belong in `azure_kwargs`, which is the parameter `AzureOpenAIConfig` accepts. Putting them directly in `llm.config` raises `TypeError: unexpected keyword argument 'azure_endpoint'`.
+
 ```python
 config = {
     "reranker": {
@@ -177,8 +179,10 @@ config = {
                 "config": {
                     "model": "gpt-5-mini",
                     "api_key": "your-azure-api-key",
-                    "azure_endpoint": "https://your-resource.openai.azure.com/",
-                    "azure_deployment": "gpt-5-mini-deployment"
+                    "azure_kwargs": {
+                        "azure_endpoint": "https://your-resource.openai.azure.com/",
+                        "azure_deployment": "gpt-5-mini-deployment"
+                    }
                 }
             }
         }
@@ -288,6 +292,10 @@ Score:
   Custom prompts must include `{query}` and `{document}` placeholders. The LLM response should contain a numerical score which is automatically extracted.
 </Note>
 
+<Note>
+  Setting `scoring_prompt` is deprecated. It still works — the value is used as the system message — but `LLMRerankerConfig` emits a `DeprecationWarning` and the option will be removed in a future version.
+</Note>
+
 ## Usage Examples
 
 ### Basic Usage
@@ -305,7 +313,7 @@ m.add("I'm vegetarian", user_id="alice")
 # Search with LLM reranking
 results = m.search(
     "What foods should I avoid?",
-    user_id="alice",
+    filters={"user_id": "alice"},
     rerank=True
 )
 
