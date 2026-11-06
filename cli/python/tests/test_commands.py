@@ -826,6 +826,30 @@ class TestDeleteAllCommand:
         assert "dry run" in output.lower()
         mock_backend.delete.assert_not_called()
 
+    def test_delete_all_project_wide_dry_run(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_delete_all(
+                mock_backend,
+                force=False,
+                dry_run=True,
+                all_=True,
+                user_id=None,
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                output="text",
+            )
+        output = buf.getvalue()
+        assert "entire project" in output.lower()
+        assert "dry run" in output.lower()
+        mock_backend.delete.assert_not_called()
+        mock_backend.list_memories.assert_not_called()
+
     def test_delete_all_project_wide(self, mock_backend):
         console, _buf = _make_console()
         err_console, _err_buf = _make_err_console()
