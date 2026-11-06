@@ -10,7 +10,7 @@ class PGVectorConfig(BaseModel):
     user: Optional[str] = Field(None, description="Database user")
     password: Optional[str] = Field(None, description="Database password")
     host: Optional[str] = Field(None, description="Database host. Default is localhost")
-    port: Optional[int] = Field(None, description="Database port. Default is 1536")
+    port: Optional[int] = Field(5432, description="Database port. Default is 5432")
     diskann: Optional[bool] = Field(False, description="Use diskann for approximate nearest neighbors search")
     hnsw: Optional[bool] = Field(True, description="Use hnsw for faster search")
     minconn: Optional[int] = Field(1, description="Minimum number of connections in the pool")
