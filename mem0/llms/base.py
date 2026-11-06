@@ -57,7 +57,7 @@ class LLMBase(ABC):
 
         reasoning_models = {
             "o1", "o1-preview", "o3-mini", "o3",
-            "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
+            "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
         }
 
         model_lower = model.lower()
@@ -117,6 +117,10 @@ class LLMBase(ABC):
                 supported_params["tools"] = kwargs["tools"]
             if "tool_choice" in kwargs:
                 supported_params["tool_choice"] = kwargs["tool_choice"]
+
+            # Preserve GPT-5 output caps, including an explicit per-call override.
+            if self._uses_max_completion_tokens(model):
+                supported_params["max_completion_tokens"] = kwargs.get("max_completion_tokens", self.config.max_tokens)
 
             # Add reasoning_effort if configured
             reasoning_effort = getattr(self.config, 'reasoning_effort', None)

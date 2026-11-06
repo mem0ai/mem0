@@ -77,6 +77,8 @@ def test_generate_response_gpt5_uses_max_completion_tokens(mock_litellm):
     _, kwargs = mock_litellm.completion.call_args
     assert kwargs["max_completion_tokens"] == 100
     assert "max_tokens" not in kwargs
+    assert kwargs["temperature"] == 0.7
+    assert kwargs["top_p"] == 1
 
 
 def test_generate_response_legacy_model_uses_max_tokens(mock_litellm):
@@ -199,3 +201,34 @@ def test_reasoning_model_retains_configured_token_limit(mock_litellm, model, tok
     assert kwargs[token_parameter] == 123
     assert "temperature" not in kwargs
     assert "top_p" not in kwargs
+
+
+@pytest.mark.parametrize("model", ["gpt-5-mini", "gpt-5-nano", "openai/gpt-5-mini", "openai/gpt-5-nano", None])
+def test_mini_nano_reasoning_requests_omit_sampling(mock_litellm, model):
+    config = BaseLlmConfig(model=model, temperature=0.7, top_p=0.9, max_tokens=123, reasoning_effort="medium")
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+    mock_litellm.completion.return_value = Mock(choices=[Mock(message=Mock(content="done"))])
+
+    assert llm.generate_response(messages) == "done"
+
+    mock_litellm.completion.assert_called_once_with(
+        model=model or "gpt-5-mini",
+        messages=messages,
+        max_completion_tokens=123,
+        reasoning_effort="medium",
+    )
+
+
+@pytest.mark.parametrize("model", ["gpt-5-mini", "openai/gpt-5-nano"])
+def test_mini_nano_explicit_reasoning_opt_out_preserves_sampling(mock_litellm, model):
+    config = BaseLlmConfig(model=model, is_reasoning_model=False, temperature=0.7, top_p=0.9, max_tokens=123)
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+    mock_litellm.completion.return_value = Mock(choices=[Mock(message=Mock(content="done"))])
+
+    llm.generate_response(messages)
+
+    mock_litellm.completion.assert_called_once_with(
+        model=model, messages=messages, temperature=0.7, top_p=0.9, max_completion_tokens=123
+    )

@@ -464,3 +464,66 @@ def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):
     llm = OpenAILLM(config)
     assert llm.config.http_client_proxies == "http://proxy.local:8080"
     assert isinstance(llm.config.http_client, httpx.Client)
+
+
+@pytest.mark.parametrize(
+    "model,is_reasoning_model",
+    [
+        ("gpt-5-mini", None),
+        ("gpt-5-nano", None),
+        ("openai/gpt-5-mini", None),
+        ("openai/gpt-5-nano", None),
+        (None, None),
+        ("gpt-5.4-mini", True),
+    ],
+)
+@pytest.mark.parametrize("cap_override", [None, 321])
+def test_gpt5_reasoning_preserves_completion_cap(mock_openai_client, model, is_reasoning_model, cap_override):
+    config = OpenAIConfig(
+        model=model,
+        is_reasoning_model=is_reasoning_model,
+        max_tokens=123,
+        temperature=0.7,
+        top_p=0.9,
+        reasoning_effort="medium",
+    )
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+    mock_openai_client.chat.completions.create.return_value = Mock(choices=[Mock(message=Mock(content="done"))])
+    kwargs = {} if cap_override is None else {"max_completion_tokens": cap_override}
+
+    assert llm.generate_response(messages, **kwargs) == "done"
+
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model=model or "gpt-5-mini",
+        messages=messages,
+        max_completion_tokens=123 if cap_override is None else cap_override,
+        reasoning_effort="medium",
+    )
+
+
+@pytest.mark.parametrize("model,is_reasoning_model", [("gpt-5.4-mini", None), ("gpt-5-mini", False)])
+def test_gpt5_non_reasoning_preserves_completion_cap(mock_openai_client, model, is_reasoning_model):
+    config = OpenAIConfig(
+        model=model, is_reasoning_model=is_reasoning_model, max_tokens=123, temperature=0.7, top_p=0.9
+    )
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+    mock_openai_client.chat.completions.create.return_value = Mock(choices=[Mock(message=Mock(content="done"))])
+
+    llm.generate_response(messages, max_completion_tokens=321)
+
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model=model, messages=messages, max_completion_tokens=321, temperature=0.7, top_p=0.9
+    )
+
+
+@pytest.mark.parametrize("model", ["o3-mini", "openai/o1-2024-12-17"])
+def test_o_series_cap_routing_unchanged(mock_openai_client, model):
+    llm = OpenAILLM(OpenAIConfig(model=model, max_tokens=123))
+    messages = [{"role": "user", "content": "Hello"}]
+    mock_openai_client.chat.completions.create.return_value = Mock(choices=[Mock(message=Mock(content="done"))])
+
+    llm.generate_response(messages)
+
+    mock_openai_client.chat.completions.create.assert_called_once_with(model=model, messages=messages)
