@@ -588,7 +588,14 @@ def _add_quoted_candidates(text: str, candidates: list[_EntityCandidate]) -> Non
 
 
 def _add_topic_phrase_candidates(doc, candidates: list[_EntityCandidate]) -> None:
-    for chunk in doc.noun_chunks:
+    try:
+        # Materialize eagerly: noun_chunks is a lazy iterator and raises
+        # NotImplementedError on iteration for languages without a noun-chunk
+        # iterator (e.g. zh, ja) — skip this pass for those languages.
+        noun_chunks = list(doc.noun_chunks)
+    except NotImplementedError:
+        return
+    for chunk in noun_chunks:
         chunk_tokens = list(chunk)
         split_indices: list[int] = []
         poss_splits: list[int] = []
