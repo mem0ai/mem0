@@ -569,11 +569,16 @@ class FAISS(VectorStoreBase):
             return [self.collection_name] if self.index else []
 
         try:
-            collections = []
-            path = Path(self.path).parent
-            for file in path.glob("*.faiss"):
-                collections.append(file.stem)
-            return collections
+            collections = set()
+            # Search the store path itself and its parent (where sibling
+            # collection directories live in the default layout), including
+            # nested collection directories.
+            for root in (Path(self.path), Path(self.path).parent):
+                if not root.exists():
+                    continue
+                for file in root.rglob("*.faiss"):
+                    collections.add(file.stem)
+            return sorted(collections)
         except Exception as e:
             logger.warning(f"Failed to list collections: {e}")
             return [self.collection_name] if self.index else []
