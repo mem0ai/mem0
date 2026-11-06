@@ -26,6 +26,15 @@ export interface EmbeddingConfig {
   awsAccessKeyId?: string;
   awsSecretAccessKey?: string;
   awsSessionToken?: string;
+  // Vertex AI
+  vertexCredentialsJson?: string;
+  googleServiceAccountJson?: string | Record<string, any>;
+  googleProjectId?: string;
+  location?: string;
+  memoryAddEmbeddingType?: string;
+  memoryUpdateEmbeddingType?: string;
+  memorySearchEmbeddingType?: string;
+  [key: string]: any;
 }
 
 export interface VertexAIConfig extends EmbeddingConfig {
