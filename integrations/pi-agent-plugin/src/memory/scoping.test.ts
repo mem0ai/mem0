@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { detectRunId, resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 
 const mockExecFileSync = vi.fn();
@@ -10,8 +10,18 @@ vi.mock("node:child_process", () => ({
 const { detectAppId } = await import("./scoping.ts");
 
 describe("detectAppId", () => {
+  const originalEnv = process.env.MEM0_APP_ID;
+
   beforeEach(() => {
     mockExecFileSync.mockReset();
+  });
+
+  afterEach(() => {
+    if (originalEnv === undefined) {
+      delete process.env.MEM0_APP_ID;
+    } else {
+      process.env.MEM0_APP_ID = originalEnv;
+    }
   });
 
   it("uses git root basename for a git repo", () => {
@@ -32,6 +42,38 @@ describe("detectAppId", () => {
       throw new Error("fatal: not a git repository");
     });
     expect(detectAppId("/home/user/scratch")).toBe("scratch");
+  });
+
+  it("prefers MEM0_APP_ID over the git root basename", () => {
+    process.env.MEM0_APP_ID = "main-repo";
+    mockExecFileSync.mockReturnValue("/home/user/feature-x\n");
+    expect(detectAppId("/home/user/feature-x")).toBe("main-repo");
+  });
+
+  it("does not consult git at all when MEM0_APP_ID is pinned", () => {
+    process.env.MEM0_APP_ID = "pinned-app";
+    mockExecFileSync.mockImplementation(() => {
+      throw new Error("git should not be consulted");
+    });
+    expect(detectAppId("/home/user/feature-x")).toBe("pinned-app");
+  });
+
+  it("treats an empty MEM0_APP_ID as unset", () => {
+    process.env.MEM0_APP_ID = "";
+    mockExecFileSync.mockReturnValue("/home/user/feature-x\n");
+    expect(detectAppId("/home/user/feature-x")).toBe("feature-x");
+  });
+
+  it("treats a whitespace-only MEM0_APP_ID as unset", () => {
+    process.env.MEM0_APP_ID = "   ";
+    mockExecFileSync.mockReturnValue("/home/user/feature-x\n");
+    expect(detectAppId("/home/user/feature-x")).toBe("feature-x");
+  });
+
+  it("treats a wildcard MEM0_APP_ID as unset", () => {
+    process.env.MEM0_APP_ID = "*";
+    mockExecFileSync.mockReturnValue("/home/user/feature-x\n");
+    expect(detectAppId("/home/user/feature-x")).toBe("feature-x");
   });
 });
 
