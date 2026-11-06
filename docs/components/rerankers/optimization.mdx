@@ -11,12 +11,14 @@ Optimizing reranker performance is crucial for maintaining fast search response 
 The number of candidates sent to the reranker significantly impacts performance:
 
 ```python
-# Optimal candidate sizes for different rerankers
+# How many candidates to fetch from search before reranking, and how many
+# reranked results to keep. `initial_candidates` is the search retrieval size,
+# not a reranker setting; `top_k` is the reranker config field.
 config_map = {
-    "cohere": {"initial_candidates": 100, "top_n": 10},
-    "sentence_transformer": {"initial_candidates": 50, "top_n": 10},
-    "huggingface": {"initial_candidates": 30, "top_n": 5},
-    "llm_reranker": {"initial_candidates": 20, "top_n": 5}
+    "cohere": {"initial_candidates": 100, "top_k": 10},
+    "sentence_transformer": {"initial_candidates": 50, "top_k": 10},
+    "huggingface": {"initial_candidates": 30, "top_k": 5},
+    "llm_reranker": {"initial_candidates": 20, "top_k": 5}
 }
 ```
 
@@ -31,7 +33,7 @@ config = {
         "config": {
             "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
             "batch_size": 16,  # Process multiple candidates at once
-            "top_n": 10
+            "top_k": 10
         }
     }
 }
@@ -48,7 +50,7 @@ config = {
         "provider": "cohere",
         "config": {
             "model": "rerank-v3.5",
-            "top_n": 10,
+            "top_k": 10,
             "max_chunks_per_doc": 10,  # Limit chunk processing
             "return_documents": False   # Reduce response size
         }
@@ -73,8 +75,7 @@ config = {
             "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
             "device": "cuda",  # Use GPU when available
             "batch_size": 32,
-            "top_n": 10,
-            "max_length": 512  # Limit input length
+            "top_k": 10
         }
     }
 }
@@ -107,10 +108,9 @@ config = {
         "provider": "huggingface",
         "config": {
             "model": "BAAI/bge-reranker-base",
-            "use_fp16": True,  # Half precision for speed
             "max_length": 512,
             "batch_size": 8,
-            "top_n": 10
+            "top_k": 10
         }
     }
 }
@@ -132,9 +132,7 @@ config = {
                     "max_tokens": 500  # Limit response length
                 }
             },
-            "batch_ranking": True,  # Rank multiple at once
-            "top_n": 5,  # Fewer results for faster processing
-            "timeout": 10  # Request timeout
+            "top_k": 5,  # Fewer results for faster processing
         }
     }
 }
@@ -206,7 +204,6 @@ config = {
         "provider": "sentence_transformer",
         "config": {
             "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
-            "cache_folder": "/path/to/model/cache",
             "device": "cuda"
         }
     }
@@ -250,7 +247,6 @@ config = {
             "device": "cuda",
             "model": "cross-encoder/ms-marco-electra-base",
             "batch_size": 64,  # Larger batch for GPU
-            "fp16": True  # Half precision
         }
     }
 }
@@ -268,8 +264,7 @@ config = {
         "provider": "sentence_transformer",
         "config": {
             "device": "cpu",
-            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
-            "num_workers": 4  # Parallel processing
+            "model": "cross-encoder/ms-marco-MiniLM-L-6-v2"
         }
     }
 }
