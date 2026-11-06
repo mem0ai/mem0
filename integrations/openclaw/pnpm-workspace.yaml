@@ -15,7 +15,7 @@ onlyBuiltDependencies:
 overrides:
   "form-data@<4.0.6": ">=4.0.6"
   "protobufjs@<7.6.5": ">=7.6.5 <8.0.0"
-  "vite": "^8.0.5"
+  "vite": "^8.1.6"
   "langsmith@<0.6.0": "^0.6.0"
   "picomatch@<2.3.2": "^2.3.2"
   "@qdrant/js-client-rest": "^1.18.0"
