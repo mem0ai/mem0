@@ -2,11 +2,31 @@ import OpenAI from "openai";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
 
+function validateOpenAIConfig(config: LLMConfig): void {
+  if (!config.apiKey) {
+    const hasWrongApiKey = "openaiApiKey" in config;
+    const errorMsg = "OpenAI LLM config validation failed: 'apiKey' is required." +
+      (hasWrongApiKey ? " Did you mean 'apiKey' (not 'openaiApiKey')?" : "");
+    throw new Error(errorMsg);
+  }
+
+  if ("openaiApiKey" in config) {
+    console.warn("Warning: 'openaiApiKey' is not a valid config key. Use 'apiKey' instead.");
+  }
+  if ("baseUrl" in config) {
+    console.warn("Warning: 'baseUrl' is not a valid config key. Use 'baseURL' instead.");
+  }
+  if ("url" in config && !config.baseURL) {
+    console.warn("Warning: 'url' is not a valid config key. Use 'baseURL' instead.");
+  }
+}
+
 export class OpenAILLM implements LLM {
   private openai: OpenAI;
   private model: string;
 
   constructor(config: LLMConfig) {
+    validateOpenAIConfig(config);
     this.openai = new OpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseURL,
