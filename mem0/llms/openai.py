@@ -80,7 +80,10 @@ class OpenAILLM(LLMBase):
 
             return processed_response
         else:
-            return response.choices[0].message.content
+            message = response.choices[0].message
+            if message.content:
+                return message.content
+            return getattr(message, "reasoning_content", None) or message.content
 
     def generate_response(
         self,
