@@ -9,6 +9,9 @@ ENV PATH="/root/.local/bin:$PATH"
 # Copy requirements first for better caching
 COPY server/requirements.txt .
 RUN pip install -r requirements.txt
+# Keep the local editable mem0 install available at container start without
+# needing network access for PEP 517 build dependencies.
+RUN pip install hatchling editables
 
 # Install mem0 in editable mode using Poetry
 WORKDIR /app/packages
