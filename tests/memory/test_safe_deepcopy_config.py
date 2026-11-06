@@ -5,11 +5,14 @@ preserved while genuinely sensitive fields (password, api_key, etc.) are
 redacted during config cloning for telemetry.
 """
 
+import copy
+import sqlite3
 import threading
 from dataclasses import dataclass
 
 import pytest
 
+from mem0.configs.vector_stores.azure_mysql import AzureMySQLConfig
 from mem0.memory.main import _is_sensitive_field, _safe_deepcopy_config
 
 
@@ -26,6 +29,7 @@ class TestRuntimeFieldsPreserved:
         "auth",
         "connection_class",
         "ssl_context",
+        "use_azure_credential",
     ])
     def test_runtime_fields_are_not_sensitive(self, field):
         assert _is_sensitive_field(field) is False
@@ -166,7 +170,9 @@ class TestRealWorldFieldCoverage:
         # AWS
         ("aws_session_token", True),
         # Azure MySQL
-        ("use_azure_credential", True),
+        # A bool switch (use DefaultAzureCredential instead of a password), not a
+        # credential: restored to False as in #4418, before #4805 dropped it.
+        ("use_azure_credential", False),
         # General non-sensitive
         ("collection_name", False),
         ("embedding_model_dims", False),
@@ -369,3 +375,73 @@ class TestSafeDeepcopyWithDataclass:
         assert result.api_key is None
         assert result.db_password is None
         assert result.http_auth is not None
+
+
+class TestAzureCredentialFlagRegression:
+    """Regression tests for issue #7490.
+
+    ``AzureMySQLConfig.use_azure_credential`` is a bool switch ("authenticate
+    with DefaultAzureCredential instead of a password"), not a credential. The
+    ``_credential`` suffix must not redact it: when the config carries a live
+    connection pool the bare deepcopy fails, and a redacted bool makes the
+    pydantic reconstruction raise, silently degrading the config to a plain
+    object with no ``model_dump`` — which then crashes
+    ``VectorStoreFactory.create`` (mem0/utils/factory.py) before any network
+    call.
+
+    No mocks: the pool is a real stdlib sqlite3 connection (genuinely
+    unpicklable) standing in for a prebuilt pool, which is a supported value
+    for the ``Optional[Any]`` ``connection_pool`` field. Nothing here talks to
+    Azure or MySQL.
+    """
+
+    @pytest.fixture
+    def azure_config_with_live_pool(self):
+        conn = sqlite3.connect(":memory:")
+        conn.execute("create table t(x int)")
+        conn.commit()
+        config = AzureMySQLConfig(
+            host="myserver.mysql.database.azure.com",
+            port=3306,
+            user="mem0admin",
+            password="fixture-password",
+            database="mem0db",
+            collection_name="mem0",
+            use_azure_credential=True,
+            connection_pool=conn,
+        )
+        try:
+            yield config
+        finally:
+            conn.close()
+
+    def test_clone_stays_pydantic_when_deepcopy_fails(self, azure_config_with_live_pool):
+        with pytest.raises(TypeError):
+            copy.deepcopy(azure_config_with_live_pool)
+
+        clone = _safe_deepcopy_config(azure_config_with_live_pool)
+
+        assert isinstance(clone, AzureMySQLConfig)
+        assert hasattr(clone, "model_dump")
+
+    def test_bool_switch_is_not_redacted(self, azure_config_with_live_pool):
+        clone = _safe_deepcopy_config(azure_config_with_live_pool)
+
+        assert clone.use_azure_credential is True
+
+    def test_real_credential_is_still_redacted(self, azure_config_with_live_pool):
+        clone = _safe_deepcopy_config(azure_config_with_live_pool)
+
+        assert clone.password is None
+
+    def test_runtime_pool_object_is_preserved(self, azure_config_with_live_pool):
+        clone = _safe_deepcopy_config(azure_config_with_live_pool)
+
+        assert clone.connection_pool is azure_config_with_live_pool.connection_pool
+
+    def test_downstream_factory_can_consume_clone(self, azure_config_with_live_pool):
+        clone = _safe_deepcopy_config(azure_config_with_live_pool)
+
+        dumped = clone.model_dump()
+
+        assert dumped["use_azure_credential"] is True

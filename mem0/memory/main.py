@@ -98,6 +98,12 @@ _RUNTIME_FIELDS = frozenset({
     "auth",
     "connection_class",
     "ssl_context",
+    # A bool switch, not a credential: whether Azure MySQL authenticates with
+    # DefaultAzureCredential instead of a password. Redacting it to None fails
+    # AzureMySQLConfig validation (bool field) and silently degrades the whole
+    # config object when the reconstruction path is taken. Present here from
+    # #4418 until #4805 dropped it.
+    "use_azure_credential",
 })
 
 # Fields that are known to contain sensitive secrets and must be redacted.
