@@ -8,8 +8,8 @@ overrides:
   form-data@<4.0.6: '>=4.0.6'
   uuid@<11.1.1: '>=11.1.1'
   esbuild: '>=0.28.1'
-  undici@<7.29.1: '>=7.29.1 <8.0.0'
-  undici@>=8.0.0 <8.10.2: '>=8.10.2 <9.0.0'
+  undici@<7.30.1: '>=7.30.1 <8.0.0'
+  undici@>=8.0.0 <8.12.2: '>=8.12.2 <9.0.0'
   axios@<1.20.0: '>=1.20.0 <2.0.0'
   brace-expansion@>=3.0.0 <5.0.8: '>=5.0.8 <6.0.0'
   postcss@<8.5.18: '>=8.5.18 <9.0.0'
@@ -2355,12 +2355,12 @@ packages:
   undici-types@7.24.6:
     resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
 
-  undici@7.30.0:
-    resolution: {integrity: sha512-dkrQXeHSaoamnItlYbmzG0wFYrM0ZwDxCIg0A7aKjTyyhh9svRzCNFEzV+Vm05/yehjCzjDZ31KXfGEjYSztDQ==}
+  undici@7.30.2:
+    resolution: {integrity: sha512-mLyPQnHwUxaM/rideoK/+KL8DaAJLRl4aBCfmX444aCSLnIaomqPLtNRe2jdCYcsk5wZzXrDIQC8ZeYNRAYyIA==}
     engines: {node: '>=20.18.1'}
 
-  undici@8.11.2:
-    resolution: {integrity: sha512-u4UB2/IrKdU6lFxumHmmo1a3fCQO5tzQllRorfoRS63txhrB7xTpSn1PftwC4qEHkOaqP95fCWW4lJzwErwzhQ==}
+  undici@8.12.4:
+    resolution: {integrity: sha512-8Mx+uNKKER2bA4AdtedkqRbwUCIJFr2nJckXRe5yrDqzePqwLP7VNcctN8/XdmDSbF7mS+jJKIszlL+vbam1VA==}
     engines: {node: '>=22.19.0'}
 
   util-deprecate@1.0.2:
@@ -2943,7 +2943,7 @@ snapshots:
       minimatch: 10.2.5
       proper-lockfile: 4.1.2
       typebox: 1.1.38
-      undici: 8.11.2
+      undici: 8.12.4
       yaml: 2.9.0
     optionalDependencies:
       '@mariozechner/clipboard': 0.3.9
@@ -3204,7 +3204,7 @@ snapshots:
     dependencies:
       '@qdrant/openapi-typescript-fetch': 1.2.6
       typescript: 6.0.3
-      undici: 7.30.0
+      undici: 7.30.2
 
   '@qdrant/openapi-typescript-fetch@1.2.6': {}
 
@@ -4896,9 +4896,9 @@ snapshots:
 
   undici-types@7.24.6: {}
 
-  undici@7.30.0: {}
+  undici@7.30.2: {}
 
-  undici@8.11.2: {}
+  undici@8.12.4: {}
 
   util-deprecate@1.0.2: {}
 
