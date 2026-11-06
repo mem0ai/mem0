@@ -51,7 +51,12 @@ def normalize_bm25(raw_score: float, midpoint: float, steepness: float) -> float
     Returns:
         Normalized score in range [0, 1].
     """
-    return 1.0 / (1.0 + math.exp(-steepness * (raw_score - midpoint)))
+    try:
+        return 1.0 / (1.0 + math.exp(-steepness * (raw_score - midpoint)))
+    except OverflowError:
+        # When the exponent is very large positive (raw_score << midpoint),
+        # math.exp overflows. The sigmoid approaches 0.0 in that case.
+        return 0.0
 
 
 ENTITY_BOOST_WEIGHT = 0.5
