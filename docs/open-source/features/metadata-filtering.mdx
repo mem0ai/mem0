@@ -129,7 +129,7 @@ results = m.search(
 ```
 
 <Warning>
-Wildcard semantics differ by vector store. pgvector requires the key to exist in the payload (a real "field exists" check). Qdrant and Chroma have no native "field exists" filter, so `*` is a no-op there: the field condition is dropped and every record passes, including ones where the field is missing entirely. Do not rely on `*` to exclude records with a missing field unless you have confirmed your store's behavior in `mem0/vector_stores/<provider>.py`.
+Wildcard semantics differ by vector store. pgvector, OpenSearch, Qdrant, Milvus, Pinecone, and Cassandra enforce `*` as a real "field exists" check, so records missing the field are excluded. Chroma and Databricks Vector Search have no field-exists operator, so `*` is a no-op there: the field condition is dropped and every record passes, including ones where the field is missing entirely. Do not rely on `*` to exclude records with a missing field on those two stores.
 </Warning>
 
 ### Logical combinations
