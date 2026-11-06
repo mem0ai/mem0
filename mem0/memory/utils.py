@@ -82,7 +82,14 @@ def format_entities(entities):
 
     formatted_lines = []
     for entity in entities:
-        simplified = f"{entity['source']} -- {entity['relationship']} -- {entity['destination']}"
+        if not isinstance(entity, dict):
+            continue
+        source = entity.get("source", "")
+        relationship = entity.get("relationship", "")
+        destination = entity.get("destination", "")
+        if not any([source, relationship, destination]):
+            continue
+        simplified = f"{source} -- {relationship} -- {destination}"
         formatted_lines.append(simplified)
 
     return "\n".join(formatted_lines)
