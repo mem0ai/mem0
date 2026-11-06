@@ -10,6 +10,29 @@
  * noun vs verb -> different stems).
  */
 
+import { logger } from "./logger";
+
+declare global {
+  namespace Intl {
+    interface SegmenterOptions {
+      localeMatcher?: "lookup" | "best fit";
+      granularity?: "grapheme" | "word" | "sentence";
+    }
+    interface SegmentData {
+      segment: string;
+      index: number;
+      input: string;
+      isWordLike?: boolean;
+    }
+    class Segmenter {
+      constructor(locales?: string | string[], options?: SegmenterOptions);
+      segment(input: string): {
+        [Symbol.iterator](): IterableIterator<SegmentData>;
+      };
+    }
+  }
+}
+
 /** Standard English stop words (based on NLTK stop word list). */
 const STOP_WORDS: Set<string> = new Set([
   "a",
@@ -243,12 +266,10 @@ function simpleStem(word: string): string {
  * @param text - Input text to lemmatize.
  * @returns Space-joined lemmatized/stemmed tokens.
  */
-export function lemmatizeForBm25(text: string): string {
+let warnedAboutSegmenter = false;
+
+export function lemmatizeForBm25(text: string, locales?: string[]): string {
   const lower = text.toLowerCase();
-  const words = lower.match(/[a-z0-9]+/g);
-  if (!words) {
-    return text.toLowerCase();
-  }
 
   const stemmer = getPorterStemmer();
   const stemFn = stemmer
@@ -257,20 +278,62 @@ export function lemmatizeForBm25(text: string): string {
 
   const tokens: string[] = [];
 
-  for (const word of words) {
-    if (STOP_WORDS.has(word)) {
+  if (Intl.Segmenter === undefined) {
+    if (!warnedAboutSegmenter) {
+      logger.warn(
+        "Intl.Segmenter is not supported in this environment. Falling back to simple regex segmentation."
+      );
+      warnedAboutSegmenter = true;
+    }
+    const words = lower.match(/[a-z0-9]+/g);
+    if (!words) {
+      return text.toLowerCase();
+    }
+    for (const word of words) {
+      if (STOP_WORDS.has(word)) {
+        continue;
+      }
+      const stemmed = stemFn(word);
+      if (stemmed && /^[a-z0-9]+$/.test(stemmed)) {
+        tokens.push(stemmed);
+      }
+      if (
+        word.endsWith("ing") &&
+        word !== stemmed &&
+        /^[a-z0-9]+$/.test(word)
+      ) {
+        tokens.push(word);
+      }
+    }
+    return tokens.join(" ");
+  }
+
+  const localeList = locales || ["en-US", "zh-TW", "zh-CN", "ja", "ko"];
+
+  const segmenter = new Intl.Segmenter(localeList, {
+    granularity: "word",
+  });
+  const segments = segmenter.segment(lower);
+
+  for (const { segment, isWordLike } of segments) {
+    if (!isWordLike || STOP_WORDS.has(segment)) {
       continue;
     }
 
-    const stemmed = stemFn(word);
-    if (stemmed && /^[a-z0-9]+$/.test(stemmed)) {
-      tokens.push(stemmed);
-    }
-
-    // Also add original if it ends in -ing and differs from stem.
-    // This handles noun/verb ambiguity (meeting/meet, attending/attend).
-    if (word.endsWith("ing") && word !== stemmed && /^[a-z0-9]+$/.test(word)) {
-      tokens.push(word);
+    if (/^[a-z0-9]+$/.test(segment)) {
+      const stemmed = stemFn(segment);
+      if (stemmed && /^[a-z0-9]+$/.test(stemmed)) {
+        tokens.push(stemmed);
+      }
+      if (
+        segment.endsWith("ing") &&
+        segment !== stemmed &&
+        /^[a-z0-9]+$/.test(segment)
+      ) {
+        tokens.push(segment);
+      }
+    } else {
+      tokens.push(segment);
     }
   }
 
