@@ -10,7 +10,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import ValidationError
 
@@ -249,6 +249,77 @@ def _validate_and_trim_search_query(query: str) -> str:
     if not trimmed:
         raise ValueError("Invalid query: cannot be empty or whitespace-only.")
     return trimmed
+
+
+# Joins the texts of the memories kept so far when search() checks them against token_budget.
+TOKEN_BUDGET_SEPARATOR = "\n"
+
+
+def _validate_token_budget(token_budget: Optional[int], token_counter: Optional[Callable[[str], int]]) -> None:
+    """
+    Validates the token budget parameters of search().
+
+    Args:
+        token_budget: Maximum number of tokens for the returned memories' combined text, or None for no budget
+        token_counter: Callable returning the token count of a string; required when token_budget is set
+
+    Raises:
+        ValueError: If token_budget is not a non-negative integer, or token_counter is missing or not callable
+    """
+    if token_budget is None:
+        return
+    if not isinstance(token_budget, int) or isinstance(token_budget, bool):
+        raise ValueError("token_budget must be a valid integer")
+    if token_budget < 0:
+        raise ValueError(f"Invalid token_budget: {token_budget}. Must be a non-negative integer.")
+    if token_counter is None:
+        raise ValueError(
+            "token_counter is required when token_budget is set. "
+            "Pass a callable that returns the token count of a string."
+        )
+    if not callable(token_counter):
+        raise ValueError("token_counter must be callable")
+
+
+def _apply_token_budget(
+    memories: List[Dict[str, Any]],
+    token_budget: Optional[int],
+    token_counter: Optional[Callable[[str], int]],
+) -> List[Dict[str, Any]]:
+    """
+    Keeps the memories whose combined text fits within token_budget.
+
+    Memories are taken in their existing order. A memory is kept only if the texts of the memories kept so far
+    plus its own text, joined with TOKEN_BUDGET_SEPARATOR, still fit; otherwise it is skipped and the next one
+    is checked. Only the "memory" text is counted, and kept memories are returned unchanged.
+
+    Args:
+        memories: Search results, in ranked order
+        token_budget: Maximum number of tokens, or None to return memories as they are
+        token_counter: Callable returning the token count of a string
+
+    Returns:
+        The kept memories, in their original order
+
+    Raises:
+        ValueError: If token_counter returns anything other than a non-negative integer
+    """
+    if token_budget is None:
+        return memories
+    if token_budget == 0:
+        return []
+
+    kept = []
+    kept_texts = []
+    for memory in memories:
+        text = memory.get("memory") or ""
+        tokens = token_counter(TOKEN_BUDGET_SEPARATOR.join(kept_texts + [text]))
+        if not isinstance(tokens, int) or isinstance(tokens, bool) or tokens < 0:
+            raise ValueError(f"token_counter must return a non-negative integer, got {tokens!r}")
+        if tokens <= token_budget:
+            kept.append(memory)
+            kept_texts.append(text)
+    return kept
 
 
 def _is_sensitive_field(field_name: str) -> bool:
@@ -1401,6 +1472,8 @@ class Memory(MemoryBase):
         explain: bool = False,
         reference_date: Optional[Any] = None,
         show_expired: bool = False,
+        token_budget: Optional[int] = None,
+        token_counter: Optional[Callable[[str], int]] = None,
         **kwargs,
     ):
         """
@@ -1434,6 +1507,13 @@ class Memory(MemoryBase):
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
             reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             show_expired (bool, optional): Include expired memories. Defaults to False.
+            token_budget (int, optional): Maximum number of tokens for the combined text of the returned
+                memories, as counted by `token_counter`. Applied after retrieval and reranking: memories are
+                taken in ranked order, and one that would not fit is skipped while later ones are still checked.
+                The texts are joined with `TOKEN_BUDGET_SEPARATOR` ("\\n") for counting, and only the memory
+                text is counted. Memories are never truncated. 0 returns no memories. Defaults to None (no budget).
+            token_counter (Callable[[str], int], optional): Returns the number of tokens in a string, e.g. built
+                from your model's tokenizer. Required when `token_budget` is set.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -1441,7 +1521,7 @@ class Memory(MemoryBase):
 
         Raises:
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
-                or if threshold/top_k values are invalid.
+                or if threshold/top_k/token_budget/token_counter values are invalid.
         """
         if reference_date is not None:
             raise ValueError(get_temporal_feature_error_message("sync", "search", "reference_date"))
@@ -1451,6 +1531,7 @@ class Memory(MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        _validate_token_budget(token_budget, token_counter)
         query = _validate_and_trim_search_query(query)
         temporal_usage_notice = detect_temporal_usage_from_search(query, filters)
 
@@ -1533,7 +1614,7 @@ class Memory(MemoryBase):
             )
         else:
             display_first_run_notice(self, "sync", "search")
-        return {"results": original_memories}
+        return {"results": _apply_token_budget(original_memories, token_budget, token_counter)}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -3084,6 +3165,8 @@ class AsyncMemory(MemoryBase):
         explain: bool = False,
         reference_date: Optional[Any] = None,
         show_expired: bool = False,
+        token_budget: Optional[int] = None,
+        token_counter: Optional[Callable[[str], int]] = None,
         **kwargs,
     ):
         """
@@ -3117,6 +3200,13 @@ class AsyncMemory(MemoryBase):
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
             reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             show_expired (bool, optional): Include expired memories. Defaults to False.
+            token_budget (int, optional): Maximum number of tokens for the combined text of the returned
+                memories, as counted by `token_counter`. Applied after retrieval and reranking: memories are
+                taken in ranked order, and one that would not fit is skipped while later ones are still checked.
+                The texts are joined with `TOKEN_BUDGET_SEPARATOR` ("\\n") for counting, and only the memory
+                text is counted. Memories are never truncated. 0 returns no memories. Defaults to None (no budget).
+            token_counter (Callable[[str], int], optional): Returns the number of tokens in a string, e.g. built
+                from your model's tokenizer. Required when `token_budget` is set.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -3124,7 +3214,7 @@ class AsyncMemory(MemoryBase):
 
         Raises:
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
-                or if threshold/top_k values are invalid.
+                or if threshold/top_k/token_budget/token_counter values are invalid.
         """
         if reference_date is not None:
             raise ValueError(
@@ -3136,6 +3226,7 @@ class AsyncMemory(MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        _validate_token_budget(token_budget, token_counter)
         query = _validate_and_trim_search_query(query)
         temporal_usage_notice = detect_temporal_usage_from_search(query, filters)
 
@@ -3223,7 +3314,7 @@ class AsyncMemory(MemoryBase):
             )
         else:
             await display_first_run_notice_async(self, "async", "search")
-        return {"results": original_memories}
+        return {"results": _apply_token_budget(original_memories, token_budget, token_counter)}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
         """
