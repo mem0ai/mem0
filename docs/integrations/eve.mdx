@@ -1,0 +1,64 @@
+---
+title: Eve
+description: "Use Mem0 as a first-class memory provider for Vercel Eve agents."
+---
+
+[Eve](https://eve.dev/docs/memory) is Vercel's agent framework. A memory provider sits in the agent loop: Eve recalls context before each turn, captures completed turns, and exposes provider tools. `@mem0/eve` is Mem0's implementation of that contract.
+
+This is not the Mem0 MCP connection. MCP gives the model tools it may or may not call. The memory provider runs automatically. The live MCP install is `eve add connection/mem0`.
+
+## Install
+
+```bash
+npm install @mem0/eve
+```
+
+`eve` is a peer dependency. Get an API key from the [Mem0 dashboard](https://app.mem0.ai/dashboard/api-keys).
+
+Create `agent/memory/mem0.ts`:
+
+```ts
+import { defineMemory } from "eve/memory";
+import { byPrincipal } from "eve/memory/scope";
+import { mem0Provider } from "@mem0/eve";
+
+export default defineMemory({
+  description: "Recall and manage durable context for the current user.",
+  provider: mem0Provider({
+    apiKey: process.env.MEM0_API_KEY!,
+  }),
+  scope: byPrincipal,
+});
+```
+
+`eve add memory/mem0` is not in Eve's catalog yet. After Mem0 is listed in the official registry, that command will create the same slot file.
+
+## How it works
+
+1. **Recall.** Before each turn and after compaction, Mem0 searches memories for the locked Eve scope and returns `{ id, content }` messages. Eve injects those as user-role messages attributed to the slot.
+2. **Capture.** After a successful turn, Mem0 adds the user messages from that turn and, when present, that turn's assistant reply. By default (`infer: true`) Mem0 extracts durable facts. Capture is deduplicated per `operationId` on a best-effort basis (an in-process gate plus a durable `metadata.operation_id` lookup); because that check and the write are not atomic and platform writes are asynchronous, a restart or concurrent worker can occasionally capture a turn twice.
+3. **Tools.** The model can call `search`, `remember`, and `forget`. Eve qualifies them as `mem0__search`, `mem0__remember`, and `mem0__forget` when the slot file is `mem0.ts`. `remember` returns `{ status: "saved" }` on a resolved write or `{ status: "queued" }` when the platform accepts it for asynchronous extraction.
+
+Eve owns namespace, scope, and when recall/capture run. Mem0 owns storage, ranking, and extraction. Search, capture, remember, and forget are partitioned by `memory.scope.key`. Forget deletes by id only after confirming the memory belongs to that key.
+
+## Options
+
+```ts
+mem0Provider({
+  apiKey: process.env.MEM0_API_KEY!,
+  topK: 5,
+  threshold: 0.1,
+  rerank: false,
+  infer: true,
+  autoSearch: { enabled: true },
+  capture: { enabled: true },
+});
+```
+
+See the [`@mem0/eve` README](https://github.com/mem0ai/mem0/tree/main/integrations/eve) for the full option list.
+
+## Related
+
+- [Eve memory docs](https://eve.dev/docs/memory)
+- [Build a memory provider](https://eve.dev/docs/memory/custom-provider)
+- [Vercel AI SDK](/integrations/vercel-ai-sdk) for `generateText` / `streamText` apps that are not Eve agents
