@@ -7,7 +7,27 @@ import {
   scopeSearchFilters,
 } from "../../../agent-plugin-core/typescript/src/scoping.ts";
 
+const WILDCARD_APP_ID = /^\*+$/;
+
+/**
+ * `MEM0_APP_ID` pins the project identity, so it wins over git-root detection.
+ * This matters inside git worktrees, where `git rev-parse --show-toplevel`
+ * returns the worktree path and would otherwise give the worktree its own
+ * memory pool. Empty, whitespace-only and wildcard values are treated as unset
+ * so they fall through to git detection instead of widening the scope filters.
+ */
+function configuredAppId(): string | undefined {
+  const raw = process.env.MEM0_APP_ID;
+  if (raw === undefined) return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed || WILDCARD_APP_ID.test(trimmed)) return undefined;
+  return raw;
+}
+
 export function detectAppId(cwd: string): string {
+  const configured = configuredAppId();
+  if (configured !== undefined) return configured;
+
   try {
     const root = execFileSync("git", ["rev-parse", "--show-toplevel"], {
       cwd,
