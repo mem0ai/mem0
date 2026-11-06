@@ -90,7 +90,7 @@ def load_config() -> Mem0Config:
     config = Mem0Config()
 
     if CONFIG_FILE.exists():
-        with open(CONFIG_FILE) as f:
+        with open(CONFIG_FILE, encoding="utf-8") as f:
             data = json.load(f)
 
         config.version = data.get("version", CONFIG_VERSION)
@@ -174,7 +174,7 @@ def save_config(config: Mem0Config) -> None:
         },
     }
 
-    with open(CONFIG_FILE, "w") as f:
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
     os.chmod(CONFIG_FILE, stat.S_IRUSR | stat.S_IWUSR)  # 0600
