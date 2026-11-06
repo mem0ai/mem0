@@ -49,6 +49,16 @@ def test_normalizes_cursor_events(event: str, action: str) -> None:
     assert normalized["payload"]["last_assistant_message"] == "assistant response"
 
 
+@pytest.mark.parametrize("cwd", [".", "", None])
+def test_dot_cwd_falls_back_to_workspace_root(cwd: str | None) -> None:
+    payload: dict = {"conversation_id": "conversation-1", "workspace_roots": ["/worktree"]}
+    if cwd is not None:
+        payload["cwd"] = cwd
+    normalized = adapter.normalize(payload, "sessionStart")
+
+    assert normalized["payload"]["cwd"] == "/worktree"
+
+
 def test_after_agent_response_does_not_return_internal_context(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(adapter.hook_runner, "default_record_stop", lambda store, payload: (object(), "session"))
 
