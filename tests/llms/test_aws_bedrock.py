@@ -404,6 +404,82 @@ class TestGenerateResponseConverse:
 
 
 # ---------------------------------------------------------------------------
+# _generate_with_tools — Converse message shape for amazon & cohere
+# ---------------------------------------------------------------------------
+
+# Multi-turn conversation with a system prompt and prior turns, to prove no
+# message is dropped and the system prompt is hoisted correctly.
+MULTI_TURN_MESSAGES = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "First question"},
+    {"role": "assistant", "content": "First answer"},
+    {"role": "user", "content": "Second question"},
+]
+
+
+class TestGenerateWithToolsMessageShape:
+    """The tool path must produce Converse-correct messages for every supported provider.
+
+    Bug: amazon emitted role="system" messages with string content, and the
+    cohere/else branch kept only the last message (dropping the system prompt
+    and all prior turns). Both are invalid Converse requests.
+    """
+
+    def test_amazon_tools_converse_shape(self, mock_boto3):
+        mock_boto3.converse.return_value = _converse_response()
+        llm = _make_llm("amazon.nova-3-mini-20241119-v1:0", mock_boto3, temperature=0.2)
+
+        llm.generate_response(MULTI_TURN_MESSAGES, tools=TOOLS)
+
+        _, kwargs = mock_boto3.converse.call_args
+        # System prompt hoisted to the top-level `system` param.
+        assert kwargs["system"][0]["text"] == "You are a helpful assistant."
+        # No role="system" message, and every content is a list of {"text": ...} blocks.
+        for msg in kwargs["messages"]:
+            assert msg["role"] != "system"
+            assert isinstance(msg["content"], list)
+            assert list(msg["content"][0].keys()) == ["text"]
+        # All non-system turns are preserved, in order.
+        assert [m["role"] for m in kwargs["messages"]] == ["user", "assistant", "user"]
+        assert [m["content"][0]["text"] for m in kwargs["messages"]] == [
+            "First question",
+            "First answer",
+            "Second question",
+        ]
+
+    def test_cohere_tools_keeps_all_turns(self, mock_boto3):
+        mock_boto3.converse.return_value = _converse_response()
+        llm = _make_llm("cohere.command-r-v1:0", mock_boto3, temperature=0.2)
+
+        llm.generate_response(MULTI_TURN_MESSAGES, tools=TOOLS)
+
+        _, kwargs = mock_boto3.converse.call_args
+        # System prompt hoisted, not sent as a message role.
+        assert kwargs["system"][0]["text"] == "You are a helpful assistant."
+        for msg in kwargs["messages"]:
+            assert msg["role"] != "system"
+            assert isinstance(msg["content"], list)
+            assert list(msg["content"][0].keys()) == ["text"]
+        # Every prior turn is present (not just the last message).
+        assert [m["content"][0]["text"] for m in kwargs["messages"]] == [
+            "First question",
+            "First answer",
+            "Second question",
+        ]
+
+    def test_amazon_tools_single_message_no_system(self, mock_boto3):
+        # A lone user message must still be Converse-shaped with no `system` param.
+        mock_boto3.converse.return_value = _converse_response()
+        llm = _make_llm("amazon.nova-3-mini-20241119-v1:0", mock_boto3)
+
+        llm.generate_response([{"role": "user", "content": "Hello"}], tools=TOOLS)
+
+        _, kwargs = mock_boto3.converse.call_args
+        assert "system" not in kwargs
+        assert kwargs["messages"] == [{"role": "user", "content": [{"text": "Hello"}]}]
+
+
+# ---------------------------------------------------------------------------
 # MiniMax provider
 # ---------------------------------------------------------------------------
 
