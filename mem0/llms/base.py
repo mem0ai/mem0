@@ -1,7 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union
+import logging
 
 from mem0.configs.llms.base import BaseLlmConfig
+
+logger = logging.getLogger(__name__)
+
+# Sampling parameters that reasoning models reject. Everything else passes through.
+_REASONING_UNSUPPORTED_PARAMS = frozenset({"temperature", "top_p", "top_k"})
 
 
 class LLMBase(ABC):
@@ -107,16 +113,10 @@ class LLMBase(ABC):
         model = getattr(self.config, 'model', '')
         
         if self._is_reasoning_model(model):
-            supported_params = {}
-            
-            if "messages" in kwargs:
-                supported_params["messages"] = kwargs["messages"]
-            if "response_format" in kwargs:
-                supported_params["response_format"] = kwargs["response_format"]
-            if "tools" in kwargs:
-                supported_params["tools"] = kwargs["tools"]
-            if "tool_choice" in kwargs:
-                supported_params["tool_choice"] = kwargs["tool_choice"]
+            dropped = sorted(set(kwargs) & _REASONING_UNSUPPORTED_PARAMS)
+            if dropped:
+                logger.debug(f"Dropping unsupported params for reasoning model {model}: {dropped}")
+            supported_params = {k: v for k, v in kwargs.items() if k not in _REASONING_UNSUPPORTED_PARAMS}
 
             # Add reasoning_effort if configured
             reasoning_effort = getattr(self.config, 'reasoning_effort', None)
