@@ -252,7 +252,7 @@ class ChromaDB(VectorStoreBase):
         """
         where_clause = self._generate_where_clause(filters) if filters else None
         results = self.collection.get(where=where_clause, limit=top_k)
-        return [self._parse_output(results)]
+        return self._parse_output(results)
 
     def reset(self):
         """Reset the index by deleting and recreating it."""
