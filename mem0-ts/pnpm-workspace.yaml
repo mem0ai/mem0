@@ -43,6 +43,7 @@ overrides:
   "basic-ftp@<6.2.1": ">=6.2.1 <7.0.0"
   "@grpc/grpc-js@>=1.14.0 <1.14.5": ">=1.14.5 <2.0.0"
   "handlebars@<4.7.10": ">=4.7.10 <5.0.0"
+  "follow-redirects@<1.16.2": ">=1.16.2 <2.0.0"
 
 patchedDependencies:
   "tar@7.5.22": "patches/tar@7.5.22.patch"
