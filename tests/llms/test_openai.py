@@ -399,6 +399,28 @@ def test_gpt5_uses_max_completion_tokens(mock_openai_client):
     assert "max_tokens" not in call_kwargs
 
 
+def test_gpt6_uses_max_completion_tokens(mock_openai_client):
+    """gpt-6.x models must send max_completion_tokens, not max_tokens.
+
+    The GPT-6 family rejects the legacy max_tokens param on Chat Completions and
+    requires max_completion_tokens. Regression test for
+    https://github.com/mem0ai/mem0/issues/7836
+    """
+    config = OpenAIConfig(model="gpt-6-luna", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs.get("max_completion_tokens") == 100
+    assert "max_tokens" not in call_kwargs
+
+
 def test_gpt4_uses_max_tokens(mock_openai_client):
     """Older models (gpt-4.x) keep using max_tokens — guards against regressions."""
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0)

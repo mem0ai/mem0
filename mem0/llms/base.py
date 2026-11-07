@@ -78,10 +78,9 @@ class LLMBase(ABC):
         """
         Check if the model expects ``max_completion_tokens`` instead of ``max_tokens``.
 
-        The whole GPT-5 family (gpt-5.4-mini, gpt-5.4-nano, gpt-5.5, ...) rejects the
-        legacy ``max_tokens`` parameter on the Chat Completions API and requires
-        ``max_completion_tokens``. Older models (gpt-4.x, gpt-3.5, etc.) still accept
-        ``max_tokens``.
+        The whole GPT-5 and GPT-6 families reject the legacy ``max_tokens`` parameter
+        on the Chat Completions API and require ``max_completion_tokens``. Older models
+        (gpt-4.x, gpt-3.5, etc.) still accept ``max_tokens``.
 
         Args:
             model: The model name to check
@@ -91,7 +90,7 @@ class LLMBase(ABC):
         """
         # Strip provider prefixes (e.g. "openai/gpt-5.4-mini" -> "gpt-5.4-mini")
         base_model = (model or "").lower().rsplit("/", 1)[-1]
-        return base_model.startswith("gpt-5")
+        return base_model.startswith(("gpt-5", "gpt-6"))
 
     def _get_supported_params(self, **kwargs) -> Dict:
         """
