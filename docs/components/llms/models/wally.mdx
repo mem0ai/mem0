@@ -1,0 +1,80 @@
+---
+title: "Wally as LLM Provider"
+sidebarTitle: "Wally"
+description: "Use Wally by RunAnywhere as the LLM in Mem0 through the OpenAI provider with a custom base URL."
+---
+
+[Wally](https://www.runwally.com) by RunAnywhere serves open-weight models (DeepSeek, GLM, Kimi, MiniMax) through an OpenAI-compatible API at `https://inference.runanywhere.ai/v1`. Mem0 talks to it through the `openai` provider by pointing the base URL at Wally.
+
+Create an API key in the [RunAnywhere console](https://console.runanywhere.ai) and set it as `WALLY_API_KEY`. The current model ids are listed at [`https://inference.runanywhere.ai/v1/models`](https://inference.runanywhere.ai/v1/models). `deepseek-v4.1-flash` is a good default and `glm-5.3-flash` is a cheaper option.
+
+Wally does not serve embedding models, so configure a separate embedder (the examples below use OpenAI's default embedder).
+
+## Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"  # used for embedding model
+os.environ["WALLY_API_KEY"] = "your-wally-api-key"
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "deepseek-v4.1-flash",
+            "api_key": os.environ["WALLY_API_KEY"],
+            "openai_base_url": "https://inference.runanywhere.ai/v1",
+            "temperature": 0.2,
+            "max_tokens": 2000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+// The default embedder reads OPENAI_API_KEY from the environment.
+const config = {
+  llm: {
+    provider: 'openai',
+    config: {
+      apiKey: process.env.WALLY_API_KEY || '',
+      baseURL: 'https://inference.runanywhere.ai/v1',
+      model: 'deepseek-v4.1-flash',
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+  { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant", content: "How about thriller movies? They can be quite engaging." },
+  { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+await memory.add(messages, { userId: 'alice', metadata: { category: 'movies' } });
+```
+</CodeGroup>
+
+<Note>
+  Set the Wally base URL in the LLM config as shown, not through the `OPENAI_BASE_URL` environment variable. The OpenAI embedder also reads `OPENAI_BASE_URL`, so setting it globally would send embedding requests to Wally too.
+
+  In Python, the `openai` provider switches to OpenRouter whenever `OPENROUTER_API_KEY` is set, ignoring `api_key` and `openai_base_url`. Unset it when using Wally.
+</Note>
+
+## Config
+
+All available parameters for the `openai` config are present in [Master List of All Params in Config](../config).
