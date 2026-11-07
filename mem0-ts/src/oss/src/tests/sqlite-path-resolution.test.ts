@@ -147,11 +147,11 @@ describe("MemoryVectorStore – path handling", () => {
     jest.restoreAllMocks();
   });
 
-  it("uses ~/.mem0/vector_store.db by default", () => {
+  it("uses ~/.mem0/vector_store.db by default", async () => {
     const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "mem0-home-"));
     try {
       jest.spyOn(os, "homedir").mockReturnValue(fakeHome);
-      new MemoryVectorStore({ dimension: 4 });
+      await new MemoryVectorStore({ dimension: 4 }).initialize();
       expect(
         fs.existsSync(path.join(fakeHome, ".mem0", "vector_store.db")),
       ).toBe(true);
