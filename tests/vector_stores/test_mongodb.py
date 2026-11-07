@@ -31,7 +31,7 @@ def mongo_vector_fixture(mock_mongo_client):
     return mongo_vector, mock_collection, mock_db
 
 
-def test_initalize_create_col(mongo_vector_fixture):
+def test_initialize_create_col(mongo_vector_fixture):
     mongo_vector, mock_collection, mock_db = mongo_vector_fixture
     assert mongo_vector.collection_name == "test_collection"
     assert mongo_vector.embedding_model_dims == 1536
