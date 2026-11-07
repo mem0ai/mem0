@@ -204,6 +204,7 @@ class VectorStoreFactory:
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
         "turbopuffer": "mem0.vector_stores.turbopuffer.TurbopufferDB",
         "oracledb": "mem0.vector_stores.oracledb.OracleAIVectorSearch",
+        "silicium": "mem0.vector_stores.silicium.SiliciumDB",
     }
 
     @classmethod
