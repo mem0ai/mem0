@@ -171,7 +171,10 @@ class FAISS(VectorStoreBase):
 
         # Create directory if it doesn't exist
         if self.path:
-            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            # A bare relative directory (e.g. path="faiss_store") has no
+            # dirname; create it relative to the current working directory
+            # instead of handing "" to os.makedirs().
+            os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
 
             # Try to load existing index if available
             index_path = f"{self.path}/{collection_name}.faiss"
