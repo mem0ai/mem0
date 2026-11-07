@@ -3,7 +3,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, call
 
 import pytest
 
@@ -786,14 +786,15 @@ class TestMetadataNotMutated:
         assert result[1]["role"] == "assistant"
         assert result[1]["actor_id"] == "bot-1"
 
-        # Verify each insert got distinct payloads with correct roles
+        # The messages are persisted in one batch insert, with per-message payloads
         insert_calls = memory.vector_store.insert.call_args_list
-        first_payload = insert_calls[0].kwargs["payloads"][0]
-        second_payload = insert_calls[1].kwargs["payloads"][0]
-        assert first_payload["role"] == "user"
-        assert "actor_id" not in first_payload  # user message has no name
-        assert second_payload["role"] == "assistant"
-        assert second_payload["actor_id"] == "bot-1"
+        assert len(insert_calls) == 1
+        payloads = insert_calls[0].kwargs["payloads"]
+        assert len(payloads) == 2
+        assert payloads[0]["role"] == "user"
+        assert "actor_id" not in payloads[0]  # user message has no name
+        assert payloads[1]["role"] == "assistant"
+        assert payloads[1]["actor_id"] == "bot-1"
 
     @pytest.mark.asyncio
     async def test_async_create_memory_does_not_mutate_metadata(self, mocker):
@@ -1378,3 +1379,160 @@ async def test_async_update_reports_not_found_when_store_finds_nothing(mocker):
         await memory._update_memory("m1", "new", {"new": [0.1, 0.2, 0.3]})
 
     memory.db.add_history.assert_not_called()
+
+
+class TestInferFalseBatching:
+    """`add(..., infer=False)` must embed, insert, and write history in batches."""
+
+    @pytest.fixture
+    def memory(self, mocker):
+        memory = _build_memory_instance(mocker, Memory)
+        memory.embedding_model.embed_batch.return_value = [[0.1], [0.2]]
+        return memory
+
+    def _two_messages(self):
+        return [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "content": "second", "name": "bot-1"},
+        ]
+
+    def test_batches_embedding_insert_and_history(self, memory):
+        result = memory._add_to_vector_store(self._two_messages(), {"user_id": "u1"}, filters={}, infer=False)
+
+        memory.embedding_model.embed_batch.assert_called_once_with(["first", "second"], "add")
+        memory.embedding_model.embed.assert_not_called()
+
+        assert memory.vector_store.insert.call_count == 1
+        insert_kwargs = memory.vector_store.insert.call_args.kwargs
+        assert [p["data"] for p in insert_kwargs["payloads"]] == ["first", "second"]
+        assert insert_kwargs["ids"] == [item["id"] for item in result]
+
+        assert memory.db.batch_add_history.call_count == 1
+        history = memory.db.batch_add_history.call_args.args[0]
+        assert [row["new_memory"] for row in history] == ["first", "second"]
+        assert history[0]["role"] == "user"
+        assert history[1]["role"] == "assistant"
+        assert history[1]["actor_id"] == "bot-1"
+        assert history[0]["updated_at"] == insert_kwargs["payloads"][0]["updated_at"]
+        memory.db.add_history.assert_not_called()
+
+        assert [item["memory"] for item in result] == ["first", "second"]
+        assert result[0]["actor_id"] is None
+        assert result[1]["actor_id"] == "bot-1"
+
+    def test_skips_system_and_invalid_messages(self, memory):
+        messages = [
+            {"role": "system", "content": "system prompt"},
+            {"role": "user", "content": None},
+            {"content": "missing role"},
+            "not a message",
+            {"role": "user", "content": "kept"},
+        ]
+
+        result = memory._add_to_vector_store(messages, {"user_id": "u1"}, filters={}, infer=False)
+
+        memory.embedding_model.embed_batch.assert_called_once_with(["kept"], "add")
+        assert [item["memory"] for item in result] == ["kept"]
+
+    def test_falls_back_to_per_text_embedding(self, memory):
+        memory.embedding_model.embed_batch.side_effect = RuntimeError("batch endpoint down")
+        memory.embedding_model.embed.side_effect = [[0.1], [0.2]]
+
+        result = memory._add_to_vector_store(self._two_messages(), {"user_id": "u1"}, filters={}, infer=False)
+
+        assert memory.embedding_model.embed.call_args_list == [
+            call("first", "add"),
+            call("second", "add"),
+        ]
+        assert memory.vector_store.insert.call_count == 1
+        assert len(result) == 2
+
+    def test_falls_back_to_per_record_insert_and_history(self, memory):
+        real_insert = memory.vector_store.insert
+
+        def flaky_insert(vectors, ids, payloads):
+            if len(ids) > 1:
+                raise RuntimeError("batch insert rejected")
+            return real_insert(vectors=vectors, ids=ids, payloads=payloads)
+
+        memory.vector_store.insert = Mock(side_effect=flaky_insert)
+        memory.db.batch_add_history.side_effect = RuntimeError("batch history rejected")
+
+        result = memory._add_to_vector_store(self._two_messages(), {"user_id": "u1"}, filters={}, infer=False)
+
+        assert memory.vector_store.insert.call_count == 3
+        assert memory.db.add_history.call_count == 2
+        assert [item["memory"] for item in result] == ["first", "second"]
+
+    def test_partial_insert_failure_returns_only_persisted(self, memory):
+        def flaky_insert(vectors, ids, payloads):
+            if len(ids) > 1:
+                raise RuntimeError("batch insert rejected")
+            if payloads[0]["data"] == "second":
+                raise RuntimeError("record rejected")
+            return None
+
+        memory.vector_store.insert = Mock(side_effect=flaky_insert)
+
+        result = memory._add_to_vector_store(self._two_messages(), {"user_id": "u1"}, filters={}, infer=False)
+
+        assert [item["memory"] for item in result] == ["first"]
+        history = memory.db.batch_add_history.call_args.args[0]
+        assert [row["new_memory"] for row in history] == ["first"]
+
+    def test_all_inserts_failed_raises_vector_store_error(self, memory):
+        memory.vector_store.insert = Mock(side_effect=RuntimeError("vector store down"))
+
+        with pytest.raises(VectorStoreError, match="Failed to insert any"):
+            memory._add_to_vector_store(self._two_messages(), {"user_id": "u1"}, filters={}, infer=False)
+
+
+@pytest.mark.asyncio
+class TestAsyncInferFalseBatching:
+    """Async mirror of TestInferFalseBatching."""
+
+    @pytest.fixture
+    def memory(self, mocker):
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.embedding_model.embed_batch.return_value = [[0.1], [0.2]]
+        return memory
+
+    async def test_batches_embedding_insert_and_history(self, memory):
+        messages = [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "content": "second", "name": "bot-1"},
+        ]
+
+        result = await memory._add_to_vector_store(messages, {"user_id": "u1"}, effective_filters={}, infer=False)
+
+        memory.embedding_model.embed_batch.assert_called_once_with(["first", "second"], "add")
+        memory.embedding_model.embed.assert_not_called()
+        assert memory.vector_store.insert.call_count == 1
+        assert memory.db.batch_add_history.call_count == 1
+
+        insert_kwargs = memory.vector_store.insert.call_args.kwargs
+        assert [p["data"] for p in insert_kwargs["payloads"]] == ["first", "second"]
+        history = memory.db.batch_add_history.call_args.args[0]
+        assert [row["new_memory"] for row in history] == ["first", "second"]
+        assert history[1]["actor_id"] == "bot-1"
+        assert [item["memory"] for item in result] == ["first", "second"]
+
+    async def test_partial_insert_failure_returns_only_persisted(self, memory):
+        def flaky_insert(vectors, ids, payloads):
+            if len(ids) > 1:
+                raise RuntimeError("batch insert rejected")
+            if payloads[0]["data"] == "second":
+                raise RuntimeError("record rejected")
+            return None
+
+        memory.vector_store.insert = Mock(side_effect=flaky_insert)
+        messages = [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "content": "second", "name": "bot-1"},
+        ]
+
+        result = await memory._add_to_vector_store(messages, {"user_id": "u1"}, effective_filters={}, infer=False)
+
+        assert [item["memory"] for item in result] == ["first"]
+        history = memory.db.batch_add_history.call_args.args[0]
+        assert [row["new_memory"] for row in history] == ["first"]
