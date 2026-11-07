@@ -3,6 +3,33 @@ import { DEFAULT_MEMORY_CONFIG } from "./defaults";
 
 export class ConfigManager {
   static mergeConfig(userConfig: Partial<MemoryConfig> = {}): MemoryConfig {
+    // Validate these values before merging so invalid falsy values (for
+    // example, rrfK=0) cannot be silently replaced by a default.
+    const fusionStrategy =
+      userConfig.fusionStrategy !== undefined
+        ? userConfig.fusionStrategy
+        : DEFAULT_MEMORY_CONFIG.fusionStrategy;
+    const rrfK =
+      userConfig.rrfK !== undefined
+        ? userConfig.rrfK
+        : DEFAULT_MEMORY_CONFIG.rrfK;
+
+    if (fusionStrategy !== "additive" && fusionStrategy !== "rrf") {
+      throw new Error(
+        `fusionStrategy must be one of: additive, rrf; received ${String(fusionStrategy)}`,
+      );
+    }
+    if (
+      typeof rrfK !== "number" ||
+      !Number.isFinite(rrfK) ||
+      !Number.isInteger(rrfK) ||
+      rrfK <= 0
+    ) {
+      throw new Error(
+        `rrfK must be a positive finite integer; received ${String(rrfK)}`,
+      );
+    }
+
     const embedderProvider =
       userConfig.embedder?.provider || DEFAULT_MEMORY_CONFIG.embedder.provider;
     const embedderProviderKey = embedderProvider.toLowerCase();
@@ -215,6 +242,8 @@ export class ConfigManager {
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
       reranker: userConfig.reranker,
+      fusionStrategy,
+      rrfK,
     };
 
     // Validate the merged config

@@ -431,6 +431,36 @@ export class Qdrant implements VectorStore {
     };
   }
 
+  async getByIds(
+    ids: string[],
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[]> {
+    if (ids.length === 0) return [];
+    await this.initialize();
+
+    const scopedFilter = this.createFilter(filters);
+    // Keep the ID membership predicate and the complete caller filter in one
+    // native scroll request. An unfiltered retrieve would permit entity links
+    // from another user/session to cross the memory scope boundary.
+    const filter = {
+      must: [{ has_id: ids }, ...(scopedFilter ? [scopedFilter] : [])],
+    };
+    const response = await this.client.scroll(this.collectionName, {
+      filter: filter as any,
+      limit: ids.length,
+      with_payload: true,
+      with_vectors: false,
+    } as any);
+
+    const requested = new Set(ids.map(String));
+    return response.points.flatMap((point: any) => {
+      const id = String(point.id);
+      if (!requested.has(id)) return [];
+      const payload = point.payload as Record<string, any> | null;
+      return payload && typeof payload === "object" ? [{ id, payload }] : [];
+    });
+  }
+
   async update(
     vectorId: string,
     vector: number[],

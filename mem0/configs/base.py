@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -54,6 +54,16 @@ class MemoryConfig(BaseModel):
     custom_instructions: Optional[str] = Field(
         description="Custom instructions for fact extraction",
         default=None,
+    )
+    fusion_strategy: Literal["additive", "rrf"] = Field(
+        default="additive",
+        description="How to combine semantic, keyword, and entity search signals",
+    )
+    rrf_k: int = Field(
+        default=60,
+        gt=0,
+        strict=True,
+        description="Positive rank offset used when fusion_strategy is rrf",
     )
 
 

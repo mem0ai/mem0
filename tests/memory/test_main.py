@@ -323,6 +323,8 @@ def _build_memory_instance(mocker, memory_cls):
     memory.config = mocker.MagicMock()
     memory.config.custom_instructions = None
     memory.config.custom_update_memory_prompt = None
+    memory.config.fusion_strategy = "additive"
+    memory.config.rrf_k = 60
     memory.api_version = "v1.1"
     memory.vector_store = mocker.MagicMock()
     memory.db = mocker.MagicMock()

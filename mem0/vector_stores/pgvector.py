@@ -474,6 +474,26 @@ class PGVector(VectorStoreBase):
                 return None
             return OutputData(id=str(result[0]), score=None, payload=result[1])
 
+    def get_by_ids(self, ids, filters=None) -> List[OutputData]:
+        """Retrieve requested IDs while applying the complete SQL filter."""
+        requested_ids = list(ids or [])
+        if not requested_ids:
+            return []
+
+        self._ensure_collection()
+        filter_conditions, filter_params = _build_filter_conditions(filters)
+        conditions = ["id = ANY(%s::uuid[])", *filter_conditions]
+        params = [requested_ids, *filter_params]
+        with self._get_cursor() as cur:
+            cur.execute(
+                sql.SQL("SELECT id, payload FROM {} WHERE {} ORDER BY id").format(
+                    self._col(), sql.SQL(" AND ").join([sql.SQL(condition) for condition in conditions])
+                ),
+                params,
+            )
+            results = cur.fetchall()
+        return [OutputData(id=str(row[0]), score=None, payload=row[1]) for row in results]
+
     def list_cols(self) -> List[str]:
         """
         List all collections.
