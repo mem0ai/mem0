@@ -182,20 +182,18 @@ def monitor_memory_usage():
 ### Result Caching
 ```python
 from functools import lru_cache
-import hashlib
+from mem0 import Memory
 
 class CachedReranker:
     def __init__(self, config):
         self.memory = Memory.from_config(config)
-        self.cache_size = 1000
 
     @lru_cache(maxsize=1000)
-    def search_cached(self, query_hash, user_id):
+    def search_cached(self, query, user_id):
         return self.memory.search(query, filters={"user_id": user_id})
 
     def search(self, query, user_id):
-        query_hash = hashlib.md5(f"{query}_{user_id}".encode()).hexdigest()
-        return self.search_cached(query_hash, user_id)
+        return self.search_cached(query, user_id)
 ```
 
 ### Model Caching
@@ -218,14 +216,14 @@ config = {
 ### Async Configuration
 ```python
 import asyncio
-from mem0 import Memory
+from mem0 import AsyncMemory
 
 async def parallel_search(config, queries, user_id):
-    memory = Memory.from_config(config)
+    memory = AsyncMemory.from_config(config)
 
     # Process multiple queries concurrently
     tasks = [
-        memory.search_async(query, user_id=user_id)
+        memory.search(query, filters={"user_id": user_id})
         for query in queries
     ]
 
