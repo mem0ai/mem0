@@ -177,3 +177,47 @@ def test_missing_litellm_raises_actionable_import_error(monkeypatch):
 
     with pytest.raises(ImportError, match="pip install litellm"):
         importlib.import_module("mem0.proxy.main")
+
+
+def test_prepare_messages_does_not_alias_caller_messages():
+    """Regression test for caller-owned input mutation (#7024).
+
+    `_prepare_messages` must return copies of the caller's message dicts.
+    Before the fix it reused the original dicts, so enriching the prepared
+    request (e.g. injecting retrieved memories into the last user message)
+    also rewrote the caller's `messages` in place.
+    """
+    messages = [
+        {"role": "system", "content": "system"},
+        {"role": "user", "content": "original"},
+    ]
+
+    prepared = Completions(object())._prepare_messages(messages)
+    prepared[-1]["content"] = "injected"
+
+    assert messages[-1]["content"] == "original"
+
+
+def test_completions_create_does_not_mutate_caller_messages(mock_memory_client, mock_litellm):
+    """`create()` enriches the request for the LLM but must leave the caller's
+    messages untouched — the background `add()` thread also reads that list and
+    must never observe the injected memories text (#7024).
+    """
+    completions = Completions(mock_memory_client)
+
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "original question"},
+    ]
+    mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    mock_litellm.supports_function_calling.return_value = True
+
+    completions.create(model="gpt-4.1-nano-2025-04-14", messages=messages, user_id="test_user")
+
+    assert messages[-1]["content"] == "original question"
+
+    # The LLM still sees the enriched request.
+    call_args = mock_litellm.completion.call_args[1]
+    assert call_args["messages"][-1]["content"] != "original question"
+    assert "Relevant Memories/Facts" in call_args["messages"][-1]["content"]

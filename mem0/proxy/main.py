@@ -142,9 +142,14 @@ class Completions:
         return response
 
     def _prepare_messages(self, messages: List[dict]) -> List[dict]:
+        # Return copies of the caller's message dicts: the enriched request is
+        # later mutated in place (memory injection into the last user message),
+        # and the original list is also read by the background `add()` thread.
+        # Reusing the caller's dicts would mutate caller-owned input and race
+        # with that background write.
         if not messages or messages[0]["role"] != "system":
-            return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + messages
-        return messages
+            return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + [dict(message) for message in messages]
+        return [dict(message) for message in messages]
 
     def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata):
         def add_task():
