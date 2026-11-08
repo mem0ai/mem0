@@ -1,0 +1,87 @@
+{
+  "questions": 70,
+  "shared_memory_store": "locomo-pilot-conv0/qdrant",
+  "baseline_top_k": 30,
+  "baseline_threshold": 0.1,
+  "experiment_top_k": 30,
+  "experiment_threshold": 0.5,
+  "baseline_metrics": {
+    "f1": 0.5233581059708879,
+    "bleu1": 0.41252585672627545,
+    "judge_mean": 0.8542857142857142,
+    "judge_population_std": 0.005714285714285694,
+    "judge_by_run": [
+      0.8571428571428571,
+      0.8571428571428571,
+      0.8571428571428571,
+      0.8571428571428571,
+      0.8571428571428571,
+      0.8571428571428571,
+      0.8571428571428571,
+      0.8571428571428571,
+      0.8428571428571429,
+      0.8428571428571429
+    ]
+  },
+  "experiment_metrics": {
+    "f1": 0.48792993470238055,
+    "bleu1": 0.38687217289350995,
+    "judge_mean": 0.8285714285714286,
+    "judge_population_std": 0.0,
+    "judge_by_run": [
+      0.8285714285714286,
+      0.8285714285714286,
+      0.8285714285714286,
+      0.8285714285714286,
+      0.8285714285714286,
+      0.8285714285714286,
+      0.8285714285714286,
+      0.8285714285714286,
+      0.8285714285714286,
+      0.8285714285714286
+    ]
+  },
+  "baseline_memory_count": 4200,
+  "experiment_memory_count": 2755,
+  "empty_speaker_retrievals": 8,
+  "baseline_answer_usage_estimated": {
+    "input_tokens": 281414,
+    "output_tokens": 420,
+    "estimated_cny": 0.321028596,
+    "method": "tiktoken model encoding plus estimated chat framing; not billed usage"
+  },
+  "experiment_answer_usage_estimated": {
+    "input_tokens": 197371,
+    "output_tokens": 409,
+    "method": "tiktoken model encoding plus estimated chat framing; not billed usage"
+  },
+  "answer_input_token_change_vs_estimated_baseline": -0.2986454120974792,
+  "answer_output_token_change_vs_estimated_baseline": -0.02619047619047621,
+  "experiment_usage_by_phase": {
+    "search": {
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "embedding_tokens": 1464,
+      "calls": 140
+    },
+    "answer": {
+      "input_tokens": 197371,
+      "output_tokens": 409,
+      "embedding_tokens": 0,
+      "calls": 70
+    },
+    "judge": {
+      "input_tokens": 281870,
+      "output_tokens": 4201,
+      "embedding_tokens": 0,
+      "calls": 700
+    }
+  },
+  "experiment_answer_estimated_cny_from_api_usage": 0.22567393800000002,
+  "experiment_total_estimated_cny_from_api_usage": 0.5645916108,
+  "answer_cost_change_vs_estimated_baseline": -0.2970285488212395,
+  "experiment_mean_retrieval_seconds": 4.0852100364198645,
+  "experiment_mean_answer_seconds": 1.6598647255616794,
+  "baseline_latency_available": false,
+  "note": "Same question set and store; answer tokens reconstructed for both groups; costs are estimates; no causal timing comparison."
+}
