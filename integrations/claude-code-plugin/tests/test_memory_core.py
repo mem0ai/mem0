@@ -28,6 +28,8 @@ import transcript as transcript_mod  # noqa: E402
 
 @pytest.fixture
 def isolated_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.setenv("MEM0_CODE_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("MEM0_CODE_USER_ID", "test-user")
     monkeypatch.delenv("MEM0_API_KEY", raising=False)
@@ -4634,3 +4636,43 @@ def test_delayed_handoff_survives_failed_atomic_rewrite(isolated_env, monkeypatc
 def test_json_secret_redaction_handles_escaped_quotes():
     value = json.dumps({"password": 'prefix"private suffix'})
     assert json.loads(memory_core.redact(value)) == {"password": "[REDACTED]"}
+
+
+def test_api_key_reads_from_mem0_config_json(isolated_env, monkeypatch, tmp_path):
+    monkeypatch.setattr(memory_core.Path, "home", lambda: tmp_path)
+    mem0_dir = tmp_path / ".mem0"
+    mem0_dir.mkdir()
+    config_file = mem0_dir / "config.json"
+
+    assert memory_core.api_key() == ""
+
+    config_file.write_text("{invalid}", encoding="utf-8")
+    assert memory_core.api_key() == ""
+
+    config_file.write_text('{"other": "data"}', encoding="utf-8")
+    assert memory_core.api_key() == ""
+
+    config_file.write_text('{"platform": {}}', encoding="utf-8")
+    assert memory_core.api_key() == ""
+
+    config_file.write_text('{"platform": {"api_key": "m0-cli-key"}}', encoding="utf-8")
+    assert memory_core.api_key() == "m0-cli-key"
+
+    config_file.write_text('{"platform": {"api_key": " m0-cli-key-2  "}}', encoding="utf-8")
+    assert memory_core.api_key() == "m0-cli-key-2"
+
+
+def test_clear_stale_api_key_cache_preserves_key_when_cli_config_present(isolated_env, monkeypatch, tmp_path):
+    monkeypatch.setattr(memory_core.Path, "home", lambda: tmp_path)
+    cache_dir = memory_core.data_dir()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_file = cache_dir / "api-key"
+    cache_file.write_text("cached-key", encoding="utf-8")
+
+    mem0_dir = tmp_path / ".mem0"
+    mem0_dir.mkdir()
+    config_file = mem0_dir / "config.json"
+    config_file.write_text('{"platform": {"api_key": "m0-cli-key"}}', encoding="utf-8")
+
+    assert memory_core.clear_stale_api_key_cache() is False
+    assert cache_file.exists()
