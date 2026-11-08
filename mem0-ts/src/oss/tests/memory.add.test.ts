@@ -340,4 +340,23 @@ describe("Memory - add()", () => {
       expect.objectContaining({ event: "ADD" }),
     );
   });
+
+  test("with infer=false, scope passed via filters is stored and retrievable", async () => {
+    const scopedUser = `infer_filters_${Date.now()}`;
+    await memory.add("Pizza is my favorite food", {
+      filters: { user_id: scopedUser },
+      infer: false,
+    });
+
+    // The memory must be reachable by a scoped getAll — i.e. its payload
+    // carries user_id. Without folding filters into the stored payload the
+    // memory is orphaned and this returns empty.
+    const all: SearchResult = await memory.getAll({
+      filters: { user_id: scopedUser },
+    });
+    expect(all.results.length).toBeGreaterThan(0);
+    expect(
+      all.results.some((r) => r.memory === "Pizza is my favorite food"),
+    ).toBe(true);
+  });
 });
