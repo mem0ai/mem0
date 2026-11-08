@@ -1,0 +1,8 @@
+# Run pip from the repository root.
+-e .
+httpx==0.28.1
+nltk==3.10.4
+openai==3.46.0
+pydantic==2.14.3
+qdrant-client==1.20.0
+tiktoken==0.14.0
