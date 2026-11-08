@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.llms.lmstudio import LMStudioLLM
 
@@ -70,3 +71,40 @@ def test_generate_response_specifying_response_format(mock_lm_studio_client):
     )
 
     assert response == "I'm doing well, thank you for asking!"
+
+
+def test_base_url_honors_lmstudio_base_url_env(monkeypatch):
+    monkeypatch.setenv("LMSTUDIO_BASE_URL", "http://lmstudio.internal:9000/v1")
+
+    with patch("mem0.llms.lmstudio.OpenAI") as mock_openai:
+        LMStudioLLM(LMStudioConfig())
+
+    assert mock_openai.call_args.kwargs["base_url"] == "http://lmstudio.internal:9000/v1"
+
+
+def test_base_url_prefers_explicit_config_over_env(monkeypatch):
+    monkeypatch.setenv("LMSTUDIO_BASE_URL", "http://lmstudio.internal:9000/v1")
+
+    with patch("mem0.llms.lmstudio.OpenAI") as mock_openai:
+        LMStudioLLM(LMStudioConfig(lmstudio_base_url="http://explicit:1234/v1"))
+
+    assert mock_openai.call_args.kwargs["base_url"] == "http://explicit:1234/v1"
+
+
+def test_base_url_falls_back_to_localhost_default(monkeypatch):
+    monkeypatch.delenv("LMSTUDIO_BASE_URL", raising=False)
+
+    with patch("mem0.llms.lmstudio.OpenAI") as mock_openai:
+        llm = LMStudioLLM(LMStudioConfig())
+
+    assert mock_openai.call_args.kwargs["base_url"] == "http://localhost:1234/v1"
+    assert llm.config.lmstudio_base_url == "http://localhost:1234/v1"
+
+
+def test_base_url_honors_env_via_base_llm_config(monkeypatch):
+    monkeypatch.setenv("LMSTUDIO_BASE_URL", "http://lmstudio.internal:9000/v1")
+
+    with patch("mem0.llms.lmstudio.OpenAI") as mock_openai:
+        LMStudioLLM(BaseLlmConfig(model="some-model"))
+
+    assert mock_openai.call_args.kwargs["base_url"] == "http://lmstudio.internal:9000/v1"
