@@ -281,6 +281,66 @@ describe("Memory Input Validation", () => {
     });
   });
 
+  describe("camelCase entity IDs in filters", () => {
+    it("maps camelCase filter keys to snake_case in search", async () => {
+      const searchSpy = jest
+        .spyOn((memory as any).vectorStore, "search")
+        .mockResolvedValue([]);
+
+      await memory.search("q", {
+        filters: { userId: "alice", agentId: "bot", runId: "run-1" },
+      });
+
+      const passedFilters = searchSpy.mock.calls[0][2] as Record<string, any>;
+      expect(passedFilters).toMatchObject({
+        user_id: "alice",
+        agent_id: "bot",
+        run_id: "run-1",
+      });
+      expect(passedFilters.userId).toBeUndefined();
+      expect(passedFilters.agentId).toBeUndefined();
+      expect(passedFilters.runId).toBeUndefined();
+
+      searchSpy.mockRestore();
+    });
+
+    it("maps camelCase filter keys to snake_case in getAll", async () => {
+      const listSpy = jest
+        .spyOn((memory as any).vectorStore, "list")
+        .mockResolvedValue([[], 0]);
+
+      await memory.getAll({ filters: { userId: "alice" } });
+
+      const passedFilters = listSpy.mock.calls[0][0] as Record<string, any>;
+      expect(passedFilters.user_id).toBe("alice");
+      expect(passedFilters.userId).toBeUndefined();
+
+      listSpy.mockRestore();
+    });
+
+    it("prefers an explicit snake_case value over its camelCase alias", async () => {
+      const listSpy = jest
+        .spyOn((memory as any).vectorStore, "list")
+        .mockResolvedValue([[], 0]);
+
+      await memory.getAll({
+        filters: { user_id: "snake", userId: "camel" },
+      });
+
+      const passedFilters = listSpy.mock.calls[0][0] as Record<string, any>;
+      expect(passedFilters.user_id).toBe("snake");
+      expect(passedFilters.userId).toBeUndefined();
+
+      listSpy.mockRestore();
+    });
+
+    it("validates camelCase filter values like their snake_case counterparts", async () => {
+      await expect(
+        memory.search("q", { filters: { userId: "user 123" } }),
+      ).rejects.toThrow("Invalid user_id: cannot contain whitespace");
+    });
+  });
+
   describe("search() filter entity ID validation", () => {
     it("should throw error when user_id in filters is whitespace-only", async () => {
       await expect(
