@@ -1,3 +1,4 @@
+import inspect
 import logging
 from typing import Dict, List, Optional
 
@@ -91,15 +92,98 @@ class Langchain(VectorStoreBase):
     ):
         """
         Insert vectors into the LangChain vectorstore.
+
+        ``add_embeddings`` is not part of the ``VectorStore`` contract and the
+        implementations that do have it disagree on its signature, so dispatch
+        on the actual parameter names rather than assuming one shape.
         """
-        # Check if client has add_embeddings method
-        if hasattr(self.client, "add_embeddings"):
-            # Some LangChain vectorstores have a direct add_embeddings method
-            self.client.add_embeddings(embeddings=vectors, metadatas=payloads, ids=ids)
-        else:
-            # Fallback to add_texts method
-            texts = [payload.get("data", "") for payload in payloads] if payloads else [""] * len(vectors)
-            self.client.add_texts(texts=texts, metadatas=payloads, ids=ids)
+        texts = self._texts_from(payloads, len(vectors))
+        add_embeddings = getattr(self.client, "add_embeddings", None)
+
+        if add_embeddings is not None:
+            params = self._named_params(add_embeddings)
+            # The id parameter is not spelled the same everywhere: twelve stores
+            # call it ``ids``, AzureSearch calls it ``keys``, and AzureSearch is
+            # also the one store with no ``**kwargs`` to absorb the wrong name.
+            # So the name has to come from the signature too.
+            id_kwargs = self._id_kwargs(params, ids)
+
+            # ``text_embeddings`` as (text, vector) pairs: FAISS, AzureSearch,
+            # ElasticsearchStore, OpenSearchVectorSearch, ScaNN.
+            if "text_embeddings" in params:
+                self.client.add_embeddings(text_embeddings=list(zip(texts, vectors)), metadatas=payloads, **id_kwargs)
+                return
+
+            # ``texts`` + ``embeddings``: PGVector, Neo4jVector, Lantern,
+            # Hologres, Kinetica, PGEmbedding, TimescaleVector. ``texts`` is
+            # required on all of them, so it must be passed.
+            if "texts" in params and "embeddings" in params:
+                self.client.add_embeddings(texts=texts, embeddings=vectors, metadatas=payloads, **id_kwargs)
+                return
+
+            # Unknown or unintrospectable signature (mocks, permissive wrappers):
+            # keep mem0's historical call shape. This is a guess about a shape we
+            # could not read, so a rejection here must not be the caller's
+            # problem -- fall through to ``add_texts`` instead of raising the
+            # very TypeError this dispatch exists to prevent.
+            if not params or "embeddings" in params:
+                try:
+                    self.client.add_embeddings(embeddings=vectors, metadatas=payloads, **id_kwargs)
+                    return
+                except TypeError:
+                    logger.debug(
+                        "%s.add_embeddings rejected mem0's call shape; using add_texts instead.",
+                        type(self.client).__name__,
+                        exc_info=True,
+                    )
+            else:
+                logger.debug(
+                    "%s.add_embeddings has an unrecognised signature %s; using add_texts instead.",
+                    type(self.client).__name__,
+                    sorted(params),
+                )
+
+        # Fallback to add_texts method
+        self.client.add_texts(texts=texts, metadatas=payloads, ids=ids)
+
+    @staticmethod
+    def _texts_from(payloads: Optional[List[Dict]], count: int) -> List[str]:
+        return [payload.get("data", "") for payload in payloads] if payloads else [""] * count
+
+    @staticmethod
+    def _id_kwargs(params: set, ids: Optional[List[str]]) -> Dict:
+        """The keyword this store spells its id parameter with, if it takes one.
+
+        ``ids`` for twelve of the thirteen ``langchain_community`` stores that
+        define ``add_embeddings``; ``keys`` for AzureSearch. An empty set means
+        the signature could not be read, in which case ``ids`` is the historical
+        call shape and the caller guards the attempt.
+        """
+        if not params or "ids" in params:
+            return {"ids": ids}
+        if "keys" in params:
+            return {"keys": ids}
+        # Takes neither: passing the ids would be rejected by a store without
+        # ``**kwargs``, and silently swallowed by one with it. Dropping them is
+        # visible instead.
+        if ids:
+            logger.debug("add_embeddings takes no id parameter %s; ids are not forwarded.", sorted(params))
+        return {}
+
+    @staticmethod
+    def _named_params(method) -> set:
+        """Explicitly named parameters of ``method``; empty if it cannot be introspected.
+
+        ``*args``/``**kwargs`` are excluded -- every LangChain ``add_embeddings``
+        ends in ``**kwargs``, so only the named parameters identify the shape.
+        Mock objects have no usable signature and yield an empty set.
+        """
+        try:
+            parameters = inspect.signature(method).parameters
+        except (TypeError, ValueError):
+            return set()
+        variadic = (inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL)
+        return {name for name, p in parameters.items() if p.kind not in variadic}
 
     def search(self, query: str, vectors: List[List[float]], top_k: int = 5, filters: Optional[Dict] = None):
         """
@@ -149,9 +233,19 @@ class Langchain(VectorStoreBase):
     def update(self, vector_id, vector=None, payload=None):
         """
         Update a vector and its payload.
+
+        LangChain's ``VectorStore`` has no in-place update, so this is a
+        delete-then-insert. When ``vector`` is omitted -- which is how mem0
+        edits an entity's ``linked_memory_ids`` without re-embedding -- the row
+        is re-inserted from its payload text so the store embeds it itself.
+        Passing the missing vector straight through would store ``None`` where
+        the embedding belongs.
         """
         self.delete(vector_id)
-        self.insert([vector], [payload], [vector_id])
+        if vector is None:
+            self.client.add_texts(texts=self._texts_from([payload], 1), metadatas=[payload], ids=[vector_id])
+        else:
+            self.insert([vector], [payload], [vector_id])
 
     def get(self, vector_id):
         """
