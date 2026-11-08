@@ -304,7 +304,10 @@ def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
         return timestamp
     try:
         parsed = datetime.fromisoformat(timestamp)
-    except ValueError:
+    except (TypeError, ValueError):
+        # Records stored before add() validated created_at can hold non-string
+        # values; leave them untouched instead of crashing, so delete/delete_all
+        # can still remove them (issue #7810).
         return timestamp
     if parsed.tzinfo is None:
         return timestamp
@@ -364,6 +367,29 @@ def _build_filters_and_metadata(
         _strip_identity_keys(deepcopy(input_metadata), {}, context="add()") if input_metadata else {}
     )
     effective_query_filters = deepcopy(input_filters) if input_filters else {}
+
+    # A non-string created_at in caller metadata poisons the stored payload: reads fail
+    # MemoryItem validation (configs/base.py expects a string) and delete/delete_all crash
+    # in _normalize_iso_timestamp_to_utc, leaving the whole scope undeletable (issue #7810).
+    # Accept strings, convert datetimes to ISO 8601, and reject anything else before it
+    # reaches the vector store.
+    created_at = base_metadata_template.get("created_at")
+    if created_at is not None and not isinstance(created_at, str):
+        if isinstance(created_at, datetime):
+            base_metadata_template["created_at"] = created_at.isoformat()
+        else:
+            raise Mem0ValidationError(
+                message=(
+                    f"Unsupported type for metadata['created_at']: {type(created_at).__name__}. "
+                    "A non-string created_at would make every later read and delete for this scope fail."
+                ),
+                error_code="VALIDATION_004",
+                details={"provided_type": type(created_at).__name__},
+                suggestion=(
+                    "Pass metadata['created_at'] as an ISO 8601 string "
+                    "(e.g. '2026-01-01T00:00:00+00:00') or as a datetime object."
+                ),
+            )
 
     # ---------- validate and add all provided session ids ----------
     session_ids_provided = []

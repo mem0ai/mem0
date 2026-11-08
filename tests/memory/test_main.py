@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from mem0.exceptions import LLMError, VectorStoreError
+from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -659,6 +660,93 @@ def test_search_and_get_all_consistent_after_update(mocker):
     # created_at should be the original, not the updated time
     assert search_results[0]["created_at"] == "2023-05-06T09:19:20+00:00"
     assert search_results[0]["updated_at"] == "2026-03-23T10:00:00+00:00"
+
+
+def test_add_rejects_non_string_created_at(mocker):
+    """Regression (issue #7810): add() must reject a non-string metadata['created_at'].
+
+    A stored non-string created_at breaks every later read for the scope
+    (MemoryItem.created_at expects a string) and breaks delete/delete_all in
+    _normalize_iso_timestamp_to_utc, so the poisoned record could never be removed.
+    """
+    memory = _build_memory_instance(mocker, Memory)
+    add_mock = mocker.patch.object(memory, "_add_to_vector_store")
+
+    with pytest.raises(Mem0ValidationError):
+        memory.add("I like coffee", user_id="u1", infer=False, metadata={"created_at": 1735689600})
+
+    add_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_add_rejects_non_string_created_at(mocker):
+    """Async counterpart of test_add_rejects_non_string_created_at."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    add_mock = mocker.patch.object(memory, "_add_to_vector_store")
+
+    with pytest.raises(Mem0ValidationError):
+        await memory.add("I like coffee", user_id="u1", infer=False, metadata={"created_at": 1735689600})
+
+    add_mock.assert_not_called()
+
+
+def test_add_converts_datetime_created_at_to_iso_string(mocker):
+    """A datetime metadata['created_at'] is accepted and stored as an ISO 8601 string."""
+    memory = _build_memory_instance(mocker, Memory)
+    captured = {}
+
+    def _capture(messages, metadata, filters, infer, **kwargs):
+        captured.update(metadata)
+        return []
+
+    mocker.patch.object(memory, "_add_to_vector_store", side_effect=_capture)
+    memory.add("I like coffee", user_id="u1", infer=False, metadata={"created_at": datetime(2026, 1, 1, 12, 30, 45)})
+
+    assert captured["created_at"] == "2026-01-01T12:30:45"
+
+
+@pytest.mark.asyncio
+async def test_async_add_converts_datetime_created_at_to_iso_string(mocker):
+    """Async counterpart of test_add_converts_datetime_created_at_to_iso_string."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    captured = {}
+
+    async def _capture(messages, metadata, filters, infer, **kwargs):
+        captured.update(metadata)
+        return []
+
+    mocker.patch.object(memory, "_add_to_vector_store", side_effect=_capture)
+    await memory.add("I like coffee", user_id="u1", infer=False, metadata={"created_at": datetime(2026, 1, 1, 12, 30, 45)})
+
+    assert captured["created_at"] == "2026-01-01T12:30:45"
+
+
+def test_add_still_accepts_string_created_at(mocker):
+    """ISO 8601 strings keep passing through unchanged."""
+    memory = _build_memory_instance(mocker, Memory)
+    captured = {}
+
+    def _capture(messages, metadata, filters, infer, **kwargs):
+        captured.update(metadata)
+        return []
+
+    mocker.patch.object(memory, "_add_to_vector_store", side_effect=_capture)
+    memory.add("I like coffee", user_id="u1", infer=False, metadata={"created_at": "2026-01-01T12:30:45+00:00"})
+
+    assert captured["created_at"] == "2026-01-01T12:30:45+00:00"
+
+
+def test_delete_memory_tolerates_legacy_non_string_created_at(mocker):
+    """Regression (issue #7810): delete must still work on a record stored before
+    validation existed, so a poisoned scope can be wiped."""
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(payload={"data": "old memory", "created_at": 1735689600})
+
+    memory._delete_memory("memory-id")
+
+    history_kwargs = memory.db.add_history.call_args
+    assert history_kwargs.args[3] == "DELETE"
+    assert history_kwargs.kwargs["created_at"] == 1735689600
 
 
 class TestMetadataNotMutated:
