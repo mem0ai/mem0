@@ -447,15 +447,25 @@ class CassandraDB(VectorStoreBase):
             List[List[OutputData]]: List of vectors
         """
         try:
+            # The filters below are applied client side, so the server side LIMIT
+            # has to come after them, not before. Capping the scan first would
+            # return top_k arbitrary rows of the whole table and then filter those
+            # down, yielding a fraction of the caller's matching vectors. This
+            # mirrors the ordering search() already uses.
             query = f"""
                 SELECT id, vector, payload
                 FROM {self.keyspace}.{self.collection_name}
-                LIMIT {top_k}
             """
             rows = self.session.execute(query)
 
             results = []
             for row in rows:
+                # Checked before the append so top_k=0 yields nothing, matching
+                # the old server-side LIMIT, and so iteration stops as soon as
+                # the cap is reached.
+                if len(results) >= top_k:
+                    break
+
                 # Apply filters if provided
                 if filters:
                     try:
