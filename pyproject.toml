@@ -28,6 +28,9 @@ dependencies = [
 nlp = [
     "spacy>=3.7.0",
 ]
+mcp = [
+    "mcp>=0.9.0",
+]
 vector-stores = [
     "vecs>=0.4.0",
     "chromadb>=0.4.24",
