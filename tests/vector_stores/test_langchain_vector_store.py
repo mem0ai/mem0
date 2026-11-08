@@ -1,14 +1,15 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from langchain_community.vectorstores import VectorStore
+from langchain_core.vectorstores import VectorStore
 
+from mem0.configs.vector_stores.langchain import LangchainConfig
 from mem0.vector_stores.langchain import Langchain
 
 
 @pytest.fixture
 def mock_langchain_client():
-    with patch("langchain_community.vectorstores.VectorStore") as mock_client:
+    with patch("langchain_core.vectorstores.VectorStore") as mock_client:
         yield mock_client
 
 
