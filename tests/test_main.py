@@ -5,7 +5,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory, _validate_and_trim_entity_id
+from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.memory.main import AsyncMemory, Memory, _validate_and_trim_entity_id
 
 
 @pytest.fixture(autouse=True)
@@ -561,3 +562,67 @@ class TestSearchParamValidation:
             result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
 
         assert "results" in result
+
+
+@pytest.fixture
+def async_memory_instance():
+    with (
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_vector_store.create.return_value.search.return_value = []
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        return AsyncMemory(config)
+
+
+def test_add_rejects_an_invalid_memory_type(memory_instance):
+    # both paths have to report the same error, so a caller that catches
+    # Mem0ValidationError does not miss the failure on one of them
+    with pytest.raises(Mem0ValidationError) as exc_info:
+        memory_instance.add(
+            messages=[{"role": "user", "content": "hi"}],
+            user_id="u1",
+            memory_type="invalid_type",
+        )
+
+    assert exc_info.value.error_code == "VALIDATION_002"
+
+
+@pytest.mark.asyncio
+async def test_async_add_rejects_an_invalid_memory_type(async_memory_instance):
+    with pytest.raises(Mem0ValidationError) as exc_info:
+        await async_memory_instance.add(
+            messages=[{"role": "user", "content": "hi"}],
+            user_id="u1",
+            memory_type="invalid_type",
+        )
+
+    assert exc_info.value.error_code == "VALIDATION_002"
+
+
+@pytest.mark.asyncio
+async def test_async_add_reports_the_same_error_as_the_sync_path(
+    memory_instance, async_memory_instance
+):
+    with pytest.raises(Mem0ValidationError) as sync_exc:
+        memory_instance.add(
+            messages=[{"role": "user", "content": "hi"}],
+            user_id="u1",
+            memory_type="episodic_memory",
+        )
+    with pytest.raises(Mem0ValidationError) as async_exc:
+        await async_memory_instance.add(
+            messages=[{"role": "user", "content": "hi"}],
+            user_id="u1",
+            memory_type="episodic_memory",
+        )
+
+    assert type(async_exc.value) is type(sync_exc.value)
+    assert async_exc.value.error_code == sync_exc.value.error_code
+    assert async_exc.value.details == sync_exc.value.details
