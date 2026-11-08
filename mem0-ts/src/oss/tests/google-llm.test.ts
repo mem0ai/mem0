@@ -234,15 +234,60 @@ describe("GoogleLLM (unit)", () => {
       { role: "user", content: "Say hello" },
     ]);
 
+    // The system message goes to systemInstruction (not a "model" content
+    // turn), leaving only the user turn in contents.
     expect(mockGenerateContent).toHaveBeenCalledWith(
       expect.objectContaining({
-        contents: [
-          { role: "model", parts: [{ text: "Be concise" }] },
-          { role: "user", parts: [{ text: "Say hello" }] },
-        ],
+        contents: [{ role: "user", parts: [{ text: "Say hello" }] }],
+        config: expect.objectContaining({ systemInstruction: "Be concise" }),
       }),
     );
     expect(result).toEqual({ content: "Hello, world", role: "model" });
+  });
+
+  // Regression: the system prompt (which carries the extraction instructions)
+  // must be sent via systemInstruction, not as a "model" content turn. Parity
+  // with the Python SDK's _reformat_messages (mem0/llms/gemini.py).
+  it("extracts the system prompt into config.systemInstruction", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: "ok",
+      functionCalls: null,
+    });
+
+    const llm = new GoogleLLM({ apiKey: "test-key" });
+    await llm.generateResponse([
+      { role: "system", content: "You extract facts." },
+      { role: "user", content: "I like coffee." },
+    ]);
+
+    const callArgs = mockGenerateContent.mock.calls[0][0];
+    expect(callArgs.config.systemInstruction).toBe("You extract facts.");
+    // The system message must not leak into contents.
+    expect(callArgs.contents).toEqual([
+      { role: "user", parts: [{ text: "I like coffee." }] },
+    ]);
+  });
+
+  // Regression: assistant turns map to Gemini's "model" role, not "user".
+  it("maps assistant turns to the model role in contents", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: "ok",
+      functionCalls: null,
+    });
+
+    const llm = new GoogleLLM({ apiKey: "test-key" });
+    await llm.generateResponse([
+      { role: "user", content: "Hi" },
+      { role: "assistant", content: "Hello there" },
+      { role: "user", content: "How are you?" },
+    ]);
+
+    const callArgs = mockGenerateContent.mock.calls[0][0];
+    expect(callArgs.contents).toEqual([
+      { role: "user", parts: [{ text: "Hi" }] },
+      { role: "model", parts: [{ text: "Hello there" }] },
+      { role: "user", parts: [{ text: "How are you?" }] },
+    ]);
   });
 
   it("returns an empty assistant response when generateChat has no candidates", async () => {
