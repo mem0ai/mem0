@@ -41,10 +41,12 @@ describe("ConfigManager.mergeConfig – historyDbPath handling", () => {
     expect(cfg.historyStore?.config.historyDbPath).toBe("/tmp/explicit.db");
   });
 
-  it("preserves default memory.db when nothing is provided", () => {
+  it("preserves default history.db under ~/.mem0 when nothing is provided", () => {
     const cfg = ConfigManager.mergeConfig({});
     expect(cfg.historyStore?.provider).toBe("sqlite");
-    expect(cfg.historyStore?.config.historyDbPath).toBe("memory.db");
+    expect(cfg.historyStore?.config.historyDbPath).toBe(
+      path.join(os.homedir(), ".mem0", "history.db"),
+    );
   });
 
   it("respects only historyStore.config when top-level is absent", () => {
