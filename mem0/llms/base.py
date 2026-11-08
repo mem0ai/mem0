@@ -55,6 +55,9 @@ class LLMBase(ABC):
         if explicit is not None:
             return explicit
 
+        if not isinstance(model, str):
+            return False
+
         reasoning_models = {
             "o1", "o1-preview", "o3-mini", "o3",
             "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
@@ -90,6 +93,8 @@ class LLMBase(ABC):
             bool: True if the model requires ``max_completion_tokens``
         """
         # Strip provider prefixes (e.g. "openai/gpt-5.4-mini" -> "gpt-5.4-mini")
+        if not isinstance(model, str):
+            return False
         base_model = (model or "").lower().rsplit("/", 1)[-1]
         return base_model.startswith("gpt-5")
 
