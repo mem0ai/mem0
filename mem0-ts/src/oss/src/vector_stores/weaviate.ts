@@ -163,8 +163,12 @@ export class WeaviateDB implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
     await this.initialize();
+    // The memory layer lemmatizes the query before calling keywordSearch, and it
+    // stores the lemmatized text under textLemmatized. Match BM25 against that
+    // field (as pgvector and the in-memory store do); running it over the raw
+    // data field means a stemmed query token never matches the unstemmed text.
     const result = await this._col.query.bm25(query, {
-      queryProperties: ["data"],
+      queryProperties: ["textLemmatized"],
       limit: topK ?? 10,
       filters: this._buildFilters(filters),
       returnMetadata: ["score"],
