@@ -89,10 +89,10 @@ def _cache_email(config_path: str | None, email: str) -> None:
     if not config_path:
         return
     try:
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             cfg = json.load(f)
         cfg.setdefault("platform", {})["user_email"] = email
-        with open(config_path, "w") as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
     except Exception:
         pass
