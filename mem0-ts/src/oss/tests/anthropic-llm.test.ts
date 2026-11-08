@@ -329,4 +329,133 @@ describe("AnthropicLLM (unit)", () => {
     expect(callArgs.temperature).toBe(0.5);
     expect(callArgs.top_p).toBeUndefined();
   });
+
+  // #6203 (TS parity with #5820): Anthropic has no native response_format, so
+  // json_object must be translated into an assistant "{" prefill + a JSON
+  // system instruction, and the leading brace re-attached on the way out.
+  it("prefills '{' and appends a JSON instruction for response_format json_object", async () => {
+    // Model continues the object after the prefilled "{".
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: '"facts": ["a"]}' }],
+    });
+
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    const result = await llm.generateResponse(
+      [
+        { role: "system", content: "sys" },
+        { role: "user", content: "Hi" },
+      ],
+      { type: "json_object" },
+    );
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    // Assistant turn prefilled with "{"
+    expect(callArgs.messages[callArgs.messages.length - 1]).toEqual({
+      role: "assistant",
+      content: "{",
+    });
+    // JSON-only instruction appended to system
+    expect(callArgs.system).toContain("valid JSON only");
+    // Leading brace re-attached → full, parseable JSON
+    expect(JSON.parse(result as string)).toEqual({ facts: ["a"] });
+  });
+
+  // The prefill path must find the text block rather than index content[0],
+  // otherwise thinking-enabled models break json_object mode (same defect
+  // #6506 fixed for the plain-text path).
+  it("finds the text block for json_object when a thinking block precedes it", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [
+        { type: "thinking", thinking: "considering" },
+        { type: "text", text: '"facts": ["a"]}' },
+      ],
+    });
+
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    const result = await llm.generateResponse(
+      [{ role: "user", content: "Hi" }],
+      { type: "json_object" },
+    );
+
+    expect(JSON.parse(result as string)).toEqual({ facts: ["a"] });
+  });
+
+  it("returns an empty string for json_object when no text block is present", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "thinking", thinking: "considering" }],
+    });
+
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    const result = await llm.generateResponse(
+      [{ role: "user", content: "Hi" }],
+      { type: "json_object" },
+    );
+
+    // A bare "{" would be worse than nothing — no parser can use it.
+    expect(result).toBe("");
+  });
+
+  // json_schema → the Anthropic structured-outputs output_config.format.
+  it("maps response_format json_schema to output_config.format", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: '{"ok": true}' }],
+    });
+
+    const schema = {
+      type: "object",
+      properties: { ok: { type: "boolean" } },
+    };
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    await llm.generateResponse([{ role: "user", content: "Hi" }], {
+      type: "json_schema",
+      json_schema: { schema },
+    });
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    expect(callArgs.output_config).toEqual({
+      format: { type: "json_schema", schema },
+    });
+    // json_schema must not use the prefill path
+    expect(
+      callArgs.messages.some(
+        (m: { role: string; content: string }) =>
+          m.role === "assistant" && m.content === "{",
+      ),
+    ).toBe(false);
+  });
+
+  // response_format is ignored when tools are active (tool_use blocks would be
+  // dropped by the JSON prefill/extract path).
+  it("ignores response_format when tools are provided", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "tool_use", id: "t1", name: "add", input: { a: 1 } }],
+    });
+
+    const tools = [
+      {
+        name: "add",
+        description: "add",
+        input_schema: { type: "object", properties: {} },
+      },
+    ];
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    const result = await llm.generateResponse(
+      [{ role: "user", content: "Hi" }],
+      { type: "json_object" },
+      tools,
+    );
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    // No prefill injected, no JSON instruction, no output_config
+    expect(
+      callArgs.messages.some(
+        (m: { role: string; content: string }) =>
+          m.role === "assistant" && m.content === "{",
+      ),
+    ).toBe(false);
+    expect(callArgs.system ?? "").not.toContain("valid JSON only");
+    expect(callArgs.output_config).toBeUndefined();
+    // Tools path still returns structured toolCalls
+    expect(result).toHaveProperty("toolCalls");
+  });
 });
