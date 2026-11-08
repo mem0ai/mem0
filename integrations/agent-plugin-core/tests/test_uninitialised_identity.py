@@ -83,6 +83,26 @@ def test_identity_resolves_without_init(harness, spec):
     assert out == f"{harness} {source_tag}"
 
 
+@pytest.mark.parametrize("harness,spec", sorted(HOSTS.items()))
+def test_data_dir_resolves_without_init(harness, spec):
+    """mcp_server never configures the harness, so its default must match configure_harness(harness) in hooks and skills."""
+    directory, _ = spec
+    core = _core_dir(directory)
+    if not core.exists():
+        pytest.skip(f"{directory} is not built in this tree")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = _run(
+            core,
+            Path(tmp),
+            "import os; os.environ.pop('MEM0_CODE_DATA_DIR')\n"
+            "import mcp_server, memory_core; print(memory_core.data_dir())\n"
+            f"memory_core.configure_harness({harness!r}); print(memory_core.data_dir())",
+        )
+        expected = str(Path(tmp) / ".mem0" / f"{harness}-plugin")
+        assert out.splitlines() == [expected, expected]
+
+
 def test_mcp_server_records_the_real_harness():
     """mcp_server imports telemetry and never initialises it (server.py has no init).
 

@@ -1,12 +1,19 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Offline mock of the Mem0 SDK so these tests never touch the network.
 const mockSearch = vi.fn();
 const mockAdd = vi.fn();
+const mockClientOptions = vi.fn();
 vi.mock("mem0ai", () => ({
   MemoryClient: class {
     search = mockSearch;
     add = mockAdd;
+    constructor(options: unknown) {
+      mockClientOptions(options);
+    }
   },
 }));
 
@@ -49,18 +56,24 @@ function applyAndCollectListeners(config: Config): Map<string, HarnessListener> 
 
 let savedKey: string | undefined;
 let savedTelemetry: string | undefined;
+let savedHome: string | undefined;
 
 beforeEach(() => {
   savedKey = process.env.MEM0_API_KEY;
   savedTelemetry = process.env.MEM0_TELEMETRY;
+  savedHome = process.env.HOME;
   process.env.MEM0_TELEMETRY = "false";
+  process.env.HOME = mkdtempSync(join(tmpdir(), "deepseek-home-"));
   mockSearch.mockReset();
   mockAdd.mockReset();
+  mockClientOptions.mockReset();
 });
 
 afterEach(() => {
   if (savedKey === undefined) delete process.env.MEM0_API_KEY;
   else process.env.MEM0_API_KEY = savedKey;
+  if (savedHome === undefined) delete process.env.HOME;
+  else process.env.HOME = savedHome;
   if (savedTelemetry === undefined) delete process.env.MEM0_TELEMETRY;
   else process.env.MEM0_TELEMETRY = savedTelemetry;
 });
@@ -69,6 +82,17 @@ describe("apply() config validation", () => {
   it("throws when no apiKey is set and MEM0_API_KEY is absent", () => {
     delete process.env.MEM0_API_KEY;
     expect(() => applyAndCollect({ userId: "u" } as Config)).toThrow(/apiKey|MEM0_API_KEY/);
+  });
+
+  it("falls back to the key mem0 init saved", () => {
+    delete process.env.MEM0_API_KEY;
+    const home = process.env.HOME as string;
+    mkdirSync(join(home, ".mem0"));
+    writeFileSync(join(home, ".mem0", "config.json"), JSON.stringify({ platform: { api_key: "m0-cli-key" } }));
+
+    applyAndCollect({ userId: "u" } as Config);
+
+    expect(mockClientOptions).toHaveBeenCalledWith({ apiKey: "m0-cli-key" });
   });
 
   it("throws when userId is missing", () => {

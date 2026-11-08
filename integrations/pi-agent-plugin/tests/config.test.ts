@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
+import * as path from "node:path";
 import { loadConfig } from "../src/config/index.ts";
 
 vi.mock("node:fs");
@@ -31,6 +32,17 @@ describe("loadConfig", () => {
     delete process.env.MEM0_API_KEY;
     const config = loadConfig();
     expect(config.apiKey).toBe("");
+  });
+
+  it("falls back to the key mem0 init saved", () => {
+    delete process.env.MEM0_API_KEY;
+    vi.mocked(fs.readFileSync).mockImplementation((file) => {
+      if (String(file).endsWith(path.join(".mem0", "config.json"))) {
+        return JSON.stringify({ platform: { api_key: "m0-cli-key" } });
+      }
+      throw new Error("ENOENT");
+    });
+    expect(loadConfig().apiKey).toBe("m0-cli-key");
   });
 
   it("reads config file and merges with defaults", () => {

@@ -2,6 +2,7 @@
 
 HARNESS_ID = "antigravity"
 SOURCE_TAG = "ANTIGRAVITY_PLUGIN"
+DATA_DIR_NAME = "antigravity-plugin"
 
 # Platform-side vocabulary (mem0_event.source + X-Application). The whole
 # plugin family is one source; which editor it runs in is the application.

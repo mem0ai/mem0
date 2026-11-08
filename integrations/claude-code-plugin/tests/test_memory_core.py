@@ -31,9 +31,13 @@ def isolated_env(tmp_path, monkeypatch):
     monkeypatch.setenv("MEM0_CODE_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("MEM0_CODE_USER_ID", "test-user")
     monkeypatch.delenv("MEM0_API_KEY", raising=False)
+    monkeypatch.delenv("PLUGIN_OPTION_API_KEY", raising=False)
+    monkeypatch.delenv("PLUGIN_OPTION_USER_ID", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     # The 0.2.x plugin exports these into every hooked shell; without this the
     # suite fails for anyone running it inside a session with that plugin active.
     monkeypatch.delenv("MEM0_PROJECT_ID", raising=False)
@@ -3748,6 +3752,71 @@ def test_stale_cached_api_key_is_cleared_when_config_is_removed(
     assert memory_core.clear_stale_api_key_cache() is True
     assert memory_core.api_key() == ""
     assert memory_core.clear_stale_api_key_cache() is False
+
+
+def _mem0_cli_init(home: Path, config: object) -> None:
+    (home / ".mem0").mkdir(parents=True, exist_ok=True)
+    (home / ".mem0" / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+
+def test_api_key_falls_back_to_the_mem0_cli_config(isolated_env):
+    _mem0_cli_init(isolated_env / "home", {"platform": {"api_key": " m0-cli-key\n"}})
+
+    assert memory_core.api_key() == "m0-cli-key"
+
+
+@pytest.mark.parametrize(
+    "config",
+    [{"platform": {}}, {"platform": "m0-oops"}, {"platform": {"api_key": 42}}, ["m0-list"]],
+)
+def test_malformed_mem0_cli_config_reads_as_no_key(isolated_env, config):
+    _mem0_cli_init(isolated_env / "home", config)
+
+    assert memory_core.api_key() == ""
+
+
+def test_unreadable_mem0_cli_config_reads_as_no_key(isolated_env):
+    (isolated_env / "home" / ".mem0").mkdir(parents=True)
+    (isolated_env / "home" / ".mem0" / "config.json").write_text("{not json", encoding="utf-8")
+
+    assert memory_core.api_key() == ""
+
+
+def test_plugin_configured_key_wins_over_the_mem0_cli_config(isolated_env, monkeypatch):
+    _mem0_cli_init(isolated_env / "home", {"platform": {"api_key": "m0-cli-key"}})
+    monkeypatch.setenv("PLUGIN_OPTION_API_KEY", "m0-plugin-key")
+    assert memory_core.cache_plugin_api_key() is True
+    assert memory_core.api_key() == "m0-plugin-key"
+
+    monkeypatch.delenv("PLUGIN_OPTION_API_KEY")
+    assert memory_core.api_key() == "m0-plugin-key"
+
+
+def test_unexpanded_host_placeholder_is_never_used_as_the_api_key(isolated_env, monkeypatch):
+    monkeypatch.setenv("PLUGIN_OPTION_API_KEY", "${api_key}")
+
+    assert memory_core.cache_plugin_api_key() is False
+    assert not (isolated_env / "data" / "api-key").exists()
+    assert memory_core.api_key() == ""
+
+    _mem0_cli_init(isolated_env / "home", {"platform": {"api_key": "m0-cli-key"}})
+    assert memory_core.api_key() == "m0-cli-key"
+
+
+def test_placeholder_cached_by_an_older_plugin_is_ignored(isolated_env):
+    (isolated_env / "data").mkdir()
+    (isolated_env / "data" / "api-key").write_text("${api_key}", encoding="utf-8")
+    _mem0_cli_init(isolated_env / "home", {"platform": {"api_key": "m0-cli-key"}})
+
+    assert memory_core.api_key() == "m0-cli-key"
+
+
+def test_unexpanded_placeholder_plugin_options_fall_back(isolated_env, monkeypatch):
+    monkeypatch.setenv("PLUGIN_OPTION_USER_ID", "${user_id}")
+    monkeypatch.setenv("PLUGIN_OPTION_TOP_K", "${top_k}")
+
+    assert memory_core.user_id() == "test-user"
+    assert memory_core._plugin_option("top_k") == ""
 
 
 def _big_batch_messages() -> list[dict[str, str]]:
