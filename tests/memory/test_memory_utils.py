@@ -82,6 +82,21 @@ class TestParseVisionMessages:
         assert result[0]["content"] == "A photo of a cat"
         mock_llm.generate_response.assert_called_once()
 
+    def test_text_only_list_with_llm_does_not_call_vision(self):
+        # A list-content message with no image part must not be handed to the
+        # vision LLM (which is prompted to describe an image and would discard
+        # the real text); its text parts are joined instead.
+        mock_llm = Mock()
+        messages = [
+            {"role": "user", "content": [
+                {"type": "text", "text": "I love pizza"},
+                {"type": "text", "text": "and pasta"},
+            ]},
+        ]
+        result = parse_vision_messages(messages, llm=mock_llm, vision_details="auto")
+        assert result == [{"role": "user", "content": "I love pizza and pasta"}]
+        mock_llm.generate_response.assert_not_called()
+
     def test_image_only_list_without_llm_is_skipped(self):
         messages = [
             {"role": "user", "content": [
