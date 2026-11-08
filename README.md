@@ -1,280 +1,149 @@
-<p align="center">
-  <a href="https://github.com/mem0ai/mem0">
-    <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
-  </a>
-</p>
+# Mem0 LOCOMO Single-Hop Experiment
 
-<p align="center">
-  <a href="https://luma.com/mem0-oxfm">
-    <img src="docs/images/halloween-happy-hour.png" width="450px" alt="Mem0 OSS Halloween Happy Hour: The People Who Read the Source. Tuesday, Oct 27, 5:00 PM, San Francisco. Costumes encouraged.">
-  </a>
-  <br>
-  <a href="https://luma.com/mem0-oxfm"><strong>🎃 Register here →</strong></a> · Contributors get priority
-</p>
+This repository contains the open-source Mem0: https://github.com/mem0ai/mem0 . Python SDK and a small-scale reproduction of the single-hop question-answering evaluation in the Mem0 paper: https://arxiv.org/abs/2504.19413v1 .
+
+The experiment uses the full conversation at index 0 in LOCOMO-10 and its 70 category-4 questions. It compares a baseline semantic threshold of **0.1** with **0.5** while retaining Top-30 memories per speaker and using the same local Qdrant memory store. The threshold run generates and judges its own answers. Each answer is judged 10 times. 
+**Note**: The baseline experiment （threshold = 0.1） must be run prior to the threshold = 0.5 comparison experiment.
+
+The experiment is a subset using the local open-source SDK, not an exact reproduction of the paper's hosted full benchmark. 
+
+## Requirements
+
+- macOS or Linux, Git, and Python 3.10 with `venv` and `pip` (the measured run used Python 3.10.22).
+- Internet access to install dependencies and call the model provider. A first `tiktoken` run may also download its tokenizer data.
+- A Zhizengzeng or official OpenAI API key with access to `gpt-4o-mini` and `text-embedding-3-small`. No hosted Mem0 account or local GPU is needed.
+- The experiment scripts and paper-era prompt files in this branch. Download the dataset and NLTK data as described below; neither is included in the repository.
 
 
-
-<p align="center" style="display: flex; justify-content: center; gap: 20px; align-items: center;">
-  <a href="https://trendshift.io/repositories/11194" target="blank">
-    <img src="https://trendshift.io/api/badge/repositories/11194" alt="mem0ai%2Fmem0 | Trendshift" width="250" height="55"/>
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://mem0.ai">Learn more</a>
-  ·
-  <a href="https://mem0.dev/DiG">Join Discord</a>
-  ·
-  <a href="https://mem0.dev/demo">Demo</a>
-</p>
-
-<p align="center">
-  <a href="https://mem0.dev/DiG">
-    <img src="https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white" alt="Mem0 Discord">
-  </a>
-  <a href="https://pepy.tech/project/mem0ai">
-    <img src="https://img.shields.io/pypi/dm/mem0ai" alt="Mem0 PyPI - Downloads">
-  </a>
-  <a href="https://github.com/mem0ai/mem0">
-    <img src="https://img.shields.io/github/commit-activity/m/mem0ai/mem0?style=flat-square" alt="GitHub commit activity">
-  </a>
-  <a href="https://pypi.org/project/mem0ai" target="blank">
-    <img src="https://img.shields.io/pypi/v/mem0ai?color=%2334D058&label=pypi%20package" alt="Package version">
-  </a>
-  <a href="https://www.npmjs.com/package/mem0ai" target="blank">
-    <img src="https://img.shields.io/npm/v/mem0ai" alt="Npm package">
-  </a>
-  <a href="https://www.ycombinator.com/companies/mem0">
-    <img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://mem0.ai/research"><strong>📄 Benchmarking Mem0's token-efficient memory algorithm →</strong></a>
-</p>
-
-## New Memory Algorithm (April 2026)
-
-| Benchmark | Old | New  | Tokens  | Latency p50  |
-| --- | --- | --- | --- | --- |
-| **LoCoMo** | 71.4 | **92.5** | 7.0K  | 0.88s  |
-| **LongMemEval** | 67.8 | **94.4** | 6.8K  | 1.09s  |
-| **BEAM (1M)** | — | **64.1** | 6.7K  | 1.00s  |
-| **BEAM (10M)** | — | **48.6** | 6.9K  | 1.05s  |
-
-All benchmarks run on the same production-representative model stack. Single-pass retrieval (one call, no agentic loops) at a top_200 retrieval budget. Scores reflect Mem0's managed platform, which includes proprietary optimizations not available in the open-source SDK; open-source users should expect directionally similar gains but not identical numbers.
-
-**What changed:**
-- **Single-pass ADD-only extraction** -- one LLM call, no UPDATE/DELETE. Memories accumulate; nothing is overwritten.
-- **Agent-generated facts are first-class** -- when an agent confirms an action, that information is now stored with equal weight.
-- **Entity linking** -- entities are extracted, embedded, and linked across memories for retrieval boosting.
-- **Multi-signal retrieval** -- semantic, BM25 keyword, and entity matching scored in parallel and fused.
-- **Temporal Reasoning** -- time-aware retrieval that ranks the right dated instance for queries about current state, past events, and upcoming plans.
-
-See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
-
-## Research Highlights
-- **92.5 on LoCoMo** -- +21 points over the previous algorithm
-- **94.4 on LongMemEval** -- +27 points, with 98.2 on assistant memory recall
-- **64.1 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
-- [Read the full paper](https://mem0.ai/research)
-
-# Introduction
-
-[Mem0](https://mem0.ai) ("mem-zero") enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions. It remembers user preferences, adapts to individual needs, and continuously learns over time—ideal for customer support chatbots, AI assistants, and autonomous systems.
-
-### Key Features & Use Cases
-
-**Core Capabilities:**
-- **Multi-Level Memory**: Seamlessly retains User, Session, and Agent state with adaptive personalization
-- **Developer-Friendly**: Intuitive API, cross-platform SDKs, and a fully managed service option
-
-**Applications:**
-- **AI Assistants**: Consistent, context-rich conversations
-- **Customer Support**: Recall past tickets and user history for tailored help
-- **Healthcare**: Track patient preferences and history for personalized care
-- **Productivity & Gaming**: Adaptive workflows and environments based on user behavior
-
-## 🚀 Quickstart Guide <a name="quickstart"></a>
-
-### Sign up as an agent
-
-AI agents can mint a working Mem0 API key in under five seconds — no email, no dashboard, no OTP. Four commands end-to-end:
+## 1. Clone and install
 
 ```bash
-# 1. Install
-npm install -g @mem0/cli      # or: pip install mem0-cli
+git clone --branch feature/locomo-threshold-experiment https://github.com/aaayolo/mem0.git
+cd mem0
 
-# 2. Sign up as an agent (replace `claude-code` with your name)
-mem0 init --agent --agent-caller claude-code
-
-# 3. Add a memory
-mem0 add "I am using mem0"
-
-# 4. Search
-mem0 search "am I using mem0"
+python3.10 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r locomo-experiment/requirements.txt
 ```
 
-The human owner can claim the account later with `mem0 init --email <their-email>` — same key, memories preserved. Full guide: [Sign up as an agent](https://docs.mem0.ai/platform/agent-signup).
+Run all remaining commands from the repository root with this environment active. The requirements file installs the local repository in editable mode, along with versions of the main experiment dependencies used in the measured run. 
 
-| | Library | Self-Hosted Server | Cloud Platform |
-|---|---------|-------------------|----------------|
-| **Best for** | Testing, prototyping | Teams running on their own infrastructure | Zero-ops production use |
-| **Setup** | `pip install mem0ai` | `docker compose up` | Sign up at [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=readme) |
-| **Dashboard** | -- | [Yes](https://docs.mem0.ai/open-source/setup) | Yes |
-| **Auth & API Keys** | -- | Yes | Yes |
-| **Advanced Features** | -- | Teasers | All included |
-
-Just testing? Use the library. Building for a team? Self-hosted. Want zero ops? Cloud.
-
-### Library (pip / npm)
+Download the public dataset and English NLTK tokenizer data:
 
 ```bash
-pip install mem0ai
+curl -fL https://raw.githubusercontent.com/snap-research/locomo/3eb6f2c585f5e1699204e3c3bdf7adc5c28cb376/data/locomo10.json -o locomo-experiment/locomo10.json
+python -c 'import hashlib; from pathlib import Path; p = Path("locomo-experiment/locomo10.json"); h = hashlib.sha256(p.read_bytes()).hexdigest(); print("SHA-256:", h); assert h == "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4", "Unexpected dataset; do not run the experiment"'
+curl -fL https://raw.githubusercontent.com/nltk/nltk_data/550b6625bcef1f2abff2ff770a5a0d272c9c6b2a/packages/tokenizers/punkt_tab.zip -o locomo-experiment/punkt_tab.zip
+python -c 'import hashlib; from pathlib import Path; p = Path("locomo-experiment/punkt_tab.zip"); h = hashlib.sha256(p.read_bytes()).hexdigest(); print("SHA-256:", h); assert h == "e57f64187974277726a3417ca6f181ec5403676c717672eef6a748a7b20e0106", "Unexpected tokenizer archive; do not extract"'
+python -c 'from pathlib import Path; from zipfile import ZipFile; root = Path("locomo-experiment/nltk_data/tokenizers"); names = ("collocations.tab", "sent_starters.txt", "abbrev_types.txt", "ortho_context.tab"); dest = root / "punkt_tab/english"; dest.mkdir(parents=True, exist_ok=True); z = ZipFile("locomo-experiment/punkt_tab.zip"); [(dest / name).write_bytes(z.read("punkt_tab/english/" + name)) for name in names]; z.close(); print("English tokenizer installed")'
 ```
 
-For enhanced hybrid search with BM25 keyword matching and entity extraction, install with NLP support:
+Confirm the SDK imports from this checkout:
 
 ```bash
-pip install mem0ai[nlp]
-python -m spacy download en_core_web_sm
+python -c 'import mem0; print(mem0.__file__)'
+python locomo-experiment/locomo_pilot.py --help
+python locomo-experiment/locomo_threshold_ablation.py --help
 ```
 
-Install sdk via npm:
+These commands do not call the model API. The threshold script may access the internet to obtain `tiktoken` encoding data on first use.
+
+## 2. Configure credentials and budget
+
+Create a private file containing **only** the API key, then edit it locally:
 
 ```bash
-npm install mem0ai
+touch .venv/zhizengzeng.key
+chmod 600 .venv/zhizengzeng.key
 ```
 
-### Self-Hosted Server
-
-> **Note:** Self-hosted auth is on by default. Upgrading from a pre-auth build? Set `ADMIN_API_KEY`, register an admin through the wizard, or `AUTH_DISABLED=true` for local dev only. See [upgrade notes](https://docs.mem0.ai/open-source/setup#upgrade-notes).
+To use the official OpenAI API instead, create a **separate** key file and add the official key to it:
 
 ```bash
-# Recommended: one command — start the stack, create an admin, issue the first API key.
-cd server && make bootstrap
-
-# Manual: start the stack and finish setup via the browser wizard.
-cd server && docker compose up -d    # http://localhost:3000
+touch .venv/openai.key
+chmod 600 .venv/openai.key
 ```
 
-See the [self-hosted docs](https://docs.mem0.ai/open-source/overview) for configuration.
+Select it with `--provider openai`. The default remains `--provider zhizengzeng`. OpenAI runs use `locomo-experiment/locomo-pilot-conv0-openai/`, a separate memory store and results directory. First run the OpenAI baseline; its threshold run reuses that OpenAI baseline, not the Zhizengzeng store.
+**Note**: If OpenAI API calls fail, it is recommended to use the zhizengzeng interface. The web link for zhizengzeng is [https://platform.zhizengzeng.com/#/home](https://platform.zhizengzeng.com/#/home).
 
-### Cloud Platform
 
-1. Sign up on [Mem0 Platform](https://app.mem0.ai?utm_source=oss&utm_medium=readme)
-2. Embed the memory layer via SDK or API keys
-3. Using hosted Qdrant vectors? See the [Platform migration guide](https://docs.mem0.ai/migration/oss-to-platform) to import them into Mem0 Platform.
+## 3. Start a fresh baseline
 
-### CLI
-
-Manage memories from your terminal:
+The scripts resume from `locomo-experiment/locomo-pilot-conv0/` if it already exists. To perform a **new independent run**, first move the entire existing directory to a safe backup location, including `qdrant/`, `history.db`:
 
 ```bash
-npm install -g @mem0/cli   # or: pip install mem0-cli
+# Default: Zhizengzeng
+if [ -e locomo-experiment/locomo-pilot-conv0 ]; then
+  if [ -e locomo-experiment/locomo-pilot-conv0-backup ]; then
+    echo "Backup path already exists; choose another backup location before proceeding."
+  else
+    mv locomo-experiment/locomo-pilot-conv0 locomo-experiment/locomo-pilot-conv0-backup
+  fi
+fi
 
-mem0 init
-mem0 add "Prefers dark mode and vim keybindings" --user-id alice
-mem0 search "What does Alice prefer?" --user-id alice
+# Optional: OpenAI
+if [ -e locomo-experiment/locomo-pilot-conv0-openai ]; then
+  if [ -e locomo-experiment/locomo-pilot-conv0-openai-backup ]; then
+    echo "Backup path already exists; choose another backup location before proceeding."
+  else
+    mv locomo-experiment/locomo-pilot-conv0-openai locomo-experiment/locomo-pilot-conv0-openai-backup
+  fi
+fi
 ```
 
-See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full command reference.
-
-### Agent Skills
-
-Teach your AI coding assistant (Claude Code, Codex, Cursor, Windsurf, OpenCode, OpenClaw, and any tool that supports the skills standard) how to build with Mem0. Two categories:
-
-**Reference skills — always on** (SDK knowledge loaded into the assistant's context):
+If the backup already exists, stop and choose another name before running the baseline. 
+Then evaluates all 70 questions:
 
 ```bash
-npx skills add https://github.com/mem0ai/mem0 --skill mem0
-npx skills add https://github.com/mem0ai/mem0 --skill mem0-cli
-npx skills add https://github.com/mem0ai/mem0 --skill mem0-vercel-ai-sdk
+# Default: Zhizengzeng
+python -u locomo-experiment/locomo_pilot.py --sample-size 70 --seed 42 --judge-runs 10
+
+# Optional: OpenAI
+python -u locomo-experiment/locomo_pilot.py --provider openai --sample-size 70 --seed 42 --judge-runs 10
 ```
 
-**Pipeline skills — run on demand** (execute an end-to-end workflow in an existing repo):
+The default sample size is 20, so the explicit `--sample-size 70` is required. The baseline may take considerable time and makes paid API calls (About 5 CNY in Zhizengzeng). Keep the saved memory store and baseline state together, the threshold run requires both.
+
+## 4. Run the threshold 0.5 comparison
+
+After the baseline has completed all 70 questions and 10 judgments per answer, run:
 
 ```bash
-npx skills add https://github.com/mem0ai/mem0 --skill mem0-integrate
-npx skills add https://github.com/mem0ai/mem0 --skill mem0-test-integration
-npx skills add https://github.com/mem0ai/mem0 --skill mem0-oss-to-platform
+# Default: Zhizengzeng
+python -u locomo-experiment/locomo_threshold_ablation.py --experiment threshold05
+
+# Optional: OpenAI
+python -u locomo-experiment/locomo_threshold_ablation.py --provider openai --experiment threshold05
 ```
 
-Use `/mem0-integrate` to wire Mem0 into an existing repo via a test-first pipeline, then `/mem0-test-integration` to verify. Use `/mem0-oss-to-platform` to migrate an existing project from Mem0 OSS to the hosted Platform SDK. See the [skills catalog](./skills/) or [Vibecoding with Mem0](https://docs.mem0.ai/vibecoding) for the full picture.
+The script validates the dataset and baseline, reuses the same Qdrant store, and saves the modified run separately. It resumes existing threshold results; it does not automatically repeat completed questions. Do not run the baseline and threshold processes simultaneously against the same local Qdrant store.
 
-### Basic Usage
+## 5. Inspect results
 
-Mem0 requires an LLM to function, with `gpt-5-mini` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+| Path | Contents |
+|---|---|
+| `locomo-experiment/locomo-pilot-conv0/state.json` | Baseline ingestion progress and per-question results |
+| `locomo-experiment/locomo-pilot-conv0/summary-70-seed-42.json` | Baseline metric summary |
+| `locomo-experiment/locomo-pilot-conv0/threshold05-ablation/state.json` | Threshold run's per-question results and usage |
+| `locomo-experiment/locomo-pilot-conv0/threshold05-ablation/summary.json` | Baseline-versus-threshold comparison |
+| `locomo-experiment/locomo-pilot-conv0/qdrant/` | Shared local vector memory |
+| `locomo-experiment/locomo-pilot-conv0/history.db` | Local Mem0 history |
 
-Mem0 uses `text-embedding-3-small` from OpenAI as the default embedding model. For best results with hybrid search (semantic + keyword + entity boosting), we recommend using at least [Qwen 600M](https://huggingface.co/Alibaba-NLP/gte-Qwen2-1.5B-instruct) or a comparable embedding model. See [Supported Embeddings](https://docs.mem0.ai/components/embedders/overview) for configuration details.
+View a summary without making API calls:
 
-First step is to instantiate the memory:
-
-```python
-from openai import OpenAI
-from mem0 import Memory
-
-openai_client = OpenAI()
-memory = Memory()
-
-def chat_with_memories(message: str, user_id: str = "default_user") -> str:
-    # Retrieve relevant memories
-    relevant_memories = memory.search(query=message, filters={"user_id": user_id}, top_k=3)
-    memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories["results"])
-
-    # Generate Assistant response
-    system_prompt = f"You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n{memories_str}"
-    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]
-    response = openai_client.chat.completions.create(model="gpt-5-mini", messages=messages)
-    assistant_response = response.choices[0].message.content
-
-    # Create new memories from the conversation
-    messages.append({"role": "assistant", "content": assistant_response})
-    memory.add(messages, user_id=user_id)
-
-    return assistant_response
-
-def main():
-    print("Chat with AI (type 'exit' to quit)")
-    while True:
-        user_input = input("You: ").strip()
-        if user_input.lower() == 'exit':
-            print("Goodbye!")
-            break
-        print(f"AI: {chat_with_memories(user_input)}")
-
-if __name__ == "__main__":
-    main()
+```bash
+python -m json.tool locomo-experiment/locomo-pilot-conv0/threshold05-ablation/summary.json
 ```
 
-For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quickstart) and [API Reference](https://docs.mem0.ai/api-reference).
+Both groups' answer token counts are reconstructed with the same tokenizer and estimated chat framing, rather than billed usage. API-reported usage for the threshold run is also retained separately. Cost figures in the summaries are estimates, not provider invoices. The reported F1, BLEU-1, and LLM-judge scores cover just one conversation, so they are not directly comparable to the full paper benchmark.
 
-## 🔗 Integrations & Demos
+## Resume and troubleshooting
 
-- **ChatGPT with Memory**: Personalized chat powered by Mem0 ([Live Demo](https://mem0.dev/demo))
-- **Browser Extension**: Store memories across ChatGPT, Perplexity, and Claude ([Chrome Extension](https://chromewebstore.google.com/detail/onihkkbipkfeijkadecaafbgagkhglop?utm_source=item-share-cb))
-- **Langgraph Support**: Build a customer bot with Langgraph + Mem0 ([Guide](https://docs.mem0.ai/integrations/langgraph))
-- **CrewAI Integration**: Tailor CrewAI outputs with Mem0 ([Example](https://docs.mem0.ai/integrations/crewai))
-
-## 📚 Documentation & Support
-
-- Full docs: https://docs.mem0.ai
-- Community: [Discord](https://mem0.dev/DiG) · [X (formerly Twitter)](https://x.com/mem0ai)
-- Contact: founders@mem0.ai
-
-## Citation
-
-We now have a paper you can cite:
-
-```bibtex
-@article{mem0,
-  title={Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory},
-  author={Chhikara, Prateek and Khant, Dev and Aryan, Saket and Singh, Taranjeet and Yadav, Deshraj},
-  journal={arXiv preprint arXiv:2504.19413},
-  year={2025}
-}
-```
-
-## ⚖️ License
-
-Apache 2.0 — see the [LICENSE](https://github.com/mem0ai/mem0/blob/main/LICENSE) file for details.
+- **Interrupted run:** rerun the same command to resume completed work. If the baseline reports an uncertain in-flight ingestion, inspect the state and memory store before deciding how to recover; blindly repeating a write can duplicate or alter memories.
+- **Missing baseline or memory store:** run the complete baseline first. A copied state file alone is insufficient. The repository's Git rules ignore `*.db`, including `history.db`; cloning does not guarantee a complete saved memory store.
+- **Existing completed results:** rerunning a completed command normally resumes/skips completed work rather than creating an independent trial. Back up the entire run directory and start fresh for a new trial.
+- **Missing key or unauthorized API:** check the private key file, provider account balance, model access, and endpoint. Do not post the key in an issue or log.
+- **Missing tokenizer data or prompts:** repeat the tokenizer installation in step 1 and verify that the cloned branch includes the three paper-era prompt files under `locomo-experiment/paper-2025/`.
+- **Other Mem0 features:** this README covers the LOCOMO experiment. For the broader project, see the official documentation: https://docs.mem0.ai.
