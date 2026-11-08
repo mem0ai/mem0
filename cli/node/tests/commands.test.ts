@@ -472,6 +472,19 @@ describe("cmdDeleteAll", () => {
 		});
 		expect(output.toLowerCase()).toContain("deleted");
 	});
+
+	it("dry-runs project wipe without writes or force", async () => {
+		const { cmdDeleteAll } = await import("../src/commands/memory.js");
+		await cmdDeleteAll(mockBackend, {
+			force: false,
+			dryRun: true,
+			all: true,
+			output: "text",
+		});
+		expect(output.toLowerCase()).toContain("entire project");
+		expect(mockBackend.delete).not.toHaveBeenCalled();
+		expect(mockBackend.listMemories).not.toHaveBeenCalled();
+	});
 });
 
 describe("cmdEntitiesList", () => {
