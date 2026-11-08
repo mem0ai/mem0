@@ -150,6 +150,19 @@ class TurbopufferDB(VectorStoreBase):
         "nin": "NotIn",
     }
 
+    _SCALAR_TYPES = (str, int, float, bool)
+
+    def _validate_filter_value(self, key: str, op: str, value) -> None:
+        if op in ("in", "nin"):
+            if not isinstance(value, list):
+                raise ValueError(
+                    f"Filter value for {key!r} ({op}) must be a list; got {type(value).__name__}"
+                )
+        elif not isinstance(value, self._SCALAR_TYPES):
+            raise ValueError(
+                f"Filter value for {key!r} ({op}) must be a string, int, float, or bool; got {type(value).__name__}"
+            )
+
     def _convert_filters(self, filters: Optional[Dict]):
         """
         Convert mem0 filters to Turbopuffer filter format.
@@ -169,8 +182,10 @@ class TurbopufferDB(VectorStoreBase):
                             f"Unsupported filter operator '{op}' for field '{key}'. "
                             f"Supported operators: {sorted(self.OPERATOR_MAP)}"
                         )
+                    self._validate_filter_value(key, op, operand)
                     conditions.append((key, tpuf_op, operand))
             else:
+                self._validate_filter_value(key, "eq", value)
                 conditions.append((key, "Eq", value))
 
         if not conditions:
