@@ -1,7 +1,7 @@
 fastapi==0.115.8
 uvicorn==0.34.0
 pydantic[email]==2.10.4
-mem0ai>=0.1.48
+# The Dockerfiles install mem0ai from the repository checkout.
 python-dotenv==1.2.2
 psycopg[binary]>=3.2.8,<4.0.0
 psycopg-pool>=3.2.6,<4.0.0

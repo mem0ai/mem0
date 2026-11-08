@@ -70,6 +70,37 @@ make up
 
 Then open `http://localhost:3000` and complete the setup wizard.
 
+## Building from your fork
+
+The API Dockerfiles install the Python SDK from this checkout, not from PyPI.
+Build with the repository root as the context (also handled by `make build`):
+
+```bash
+# Run from the repository root
+docker build -f server/Dockerfile -t mem0-api-server .
+```
+
+The production image copies both `mem0/` and `server/`; rebuild it after changing
+SDK or server code. Development Compose installs the SDK in editable mode and
+mounts `mem0/` outside the `/app` server mount, with both paths watched for reload.
+Neither path downloads or replaces the SDK when the container starts.
+The dashboard remains a separate image built from `server/dashboard/`.
+
+Server behavior and model configuration remain upstream defaults: configure real
+model credentials before starting the API. This build does not add a model-free
+startup mode, a fake key, or a fallback model. Keep `.env`, credentials and database
+files outside Git; a root `.dockerignore` also excludes these from API builds.
+
+To verify the SDK install origin in a built image without starting the server or
+contacting a model provider:
+
+```bash
+docker run --rm --network none --entrypoint python mem0-api-server -c \
+  'from importlib.metadata import distribution; print(distribution("mem0ai").read_text("direct_url.json"))'
+```
+
+The URL should be `file:///opt/mem0`, not a package registry download.
+
 ## Security Defaults
 
 - Dashboard login uses JWTs.

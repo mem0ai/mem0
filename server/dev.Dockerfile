@@ -1,24 +1,12 @@
-FROM python:3.12
+FROM python:3.12-slim
 
-WORKDIR /app
-
-# Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="/root/.local/bin:$PATH"
-
-# Copy requirements first for better caching
-COPY server/requirements.txt .
-RUN pip install -r requirements.txt
-
-# Install mem0 in editable mode using Poetry
-WORKDIR /app/packages
-COPY pyproject.toml .
-COPY poetry.lock .
-COPY README.md .
+# Keep the editable SDK outside /app: Compose mounts server/ at /app.
+WORKDIR /opt/mem0
+COPY pyproject.toml README.md LICENSE ./
 COPY mem0 ./mem0
-RUN pip install -e .[graph]
+COPY server/requirements.txt /tmp/server-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/server-requirements.txt -e '.[graph]'
 
-# Return to app directory and copy server code
 WORKDIR /app
 COPY server .
 

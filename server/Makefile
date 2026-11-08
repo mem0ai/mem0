@@ -56,7 +56,7 @@ prune-logs:
 	@docker compose exec -T -e REQUEST_LOG_RETENTION_DAYS="$(REQUEST_LOG_RETENTION_DAYS)" -e PYTHONPATH=/app mem0 python scripts/prune_request_logs.py
 
 build:
-	docker build -t mem0-api-server .
+	docker build -f Dockerfile -t mem0-api-server ..
 
 run_local:
-	docker run -p 8000:8000 -v $(shell pwd):/app mem0-api-server --env-file .env
+	docker run --env-file .env -p 8000:8000 mem0-api-server
