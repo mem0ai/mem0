@@ -446,7 +446,11 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
     if not expiration_date:
         return False
     try:
-        return date.fromisoformat(str(expiration_date)) < datetime.now(timezone.utc).date()
+        # ``_normalize_expiration_date`` stores the caller's wall-clock calendar
+        # day (``value.date()`` strips any timezone). Compare against the local
+        # calendar day for symmetry: comparing with the UTC day drifted the
+        # decision by the local UTC offset around every date boundary (#6931).
+        return date.fromisoformat(str(expiration_date)) < datetime.now().date()
     except ValueError:
         return False
 
