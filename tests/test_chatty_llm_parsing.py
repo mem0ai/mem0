@@ -14,6 +14,7 @@ from mem0.memory.utils import extract_json, remove_code_blocks
 
 # --- Test extract_json ---
 
+
 class TestExtractJson:
     """Tests for extract_json utility."""
 
@@ -91,8 +92,19 @@ That's the result."""
         parsed = json.loads(result)
         assert parsed["memory"][0]["id"] == "0"
 
+    def test_chatty_prose_with_braces_before_json(self):
+        """extract_json skips prose braces before the valid JSON object."""
+        text = (
+            "Based on the conversation {about travel}, here is the update: "
+            '{"memory": [{"id": "0", "text": "likes travel", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes travel"
+
 
 # --- Test remove_code_blocks ---
+
 
 class TestRemoveCodeBlocks:
     """Tests for remove_code_blocks — verify it does NOT handle chatty text."""
@@ -133,6 +145,7 @@ class TestRemoveCodeBlocks:
 
 
 # --- Test the full fallback chain (remove_code_blocks -> extract_json) ---
+
 
 class TestFallbackChain:
     """Tests the actual fallback pattern used in _add_to_vector_store:
@@ -188,6 +201,15 @@ I hope this helps!"""
 }"""
         result = self._parse_with_fallback(response)
         assert len(result["memory"]) == 2
+
+    def test_chatty_no_markdown_with_braces_in_prose(self):
+        """Issue #5998: prose braces before JSON should not corrupt fallback extraction."""
+        response = (
+            "Based on the conversation {about travel}, here is the update: "
+            '{"memory": [{"id": "0", "text": "likes travel", "event": "ADD"}]}'
+        )
+        result = self._parse_with_fallback(response)
+        assert result["memory"][0]["text"] == "likes travel"
 
     def test_think_tags_with_json(self):
         """Reasoning model with <think> tags."""
