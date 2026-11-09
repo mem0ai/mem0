@@ -95,8 +95,9 @@ def test_update_vector(upstash_instance):
     vector_id = "id1"
     new_vector = [0.7, 0.8, 0.9]
     new_payload = {"name": "updated_vector"}
+    upstash_instance.client.update.return_value = True
 
-    upstash_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload)
+    assert upstash_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload) is True
 
     upstash_instance.client.update.assert_called_once_with(
         id="id1",
@@ -105,6 +106,24 @@ def test_update_vector(upstash_instance):
         metadata={"name": "updated_vector"},
         namespace="ns",
     )
+
+
+def test_update_missing_id_returns_false_without_upsert(upstash_instance):
+    upstash_instance.client.update.return_value = False  # Upstash replied {"updated": 0}
+    upstash_instance.client.fetch.return_value = [None]  # fetch returns None for an absent id
+
+    assert upstash_instance.update(vector_id="missing", payload={"name": "x"}) is False
+
+    upstash_instance.client.fetch.assert_called_once_with(ids=["missing"], namespace="ns", include_metadata=True)
+    upstash_instance.client.upsert.assert_not_called()
+
+
+def test_update_reporting_zero_on_an_existing_id_returns_true(upstash_instance):
+    upstash_instance.client.update.return_value = False
+    upstash_instance.client.fetch.return_value = [QueryResult(id="id1", score=None, metadata={"name": "same"})]
+
+    assert upstash_instance.update(vector_id="id1", payload={"name": "same"}) is True
+    upstash_instance.client.upsert.assert_not_called()
 
 
 def test_get_vector(upstash_instance):
@@ -216,8 +235,9 @@ def test_search_vectors_with_embeddings(upstash_instance_with_embeddings, mock_i
 def test_update_vector_with_embeddings(upstash_instance_with_embeddings):
     vector_id = "id1"
     new_payload = {"name": "updated_vector", "data": "updated_data"}
+    upstash_instance_with_embeddings.client.update.return_value = True
 
-    upstash_instance_with_embeddings.update(vector_id=vector_id, payload=new_payload)
+    assert upstash_instance_with_embeddings.update(vector_id=vector_id, payload=new_payload) is True
 
     upstash_instance_with_embeddings.client.update.assert_called_once_with(
         id="id1",

@@ -7,6 +7,36 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-09-25" description="v2.2.1">
+
+**Bug Fixes:**
+- **Core:** `add()` (`Memory` and `AsyncMemory`) no longer reports records the vector store rejected as successful `ADD` events. Only records that were actually inserted are written to history, entity-linked, and returned. If none of the extracted memories could be inserted, `add()` now raises `VectorStoreError` instead of returning memories that were never stored ([#7066](https://github.com/mem0ai/mem0/pull/7066))
+- **Core:** Restore the context-manager protocol on `Memory` (`with Memory() as m:`) and `AsyncMemory` (`async with AsyncMemory() as m:`), which closes the instance on exit ([#7354](https://github.com/mem0ai/mem0/pull/7354))
+- **LLMs:** The AWS Bedrock Anthropic path now returns the first Converse content block that carries text instead of always reading `content[0]`. Claude reasoning models can emit a `reasoningContent` block before the text block, which previously made the call fail with a `KeyError` ([#6369](https://github.com/mem0ai/mem0/pull/6369))
+- **Vector Stores:** Turbopuffer filters now apply every operator (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`). Only `gte` and `lte` were read before, so any other operator was silently dropped and the query returned unfiltered results. An unsupported operator now raises `ValueError` ([#6564](https://github.com/mem0ai/mem0/pull/6564))
+- **Vector Stores:** Turbopuffer `search()` scores now respect `distance_metric`. With `euclidean_squared`, the unbounded squared distance maps to `1 / (1 + distance)` instead of `1 - distance`, which went negative and inverted ranking for any distance above 1 ([#6559](https://github.com/mem0ai/mem0/pull/6559))
+- **Vector Stores:** S3 Vectors `search()` scores are now metric-aware. With `euclidean`, the distance maps to `1 / (1 + distance)` instead of `max(0, 1 - distance)`, which collapsed most scores to 0 ([#6547](https://github.com/mem0ai/mem0/pull/6547))
+
+</Update>
+
+<Update label="2026-09-23" description="v2.2.0">
+
+**New Features:**
+- **Client:** Add User Profiles to `MemoryClient` and `AsyncMemoryClient`: `get_profile()`, `generate_profile()`, `get_profile_settings()`, `update_profile_settings()`, `sample_profiles()`, and `get_profile_job()`. A profile is a structured, always-current JSON summary of one user, shaped by a JSON Schema you configure per project and filled by an LLM from that user's memories. Generation is asynchronous. Every job POST carries an `Idempotency-Key`; to retry a lost request without starting a second job, pass the same `idempotency_key` on each attempt ([#7340](https://github.com/mem0ai/mem0/pull/7340))
+
+**Bug Fixes:**
+- **Vector Stores:** Guard against `None` timestamps in the Valkey vector store's `insert()` and `update()` paths. `created_at` and `updated_at` fields that were present in the payload but set to `None` previously passed the `"created_at" not in payload` / `"updated_at" in payload` checks and raised `TypeError` when `datetime.fromisoformat()` received `None`. Both paths now use `.get()` with a truthiness check so `None` values fall through to the default, matching the Redis provider's behavior ([#6993](https://github.com/mem0ai/mem0/pull/6993))
+
+</Update>
+
+<Update label="2026-09-18" description="v2.1.0">
+
+**Improvements:**
+- **Client:** Requests now carry three surface-identity headers so the platform can tell which product made a call. `X-Mem0-Source` names the surface and `X-Application` the host app it runs inside, both set-once so a wrapper that already declared its identity keeps it. `X-Mem0-Client` is append-only and carries `name/version` per layer, outermost first, so a plugin calling this SDK reports the whole chain rather than only the last speaker. `MEM0_SOURCE`, `MEM0_APPLICATION` and `MEM0_CLIENT_STACK` set them from the environment for wrappers that cannot pass options ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+- **Client:** The client stack is bounded by dropping whole entries rather than slicing characters, and this SDK's own entry is the reserved one. Truncating the joined string could sever an identifier mid-name and the platform parsed the fragment as a real client ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
+
 <Update label="2026-09-02" description="v2.0.20">
 
 **Improvements:**
@@ -174,7 +204,7 @@ mode: "wide"
 <Update label="2026-06-24" description="v2.0.8">
 
 **New Features:**
-- **Embeddings:** Add native `embed_batch` to five embedders: LM Studio, Together, HuggingFace, Vertex AI, and Google GenAI: for batched embedding requests ([#5609](https://github.com/mem0ai/mem0/pull/5609))
+- **Embeddings:** Add native `embed_batch` to five embedders for batched embedding requests: LM Studio, Together, HuggingFace, Vertex AI, and Google GenAI ([#5609](https://github.com/mem0ai/mem0/pull/5609))
 
 **Bug Fixes:**
 - **Core:** Guard against malformed `image_url` entries in `parse_vision_messages` to prevent crashes ([#5631](https://github.com/mem0ai/mem0/pull/5631))
@@ -964,7 +994,7 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 **New Features:**
 - **OpenMemory:** Added OpenMemory support
 - **Neo4j:** Added weights to Neo4j model
-- **AWS:** Added support for Opsearch Serverless
+- **AWS:** Added support for OpenSearch Serverless
 - **Examples:** Added ElizaOS Example
 
 **Improvements:**
@@ -1226,6 +1256,31 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-09-25" description="v3.3.1">
+
+**Bug Fixes:**
+- **Config (OSS):** `ConfigManager` no longer injects OpenAI's default `baseURL` and `model` into non-OpenAI LLM providers. The defaults now apply only to `openai` and `openai_structured`, so a DeepSeek, xAI, or other provider config without an explicit `baseURL` or `model` falls back to that provider's own defaults and env vars (`DEEPSEEK_API_BASE`, `XAI_API_BASE`, ...) instead of pointing at OpenAI with an OpenAI model name ([#7350](https://github.com/mem0ai/mem0/pull/7350))
+- **Vector Stores:** Turbopuffer filters now apply every operator (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`). Only the range operators were read before, so `eq`, `ne`, `in`, and `nin` were silently dropped. A `"*"` value now matches anything instead of nothing, an array value is treated as `in`, and an unsupported operator throws ([#6578](https://github.com/mem0ai/mem0/pull/6578))
+- **Vector Stores:** Turbopuffer `search()` with `euclidean_squared` now maps the unbounded squared distance to `1 / (1 + distance)` instead of `1 - distance`, which went negative and inverted ranking for any distance above 1 ([#6580](https://github.com/mem0ai/mem0/pull/6580))
+- **Packaging:** `pg`, `@types/pg`, and `natural` are now optional peer dependencies, and `pg` / `@types/pg` accept caret ranges instead of the exact `8.11.3` / `8.11.0` pins, so installing `mem0ai` no longer pulls in `pg` or conflicts with an app's own `pg` version. The PGVector store now imports `pg` only when it is used, so install it alongside `mem0ai` (`npm install pg`) if you use that store. `@types/jest` moved from peer dependencies to dev dependencies ([#7450](https://github.com/mem0ai/mem0/pull/7450))
+
+</Update>
+
+<Update label="2026-09-23" description="v3.3.0">
+
+**New Features:**
+- **Client:** Add User Profiles to `MemoryClient`: `getProfile()`, `generateProfile()`, `getProfileSettings()`, `updateProfileSettings()`, `sampleProfiles()`, and `getProfileJob()`. A profile is a structured, always-current JSON summary of one user, shaped by a JSON Schema you configure per project and filled by an LLM from that user's memories. Generation is asynchronous. Every job POST carries an `Idempotency-Key`; to retry a lost request without starting a second job, pass the same `idempotencyKey` on each attempt ([#7340](https://github.com/mem0ai/mem0/pull/7340))
+
+</Update>
+
+<Update label="2026-09-18" description="v3.2.0">
+
+**Improvements:**
+- **Client:** Requests now carry `X-Mem0-Source`, `X-Application` and `X-Mem0-Client`, matching the Python SDK. The first two are set-once so an outer wrapper keeps its identity; the third is append-only and reports the whole layer chain. Read from `MEM0_SOURCE`, `MEM0_APPLICATION` and `MEM0_CLIENT_STACK` when set ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+- **Client:** The SDK version in `X-Mem0-Client` is injected at build time rather than hardcoded, so it cannot go stale at the next release ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
 
 <Update label="2026-09-02" description="v3.1.8">
 
@@ -1864,6 +1919,13 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="CLI">
 
+<Update label="2026-09-18" description="Python v0.2.13 / Node v0.2.14">
+
+**Improvements:**
+- **Client:** Requests now carry the three surface-identity headers (`X-Mem0-Source`, `X-Application`, `X-Mem0-Client`) introduced in the Python and TypeScript SDKs, so the platform can attribute calls made through the CLI to the correct surface and version ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
+
 <Update label="2026-08-24" description="Python v0.2.12 / Node v0.2.13">
 
 **New Features:**
@@ -2076,7 +2138,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 - New Git repository writes use a hash of the remote identity in `agent_id`. Search and explicit shared-memory deletion include both current and legacy repository IDs within the repository's `app_id`. Existing memories are not rewritten. Legacy IDs retain their original ambiguity for matching owner/repository names on different Git hosts.
 
 **Packaging:**
-- Claude Code, Cursor, Codex, Kimi, Antigravity, and the portable Python bundle are versioned at `0.3.1`. OpenCode, Pi Agent, and DeepSeek Harness are `0.3.0`; OpenClaw is `1.1.0`. Each host's changes and upgrade considerations are listed in its tab.
+- Claude Code, Cursor, Codex, Kimi, Antigravity, and the portable Python bundle are versioned at `0.3.1`. OpenCode and DeepSeek Harness are `0.3.0`; Pi Agent is `0.3.0`; OpenClaw is `1.1.0`. Each host's changes and upgrade considerations are listed in its tab.
 - Python and TypeScript CI run their respective runtime suites. Package checks build the installable artifacts, check generated-file consistency, and reject TypeScript output that still imports monorepo source.
 
 [#7203](https://github.com/mem0ai/mem0/pull/7203)
@@ -2371,9 +2433,25 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Claude Code">
 
-<Update label="Unreleased" description="Sidekick availability">
+<Update label="2026-09-23" description="Claude Code plugin v0.3.3">
 
-Sidekick is now available only in Claude Code, with Sonnet, worktree isolation, and parent memories.
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer tells the agent to call it before answering anything that could depend on prior context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, which reduces unnecessary searches ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Sidekick:** Sidekick searches memories when earlier sessions could help, instead of before every answer ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Extraction:** Repository memory instructions are shorter. They no longer ask for a dedicated memory for each command that failed and was then fixed, and no longer carry separate rules against saving personal preferences or memories that only name the repository, branch, or directory ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Search skill:** `/search` no longer describes categories as best-effort labels or asks for a retry without the category ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.3`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with these prompts ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
+<Update label="2026-09-18" description="Claude Code plugin v0.3.2">
+
+**Improvements:**
+- **Telemetry:** `PLUGIN_VERSION` bumped to `0.3.2`. The `mem0-plugin/<version>` wire header and `plugin_version` telemetry field now reflect the fixes from #7322 through #7358 ([#7373](https://github.com/mem0ai/mem0/pull/7373))
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+**Changes:**
+- **Sidekick:** Sidekick is now available only in Claude Code, with Sonnet, worktree isolation, and parent memories.
 
 </Update>
 
@@ -2396,9 +2474,24 @@ Sidekick is now available only in Claude Code, with Sonnet, worktree isolation, 
 
 <Tab title="Cursor">
 
-<Update label="Unreleased" description="Sidekick availability">
+<Update label="2026-09-23" description="Cursor plugin v0.3.3">
 
-Removes Sidekick and its start/stop hooks. Memory capture, search, and six skills remain available.
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer tells the agent to call it before answering anything that could depend on prior context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, which reduces unnecessary searches ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Extraction:** Repository memory instructions are shorter. They no longer ask for a dedicated memory for each command that failed and was then fixed, and no longer carry separate rules against saving personal preferences or memories that only name the repository, branch, or directory ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Search skill:** `/search` no longer describes categories as best-effort labels or asks for a retry without the category ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.3`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with these prompts ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
+<Update label="2026-09-18" description="Cursor plugin v0.3.2">
+
+**Improvements:**
+- **Telemetry:** `PLUGIN_VERSION` bumped to `0.3.2`. The `mem0-plugin/<version>` wire header and `plugin_version` telemetry field now reflect the fixes from #7322 through #7358 ([#7373](https://github.com/mem0ai/mem0/pull/7373))
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+**Changes:**
+- **Sidekick:** Removes Sidekick and its start/stop hooks. Memory capture, search, and six skills remain available.
 
 </Update>
 
@@ -2421,9 +2514,24 @@ Removes Sidekick and its start/stop hooks. Memory capture, search, and six skill
 
 <Tab title="Codex">
 
-<Update label="Unreleased" description="Sidekick availability">
+<Update label="2026-09-23" description="Codex plugin v0.3.3">
 
-Renames shared tracking to use subagent terminology. Native subagent memory support remains available.
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer tells the agent to call it before answering anything that could depend on prior context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, which reduces unnecessary searches ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Extraction:** Repository memory instructions are shorter. They no longer ask for a dedicated memory for each command that failed and was then fixed, and no longer carry separate rules against saving personal preferences or memories that only name the repository, branch, or directory ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Search skill:** `/search` no longer describes categories as best-effort labels or asks for a retry without the category ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.3`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with these prompts ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
+<Update label="2026-09-18" description="Codex plugin v0.3.2">
+
+**Improvements:**
+- **Telemetry:** `PLUGIN_VERSION` bumped to `0.3.2`. The `mem0-plugin/<version>` wire header and `plugin_version` telemetry field now reflect the fixes from #7322 through #7358 ([#7373](https://github.com/mem0ai/mem0/pull/7373))
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+**Changes:**
+- **Sidekick:** Renames shared tracking to use subagent terminology. Native subagent memory support remains available.
 
 </Update>
 
@@ -2443,31 +2551,24 @@ Renames shared tracking to use subagent terminology. Native subagent memory supp
 
 </Tab>
 
-<Tab title="Agent Plugins v1">
-
-<Update label="Unreleased" description="Sidekick availability">
-
-Sidekick is available only in Claude Code, not in the portable package.
-
-</Update>
-
-<Update label="2026-09-08" description="Portable Mem0 plugin v0.3.1">
-
-**Added:**
-- One portable package at `integrations/mem0-agent-plugin/`, using the Agent Plugins 1.0.0 root `plugin.json`, `mcp.json`, and fixed `skills/` locations.
-- Ships a local, read-only `search_memories` server and the six shared memory skills. Uses `PLUGIN_ROOT` for bundled files and `PLUGIN_DATA` for persistent plugin state; all package files remain inside the installable directory.
-
-**Packaging:**
-- Generated from the shared Python runtime and skill templates. Builds validate the manifest, MCP configuration, skills, and generated-file consistency.
-- Host lifecycle hooks and native Sidekick declarations remain in the native plugin packages; the portable package does not provide automatic lifecycle capture or host-specific subagent isolation. Its bundled remember skill cannot persist a new memory on its own because the portable package has no capture hooks or write tool.
-
-[#7203](https://github.com/mem0ai/mem0/pull/7203)
-
-</Update>
-
-</Tab>
-
 <Tab title="OpenCode">
+
+<Update label="2026-09-23" description="OpenCode plugin v0.4.1">
+
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer asks the agent to search proactively or to run several searches for multi-part questions. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, the same wording as the other coding-agent plugins ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Session context:** Removed two system-context lines that told the agent to run 2 parallel searches before responding and 2-4 parallel searches for non-trivial tasks ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Skills:** `/mem0-search` and `/mem0-context-loader` make one `search_memories` call instead of 2 and 2-4 parallel calls. `/mem0-context-loader` now uses the search skill description from the other coding-agent plugins instead of asking to load at every new task or context switch ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
+<Update label="2026-09-18" description="OpenCode plugin v0.4.0">
+
+**Changes:**
+- **Telemetry:** The PostHog `source` tag changed from the literal `"plugin"` to `OPENCODE_PLUGIN`, and `project_hash` is now salted. Saved PostHog insights filtering on `source = "plugin"` will stop matching new events; historical data is unaffected ([#7322](https://github.com/mem0ai/mem0/pull/7322))
+- **Config:** A new `keyFingerprint` key appears in the install-count deduplication logic; installs are now counted once per key rather than on every activation ([#7325](https://github.com/mem0ai/mem0/pull/7325))
+
+</Update>
 
 <Update label="2026-09-08" description="OpenCode plugin v0.3.0">
 
@@ -2567,9 +2668,24 @@ Sidekick is available only in Claude Code, not in the portable package.
 
 <Tab title="Antigravity">
 
-<Update label="Unreleased" description="Sidekick availability">
+<Update label="2026-09-23" description="Antigravity plugin v0.3.3">
 
-Removes Sidekick. Memory capture, search, and six skills remain available.
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer tells the agent to call it before answering anything that could depend on prior context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, which reduces unnecessary searches ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Extraction:** Repository memory instructions are shorter. They no longer ask for a dedicated memory for each command that failed and was then fixed, and no longer carry separate rules against saving personal preferences or memories that only name the repository, branch, or directory ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Search skill:** `/search` no longer describes categories as best-effort labels or asks for a retry without the category ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.3`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with these prompts ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
+<Update label="2026-09-18" description="Antigravity plugin v0.3.2">
+
+**Improvements:**
+- **Telemetry:** `PLUGIN_VERSION` bumped to `0.3.2`. The `mem0-plugin/<version>` wire header and `plugin_version` telemetry field now reflect the fixes from #7322 through #7358 ([#7373](https://github.com/mem0ai/mem0/pull/7373))
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+**Changes:**
+- **Sidekick:** Removes Sidekick. Memory capture, search, and six skills remain available.
 
 </Update>
 
@@ -2665,9 +2781,24 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Kimi">
 
-<Update label="Unreleased" description="Sidekick availability">
+<Update label="2026-09-23" description="Kimi Code plugin v0.3.3">
 
-Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skills remain available.
+**Improvements:**
+- **Search:** The `search_memories` tool description no longer tells the agent to call it before answering anything that could depend on prior context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help, which reduces unnecessary searches ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Extraction:** Repository memory instructions are shorter. They no longer ask for a dedicated memory for each command that failed and was then fixed, and no longer carry separate rules against saving personal preferences or memories that only name the repository, branch, or directory ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Search skill:** `/search` no longer describes categories as best-effort labels or asks for a retry without the category ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Packaging:** `PLUGIN_VERSION` bumped to `0.3.3`, so the `mem0-plugin/<version>` wire header and `plugin_version` telemetry field identify builds with these prompts ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
+<Update label="2026-09-18" description="Kimi Code plugin v0.3.2">
+
+**Improvements:**
+- **Telemetry:** `PLUGIN_VERSION` bumped to `0.3.2`. The `mem0-plugin/<version>` wire header and `plugin_version` telemetry field now reflect the fixes from #7322 through #7358 ([#7373](https://github.com/mem0ai/mem0/pull/7373))
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+**Changes:**
+- **Sidekick:** Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skills remain available.
 
 </Update>
 
@@ -2704,6 +2835,21 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 </Tab>
 
 <Tab title="OpenClaw">
+
+<Update label="2026-09-23" description="openclaw-mem0 v1.2.1">
+
+**Improvements:**
+- **Search:** The `memory_search` tool description no longer asks the agent to search proactively or to run several searches for multi-part questions. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help. Recall strategies (`smart`, `always`, `manual`) are unchanged ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
+<Update label="2026-09-18" description="openclaw-mem0 v1.2.0">
+
+**Changes:**
+- **Config:** Added `keyFingerprint` to the config schema for install-count deduplication; installs are now counted once per key rather than on every activation ([#7325](https://github.com/mem0ai/mem0/pull/7325))
+- **Telemetry:** Events are no longer delivered twice, and the `plugin_version` field now reflects the plugin that produced the event ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+</Update>
 
 <Update label="2026-09-08" description="openclaw-mem0 v1.1.0">
 
@@ -2993,6 +3139,22 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 
 <Tab title="Pi Agent">
 
+<Update label="2026-09-23" description="Pi Agent plugin v0.3.2">
+
+**Improvements:**
+- **Search:** The memory policy, `mem0_memory` tool description, and prompt guidelines no longer ask the agent to search before answering anything that may depend on earlier context or to run several searches per question. They now ask for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Skills:** `context-loader` makes one search instead of 2-4 parallel searches, and uses the search skill description from the other coding-agent plugins ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Automatic recall:** Injected memories are introduced as "Mem0 found these relevant memories from earlier work in this repository:", the same heading as the Python plugins. The old heading called them a shallow first pass and told the agent to search again ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
+<Update label="2026-09-18" description="Pi Agent plugin v0.3.1">
+
+**Improvements:**
+- **Telemetry:** Events are no longer delivered twice, no longer lose parked events, and now attribute each event to the plugin that produced it. The `plugin_version` wire field reflects the fixed release ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+</Update>
+
 <Update label="2026-09-08" description="Pi Agent plugin v0.3.0">
 
 **Changed:**
@@ -3106,6 +3268,21 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 
 <Tab title="DeepSeek Harness">
 
+<Update label="2026-09-23" description="deepseek-plugin v0.3.2">
+
+**Improvements:**
+- **Search:** The `search_memory` tool description no longer asks the agent to search proactively before answering anything that may depend on earlier context. It now asks for a search before repeating investigation or when earlier decisions, fixes, commands, or results may help ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+- **Automatic recall:** Injected memories are introduced as "Mem0 found these relevant memories from earlier work:". The old heading called them a shallow first pass and told the agent to search again with `mem0_memory`, a tool DeepSeek does not have ([#7420](https://github.com/mem0ai/mem0/pull/7420))
+
+</Update>
+
+<Update label="2026-09-18" description="deepseek-plugin v0.3.1">
+
+**Improvements:**
+- **Telemetry:** Rebuild with the fixed shared telemetry core from `agent-plugin-core`. Events are no longer delivered twice, no longer lose parked events on flush, and now attribute each event to the plugin that produced it ([#7323](https://github.com/mem0ai/mem0/pull/7323), [#7324](https://github.com/mem0ai/mem0/pull/7324), [#7358](https://github.com/mem0ai/mem0/pull/7358))
+
+</Update>
+
 <Update label="2026-09-08" description="deepseek-plugin v0.3.0">
 
 **Added:**
@@ -3149,6 +3326,13 @@ Removes Sidekick and its start/stop hooks. Memory capture, recall, and six skill
 </Tab>
 
 <Tab title="Vercel AI SDK">
+
+<Update label="2026-09-18" description="Vercel AI SDK v3.0.3">
+
+**Improvements:**
+- **Client:** Inherits the three surface-identity headers (`X-Mem0-Source`, `X-Application`, `X-Mem0-Client`) from the TypeScript SDK bump, so platform calls made through the Vercel AI SDK provider are now correctly attributed ([#7326](https://github.com/mem0ai/mem0/pull/7326))
+
+</Update>
 
 <Update label="2026-08-24" description="Vercel AI SDK v3.0.2">
 

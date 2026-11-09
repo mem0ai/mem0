@@ -290,6 +290,11 @@ def run(
     if args.plugin_data_dir:
         os.environ[data_dir_env] = args.plugin_data_dir
 
+    # Snapshot BEFORE anything writes to the data dir: cache_plugin_api_key
+    # writes `api-key` and EvidenceStore creates `evidence.sqlite3`, so asking
+    # after them always saw content and every fresh install reported an upgrade.
+    data_dir_was_empty = telemetry.data_dir_was_empty()
+
     cache_plugin_api_key()
     if args.action == "session-start":
         clear_stale_api_key_cache()
@@ -305,8 +310,19 @@ def run(
             return 0
 
         if args.action == "session-start":
-            if telemetry.is_first_run():
+            # Claims the marker atomically and says which event to record, so a
+            # second session starting alongside this one cannot record it too.
+            first_event = telemetry.claim_install(was_empty=data_dir_was_empty)
+            if first_event == "install":
                 telemetry.record("install")
+            elif first_event == "upgrade":
+                # First run after a build that never wrote the marker; the
+                # predecessor version was never recorded anywhere.
+                telemetry.record("upgrade", from_version="pre-0.3")
+            else:
+                previous = telemetry.claim_version_change()
+                if previous:
+                    telemetry.record("upgrade", from_version=previous)
             recovered = recover_pending_handoffs()
             record_session_start(store, hook_input)
             if recovered:

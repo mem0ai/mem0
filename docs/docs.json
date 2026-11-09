@@ -41,6 +41,7 @@
                     "pages": [
                       "platform/quickstart",
                       "platform/overview",
+                      "platform/copilot",
                       "platform/agent-signup",
                       "vibecoding",
                       "platform/cli",
@@ -53,7 +54,6 @@
                     "icon": "brain",
                     "pages": [
                       "core-concepts/how-it-works",
-                      "core-concepts/memory-types",
                       "core-concepts/memory-operations/add",
                       "core-concepts/memory-operations/search",
                       "core-concepts/memory-operations/update",
@@ -71,6 +71,7 @@
                         "pages": [
                           "platform/features/v2-memory-filters",
                           "platform/features/entity-scoped-memory",
+                          "platform/features/user-profiles",
                           "platform/features/graph-memory",
                           "platform/features/async-client",
                           "platform/features/multimodal-support",
@@ -86,7 +87,8 @@
                           "platform/advanced-memory-operations",
                           "platform/features/custom-instructions",
                           "platform/features/memory-decay",
-                          "platform/features/dream"
+                          "platform/features/dream",
+                          "platform/features/byok"
                         ]
                       },
                       {
@@ -114,7 +116,8 @@
                     "group": "Support",
                     "icon": "life-buoy",
                     "pages": [
-                      "platform/faqs"
+                      "platform/faqs",
+                      "platform/pricing"
                     ]
                   },
                   {
@@ -443,7 +446,8 @@
                       "cookbooks/integrations/mastra-agent",
                       "cookbooks/integrations/healthcare-google-adk",
                       "cookbooks/integrations/aws-bedrock",
-                      "cookbooks/integrations/tavily-search"
+                      "cookbooks/integrations/tavily-search",
+                      "cookbooks/integrations/supabase"
                     ]
                   },
                   {
@@ -509,6 +513,17 @@
                     "pages": [
                       "api-reference/entities/get-users",
                       "api-reference/entities/delete-user"
+                    ]
+                  },
+                  {
+                    "group": "Profiles",
+                    "icon": "id-card",
+                    "pages": [
+                      "api-reference/profiles/get-profile",
+                      "api-reference/profiles/get-profile-settings",
+                      "api-reference/profiles/update-profile-settings",
+                      "api-reference/profiles/generate-profiles",
+                      "api-reference/profiles/get-profile-job"
                     ]
                   },
                   {
@@ -1019,7 +1034,11 @@
     },
     {
       "source": "/concepts/memory-scoring",
-      "destination": "/core-concepts/memory-types"
+      "destination": "/core-concepts/how-it-works"
+    },
+    {
+      "source": "/core-concepts/memory-types",
+      "destination": "/core-concepts/how-it-works"
     },
     {
       "source": "/cookbooks/research-copilot",

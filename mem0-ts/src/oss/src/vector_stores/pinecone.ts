@@ -305,8 +305,11 @@ export class PineconeDB implements VectorStore {
     payload: Record<string, any>,
   ): Promise<void> {
     await this.initialize();
-    await this.namespacedIndex().upsert({
-      records: [{ id: vectorId, values: vector, metadata: payload }],
+    // update() never creates a missing id but does not report whether it existed.
+    await this.namespacedIndex().update({
+      id: vectorId,
+      ...(vector ? { values: vector } : {}),
+      metadata: payload,
     });
   }
 

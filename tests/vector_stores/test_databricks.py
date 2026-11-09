@@ -5,6 +5,7 @@ import pytest
 
 pytest.importorskip("databricks", reason="databricks-sdk package not installed")
 
+from databricks.sdk.service import sql as dbsql
 from databricks.sdk.service.vectorsearch import (
     ColumnInfo,
     QueryVectorIndexResponse,
@@ -23,7 +24,7 @@ def _make_status(state="SUCCEEDED", error=None):
 
 
 def _make_exec_response(state="SUCCEEDED", error=None):
-    return SimpleNamespace(status=_make_status(state, error))
+    return SimpleNamespace(status=_make_status(state, error), manifest=None, result=None)
 
 
 @pytest.fixture
@@ -1040,6 +1041,43 @@ def test_update_vector_only(db_instance_direct, mock_workspace_client):
     param_map = {p.name: p.value for p in kwargs["parameters"]}
     assert param_map["vector_id"] == "id-1"
     assert len(kwargs["parameters"]) == 1  # only vector_id param
+
+
+def _update_response(affected_rows, column="num_affected_rows"):
+    return dbsql.StatementResponse(
+        status=dbsql.StatementStatus(state=dbsql.StatementState.SUCCEEDED),
+        manifest=dbsql.ResultManifest(schema=dbsql.ResultSchema(columns=[dbsql.ColumnInfo(name=column)])),
+        result=dbsql.ResultData(data_array=[[affected_rows]]),
+    )
+
+
+def test_update_reports_whether_the_record_exists(db_instance_delta, mock_workspace_client):
+    execute = mock_workspace_client.statement_execution.execute_statement
+    execute.reset_mock()
+    execute.return_value = _update_response("0")
+    assert db_instance_delta.update(vector_id="missing", payload={"memory": "x"}) is False
+    statements = [c.kwargs["statement"] for c in execute.call_args_list]
+    assert len(statements) == 1 and statements[0].startswith("UPDATE ")
+    mock_workspace_client.vector_search_indexes.upsert_data_vector_index.assert_not_called()
+
+    execute.return_value = _update_response("1")
+    assert db_instance_delta.update(vector_id="id-1", payload={"memory": "new text"}) is True
+    params = {p.name: p.value for p in execute.call_args.kwargs["parameters"]}
+    assert params == {"payload_memory": "new text", "vector_id": "id-1"}
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        dbsql.StatementResponse(status=dbsql.StatementStatus(state=dbsql.StatementState.SUCCEEDED)),
+        _update_response(None),
+        _update_response("n/a"),
+        _update_response("0", column="other_column"),
+    ],
+)
+def test_update_returns_none_when_affected_rows_is_unknown(db_instance_delta, mock_workspace_client, response):
+    mock_workspace_client.statement_execution.execute_statement.return_value = response
+    assert db_instance_delta.update(vector_id="id-1", payload={"memory": "new text"}) is None
 
 
 def test_insert_timestamp_params_have_explicit_type(db_instance_delta, mock_workspace_client):

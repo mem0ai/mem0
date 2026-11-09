@@ -39,7 +39,7 @@ The core memory loop is identical on both: `add`, `search`, `get`, `get_all`, `u
 - **Entity scoping** by `user_id`, `agent_id`, and `run_id`
 - **Filter grouping**: both accept `AND`/`OR`/`NOT` wrappers, both implicitly AND a flat multi-key filter like `{"user_id": "alice", "agent_id": "a1"}`, and both accept `*` as a wildcard value. Which fields you may filter on, and which operators each field accepts, differ (see below)
 - **Entity-aware ranking**: both extract entities from memory text and use shared entities to boost related results at search time
-- **Multimodal input**, **memory expiration** (`expiration_date`), **reranking**, **procedural memory** (Python), and **custom extraction instructions** (`custom_instructions`)
+- **Multimodal input**, **memory expiration** (`expiration_date`), **reranking**, and **custom extraction instructions** (`custom_instructions`)
 - Python and JavaScript SDKs, plus a REST API (self-hosted via `server/`, or hosted)
 
 ## What's actually different

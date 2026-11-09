@@ -27,7 +27,8 @@ class PlatformBackend(Backend):
             headers={
                 "Authorization": f"Token {config.api_key}",
                 "Content-Type": "application/json",
-                "X-Mem0-Source": "cli",
+                "X-Mem0-Source": "CLI",
+                "X-Mem0-Client": f"mem0-cli-python/{__version__}",
                 "X-Mem0-Client-Language": "python",
                 "X-Mem0-Client-Version": __version__,
             },

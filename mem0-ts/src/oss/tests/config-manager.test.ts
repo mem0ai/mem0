@@ -1,5 +1,6 @@
 /// <reference types="jest" />
 import { ConfigManager } from "../src/config/manager";
+import { LLMFactory } from "../src/utils/factory";
 
 describe("ConfigManager", () => {
   describe("mergeConfig - dimension handling", () => {
@@ -141,7 +142,7 @@ describe("ConfigManager", () => {
       expect(config.llm.config.url).toBe("http://my-ollama-host:11434");
     });
 
-    it("should use default baseURL when no url or baseURL provided", () => {
+    it("should not fall back to the OpenAI default baseURL for a non-OpenAI provider", () => {
       const config = ConfigManager.mergeConfig({
         embedder: baseEmbedder,
         vectorStore: baseVectorStore,
@@ -152,7 +153,9 @@ describe("ConfigManager", () => {
       });
 
       expect(config.llm.config.url).toBeUndefined();
-      expect(config.llm.config.baseURL).toBe("https://api.openai.com/v1");
+      // OllamaLLM defaults to http://localhost:11434. The OpenAI default used to be
+      // injected here, which pointed OllamaLLM at OpenAI instead.
+      expect(config.llm.config.baseURL).toBeUndefined();
     });
 
     it("normalizes vllm_base_url to baseURL for vLLM", () => {
@@ -367,14 +370,63 @@ describe("ConfigManager", () => {
       expect(cfg.llm.config.baseURL).toBe("http://camel:1234/v1");
     });
 
-    it("falls back to default baseURL when neither is provided for LLM", () => {
+    it("does not inject the OpenAI baseURL default for a non-OpenAI provider", () => {
       const cfg = ConfigManager.mergeConfig({
         embedder: baseEmbedder,
         vectorStore: { provider: "memory", config: {} },
         llm: { provider: "lmstudio", config: { model: "test-model" } },
       });
 
-      expect(cfg.llm.config.baseURL).toBe("https://api.openai.com/v1");
+      // The provider supplies its own baseURL (http://localhost:1234/v1) when none is
+      // given. Injecting OpenAI's here shadowed it and sent lmstudio traffic to OpenAI.
+      expect(cfg.llm.config.baseURL).toBeUndefined();
+    });
+
+    it("does not inject the OpenAI model default for a non-OpenAI provider", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: { provider: "memory", config: {} },
+        llm: { provider: "deepseek", config: { apiKey: "k" } },
+      });
+
+      // DeepSeekLLM falls back to "deepseek-chat" when model is unset. Injecting
+      // "gpt-5-mini" here made that fallback unreachable.
+      expect(cfg.llm.config.model).toBeUndefined();
+    });
+
+    it("still applies the OpenAI defaults for the OpenAI providers", () => {
+      for (const provider of ["openai", "openai_structured"]) {
+        const cfg = ConfigManager.mergeConfig({
+          embedder: baseEmbedder,
+          vectorStore: { provider: "memory", config: {} },
+          llm: { provider, config: { apiKey: "k" } },
+        });
+
+        expect(cfg.llm.config.baseURL).toBe("https://api.openai.com/v1");
+        expect(cfg.llm.config.model).toBe("gpt-5-mini");
+      }
+    });
+
+    it("lets each non-OpenAI provider resolve its own endpoint", () => {
+      const cases: Array<[string, string]> = [
+        ["deepseek", "https://api.deepseek.com"],
+        ["xai", "https://api.x.ai/v1"],
+        ["lmstudio", "http://localhost:1234/v1"],
+      ];
+
+      for (const [provider, expected] of cases) {
+        const cfg = ConfigManager.mergeConfig({
+          embedder: baseEmbedder,
+          vectorStore: { provider: "memory", config: {} },
+          llm: { provider, config: { apiKey: "k" } },
+        });
+
+        const built = LLMFactory.create(provider, cfg.llm.config);
+        // The client the provider actually built must not point at OpenAI.
+        const baseURL =
+          (built as any).openai?.baseURL ?? (built as any).baseURL;
+        expect(String(baseURL)).toBe(expected);
+      }
     });
   });
 

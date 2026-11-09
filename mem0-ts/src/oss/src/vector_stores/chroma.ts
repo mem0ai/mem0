@@ -186,13 +186,24 @@ export class ChromaDB implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean | void> {
     const collection = await this.getCollection();
     await collection.update({
       ids: [vectorId],
       embeddings: vector ? [vector] : undefined,
       metadatas: payload ? [payload] : undefined,
     } as any);
+    // Chroma skips unknown ids on update without an error, so check existence after the write.
+    try {
+      const existing = await collection.get({ ids: [vectorId], include: [] });
+      return existing.ids.length > 0;
+    } catch (error) {
+      // The write already ran; failing here would surface an error for a landed update.
+      console.warn(
+        `Chroma update of '${vectorId}' could not be confirmed:`,
+        error,
+      );
+    }
   }
 
   async delete(vectorId: string): Promise<void> {

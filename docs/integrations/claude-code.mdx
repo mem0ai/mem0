@@ -172,6 +172,36 @@ claude plugin update mem0@mem0-plugins --scope user
 | Sidekick won't start | Must be in a Git repo. Check that your Claude Code version supports plugin agents and worktrees. |
 | Remove the plugin | `claude plugin uninstall mem0@mem0-plugins` |
 
+## Telemetry
+
+The plugin sends usage events (which hook ran, timing, result counts, failure
+types) so Mem0 can see what's used and what's breaking.
+
+These events are **not anonymous**. When an API key is configured, which
+installing the plugin requires, they are sent under your Mem0 account email,
+the same way the Python SDK and the CLI attribute theirs. Without a key they
+are sent under a random per-machine id.
+
+Each event carries the event name, the plugin version, the harness it ran in,
+your OS and Python version, and per-event properties describing what happened:
+timings, counts, coarse outcome and failure labels, and which model was
+configured. Repository and session identifiers are hashed with a random salt
+generated on your machine, so they cannot be linked back to a repository name
+or path.
+
+The exact set is enforced in code rather than by this list: every property is
+filtered through a denylist of sensitive keys and credential-shaped values are
+redacted before anything is sent.
+
+Prompts, memory text, queries, file paths, repository names, and API keys are
+never sent.
+
+Turn it off:
+
+```bash
+export MEM0_TELEMETRY=false
+```
+
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
     Detailed MCP configuration for all clients

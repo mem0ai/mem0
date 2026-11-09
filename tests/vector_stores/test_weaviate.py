@@ -4,7 +4,9 @@ import uuid
 from unittest.mock import MagicMock, patch
 
 import dotenv
+import httpx
 import weaviate
+from weaviate.exceptions import UnexpectedStatusCodeError
 
 from mem0.vector_stores.weaviate import Weaviate
 
@@ -241,7 +243,7 @@ class TestWeaviateDB(unittest.TestCase):
             "user_id": "user_123",
         }
 
-        self.weaviate_db.update(
+        result = self.weaviate_db.update(
             vector_id=valid_uuid,
             vector=[0.1] * 1536,
             payload=new_payload,
@@ -259,10 +261,25 @@ class TestWeaviateDB(unittest.TestCase):
             self.assertNotIn("score", props)
             self.assertNotIn("payload", props)
 
-        # The vector branch updates the vector without touching properties.
+        # Properties and vector go in one PATCH, so a concurrent delete cannot split them.
         vector_updates = [c for c in update_calls if "vector" in c.kwargs]
         self.assertEqual(len(vector_updates), 1)
-        self.assertNotIn("properties", vector_updates[0].kwargs)
+        self.assertEqual(vector_updates[0].kwargs["vector"], [0.1] * 1536)
+        self.assertIs(result, True)
+
+    def test_update_payload_only_returns_true(self):
+        valid_uuid = str(uuid.uuid4())
+        collection = self.client_mock.collections.get.return_value
+        self.assertIs(self.weaviate_db.update(vector_id=valid_uuid, payload={"data": "new"}), True)
+        collection.data.update.assert_called_once_with(uuid=valid_uuid, properties={"data": "new"}, vector=None)
+
+    def test_update_missing_id_returns_false_without_inserting(self):
+        collection = self.client_mock.collections.get.return_value
+        collection.data.update.side_effect = UnexpectedStatusCodeError("Object was not updated.", httpx.Response(404))
+        self.assertIs(self.weaviate_db.update(vector_id=str(uuid.uuid4()), vector=[0.1], payload={"data": "x"}), False)
+        collection.data.update.assert_called_once()
+        collection.data.insert.assert_not_called()
+        collection.data.replace.assert_not_called()
 
 
 if __name__ == "__main__":

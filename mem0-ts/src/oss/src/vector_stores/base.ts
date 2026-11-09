@@ -17,11 +17,12 @@ export interface VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null>;
   get(vectorId: string): Promise<VectorStoreResult | null>;
+  /** Must not create a record. true: record changed; false: id does not exist; void: the store cannot tell. */
   update(
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void>;
+  ): Promise<boolean | void>;
   delete(vectorId: string): Promise<void>;
   deleteCol(): Promise<void>;
   list(

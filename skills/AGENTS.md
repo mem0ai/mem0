@@ -50,16 +50,20 @@ Everything else, meaning full step mechanics, document templates, and verbatim s
 Current sizes, longest first:
 
 ```
-mem0/references/use-cases.md              720   reference, on demand
-mem0-cli/references/command-reference.md  694   reference, on demand
-mem0/client/python.md                     487   reference, on demand
-mem0-integrate/references/pipeline.md     375   reference, on demand
-mem0-test-integration/SKILL.md            368   entry point, under budget
+mem0-cli/references/command-reference.md  757   reference, on demand
+mem0/references/use-cases.md              721   reference, on demand
+mem0/client/python.md                     522   reference, on demand
+mem0/client/node.md                       507   reference, on demand
+mem0-cli/references/workflows.md          446   reference, on demand
+mem0/references/features.md               406   reference, on demand
+mem0/references/integration-patterns.md   403   reference, on demand
+mem0-test-integration/SKILL.md            386   entry point, under budget
+mem0-integrate/references/pipeline.md     380   reference, on demand
 mem0-integrate/SKILL.md                   220   entry point
-mem0/SKILL.md                             193   entry point
-mem0-vercel-ai-sdk/SKILL.md               192   entry point
-mem0-cli/SKILL.md                         169   entry point
-mem0-oss-to-platform/SKILL.md             120   entry point
+mem0-vercel-ai-sdk/SKILL.md               210   entry point
+mem0/SKILL.md                             194   entry point
+mem0-cli/SKILL.md                         170   entry point
+mem0-oss-to-platform/SKILL.md             132   entry point
 ```
 
 `mem0-integrate` is the one skill that needed splitting: it was 620 lines, now

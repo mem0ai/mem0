@@ -115,9 +115,18 @@ describe("MemoryVectorStore - update", () => {
   });
 
   test("updates payload and vector", async () => {
-    await store.update("upd1", vec([0, 1, 0, 0]), { data: "updated" });
+    await expect(
+      store.update("upd1", vec([0, 1, 0, 0]), { data: "updated" }),
+    ).resolves.toBe(true);
     const result = await store.get("upd1");
     expect(result!.payload.data).toBe("updated");
+  });
+
+  test("returns false for a missing ID and does not create it", async () => {
+    await expect(
+      store.update("missing", vec([0, 1, 0, 0]), { data: "ghost" }),
+    ).resolves.toBe(false);
+    expect(await store.get("missing")).toBeNull();
   });
 
   test("throws on dimension mismatch during update", async () => {

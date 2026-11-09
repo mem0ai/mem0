@@ -71,7 +71,7 @@ The plugin includes 6 skills that guide the agent on how to use each capability:
 
 | Skill | Purpose |
 |-------|---------|
-| `context-loader` | Pre-fetch relevant memories at session start |
+| `context-loader` | Search memories when earlier work may already explain the task |
 | `remember` | Store facts with category classification |
 | `search` | Quick semantic search with compact results |
 | `forget` | Delete memories with confirmation |

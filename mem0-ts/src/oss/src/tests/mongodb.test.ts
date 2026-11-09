@@ -330,7 +330,9 @@ describe("MongoDB Vector Store", () => {
   it("should update document correctly", async () => {
     mockUpdateOne.mockResolvedValue({ matchedCount: 1 });
 
-    await store.update("id1", [0.1, 0.2, 0.3, 0.4], { name: "new-alice" });
+    expect(
+      await store.update("id1", [0.1, 0.2, 0.3, 0.4], { name: "new-alice" }),
+    ).toBe(true);
 
     expect(mockUpdateOne).toHaveBeenCalledWith(
       { _id: "id1" },
@@ -340,6 +342,32 @@ describe("MongoDB Vector Store", () => {
           "payload.name": "new-alice",
         },
       },
+    );
+  });
+
+  it("should return false and not insert when updating a missing id", async () => {
+    mockUpdateOne.mockResolvedValue({ matchedCount: 0, modifiedCount: 0 });
+    await store.initialize();
+    mockInsertOne.mockClear();
+
+    expect(await store.update("missing", [0.1, 0.2, 0.3, 0.4], {})).toBe(false);
+    expect(mockUpdateOne.mock.calls[0][2]?.upsert).toBeFalsy();
+    expect(mockInsertOne).not.toHaveBeenCalled();
+    expect(mockInsertMany).not.toHaveBeenCalled();
+  });
+
+  it("should return undefined when the write is unacknowledged", async () => {
+    mockUpdateOne.mockResolvedValue({ acknowledged: false, matchedCount: 0 });
+    expect(await store.update("id1", [0.1, 0.2, 0.3, 0.4], {})).toBeUndefined();
+  });
+
+  it("should merge a payload-only update without touching the embedding", async () => {
+    mockUpdateOne.mockResolvedValue({ matchedCount: 1 });
+
+    expect(await store.update("id1", null as any, { name: "bob" })).toBe(true);
+    expect(mockUpdateOne).toHaveBeenCalledWith(
+      { _id: "id1" },
+      { $set: { "payload.name": "bob" } },
     );
   });
 

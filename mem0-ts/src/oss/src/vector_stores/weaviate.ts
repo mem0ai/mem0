@@ -189,13 +189,20 @@ export class WeaviateDB implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.initialize();
-    await this._col.data.update({
+    const request = this._col.data.update({
       id: vectorId,
       properties: payload,
       vectors: vector,
     });
+    try {
+      await request;
+    } catch (error: any) {
+      if (error?.code === 404) return false;
+      throw error;
+    }
+    return true;
   }
 
   async delete(vectorId: string): Promise<void> {

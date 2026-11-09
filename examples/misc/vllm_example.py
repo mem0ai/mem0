@@ -107,16 +107,16 @@ def main():
 
     for query in search_queries:
         print(f"\nQuery: {query}")
-        memories = memory.search(query=query, user_id="user_123")
+        memories = memory.search(query=query, filters={"user_id": "user_123"})
 
-        for memory_item in memories:
+        for memory_item in memories["results"]:
             print(f"  - {memory_item['memory']}")
 
     print("\n--> Getting all memories for user...")
-    all_memories = memory.get_all(user_id="user_123")
-    print(f"Total memories stored: {len(all_memories)}")
+    all_memories = memory.get_all(filters={"user_id": "user_123"})
+    print(f"Total memories stored: {len(all_memories['results'])}")
 
-    for memory_item in all_memories:
+    for memory_item in all_memories["results"]:
         print(f"  - {memory_item['memory']}")
 
     print("\n--> vLLM integration demo completed successfully!")

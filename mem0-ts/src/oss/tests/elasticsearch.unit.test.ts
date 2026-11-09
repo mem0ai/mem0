@@ -365,12 +365,43 @@ describe("ElasticsearchDB", () => {
         host: "localhost",
       });
 
-      await store.update("id-1", [1, 2, 3, 4], { key: "val" });
+      expect(await store.update("id-1", [1, 2, 3, 4], { key: "val" })).toBe(
+        true,
+      );
 
       expect(mockUpdate).toHaveBeenCalledWith({
         index: "mem0",
         id: "id-1",
         doc: { vector: [1, 2, 3, 4], metadata: { key: "val" } },
+      });
+    });
+
+    it("returns false and inserts nothing when the document is missing", async () => {
+      mockUpdate.mockRejectedValue({ meta: { statusCode: 404 } });
+      const store = new ElasticsearchDB({
+        collectionName: "mem0",
+        embeddingModelDims: 4,
+        host: "localhost",
+      });
+
+      expect(await store.update("missing", [1, 2, 3, 4], { k: "v" })).toBe(
+        false,
+      );
+      expect(mockUpdate.mock.calls[0][0]).not.toHaveProperty("doc_as_upsert");
+      expect(mockUpdate.mock.calls[0][0]).not.toHaveProperty("upsert");
+      expect(mockIndex_).not.toHaveBeenCalled();
+    });
+
+    it("sends only metadata on a payload-only update", async () => {
+      const store = new ElasticsearchDB({
+        collectionName: "mem0",
+        embeddingModelDims: 4,
+        host: "localhost",
+      });
+
+      expect(await store.update("id-1", null, { key: "new" })).toBe(true);
+      expect(mockUpdate.mock.calls[0][0].doc).toEqual({
+        metadata: { key: "new" },
       });
     });
   });

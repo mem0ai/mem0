@@ -12,3 +12,4 @@ overrides:
   picomatch@<2.3.2: ^2.3.2
   "esbuild": ">=0.28.1"
   "postcss@<8.5.18": ">=8.5.18 <9.0.0"
+  "source-map-js@<1.2.2": ">=1.2.2 <2.0.0"

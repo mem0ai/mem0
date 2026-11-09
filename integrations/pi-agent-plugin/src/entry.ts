@@ -10,6 +10,7 @@ import { captureEvent } from "./telemetry.ts";
 import * as os from "node:os";
 import type { ScopeContext } from "./types.ts";
 import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
+import { applySurfaceHeaders } from "./attribution.ts";
 
 export { buildRecallContext } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
 
@@ -29,6 +30,11 @@ export default function mem0Extension(pi: ExtensionAPI): void {
   }
 
   const mem0 = new MemoryClient({ apiKey: config.apiKey });
+  // Every path below shares this client: automatic recall, capture, the memory
+  // tools and deletion as well as the slash commands. Attribution belongs here
+  // rather than on individual calls, or everything except the commands reports
+  // as generic SDK traffic.
+  applySurfaceHeaders(mem0);
 
   const scopeCtx: ScopeContext = {
     userId: resolveUserId(config.userId),
