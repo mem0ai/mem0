@@ -1,18 +1,33 @@
 name: Publish Python 🐍 distributions 📦 to PyPI and TestPyPI
 
+# Dispatched by release.yml (Release Router) when a release tagged v* is
+# published. Can also be dispatched manually to re-publish a tag.
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build and publish (e.g. v1.2.3)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Unused for PyPI (pre-releases are expressed in the version itself); accepted for router uniformity'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-n-publish:
     name: Build and publish Python 🐍 distributions 📦 to PyPI and TestPyPI
-    if: startsWith(github.event.release.tag_name, 'v')
+    # Pure SDK version tags only (v1.2.3) — excludes package-prefixed tags
+    # like vercel-ai-v* that also start with 'v'
+    if: startsWith(inputs.tag, 'v') && !contains(inputs.tag, '-v')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.tag }}
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -39,7 +54,6 @@ jobs:
       #     packages_dir: dist/
 
       - name: Publish distribution 📦 to PyPI
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages_dir: dist/

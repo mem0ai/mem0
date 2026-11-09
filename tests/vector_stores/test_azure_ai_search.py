@@ -511,6 +511,61 @@ def test_insert_with_http_error(azure_ai_search_instance):
     assert "Azure service error" in str(exc_info.value)
 
 
+def test_update_allows_empty_payload(azure_ai_search_instance):
+    """Test updating with an empty payload explicitly clears stored payload data."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+
+    mock_search_client.merge_documents.return_value = [Mock(succeeded=True, status_code=200)]
+
+    assert instance.update("doc1", payload={}) is True
+
+    mock_search_client.merge_documents.assert_called_once_with(
+        documents=[{"id": "doc1", "payload": "{}", "user_id": None, "run_id": None, "agent_id": None}]
+    )
+
+
+def test_update_allows_empty_vector(azure_ai_search_instance):
+    """Test updating with an empty vector still sends the vector field to Azure."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+
+    mock_search_client.merge_documents.return_value = [Mock(succeeded=True, status_code=200)]
+
+    assert instance.update("doc1", vector=[]) is True
+
+    mock_search_client.merge_documents.assert_called_once_with(documents=[{"id": "doc1", "vector": []}])
+
+
+def test_update_existing_document_merges_vector_and_payload(azure_ai_search_instance):
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_documents.return_value = [Mock(succeeded=True, status_code=200)]
+    payload = {"data": "new", "user_id": "u1"}
+
+    assert instance.update("doc1", vector=[0.1, 0.2, 0.3], payload=payload) is True
+
+    expected = {"id": "doc1", "vector": [0.1, 0.2, 0.3], "payload": json.dumps(payload)}
+    expected.update({"user_id": "u1", "run_id": None, "agent_id": None})
+    mock_search_client.merge_documents.assert_called_once_with(documents=[expected])
+    mock_search_client.merge_or_upload_documents.assert_not_called()
+
+
+def test_update_missing_document_returns_false_without_upload(azure_ai_search_instance):
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_documents.return_value = [Mock(succeeded=False, status_code=404)]
+    mock_search_client.merge_or_upload_documents.return_value = [Mock(succeeded=True, status_code=201)]
+
+    assert instance.update("gone", vector=[0.1, 0.2, 0.3], payload={"data": "new"}) is False
+    mock_search_client.merge_or_upload_documents.assert_not_called()
+    mock_search_client.upload_documents.assert_not_called()
+
+
+def test_update_other_failure_raises(azure_ai_search_instance):
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_documents.return_value = [Mock(succeeded=False, status_code=503)]
+
+    with pytest.raises(Exception, match="Update failed for document doc1"):
+        instance.update("doc1", payload={"data": "new"})
+
+
 # --- Tests for search method ---
 
 
@@ -663,3 +718,35 @@ def test_init_calls_create_col_if_collection_missing(mock_clients):
         embedding_model_dims=16,
     )
     mock_index_client.create_or_update_index.assert_called_once()
+
+
+def test_build_filter_rejects_dict_value(azure_ai_search_instance):
+    instance, _, _ = azure_ai_search_instance
+    with pytest.raises(ValueError):
+        instance._build_filter_expression({"user_id": {"$ne": ""}})
+
+
+def test_build_filter_rejects_list_value(azure_ai_search_instance):
+    instance, _, _ = azure_ai_search_instance
+    with pytest.raises(ValueError):
+        instance._build_filter_expression({"user_id": ["alice", "bob"]})
+
+
+def test_build_filter_accepts_scalars(azure_ai_search_instance):
+    instance, _, _ = azure_ai_search_instance
+    expr = instance._build_filter_expression({
+        "user_id": "alice",
+        "count": 42,
+        "score": 0.95,
+        "active": True,
+    })
+    assert "user_id eq 'alice'" in expr
+    assert "count eq 42" in expr
+    assert "score eq 0.95" in expr
+    assert "active eq true" in expr
+
+
+def test_build_filter_escapes_quotes(azure_ai_search_instance):
+    instance, _, _ = azure_ai_search_instance
+    expr = instance._build_filter_expression({"name": "O'Brien"})
+    assert "name eq 'O''Brien'" in expr

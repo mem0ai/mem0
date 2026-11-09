@@ -122,7 +122,14 @@ class TurbopufferDB(VectorStoreBase):
             dist = row_dict.pop("$dist", None)
             row_dict.pop("vector", None)
 
-            score = 1 - dist if dist is not None else None
+            if dist is None:
+                score = None
+            elif self.distance_metric == "euclidean_squared":
+                # $dist is unbounded squared-L2 (lower = closer); map to a bounded
+                # higher-is-better score, mirroring milvus/baidu. Cosine returns 1 - dist.
+                score = 1.0 / (1.0 + dist)
+            else:
+                score = 1 - dist
 
             results.append(OutputData(
                 id=row_id,
@@ -130,6 +137,18 @@ class TurbopufferDB(VectorStoreBase):
                 payload=row_dict,
             ))
         return results
+
+    # Maps mem0 filter operators to their Turbopuffer equivalents.
+    OPERATOR_MAP = {
+        "eq": "Eq",
+        "ne": "NotEq",
+        "gt": "Gt",
+        "gte": "Gte",
+        "lt": "Lt",
+        "lte": "Lte",
+        "in": "In",
+        "nin": "NotIn",
+    }
 
     def _convert_filters(self, filters: Optional[Dict]):
         """
@@ -143,10 +162,14 @@ class TurbopufferDB(VectorStoreBase):
         conditions = []
         for key, value in filters.items():
             if isinstance(value, dict):
-                if "gte" in value:
-                    conditions.append((key, "Gte", value["gte"]))
-                if "lte" in value:
-                    conditions.append((key, "Lte", value["lte"]))
+                for op, operand in value.items():
+                    tpuf_op = self.OPERATOR_MAP.get(op)
+                    if tpuf_op is None:
+                        raise ValueError(
+                            f"Unsupported filter operator '{op}' for field '{key}'. "
+                            f"Supported operators: {sorted(self.OPERATOR_MAP)}"
+                        )
+                    conditions.append((key, tpuf_op, operand))
             else:
                 conditions.append((key, "Eq", value))
 

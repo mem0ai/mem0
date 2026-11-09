@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "mem0": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["./core/mcp_server.py"],
+      "cwd": ".",
+      "env_vars": [
+        "MEM0_API_KEY",
+        "MEM0_API_URL",
+        "MEM0_CODE_USER_ID",
+        "MEM0_USER_ID",
+        "MEM0_RESOLVED_USER_ID",
+        "MEM0_PROJECT_ID",
+        "MEM0_TELEMETRY"
+      ]
+    }
+  }
+}

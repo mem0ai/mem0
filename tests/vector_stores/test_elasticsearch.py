@@ -5,12 +5,12 @@ from unittest.mock import MagicMock, Mock, patch
 import dotenv
 
 try:
-    from elasticsearch import Elasticsearch
+    from elasticsearch import Elasticsearch, NotFoundError
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
 from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
-from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData
+from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData, _validate_filter
 
 
 class TestElasticsearchDB(unittest.TestCase):
@@ -209,12 +209,51 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(body["knn"]["query_vector"], vectors)
         self.assertEqual(body["knn"]["k"], 5)
         self.assertEqual(body["knn"]["num_candidates"], 10)
+        # `size` must be set or ES caps the response at its default of 10 hits.
+        self.assertEqual(body["size"], 5)
 
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, "id1")
         self.assertEqual(results[0].score, 0.8)
         self.assertEqual(results[0].payload, {"key1": "value1"})
+
+    def test_search_sets_size_to_top_k(self):
+        """Regression for #5909: KNN search must set `size=top_k` or Elasticsearch caps
+        the response at its default of 10 hits regardless of `knn.k`.
+
+        Memory._search_vector_store over-fetches a scoring pool of `max(limit * 4, 60)`
+        candidates for hybrid re-ranking, so even a default search(top_k=20) reaches this
+        layer with top_k=80. Without `size`, that pool is silently truncated to 10.
+        """
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+
+        # internal_limit in Memory._search_vector_store for a default search(top_k=20)
+        over_fetch = max(20 * 4, 60)
+        self.es_db.search(query="", vectors=[[0.1] * 1536], top_k=over_fetch)
+
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], over_fetch)
+        self.assertEqual(body["knn"]["k"], over_fetch)
+        self.assertGreater(body["size"], 10)
+
+    def test_search_with_filters_keeps_size(self):
+        """Filters must not displace the response size set for KNN search."""
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+
+        self.es_db.search(
+            query="",
+            vectors=[[0.1] * 1536],
+            top_k=25,
+            filters={"user_id": "u1"},
+        )
+
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], 25)
+        self.assertEqual(
+            body["knn"]["filter"],
+            {"bool": {"must": [{"term": {"metadata.user_id": "u1"}}]}},
+        )
 
     def test_custom_search_query(self):
         # Mock custom search query
@@ -297,6 +336,25 @@ class TestElasticsearchDB(unittest.TestCase):
         # Verify delete call
         self.client_mock.delete.assert_called_once_with(index="test_collection", id="id1")
 
+    def test_update_existing_returns_true(self):
+        vector, payload = [0.3] * 1536, {"data": "new"}
+        self.assertIs(self.es_db.update("id1", vector=vector, payload=payload), True)
+        self.client_mock.update.assert_called_once_with(
+            index="test_collection", id="id1", body={"doc": {"vector": vector, "metadata": payload}}
+        )
+
+    def test_update_payload_only_returns_true(self):
+        self.assertIs(self.es_db.update("id1", payload={"data": "new"}), True)
+        self.client_mock.update.assert_called_once_with(
+            index="test_collection", id="id1", body={"doc": {"metadata": {"data": "new"}}}
+        )
+
+    def test_update_missing_id_returns_false_without_inserting(self):
+        self.client_mock.update.side_effect = NotFoundError("document_missing_exception", MagicMock(status=404), {})
+        self.assertIs(self.es_db.update("gone", vector=[0.3] * 1536, payload={"data": "new"}), False)
+        self.assertNotIn("doc_as_upsert", self.client_mock.update.call_args.kwargs["body"])
+        self.client_mock.index.assert_not_called()
+
     def test_list_cols(self):
         # Mock indices response
         mock_indices = {"index1": {}, "index2": {}}
@@ -360,3 +418,33 @@ class TestElasticsearchDB(unittest.TestCase):
             with self.assertRaises(ValueError):
                 config = {**base_config, "headers": headers}
                 ElasticsearchConfig(**config)
+
+    def test_filter_rejects_dict_value(self):
+        with self.assertRaises(ValueError):
+            _validate_filter("user_id", {"value": "alice", "boost": 0})
+
+    def test_filter_rejects_list_value(self):
+        with self.assertRaises(ValueError):
+            _validate_filter("user_id", ["alice", "bob"])
+
+    def test_filter_rejects_invalid_key(self):
+        with self.assertRaises(ValueError):
+            _validate_filter("user_id; DROP", "alice")
+
+    def test_filter_accepts_scalar_values(self):
+        _validate_filter("user_id", "alice")
+        _validate_filter("count", 42)
+        _validate_filter("score", 0.95)
+        _validate_filter("active", True)
+
+    def test_search_with_dict_filter_raises(self):
+        with self.assertRaises(ValueError):
+            self.es_db.search(
+                query="test",
+                vectors=[0.1] * 1536,
+                filters={"user_id": {"value": "*", "case_insensitive": True}},
+            )
+
+    def test_list_with_dict_filter_raises(self):
+        with self.assertRaises(ValueError):
+            self.es_db.list(filters={"user_id": {"$ne": ""}})

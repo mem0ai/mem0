@@ -1,0 +1,88 @@
+<svg viewBox="0 0 600 420" role="img" aria-labelledby="venn-title venn-desc" xmlns="http://www.w3.org/2000/svg">
+  <title id="venn-title">Mem0 Memory Scoping</title>
+  <desc id="venn-desc">Venn diagram showing how a single add call produces shared project memory and personal memory, with search returning the union of both.</desc>
+
+  <rect width="600" height="420" fill="#f5f5f5"/>
+
+  <text x="300" y="36" fill="#2d3142" font-size="20" font-weight="400"
+        font-family="Georgia, serif" text-anchor="middle">Memory Scoping</text>
+  <text x="300" y="56" fill="#7a8399" font-size="9"
+        font-family="monospace" text-anchor="middle" letter-spacing="0.08em">ONE ADD CALL · TWO MEMORY BUCKETS</text>
+
+  <circle cx="228" cy="212" r="132" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+  <circle cx="372" cy="212" r="132" fill="rgba(79,93,117,0.05)" stroke="#7a8399" stroke-width="1"/>
+
+  <defs>
+    <clipPath id="clip-left">
+      <circle cx="228" cy="212" r="132"/>
+    </clipPath>
+  </defs>
+  <circle cx="372" cy="212" r="132" fill="rgba(235,108,54,0.10)" clip-path="url(#clip-left)"/>
+
+  <text x="124" y="84" fill="#2d3142" font-size="13" font-weight="600"
+        font-family="sans-serif" text-anchor="middle">Shared Project</text>
+  <text x="124" y="100" fill="#4f5d75" font-size="9"
+        font-family="monospace" text-anchor="middle">agent_id = repo slug</text>
+
+  <text x="476" y="84" fill="#2d3142" font-size="13" font-weight="600"
+        font-family="sans-serif" text-anchor="middle">Personal</text>
+  <text x="476" y="100" fill="#4f5d75" font-size="9"
+        font-family="monospace" text-anchor="middle">user_id = you</text>
+
+  <text x="168" y="176" fill="#2d3142" font-size="11" font-weight="500"
+        font-family="sans-serif" text-anchor="middle">Conventions</text>
+  <text x="168" y="196" fill="#2d3142" font-size="11" font-weight="500"
+        font-family="sans-serif" text-anchor="middle">Commands</text>
+  <text x="168" y="216" fill="#2d3142" font-size="11" font-weight="500"
+        font-family="sans-serif" text-anchor="middle">Decisions</text>
+  <text x="168" y="236" fill="#2d3142" font-size="11" font-weight="500"
+        font-family="sans-serif" text-anchor="middle">Fixes</text>
+
+  <text x="168" y="264" fill="#7a8399" font-size="9"
+        font-family="monospace" text-anchor="middle">no user_id</text>
+  <text x="168" y="276" fill="#7a8399" font-size="9"
+        font-family="monospace" text-anchor="middle">visible to team</text>
+
+  <text x="432" y="192" fill="#2d3142" font-size="11" font-weight="500"
+        font-family="sans-serif" text-anchor="middle">Preferences</text>
+  <text x="432" y="212" fill="#2d3142" font-size="11" font-weight="500"
+        font-family="sans-serif" text-anchor="middle">Habits</text>
+  <text x="432" y="232" fill="#2d3142" font-size="11" font-weight="500"
+        font-family="sans-serif" text-anchor="middle">Style</text>
+
+  <text x="432" y="260" fill="#7a8399" font-size="9"
+        font-family="monospace" text-anchor="middle">no agent_id</text>
+  <text x="432" y="272" fill="#7a8399" font-size="9"
+        font-family="monospace" text-anchor="middle">private to you</text>
+
+  <text x="300" y="196" fill="#eb6c36" font-size="12" font-weight="600"
+        font-family="sans-serif" text-anchor="middle">Search</text>
+  <text x="300" y="212" fill="#eb6c36" font-size="12" font-weight="600"
+        font-family="sans-serif" text-anchor="middle">Result</text>
+  <text x="300" y="232" fill="#7a8399" font-size="9"
+        font-family="monospace" text-anchor="middle">OR [agent_id+app_id,</text>
+  <text x="300" y="244" fill="#7a8399" font-size="9"
+        font-family="monospace" text-anchor="middle">user_id+app_id]</text>
+
+  <line x1="40" y1="360" x2="560" y2="360" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+
+  <text x="80" y="380" fill="#4f5d75" font-size="9" font-weight="600"
+        font-family="monospace" text-anchor="middle" letter-spacing="0.06em">agent_id</text>
+  <text x="80" y="396" fill="#7a8399" font-size="8"
+        font-family="monospace" text-anchor="middle">repo slug</text>
+
+  <text x="220" y="380" fill="#4f5d75" font-size="9" font-weight="600"
+        font-family="monospace" text-anchor="middle" letter-spacing="0.06em">app_id</text>
+  <text x="220" y="396" fill="#7a8399" font-size="8"
+        font-family="monospace" text-anchor="middle">repo</text>
+
+  <text x="380" y="380" fill="#4f5d75" font-size="9" font-weight="600"
+        font-family="monospace" text-anchor="middle" letter-spacing="0.06em">user_id</text>
+  <text x="380" y="396" fill="#7a8399" font-size="8"
+        font-family="monospace" text-anchor="middle">you</text>
+
+  <text x="520" y="380" fill="#4f5d75" font-size="9" font-weight="600"
+        font-family="monospace" text-anchor="middle" letter-spacing="0.06em">run_id</text>
+  <text x="520" y="396" fill="#7a8399" font-size="8"
+        font-family="monospace" text-anchor="middle">session</text>
+</svg>

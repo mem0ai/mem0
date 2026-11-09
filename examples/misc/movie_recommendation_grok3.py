@@ -45,11 +45,11 @@ grok_client = OpenAI(
 
 def recommend_movie_with_memory(user_id: str, user_query: str):
     # Retrieve prior memory about movies
-    past_memories = memory.search("movie preferences", user_id=user_id)
+    past_memories = memory.search("movie preferences", filters={"user_id": user_id})
 
     prompt = user_query
-    if past_memories:
-        prompt += f"\nPreviously, the user mentioned: {past_memories}"
+    if past_memories["results"]:
+        prompt += f"\nPreviously, the user mentioned: {[m['memory'] for m in past_memories['results']]}"
 
     # Generate movie recommendation using Grok 3
     response = grok_client.chat.completions.create(model="grok-3-beta", messages=[{"role": "user", "content": prompt}])

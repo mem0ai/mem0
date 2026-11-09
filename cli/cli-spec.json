@@ -207,7 +207,11 @@
         { "name": "immutable", "flags": ["--immutable"], "type": "boolean", "default": false, "help": "Prevent future updates." },
         { "name": "no_infer", "flags": ["--no-infer"], "type": "boolean", "default": false, "help": "Skip inference, store raw." },
         { "name": "expires", "flags": ["--expires"], "type": "string", "help": "Expiration date (YYYY-MM-DD)." },
-        { "name": "categories", "flags": ["--categories"], "type": "string", "help": "Categories (JSON array or comma-separated)." },
+        { "name": "categories", "flags": ["--categories"], "type": "string", "help": "Not supported on add, use --custom-categories instead." },
+        { "name": "custom_instructions", "flags": ["--custom-instructions"], "type": "string", "help": "Custom instructions for fact extraction." },
+        { "name": "custom_categories", "flags": ["--custom-categories"], "type": "string", "help": "Custom categories as a JSON array of {name: description} objects." },
+        { "name": "structured_data_schema", "flags": ["--structured-data-schema"], "type": "string", "help": "Schema for structured data extraction, as JSON." },
+        { "name": "timestamp", "flags": ["--timestamp"], "type": "integer", "help": "Unix timestamp for the memory." },
         { "name": "graph", "flags": ["--graph"], "type": "boolean", "default": false, "help": "Enable graph memory extraction.", "panel": "Scope" },
         { "name": "no_graph", "flags": ["--no-graph"], "type": "boolean", "default": false, "help": "Disable graph memory extraction.", "panel": "Scope" },
         { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "text", "help": "Output format: text, json, quiet.", "panel": "Output" }
@@ -244,6 +248,9 @@
         { "name": "keyword", "flags": ["--keyword"], "type": "boolean", "default": false, "help": "Use keyword search.", "panel": "Search" },
         { "name": "filter_json", "flags": ["--filter"], "type": "string", "help": "Advanced filter expression (JSON).", "panel": "Search" },
         { "name": "fields", "flags": ["--fields"], "type": "string", "help": "Specific fields to return (comma-separated).", "panel": "Search" },
+        { "name": "show_expired", "flags": ["--show-expired"], "type": "boolean", "default": false, "help": "Include expired memories.", "panel": "Search" },
+        { "name": "reference_date", "flags": ["--reference-date"], "type": "string", "help": "Reference date for relative queries (YYYY-MM-DD or unix timestamp).", "panel": "Search" },
+        { "name": "latest_only", "flags": ["--latest-only"], "type": "boolean", "default": false, "help": "Only return the latest version of each memory.", "panel": "Search" },
         { "name": "graph", "flags": ["--graph"], "type": "boolean", "default": false, "help": "Enable graph in search.", "panel": "Search" },
         { "name": "no_graph", "flags": ["--no-graph"], "type": "boolean", "default": false, "help": "Disable graph in search.", "panel": "Search" },
         { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "text", "help": "Output: text, json, table.", "panel": "Output" }
@@ -296,6 +303,8 @@
         { "name": "category", "flags": ["--category"], "type": "string", "help": "Filter by category.", "panel": "Filters" },
         { "name": "after", "flags": ["--after"], "type": "string", "help": "Created after (YYYY-MM-DD).", "panel": "Filters" },
         { "name": "before", "flags": ["--before"], "type": "string", "help": "Created before (YYYY-MM-DD).", "panel": "Filters" },
+        { "name": "show_expired", "flags": ["--show-expired"], "type": "boolean", "default": false, "help": "Include expired memories.", "panel": "Filters" },
+        { "name": "latest_only", "flags": ["--latest-only"], "type": "boolean", "default": false, "help": "Only return the latest version of each memory.", "panel": "Filters" },
         { "name": "graph", "flags": ["--graph"], "type": "boolean", "default": false, "help": "Enable graph in listing.", "panel": "Filters" },
         { "name": "no_graph", "flags": ["--no-graph"], "type": "boolean", "default": false, "help": "Disable graph in listing.", "panel": "Filters" },
         { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "table", "help": "Output: text, json, table.", "panel": "Output" }
@@ -329,6 +338,8 @@
       ],
       "options": [
         { "name": "metadata", "flags": ["--metadata", "-m"], "type": "string", "help": "Update metadata (JSON)." },
+        { "name": "expires", "flags": ["--expires"], "type": "string", "help": "Expiration date (YYYY-MM-DD)." },
+        { "name": "timestamp", "flags": ["--timestamp"], "type": "integer", "help": "Unix timestamp for the memory." },
         { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "text", "help": "Output: text, json, quiet.", "panel": "Output" }
       ],
       "apiEndpoint": "update"
@@ -356,6 +367,7 @@
         { "name": "all", "flags": ["--all"], "type": "boolean", "default": false, "help": "Delete all memories matching scope filters." },
         { "name": "entity", "flags": ["--entity"], "type": "boolean", "default": false, "help": "Delete the entity itself and all its memories (cascade)." },
         { "name": "project", "flags": ["--project"], "type": "boolean", "default": false, "help": "With --all: delete ALL memories project-wide." },
+        { "name": "delete_linked", "flags": ["--delete-linked"], "type": "boolean", "default": false, "help": "Also delete memories linked to this memory." },
         { "name": "dry_run", "flags": ["--dry-run"], "type": "boolean", "default": false, "help": "Show what would be deleted without deleting." },
         { "name": "force", "flags": ["--force"], "type": "boolean", "default": false, "help": "Skip confirmation." },
         { "name": "user_id", "flags": ["--user-id", "-u"], "type": "string", "help": "Scope to user.", "panel": "Scope" },

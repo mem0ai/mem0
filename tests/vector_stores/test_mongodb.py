@@ -217,7 +217,7 @@ def test_update(mongo_vector_fixture):
 
     mock_collection.update_one.return_value = MagicMock(matched_count=1)
 
-    mongo_vector.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload)
+    assert mongo_vector.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload) is True
 
     # Should use dot notation (payload.name) instead of full replacement (payload)
     mock_collection.update_one.assert_called_once_with(
@@ -234,7 +234,7 @@ def test_update_payload_only_uses_dot_notation(mongo_vector_fixture):
 
     mock_collection.update_one.return_value = MagicMock(matched_count=1)
 
-    mongo_vector.update(
+    result = mongo_vector.update(
         vector_id="id1",
         payload={"data": "updated text", "hash": "def456", "updated_at": "2025-06-01"},
     )
@@ -249,6 +249,7 @@ def test_update_payload_only_uses_dot_notation(mongo_vector_fixture):
     }
     # "payload" key itself should NOT appear (that would replace the whole document)
     assert "payload" not in set_arg
+    assert result is True
 
 
 def test_update_vector_only_does_not_touch_payload(mongo_vector_fixture):
@@ -262,6 +263,28 @@ def test_update_vector_only_does_not_touch_payload(mongo_vector_fixture):
     set_arg = mock_collection.update_one.call_args[0][1]["$set"]
     assert set_arg == {"embedding": [0.7, 0.8, 0.9]}
     assert not any(k.startswith("payload.") for k in set_arg)
+
+
+def test_update_missing_id_returns_false_without_upsert(mongo_vector_fixture):
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    mock_collection.update_one.return_value = MagicMock(matched_count=0, modified_count=0)
+    mock_collection.insert_one.reset_mock()  # create_col inserts a placeholder during setup
+
+    assert mongo_vector.update(vector_id="gone", vector=[0.1], payload={"data": "x"}) is False
+
+    mock_collection.update_one.assert_called_once_with(
+        {"_id": "gone"}, {"$set": {"embedding": [0.1], "payload.data": "x"}}
+    )
+    mock_collection.insert_one.assert_not_called()
+    mock_collection.replace_one.assert_not_called()
+
+
+def test_update_with_unchanged_values_returns_true(mongo_vector_fixture):
+    # An identical write matches the document but modifies nothing; the document still exists.
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    mock_collection.update_one.return_value = MagicMock(matched_count=1, modified_count=0)
+
+    assert mongo_vector.update(vector_id="id1", payload={"data": "same"}) is True
 
 
 def test_get(mongo_vector_fixture):
@@ -322,9 +345,10 @@ def test_list(mongo_vector_fixture):
 
     mock_collection.find.assert_called_once_with({})
     mock_cursor.limit.assert_called_once_with(2)
-    assert len(results) == 2
-    assert results[0].id == "id1"
-    assert results[0].payload == {"key": "value1"}
+    assert len(results) == 1
+    assert len(results[0]) == 2
+    assert results[0][0].id == "id1"
+    assert results[0][0].payload == {"key": "value1"}
 
 
 def test_list_with_filters(mongo_vector_fixture):
@@ -338,7 +362,7 @@ def test_list_with_filters(mongo_vector_fixture):
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
     results = mongo_vector.list(filters=filters, top_k=2)
-    
+
     # Verify that the find method was called with the correct query
     expected_query = {
         "$and": [
@@ -349,11 +373,12 @@ def test_list_with_filters(mongo_vector_fixture):
     }
     mock_collection.find.assert_called_once_with(expected_query)
     mock_cursor.limit.assert_called_once_with(2)
-    
+
     assert len(results) == 1
-    assert results[0].payload["user_id"] == "alice"
-    assert results[0].payload["agent_id"] == "agent1"
-    assert results[0].payload["run_id"] == "run1"
+    assert len(results[0]) == 1
+    assert results[0][0].payload["user_id"] == "alice"
+    assert results[0][0].payload["agent_id"] == "agent1"
+    assert results[0][0].payload["run_id"] == "run1"
 
 
 def test_list_with_single_filter(mongo_vector_fixture):
@@ -367,7 +392,7 @@ def test_list_with_single_filter(mongo_vector_fixture):
 
     filters = {"user_id": "alice"}
     results = mongo_vector.list(filters=filters, top_k=2)
-    
+
     # Verify that the find method was called with the correct query
     expected_query = {
         "$and": [
@@ -376,9 +401,10 @@ def test_list_with_single_filter(mongo_vector_fixture):
     }
     mock_collection.find.assert_called_once_with(expected_query)
     mock_cursor.limit.assert_called_once_with(2)
-    
+
     assert len(results) == 1
-    assert results[0].payload["user_id"] == "alice"
+    assert len(results[0]) == 1
+    assert results[0][0].payload["user_id"] == "alice"
 
 
 def test_list_with_no_filters(mongo_vector_fixture):
@@ -391,9 +417,36 @@ def test_list_with_no_filters(mongo_vector_fixture):
     ]
 
     results = mongo_vector.list(filters=None, top_k=2)
-    
+
     # Verify that the find method was called with empty query
     mock_collection.find.assert_called_once_with({})
     mock_cursor.limit.assert_called_once_with(2)
-    
+
     assert len(results) == 1
+    assert len(results[0]) == 1
+
+
+def test_search_rejects_operator_injection(mongo_vector_fixture):
+    """Filter values containing MongoDB operators (dicts) must be rejected."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
+
+    with pytest.raises(ValueError, match="not a dict"):
+        mongo_vector.search("q", [0.1] * 1536, top_k=2, filters={"user_id": {"$ne": ""}})
+
+
+def test_list_rejects_operator_injection(mongo_vector_fixture):
+    """list() must also reject MongoDB operator injection."""
+    mongo_vector, _, _ = mongo_vector_fixture
+
+    with pytest.raises(ValueError, match="not a dict"):
+        mongo_vector.list(filters={"user_id": {"$regex": ".*"}})
+
+
+def test_search_allows_scalar_filter_values(mongo_vector_fixture):
+    """Normal scalar filter values (str, int, bool) must still work."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    mock_collection.aggregate.return_value = []
+    mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
+
+    mongo_vector.search("q", [0.1] * 1536, top_k=2, filters={"user_id": "alice", "count": 5})

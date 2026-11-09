@@ -44,7 +44,9 @@ export class LMStudioEmbedder implements Embedder {
         input: normalized,
         encoding_format: "float",
       });
-      return response.data.map((item) => item.embedding);
+      return response.data
+        .sort((a, b) => a.index - b.index)
+        .map((item) => item.embedding);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(`LM Studio embedder failed: ${message}`);

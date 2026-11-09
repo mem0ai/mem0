@@ -84,3 +84,21 @@ def test_generate_response_with_tools(mock_together_client):
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
+def test_generate_response_forwards_extra_kwargs(mock_together_client):
+    """Per the LLMBase contract, extra provider-specific kwargs must be accepted and
+    forwarded to the Together client (matching openai/deepseek/vllm/xai behavior)."""
+    config = BaseLlmConfig(model="mistralai/Mixtral-8x7B-Instruct-v0.1", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = TogetherLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_together_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages, frequency_penalty=0.5)
+
+    assert response == "Hi"
+    call_kwargs = mock_together_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["frequency_penalty"] == 0.5

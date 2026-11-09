@@ -324,7 +324,9 @@ class SQLiteManager:
         ]
 
     def reset(self) -> None:
-        """Drop and recreate the history and messages tables."""
+        """Drop both tables. Caller is expected to replace this instance."""
+        if not self.connection:
+            raise RuntimeError("Cannot reset a closed SQLiteManager")
         with self._lock:
             try:
                 self.connection.execute("BEGIN")
@@ -335,8 +337,6 @@ class SQLiteManager:
                 self.connection.execute("ROLLBACK")
                 logger.error(f"Failed to reset tables: {e}")
                 raise
-        self._create_history_table()
-        self._create_messages_table()
 
     def close(self) -> None:
         if self.connection:

@@ -24,6 +24,7 @@ class AWSBedrockConfig(BaseLlmConfig):
         aws_session_token: Optional[str] = None,
         aws_profile: Optional[str] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
+        provider_override: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -42,6 +43,10 @@ class AWSBedrockConfig(BaseLlmConfig):
             aws_session_token: AWS session token for temporary credentials
             aws_profile: AWS profile name for credentials
             model_kwargs: Additional model-specific parameters
+            provider_override: Explicit provider name (e.g. "anthropic"), required when
+                model is an application inference profile ARN whose opaque ID has no
+                provider substring for automatic detection. Defaults to None (uses
+                automatic detection from the model identifier).
             **kwargs: Additional arguments passed to base class
         """
         super().__init__(
@@ -59,6 +64,7 @@ class AWSBedrockConfig(BaseLlmConfig):
         self.aws_session_token = aws_session_token
         self.aws_profile = aws_profile
         self.model_kwargs = model_kwargs or {}
+        self.provider_override = provider_override
 
     @property
     def provider(self) -> str:

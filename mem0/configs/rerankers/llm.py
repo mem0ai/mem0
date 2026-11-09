@@ -10,7 +10,7 @@ class LLMRerankerConfig(BaseRerankerConfig):
     Configuration for LLM-based reranker.
     
     Attributes:
-        model (str): LLM model to use for reranking. Defaults to "gpt-4o-mini".
+        model (str): LLM model to use for reranking. Defaults to "gpt-5-mini".
         api_key (str): API key for the LLM provider.
         provider (str): LLM provider. Defaults to "openai".
         top_k (int): Number of top documents to return after reranking.
@@ -20,7 +20,7 @@ class LLMRerankerConfig(BaseRerankerConfig):
     """
     
     model: str = Field(
-        default="gpt-4o-mini",
+        default="gpt-5-mini",
         description="LLM model to use for reranking"
     )
     api_key: Optional[str] = Field(

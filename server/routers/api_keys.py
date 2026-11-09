@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -77,7 +78,11 @@ def create_key(body: CreateKeyRequest, user: User = Depends(require_auth), db: S
 
 @router.delete("/{key_id}", response_model=MessageResponse)
 def revoke_key(key_id: str, user: User = Depends(require_auth), db: Session = Depends(get_db)):
-    api_key = db.get(APIKey, key_id)
+    try:
+        key_uuid = uuid.UUID(key_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=404, detail="API key not found.")
+    api_key = db.get(APIKey, key_uuid)
     if api_key is None or api_key.created_by != user.id:
         raise HTTPException(status_code=404, detail="API key not found.")
     if api_key.revoked_at is not None:

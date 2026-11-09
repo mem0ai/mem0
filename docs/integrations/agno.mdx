@@ -23,7 +23,7 @@ pip install agno mem0ai python-dotenv
 ```
 
 2. Valid API keys:
-   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-agno" rel="nofollow">Mem0 API Key</a>
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-agno">Mem0 API Key</a>
    - OpenAI API Key (for the agent model)
 
 ## Quick Integration (Using `Mem0Tools`)
@@ -73,7 +73,7 @@ client = MemoryClient()
 # Define the agent
 agent = Agent(
     name="Personal Agent",
-    model=OpenAIChat(id="gpt-4"),
+    model=OpenAIChat(id="gpt-5-mini"),
     description="You are a helpful personal agent that helps me with day to day activities."
                 "You can process both text and images.",
     markdown=True
@@ -205,3 +205,4 @@ Customize the integration to your needs:
   </Card>
 </CardGroup>
 
+<Snippet file="star-on-github.mdx" />

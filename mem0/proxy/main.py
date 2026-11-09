@@ -1,6 +1,4 @@
 import logging
-import subprocess
-import sys
 import threading
 from typing import List, Optional, Union
 
@@ -10,13 +8,10 @@ import mem0
 
 try:
     import litellm
-except ImportError:
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "litellm"])
-        import litellm
-    except subprocess.CalledProcessError:
-        print("Failed to install 'litellm'. Please install it manually using 'pip install litellm'.")
-        sys.exit(1)
+except ImportError as e:
+    raise ImportError(
+        f"Failed to import the 'litellm' library ({e}). If it is not installed, run 'pip install litellm'."
+    ) from e
 
 from mem0 import Memory, MemoryClient
 from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
@@ -52,7 +47,7 @@ class Completions:
     def create(
         self,
         model: str,
-        messages: List = [],
+        messages: Optional[List] = None,
         # Mem0 arguments
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
@@ -92,6 +87,8 @@ class Completions:
         api_key: Optional[str] = None,
         model_list: Optional[list] = None,  # pass in a list of api_base,keys, etc.
     ):
+        if messages is None:
+            messages = []
         if not any([user_id, agent_id, run_id]):
             raise ValueError("One of user_id, agent_id, run_id must be provided")
 
@@ -102,7 +99,7 @@ class Completions:
 
         prepared_messages = self._prepare_messages(messages)
         if prepared_messages[-1]["role"] == "user":
-            self._async_add_to_memory(messages, user_id, agent_id, run_id, metadata, filters)
+            self._async_add_to_memory(messages, user_id, agent_id, run_id, metadata)
             relevant_memories = self._fetch_relevant_memories(messages, user_id, agent_id, run_id, filters, top_k)
             logger.debug(f"Retrieved {len(relevant_memories)} relevant memories")
             prepared_messages[-1]["content"] = self._format_query_with_memories(messages, relevant_memories)
@@ -149,7 +146,7 @@ class Completions:
             return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + messages
         return messages
 
-    def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
+    def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata):
         def add_task():
             logger.debug("Adding to memory asynchronously")
             self.mem0_client.add(
@@ -158,7 +155,6 @@ class Completions:
                 agent_id=agent_id,
                 run_id=run_id,
                 metadata=metadata,
-                filters=filters,
             )
 
         threading.Thread(target=add_task, daemon=True).start()

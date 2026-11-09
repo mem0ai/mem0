@@ -1,8 +1,14 @@
 import logging
 import re
+import threading
+import weakref
+from contextlib import nullcontext
 from typing import Optional
 
+import grpc
 from qdrant_client import QdrantClient, models
+from qdrant_client.http.exceptions import UnexpectedResponse
+from qdrant_client.local.qdrant_local import QdrantLocal
 from qdrant_client.models import (
     DatetimeRange,
     Distance,
@@ -25,6 +31,9 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+_LOCAL_LOCKS = weakref.WeakKeyDictionary()
+_LOCAL_LOCKS_GUARD = threading.Lock()
+
 
 class Qdrant(VectorStoreBase):
     def __init__(
@@ -37,6 +46,7 @@ class Qdrant(VectorStoreBase):
         path: str = None,
         url: str = None,
         api_key: str = None,
+        https: bool | None = None,
         on_disk: bool = False,
     ):
         """
@@ -51,6 +61,8 @@ class Qdrant(VectorStoreBase):
             path (str, optional): Path for local Qdrant database. Defaults to None.
             url (str, optional): Full URL for Qdrant server. Defaults to None.
             api_key (str, optional): API key for Qdrant server. Defaults to None.
+            https (bool, optional): Whether to force HTTPS on or off. Explicit schemes in url take precedence.
+                Defaults to None.
             on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
                 Does not delete the local database path. Defaults to False.
         """
@@ -66,6 +78,8 @@ class Qdrant(VectorStoreBase):
             if host and port:
                 params["host"] = host
                 params["port"] = port
+            if https is not None:
+                params["https"] = https
 
             if not params:
                 params["path"] = path
@@ -83,6 +97,14 @@ class Qdrant(VectorStoreBase):
         # Pre-v3 collections lack it; writing a `bm25` sparse vector into such a
         # collection is rejected by Qdrant ("Not existing vector name error: bm25").
         self._has_bm25_slot = False
+        # Local mode is not thread-safe, so update and delete share a lock per client and cannot interleave,
+        # including across stores that share one client.
+        self._local = isinstance(getattr(self.client, "_client", None), QdrantLocal)
+        if self._local:
+            with _LOCAL_LOCKS_GUARD:
+                self._write_lock = _LOCAL_LOCKS.setdefault(self.client, threading.RLock())
+        else:
+            self._write_lock = nullcontext()
         self.create_col(embedding_model_dims, on_disk)
 
     def _get_bm25_encoder(self):
@@ -93,7 +115,10 @@ class Qdrant(VectorStoreBase):
                 self._bm25_encoder = SparseTextEmbedding(model_name="Qdrant/bm25")
                 logger.info("BM25 encoder loaded (fastembed Qdrant/bm25)")
             except ImportError:
-                logger.warning("fastembed not installed — BM25 keyword search disabled. Install with: pip install fastembed")
+                logger.warning(
+                    "fastembed not installed - BM25 keyword search disabled. "
+                    'Install it with: pip install "mem0ai[extras]"'
+                )
                 self._bm25_encoder = False  # sentinel: tried and failed
             except Exception as e:
                 logger.warning(f"Failed to load BM25 encoder: {e}")
@@ -186,6 +211,43 @@ class Qdrant(VectorStoreBase):
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
         """
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
+
+        # Pre-compute BM25 sparse vectors in a single batch call. fastembed's
+        # embed() accepts a list of texts, so batching avoids per-row encoder
+        # overhead (model dispatch, tokenizer setup, etc.).
+        bm25_sparse_vectors: list[Optional[SparseVector]] = [None] * len(vectors)
+        if self._has_bm25_slot and payloads:
+            texts_for_bm25: list[str] = []
+            indices_for_bm25: list[int] = []
+            for idx, payload in enumerate(payloads):
+                text = payload.get("text_lemmatized") or payload.get("data", "")
+                if text:
+                    texts_for_bm25.append(text)
+                    indices_for_bm25.append(idx)
+
+            if texts_for_bm25:
+                encoder = self._get_bm25_encoder()
+                if encoder is not None:
+                    try:
+                        sparse_results = list(encoder.embed(texts_for_bm25))
+                        if len(sparse_results) != len(texts_for_bm25):
+                            logger.warning(
+                                f"BM25 batch returned {len(sparse_results)} results for "
+                                f"{len(texts_for_bm25)} texts; falling back to per-row encoding"
+                            )
+                            raise ValueError("count mismatch")
+                        for i, sparse in enumerate(sparse_results):
+                            bm25_sparse_vectors[indices_for_bm25[i]] = SparseVector(
+                                indices=sparse.indices.tolist(),
+                                values=sparse.values.tolist(),
+                            )
+                    except Exception as e:
+                        # Fall back to per-row encoding so a single bad input
+                        # doesn't drop BM25 for the whole batch.
+                        logger.debug(f"Batch BM25 encoding failed, falling back to per-row: {e}")
+                        for i, text in enumerate(texts_for_bm25):
+                            bm25_sparse_vectors[indices_for_bm25[i]] = self._encode_bm25(text)
+
         points = []
         for idx, vector in enumerate(vectors):
             payload = payloads[idx] if payloads else {}
@@ -193,12 +255,8 @@ class Qdrant(VectorStoreBase):
 
             # Build named vectors: dense + optional BM25 sparse (only if collection has the slot).
             named_vectors = {"": vector}
-            if self._has_bm25_slot:
-                text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
-                if text_for_bm25:
-                    sparse = self._encode_bm25(text_for_bm25)
-                    if sparse is not None:
-                        named_vectors["bm25"] = sparse
+            if self._has_bm25_slot and bm25_sparse_vectors[idx] is not None:
+                named_vectors["bm25"] = bm25_sparse_vectors[idx]
 
             points.append(PointStruct(id=point_id, vector=named_vectors, payload=payload))
 
@@ -449,21 +507,25 @@ class Qdrant(VectorStoreBase):
         Args:
             vector_id (int): ID of the vector to delete.
         """
-        self.client.delete(
-            collection_name=self.collection_name,
-            points_selector=PointIdsList(
-                points=[vector_id],
-            ),
-        )
+        with self._write_lock:
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=PointIdsList(
+                    points=[vector_id],
+                ),
+            )
 
-    def update(self, vector_id: int, vector: list = None, payload: dict = None):
+    def update(self, vector_id: int, vector: list = None, payload: dict = None) -> Optional[bool]:
         """
-        Update a vector and its payload.
+        Update an existing vector and/or its payload. Never creates a point.
 
         Args:
             vector_id (int): ID of the vector to update.
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
+
+        Returns:
+            Optional[bool]: False if the point does not exist, True if it was updated, None if nothing was given.
         """
         if vector is not None and payload is not None:
             # Full update: attach BM25 sparse vector alongside dense vector (only if slot exists).
@@ -471,27 +533,57 @@ class Qdrant(VectorStoreBase):
             if self._has_bm25_slot:
                 text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
                 if text_for_bm25:
+                    # Single-item update: per-row encoding is correct here; see insert() for the batch path.
                     sparse = self._encode_bm25(text_for_bm25)
                     if sparse is not None:
                         named_vectors["bm25"] = sparse
             point = PointStruct(id=vector_id, vector=named_vectors, payload=payload)
-            self.client.upsert(collection_name=self.collection_name, points=[point])
-        else:
-            # Partial update: use Qdrant's dedicated endpoints.
+            # One write keeps the vector and payload of concurrent updates together. update_only
+            # (Qdrant 1.17+) never creates a point; older servers and clients upsert as before.
+            mode = {"update_mode": models.UpdateMode.UPDATE_ONLY} if hasattr(models, "UpdateMode") else {}
+            with self._write_lock:
+                # A local client without update_mode support upserts a missing point, so check under the lock.
+                if self._local and not self.client.retrieve(collection_name=self.collection_name, ids=[vector_id]):
+                    return False
+                self.client.upsert(collection_name=self.collection_name, points=[point], **mode)
+            return bool(self.client.retrieve(collection_name=self.collection_name, ids=[vector_id]))
+
+        operations = []
+        if vector is not None:
+            operations.append(
+                models.UpdateVectorsOperation(
+                    update_vectors=models.UpdateVectors(points=[PointVectors(id=vector_id, vector=vector)])
+                )
+            )
+        if payload is not None:
             # Note: BM25 sparse vector cannot be refreshed via set_payload alone;
             # payload-only updates will leave any existing BM25 vector stale. In
             # practice v3 re-embeds on memory text change, so this is acceptable.
-            if payload is not None:
-                self.client.set_payload(
-                    collection_name=self.collection_name,
-                    payload=payload,
-                    points=[vector_id],
-                )
-            if vector is not None:
-                self.client.update_vectors(
-                    collection_name=self.collection_name,
-                    points=[PointVectors(id=vector_id, vector=vector)],
-                )
+            operations.append(
+                models.SetPayloadOperation(set_payload=models.SetPayload(payload=payload, points=[vector_id]))
+            )
+        if not operations:
+            return None
+        with self._write_lock:
+            # qdrant-client < 1.20 in local mode writes vectors for a deleted id instead of raising.
+            if self._local and not self.client.retrieve(collection_name=self.collection_name, ids=[vector_id]):
+                return False
+            try:
+                self.client.batch_update_points(collection_name=self.collection_name, update_operations=operations)
+            except UnexpectedResponse as e:
+                if e.status_code == 404 and b"No point with id" in (e.content or b""):
+                    return False
+                raise
+            except grpc.RpcError as e:
+                if e.code() == grpc.StatusCode.NOT_FOUND and "No point with id" in (e.details() or ""):
+                    return False
+                raise
+            except KeyError as e:
+                # Local mode reports a missing point as KeyError(point_id), with the id normalized to lowercase.
+                if e.args and str(e.args[0]).lower() == str(vector_id).lower():
+                    return False
+                raise
+        return True
 
     def get(self, vector_id: int) -> dict:
         """
@@ -554,3 +646,11 @@ class Qdrant(VectorStoreBase):
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
         self.create_col(self.embedding_model_dims, self.on_disk)
+        if self.is_local:
+            # Local delete_collection() rmtree's with ignore_errors=True and leaves its
+            # sqlite handle open, so where an open file blocks unlink (Windows, NFS) the
+            # recreated collection re-adopts the old storage.sqlite. Drop what survived.
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=models.FilterSelector(filter=models.Filter(must=[])),
+            )

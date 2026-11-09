@@ -6,7 +6,14 @@ description: "Use Milvus as an open-source vector database in Mem0, scalable fro
 
 ### Usage
 
-```python
+The TypeScript SDK loads the Milvus client lazily. Install it alongside `mem0ai` when you use this provider:
+
+```bash
+npm install @zilliz/milvus2-sdk-node
+```
+
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -33,10 +40,39 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'milvus',
+    config: {
+      collectionName: 'test',
+      embeddingModelDims: 1536,
+      url: 'http://localhost:19530',
+      token: '8e4b8ca8cf2c67',
+      dbName: 'my_database',
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+  { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant", content: "How about thriller movies? They can be quite engaging." },
+  { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
 ### Config
 
 Here are the parameters available for configuring Milvus:
 
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `url` | Full URL/Uri for Milvus/Zilliz server | `http://localhost:19530` |
@@ -45,3 +81,15 @@ Here are the parameters available for configuring Milvus:
 | `embedding_model_dims` | Dimensions of the embedding model | `1536` |
 | `metric_type` | Metric type for similarity search | `L2` |
 | `db_name` | Name of the database | `""` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `url` | Full URL/Uri for Milvus/Zilliz server | `http://localhost:19530` |
+| `token` | Token for Zilliz Cloud (optional for a local setup) | `undefined` |
+| `collectionName` | The name of the collection | `mem0` |
+| `embeddingModelDims` | Dimensions of the embedding model | `1536` |
+| `metricType` | Metric type for similarity search (`L2`, `IP`, `COSINE`, `HAMMING`, `JACCARD`) | `L2` |
+| `dbName` | Name of the database | `undefined` |
+</Tab>
+</Tabs>

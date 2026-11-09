@@ -4,9 +4,12 @@ description: "Use LiteLLM as an LLM provider in Mem0 to access over 100 language
 ---
 [Litellm](https://litellm.vercel.app/docs/) is compatible with over 100 large language models (LLMs), all using a standardized input/output format. You can explore the [available models](https://litellm.vercel.app/docs/providers) to use with Litellm. Ensure you set the `API_KEY` for the model you choose to use.
 
+In the TypeScript SDK, run LiteLLM as a [proxy server](https://docs.litellm.ai/docs/simple_proxy) (an OpenAI-compatible endpoint) and point Mem0 at it via `LITELLM_API_BASE` (defaults to `http://localhost:4000`).
+
 ## Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -32,6 +35,33 @@ messages = [
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+// Point Mem0 at your LiteLLM proxy. apiKey defaults to "sk-anything"
+// (the proxy handles real auth); baseURL defaults to http://localhost:4000.
+const config = {
+  llm: {
+    provider: 'litellm',
+    config: {
+      apiKey: process.env.LITELLM_API_KEY || 'sk-anything',
+      baseURL: process.env.LITELLM_API_BASE || 'http://localhost:4000',
+      model: 'gpt-5-mini',
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+];
+await memory.add(messages, { userId: 'alice', metadata: { category: 'movies' } });
+```
+</CodeGroup>
 
 ## Config
 

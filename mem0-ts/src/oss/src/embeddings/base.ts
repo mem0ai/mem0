@@ -1,4 +1,10 @@
 export interface Embedder {
-  embed(text: string): Promise<number[]>;
-  embedBatch(texts: string[]): Promise<number[][]>;
+  embed(
+    text: string,
+    memoryAction?: "add" | "update" | "search",
+  ): Promise<number[]>;
+  embedBatch(
+    texts: string[],
+    memoryAction?: "add" | "update" | "search",
+  ): Promise<number[][]>;
 }

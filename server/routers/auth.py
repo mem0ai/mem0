@@ -175,18 +175,23 @@ def update_me(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    if body.name is not None and body.name.strip():
-        user.name = body.name.strip()
+    # require_auth resolves the user in its own short-lived session, so `user` is
+    # detached from this request's `db`. Load a session-managed copy to mutate.
+    db_user = db.get(User, user.id)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found.")
 
-    if body.email is not None and body.email != user.email:
-        collision = db.scalar(select(User).where(User.email == body.email, User.id != user.id))
+    if body.name is not None and body.name.strip():
+        db_user.name = body.name.strip()
+
+    if body.email is not None and body.email != db_user.email:
+        collision = db.scalar(select(User).where(User.email == body.email, User.id != db_user.id))
         if collision is not None:
             raise HTTPException(status_code=409, detail="Email is already in use.")
-        user.email = body.email
+        db_user.email = body.email
 
     db.commit()
-    db.refresh(user)
-    return user
+    return db_user
 
 
 @router.post("/change-password", response_model=MessageResponse)
@@ -195,12 +200,15 @@ def change_password(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    if not verify_password(body.current_password, user.password_hash):
+    # require_auth resolves the user in its own short-lived session, so `user` is
+    # detached from this request's `db`. Load a session-managed copy to mutate.
+    db_user = db.get(User, user.id)
+    if db_user is None or not verify_password(body.current_password, db_user.password_hash):
         raise HTTPException(status_code=401, detail="Current password is incorrect.")
 
     _require_password_length(body.new_password)
 
-    user.password_hash = hash_password(body.new_password)
+    db_user.password_hash = hash_password(body.new_password)
     db.commit()
     return MessageResponse(message="Password updated.")
 
