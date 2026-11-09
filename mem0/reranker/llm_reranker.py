@@ -93,9 +93,13 @@ class LLMReranker(BaseReranker):
 
     def _extract_score(self, response_text: str) -> float:
         """Extract numerical score from LLM response."""
-        # Prefer a decimal, fall back to an integer, then clamp: out-of-range outputs
-        # like "2.0"/"5" become 1.0 instead of being mis-parsed into a stray 0/1 digit.
-        matches = re.findall(r'-?\d+\.\d+', response_text) or re.findall(r'-?\d+', response_text)
+        # Prefer a decimal (now including scientific notation like "5e-2" and
+        # leading-dot ".05", which the old pattern mis-parsed as bare integers
+        # and clamped to 1.0 - #7880), fall back to an integer, then clamp.
+        matches = re.findall(
+            r'-?\d+\.\d+(?:[eE][+-]?\d+)?|-?\.\d+(?:[eE][+-]?\d+)?|-?\d+[eE][+-]?\d+',
+            response_text,
+        ) or re.findall(r'-?\d+', response_text)
 
         if matches:
             score = float(matches[0])

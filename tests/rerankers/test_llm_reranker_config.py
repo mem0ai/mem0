@@ -61,3 +61,46 @@ class TestLLMRerankerInit:
         call_args = mock_factory.create.call_args
         llm_config = call_args[0][1]
         assert "api_key" not in llm_config
+
+
+class TestLLMRerankerExtractScore:
+    """_extract_score must parse full numeric tokens: scientific notation and
+    leading-dot decimals used to clamp to 1.0 from a bare mantissa match
+    (issue #7880), reversing search ranking."""
+
+    def _make_reranker(self, mock_llm):
+        mock_factory, llm_instance = mock_llm
+        reranker = LLMReranker({"provider": "openai", "model": "gpt-4o", "api_key": "sk-test"})
+        return reranker, llm_instance
+
+    def test_scientific_notation_parsed_correctly(self, mock_llm):
+        reranker, llm_instance = self._make_reranker(mock_llm)
+        llm_instance.generate_response.side_effect = ["5e-2", "0.9"]
+        docs = [
+            {"id": "irrelevant", "memory": "taxes"},
+            {"id": "relevant", "memory": "dog named Max"},
+        ]
+        result = reranker.rerank("query", docs, top_k=1)
+        assert result[0]["id"] == "relevant"
+
+    def test_scientific_notation_score_values(self, mock_llm):
+        reranker, llm_instance = self._make_reranker(mock_llm)
+        for response, expected in [("5e-2", 0.05), ("9.5e-1", 0.95), (".05", 0.05), ("9", 1.0), ("2.0", 1.0)]:
+            llm_instance.generate_response.return_value = response
+            assert reranker._extract_score(response) == expected, f"{response!r} -> {reranker._extract_score(response)}"
+
+    def test_leading_dot_decimal_parsed(self, mock_llm):
+        reranker, llm_instance = self._make_reranker(mock_llm)
+        assert reranker._extract_score(".05") == 0.05
+
+    def test_negative_score_clamped_to_zero(self, mock_llm):
+        reranker, llm_instance = self._make_reranker(mock_llm)
+        assert reranker._extract_score("-0.5") == 0.0
+
+    def test_score_embedded_in_text(self, mock_llm):
+        reranker, llm_instance = self._make_reranker(mock_llm)
+        assert reranker._extract_score("score: 0.85") == 0.85
+
+    def test_no_match_falls_back_to_neutral(self, mock_llm):
+        reranker, llm_instance = self._make_reranker(mock_llm)
+        assert reranker._extract_score("no numbers here") == 0.5
