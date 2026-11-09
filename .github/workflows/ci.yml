@@ -1,9 +1,11 @@
 name: ci
 
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main runs remain standalone.
 on:
   push:
     branches: [main]
-  pull_request:
+  workflow_call:
 
 jobs:
   changelog_check:
@@ -26,7 +28,7 @@ jobs:
           }
 
           base_version=$(git show "$BASE_SHA:pyproject.toml" 2>/dev/null | extract_version || echo "")
-          head_version=$(extract_version < pyproject.toml)
+          head_version=$(git show "$HEAD_SHA:pyproject.toml" | extract_version)
 
           echo "Base version: ${base_version:-<unknown>}"
           echo "Head version: $head_version"
@@ -104,7 +106,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[test,graph,vector_stores,llms,extras]"
-          pip install ruff
+          pip install ruff==0.16.0
       - name: Run Linting
         if: needs.check_changes.outputs.mem0_changed == 'true'
         run: make lint

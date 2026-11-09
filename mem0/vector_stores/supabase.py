@@ -14,6 +14,8 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+VECS_MAX_QUERY_LIMIT = 1000
+
 
 class OutputData(BaseModel):
     id: Optional[str]
@@ -131,11 +133,21 @@ class Supabase(VectorStoreBase):
             List[OutputData]: Search results
         """
         filters = self._preprocess_filters(filters)
+        limit = top_k
+        if limit > VECS_MAX_QUERY_LIMIT:
+            logger.warning(
+                f"Requested top_k={top_k} exceeds the vecs query limit of {VECS_MAX_QUERY_LIMIT}; "
+                f"capping to {VECS_MAX_QUERY_LIMIT}."
+            )
+            limit = VECS_MAX_QUERY_LIMIT
         results = self.collection.query(
-            data=vectors, limit=top_k, filters=filters, include_metadata=True, include_value=True
+            data=vectors, limit=limit, filters=filters, include_metadata=True, include_value=True
         )
 
-        return [OutputData(id=str(result[0]), score=float(result[1]), payload=result[2]) for result in results]
+        return [
+            OutputData(id=str(result[0]), score=max(0.0, 1.0 - float(result[1])), payload=result[2])
+            for result in results
+        ]
 
     def delete(self, vector_id: str):
         """
@@ -155,14 +167,18 @@ class Supabase(VectorStoreBase):
             vector (List[float], optional): Updated vector
             payload (Dict, optional): Updated payload
         """
-        if vector is None:
-            # If only updating metadata, we need to get the existing vector
-            existing = self.get(vector_id)
-            if existing and existing.payload:
-                vector = existing.payload.get("vector", [])
+        values = {}
+        if vector is not None:
+            values["vec"] = vector
+        if payload is not None:
+            values["metadata"] = payload
+        if not values:
+            return bool(self.collection.fetch([vector_id]))
 
-        if vector:
-            self.collection.upsert([(vector_id, vector, payload or {})])
+        # vecs only offers upsert; an UPDATE on its own table changes an existing row and never inserts one.
+        table = self.collection.table
+        with self.collection.client.Session() as sess, sess.begin():
+            return sess.execute(table.update().where(table.c.id == vector_id).values(**values)).rowcount > 0
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
@@ -176,7 +192,7 @@ class Supabase(VectorStoreBase):
         """
         result = self.collection.fetch([(vector_id,)])
         if not result:
-            return []
+            return None
 
         record = result[0]
         return OutputData(id=str(record.id), score=None, payload=record.metadata)
@@ -201,12 +217,15 @@ class Supabase(VectorStoreBase):
         Returns:
             Dict: Collection information including name and configuration
         """
-        info = self.collection.describe()
         return {
-            "name": info.name,
-            "count": info.vectors,
-            "dimension": info.dimension,
-            "index": {"method": info.index_method, "metric": info.distance_metric},
+            "name": self.collection.name,
+            "count": len(self.collection),
+            "dimension": self.collection.dimension,
+            "index": {
+                "name": self.collection.index,
+                "measure": self.index_measure.value,
+                "is_indexed": self.collection.is_indexed_for_measure(self.index_measure),
+            },
         }
 
     def list(self, filters: Optional[dict] = None, top_k: int = 100) -> List[OutputData]:
@@ -222,8 +241,15 @@ class Supabase(VectorStoreBase):
         """
         filters = self._preprocess_filters(filters)
         query = [0] * self.embedding_model_dims
+        limit = top_k
+        if limit > VECS_MAX_QUERY_LIMIT:
+            logger.warning(
+                f"Requested top_k={top_k} exceeds the vecs query limit of {VECS_MAX_QUERY_LIMIT}; "
+                f"capping to {VECS_MAX_QUERY_LIMIT}."
+            )
+            limit = VECS_MAX_QUERY_LIMIT
         ids = self.collection.query(
-            data=query, limit=top_k, filters=filters, include_metadata=True, include_value=False
+            data=query, limit=limit, filters=filters, include_metadata=True, include_value=False
         )
         ids = [id[0] for id in ids]
         records = self.collection.fetch(ids=ids)

@@ -1,0 +1,132 @@
+---
+title: Antigravity
+description: "Add persistent memory to Google Antigravity with the Mem0 plugin: a search tool, lifecycle hooks, and memory skills."
+---
+
+Add persistent memory to [**Google Antigravity**](https://antigravity.google) (`agy` CLI and Desktop IDE) with the Mem0 plugin. The plugin captures completed work, and Antigravity can search those memories in later sessions.
+
+<Info>Current plugin version: `0.3.1`.</Info>
+
+Sidekick is available only in the [Claude Code plugin](/integrations/claude-code#sidekick-agent).
+
+## Prerequisites
+
+1. A Mem0 API key (starts with `m0-`):
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-antigravity">Get your API key</a> (free sign-up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-antigravity">app.mem0.ai</a>)
+
+2. Python 3.10 or newer available as `python3`
+
+3. Add the key to your shell profile so it persists across sessions:
+
+<CodeGroup>
+```bash zsh
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc && source ~/.zshrc
+```
+
+```bash bash
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
+```
+</CodeGroup>
+
+## Installation
+
+**Option A: degit** (recommended):
+
+<Warning>
+  When upgrading an existing installation, move `~/.gemini/config/plugins/mem0` aside first. Installing over that directory can leave obsolete files from older plugin versions.
+</Warning>
+
+```bash
+# Install the plugin (MCP server, hooks, scripts)
+npx degit mem0ai/mem0/integrations/antigravity-plugin ~/.gemini/config/plugins/mem0
+```
+
+This installs the generated Antigravity bundle with the Mem0 server, lifecycle hooks, and six memory skills.
+
+## What's Included
+
+| Component | Included |
+|-----------|:--------:|
+| Local MCP Server (`search_memories`) | Yes |
+| Lifecycle Hooks | Yes |
+| 6 Memory Skills | Yes |
+
+## Memory tools and skills
+
+The full plugin exposes a focused `search_memories` tool and captures completed work through lifecycle hooks. Six skills provide search, status, remember, forget, pause, and resume workflows.
+
+If you need the full set of direct CRUD tools, connect the [hosted Mem0 MCP server](/platform/mem0-mcp) separately instead of installing both configurations under the same server name.
+
+## Hosted MCP tools
+
+| Tool | Description |
+|------|-------------|
+| `add_memory` | Save text or conversation history for a user/agent |
+| `search_memories` | Semantic search across memories with filters |
+| `get_memories` | List memories with filters and pagination |
+| `get_memory` | Retrieve a specific memory by ID |
+| `update_memory` | Overwrite a memory's text by ID |
+| `delete_memory` | Delete a single memory by ID |
+| `delete_all_memories` | Bulk delete all memories in scope |
+| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `list_entities` | List users/agents/apps/runs stored in Mem0 |
+
+## Lifecycle Hooks
+
+The plugin translates Antigravity events into the shared Mem0 capture lifecycle.
+
+| Hook | Event | What it does |
+|------|-------|-------------|
+| **Invocation** | `PreInvocation` | Initializes the first invocation and recovers pending capture |
+| **Post-tool** | `PostToolUse` | Records useful tool results and failures |
+| **Stop** | `Stop` | Reads completed transcript messages and starts a background flush |
+
+Recall is explicit through `search_memories` and the search skill. The current Antigravity adapter does not inject query-specific memory during `PreInvocation` because that event does not include the user's prompt.
+
+What you type is stored as yours. Captured agent summaries are stored as the assistant's, so its suggestions never become your stated preferences.
+
+## Antigravity 1.1.25 workarounds
+
+Antigravity 1.1.25 can validate a plugin's `mcp_config.json` without loading the server. Check whether Mem0 is registered:
+
+```bash
+agy mcp list
+```
+
+If `mem0` is absent, register the plugin's bundled server with Antigravity's supported global MCP command, then start a new session:
+
+```bash
+agy mcp add mem0 python3 ~/.gemini/config/plugins/mem0/core/mcp_server.py
+```
+
+The same release can send hooks with an empty `workspacePaths` array. For the `agy` CLI, pass the current repository explicitly:
+
+```bash
+MEM0_CWD="$PWD" agy
+```
+
+The adapter uses `MEM0_CWD` only when Antigravity omits the workspace. If neither value is available, it skips recall and capture instead of writing memories under an incorrect repository scope.
+
+## Search and capture
+
+The local `search_memories` tool accepts `query`, `top_k`, `category`, `scope` (`repo`, `dir`, or `mine`), and optional `run_id` with every scope. Use a known session ID to recall memories saved in that session; omit it to search across sessions. See [search scopes](/integrations/claude-code#search-scope) for the shared Python search contract, including legacy repository memory compatibility.
+
+Captured prompts and responses retain their full redacted text without a per-message character cutoff. Large extraction inputs are split across requests without dropping message text; recall output and tool-result previews have separate limits.
+
+## Troubleshooting
+
+- **No tools appearing**: Restart your Antigravity session after installation
+- **No `mem0` entry in `agy mcp list`**: Use the Antigravity 1.1.25 global MCP registration command above
+- **Hooks do not capture in the CLI**: Launch `agy` with `MEM0_CWD="$PWD"`
+- **"Connection failed"**: Verify your key is set without printing it: `test -n "$MEM0_API_KEY" && echo configured`
+
+<CardGroup cols={2}>
+  <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
+    Detailed MCP configuration for all clients
+  </Card>
+  <Card title="OpenCode Integration" icon="code" href="/integrations/opencode">
+    Add Mem0 memory to OpenCode workflows
+  </Card>
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />

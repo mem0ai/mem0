@@ -20,6 +20,7 @@ export class OpenAIEmbedder implements Embedder {
     const response = await this.openai.embeddings.create({
       model: this.model,
       input: text,
+      encoding_format: "float",
       ...(this.embeddingDims !== undefined && {
         dimensions: this.embeddingDims,
       }),
@@ -35,6 +36,7 @@ export class OpenAIEmbedder implements Embedder {
       const response = await this.openai.embeddings.create({
         model: this.model,
         input: chunk,
+        encoding_format: "float",
         ...(this.embeddingDims !== undefined && {
           dimensions: this.embeddingDims,
         }),
@@ -43,6 +45,11 @@ export class OpenAIEmbedder implements Embedder {
         ...response.data
           .sort((a, b) => a.index - b.index)
           .map((item) => item.embedding),
+      );
+    }
+    if (allEmbeddings.length !== texts.length) {
+      throw new Error(
+        `OpenAI embedBatch() returned ${allEmbeddings.length} embeddings for ${texts.length} texts using model '${this.model}'`,
       );
     }
     return allEmbeddings;

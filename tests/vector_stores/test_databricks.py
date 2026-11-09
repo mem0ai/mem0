@@ -5,6 +5,7 @@ import pytest
 
 pytest.importorskip("databricks", reason="databricks-sdk package not installed")
 
+from databricks.sdk.service import sql as dbsql
 from databricks.sdk.service.vectorsearch import (
     ColumnInfo,
     QueryVectorIndexResponse,
@@ -23,7 +24,7 @@ def _make_status(state="SUCCEEDED", error=None):
 
 
 def _make_exec_response(state="SUCCEEDED", error=None):
-    return SimpleNamespace(status=_make_status(state, error))
+    return SimpleNamespace(status=_make_status(state, error), manifest=None, result=None)
 
 
 @pytest.fixture
@@ -1042,6 +1043,43 @@ def test_update_vector_only(db_instance_direct, mock_workspace_client):
     assert len(kwargs["parameters"]) == 1  # only vector_id param
 
 
+def _update_response(affected_rows, column="num_affected_rows"):
+    return dbsql.StatementResponse(
+        status=dbsql.StatementStatus(state=dbsql.StatementState.SUCCEEDED),
+        manifest=dbsql.ResultManifest(schema=dbsql.ResultSchema(columns=[dbsql.ColumnInfo(name=column)])),
+        result=dbsql.ResultData(data_array=[[affected_rows]]),
+    )
+
+
+def test_update_reports_whether_the_record_exists(db_instance_delta, mock_workspace_client):
+    execute = mock_workspace_client.statement_execution.execute_statement
+    execute.reset_mock()
+    execute.return_value = _update_response("0")
+    assert db_instance_delta.update(vector_id="missing", payload={"memory": "x"}) is False
+    statements = [c.kwargs["statement"] for c in execute.call_args_list]
+    assert len(statements) == 1 and statements[0].startswith("UPDATE ")
+    mock_workspace_client.vector_search_indexes.upsert_data_vector_index.assert_not_called()
+
+    execute.return_value = _update_response("1")
+    assert db_instance_delta.update(vector_id="id-1", payload={"memory": "new text"}) is True
+    params = {p.name: p.value for p in execute.call_args.kwargs["parameters"]}
+    assert params == {"payload_memory": "new text", "vector_id": "id-1"}
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        dbsql.StatementResponse(status=dbsql.StatementStatus(state=dbsql.StatementState.SUCCEEDED)),
+        _update_response(None),
+        _update_response("n/a"),
+        _update_response("0", column="other_column"),
+    ],
+)
+def test_update_returns_none_when_affected_rows_is_unknown(db_instance_delta, mock_workspace_client, response):
+    mock_workspace_client.statement_execution.execute_statement.return_value = response
+    assert db_instance_delta.update(vector_id="id-1", payload={"memory": "new text"}) is None
+
+
 def test_insert_timestamp_params_have_explicit_type(db_instance_delta, mock_workspace_client):
     """Verify insert() sets type='TIMESTAMP' on created_at/updated_at parameters
     so Databricks doesn't rely on implicit STRING->TIMESTAMP casting."""
@@ -1065,3 +1103,73 @@ def test_insert_timestamp_params_have_explicit_type(db_instance_delta, mock_work
     non_ts_params = [p for p in params if "created_at" not in p.name and "updated_at" not in p.name]
     for p in non_ts_params:
         assert p.type is None, f"Parameter {p.name} should not have explicit type, got {p.type}"
+
+
+class TestIdentifierValidation:
+    """Validate that catalog/schema/table_name/collection_name are sanitized."""
+
+    def test_rejects_semicolon_in_table_name(self, mock_workspace_client):
+        with pytest.raises(ValueError):
+            Databricks(
+                workspace_url="https://test",
+                access_token="tok",
+                endpoint_name="ep",
+                catalog="catalog",
+                schema="schema",
+                table_name="t; DROP TABLE x; --",
+                collection_name="mem0",
+                warehouse_name="test-warehouse",
+            )
+
+    def test_rejects_dot_in_catalog(self, mock_workspace_client):
+        with pytest.raises(ValueError):
+            Databricks(
+                workspace_url="https://test",
+                access_token="tok",
+                endpoint_name="ep",
+                catalog="cat.evil",
+                schema="schema",
+                table_name="table",
+                collection_name="mem0",
+                warehouse_name="test-warehouse",
+            )
+
+    def test_rejects_space_in_schema(self, mock_workspace_client):
+        with pytest.raises(ValueError):
+            Databricks(
+                workspace_url="https://test",
+                access_token="tok",
+                endpoint_name="ep",
+                catalog="catalog",
+                schema="schema name",
+                table_name="table",
+                collection_name="mem0",
+                warehouse_name="test-warehouse",
+            )
+
+    def test_rejects_dash_in_collection_name(self, mock_workspace_client):
+        with pytest.raises(ValueError):
+            Databricks(
+                workspace_url="https://test",
+                access_token="tok",
+                endpoint_name="ep",
+                catalog="catalog",
+                schema="schema",
+                table_name="table",
+                collection_name="mem-0",
+                warehouse_name="test-warehouse",
+            )
+
+    def test_accepts_valid_identifiers(self, mock_workspace_client):
+        db = Databricks(
+            workspace_url="https://test",
+            access_token="tok",
+            endpoint_name="ep",
+            catalog="my_catalog",
+            schema="my_schema",
+            table_name="my_table_01",
+            collection_name="mem0",
+            warehouse_name="test-warehouse",
+        )
+        assert db.fully_qualified_table_name == "my_catalog.my_schema.my_table_01"
+        assert db.fully_qualified_index_name == "my_catalog.my_schema.mem0"

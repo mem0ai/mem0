@@ -199,8 +199,15 @@ class AzureAISearch(VectorStoreBase):
             if isinstance(value, str):
                 safe_value = value.replace("'", "''")
                 condition = f"{safe_key} eq '{safe_value}'"
-            else:
+            elif isinstance(value, bool):
+                condition = f"{safe_key} eq {str(value).lower()}"
+            elif isinstance(value, (int, float)):
                 condition = f"{safe_key} eq {value}"
+            else:
+                raise ValueError(
+                    f"Filter value for {key!r} must be str, int, float, or bool, "
+                    f"got {type(value).__name__}"
+                )
             filter_conditions.append(condition)
         filter_expression = " and ".join(filter_conditions)
         return filter_expression
@@ -298,18 +305,21 @@ class AzureAISearch(VectorStoreBase):
             payload (Dict, optional): Updated payload.
         """
         document = {"id": vector_id}
-        if vector:
+        if vector is not None:
             document["vector"] = vector
-        if payload:
+        if payload is not None:
             json_payload = json.dumps(payload)
             document["payload"] = json_payload
             for field in ["user_id", "run_id", "agent_id"]:
                 document[field] = payload.get(field)
-        response = self.search_client.merge_or_upload_documents(documents=[document])
+        # merge never creates a document; a missing key comes back as a per-document 404.
+        response = self.search_client.merge_documents(documents=[document])
         for doc in response:
-            if not hasattr(doc, "status_code") and doc.get("status_code") != 200:
+            if doc.status_code == 404:
+                return False
+            if not doc.succeeded:
                 raise Exception(f"Update failed for document {vector_id}: {doc}")
-        return response
+        return True
 
     def get(self, vector_id) -> OutputData:
         """

@@ -4,7 +4,10 @@ import unittest
 import uuid
 from unittest.mock import MagicMock, patch
 
+import grpc
+import httpx
 from qdrant_client import QdrantClient, models
+from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import (
     DatetimeRange,
     Distance,
@@ -18,6 +21,7 @@ from qdrant_client.models import (
     PointStruct,
     PointVectors,
     Range,
+    SparseVector,
     SparseVectorParams,
     VectorParams,
 )
@@ -53,6 +57,30 @@ class TestQdrant(unittest.TestCase):
                 )
             self.assertTrue(os.path.isfile(sentinel))
 
+    def test_reset_clears_points_on_local_qdrant(self):
+        """#6411: reset() must drop points even when the collection dir survives delete_col()."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Qdrant(collection_name="reset_me", embedding_model_dims=4, path=os.path.join(tmp, "qdrant"))
+            try:
+                self.assertTrue(store.is_local)
+                store.insert(
+                    vectors=[[0.1, 0.2, 0.3, 0.4]],
+                    payloads=[{"data": "remember me"}],
+                    ids=[str(uuid.uuid4())],
+                )
+                self.assertEqual(len(store.list(top_k=10)[0]), 1)
+
+                # Simulate Windows/NFS, where rmtree(ignore_errors=True) silently fails
+                # on the open sqlite handle and the collection dir survives delete_col().
+                with patch("qdrant_client.local.qdrant_local.shutil.rmtree"):
+                    store.reset()
+
+                self.assertEqual(len(store.list(top_k=10)[0]), 0)
+                sparse = store.client.get_collection("reset_me").config.params.sparse_vectors
+                self.assertIn("bm25", sparse or {})
+            finally:
+                store.client.close()
+
     def test_create_col(self):
         self.client_mock.get_collections.return_value = MagicMock(collections=[])
 
@@ -85,6 +113,98 @@ class TestQdrant(unittest.TestCase):
             self.assertIsInstance(point, PointStruct)
 
         self.assertEqual(points[0].payload, payloads[0])
+
+    def test_insert_batches_bm25_encoding(self):
+        """BM25 encoding must be done in a single batch call, not per-row.
+
+        Regression test for the optimization that switched from looping over
+        `_encode_bm25(text)` to a single `encoder.embed(all_texts)` call.
+        """
+        # Pretend the collection has the bm25 sparse slot (set up by create_col
+        # on a v3 collection) and stub the encoder to return predictable sparse
+        # vectors mimicking fastembed's output (objects with .indices/.values).
+        self.qdrant._has_bm25_slot = True
+
+        encoder_mock = MagicMock()
+        encoder_mock.embed.return_value = iter(
+            [
+                MagicMock(indices=MagicMock(tolist=lambda: [1, 2]), values=MagicMock(tolist=lambda: [0.5, 0.3])),
+                MagicMock(indices=MagicMock(tolist=lambda: [3]), values=MagicMock(tolist=lambda: [0.8])),
+            ]
+        )
+        self.qdrant._bm25_encoder = encoder_mock
+
+        vectors = [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]
+        payloads = [
+            {"data": "hello world"},
+            {"text_lemmatized": "foo bar"},
+            {"key": "no text — should skip BM25"},
+        ]
+        ids = [str(uuid.uuid4()) for _ in range(3)]
+
+        self.qdrant.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        # 1. encoder.embed must be called exactly once (batched), not per-row.
+        encoder_mock.embed.assert_called_once()
+        called_texts = encoder_mock.embed.call_args[0][0]
+        self.assertEqual(called_texts, ["hello world", "foo bar"])
+
+        # 2. Resulting points carry the right named vectors:
+        #    - Rows with text get both "" (dense) and "bm25" sparse.
+        #    - Row without text gets dense only.
+        points = self.client_mock.upsert.call_args[1]["points"]
+        self.assertEqual(len(points), 3)
+        self.assertIn("bm25", points[0].vector)
+        self.assertEqual(points[0].vector["bm25"].indices, [1, 2])
+        self.assertEqual(points[0].vector["bm25"].values, [0.5, 0.3])
+        self.assertIn("bm25", points[1].vector)
+        self.assertEqual(points[1].vector["bm25"].indices, [3])
+        self.assertNotIn("bm25", points[2].vector)
+
+    def test_insert_skips_bm25_when_slot_missing(self):
+        """Pre-v3 collections (no bm25 slot) must not invoke the encoder at all."""
+        self.qdrant._has_bm25_slot = False
+        encoder_mock = MagicMock()
+        self.qdrant._bm25_encoder = encoder_mock
+
+        self.qdrant.insert(
+            vectors=[[0.1, 0.2]],
+            payloads=[{"data": "hello"}],
+            ids=[str(uuid.uuid4())],
+        )
+
+        encoder_mock.embed.assert_not_called()
+        points = self.client_mock.upsert.call_args[1]["points"]
+        self.assertNotIn("bm25", points[0].vector)
+
+    def test_insert_falls_back_to_per_row_on_batch_failure(self):
+        """If batch encoding raises, each row should be re-encoded individually
+        so a single bad input doesn't drop BM25 for the whole batch."""
+        self.qdrant._has_bm25_slot = True
+
+        # Batch call raises; per-row _encode_bm25 should be used as fallback.
+        encoder_mock = MagicMock()
+        encoder_mock.embed.side_effect = RuntimeError("batch failed")
+        self.qdrant._bm25_encoder = encoder_mock
+
+        # Use a real SparseVector — PointStruct validates the vector dict via
+        # Pydantic, which would coerce a bare MagicMock into [] (MagicMock is
+        # iterable). _encode_bm25's real return type is SparseVector.
+        fallback_sparse = SparseVector(indices=[7], values=[0.9])
+        with patch.object(self.qdrant, "_encode_bm25", return_value=fallback_sparse) as fallback:
+            self.qdrant.insert(
+                vectors=[[0.1, 0.2], [0.3, 0.4]],
+                payloads=[{"data": "a"}, {"data": "b"}],
+                ids=[str(uuid.uuid4()), str(uuid.uuid4())],
+            )
+
+        encoder_mock.embed.assert_called_once()
+        self.assertEqual(fallback.call_count, 2)
+        self.assertEqual([c.args[0] for c in fallback.call_args_list], ["a", "b"])
+        points = self.client_mock.upsert.call_args[1]["points"]
+        for point in points:
+            self.assertEqual(point.vector["bm25"].indices, [7])
+            self.assertEqual(point.vector["bm25"].values, [0.9])
 
     def test_search(self):
         vectors = [[0.1, 0.2]]
@@ -233,52 +353,150 @@ class TestQdrant(unittest.TestCase):
         updated_vector = [0.2, 0.3]
         updated_payload = {"key": "updated_value"}
 
-        self.qdrant.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload)
+        self.assertTrue(self.qdrant.update(vector_id=vector_id, vector=updated_vector, payload=updated_payload))
 
-        self.client_mock.upsert.assert_called_once()
-        point = self.client_mock.upsert.call_args[1]["points"][0]
-        self.assertEqual(point.id, vector_id)
-        # v3 uses named vectors: dense vector stored under "" key
-        self.assertIn("", point.vector)
-        self.assertEqual(point.vector[""], updated_vector)
-        self.assertEqual(point.payload, updated_payload)
+        self.client_mock.batch_update_points.assert_not_called()
+        mode = {"update_mode": models.UpdateMode.UPDATE_ONLY} if hasattr(models, "UpdateMode") else {}
+        self.client_mock.upsert.assert_called_once_with(
+            collection_name="test_collection",
+            points=[PointStruct(id=vector_id, vector={"": updated_vector}, payload=updated_payload)],
+            **mode,
+        )
+
+    def test_full_update_reports_false_when_the_point_is_gone_after_the_write(self):
+        self.client_mock.retrieve.return_value = []
+
+        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"}), False)
+
+    def test_full_update_without_update_mode_support_upserts_as_before(self):
+        update_mode = vars(models).pop("UpdateMode", None)
+        try:
+            self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"})
+        finally:
+            if update_mode is not None:
+                models.UpdateMode = update_mode
+
+        self.assertNotIn("update_mode", self.client_mock.upsert.call_args[1])
 
     def test_update_with_none_vector_uses_set_payload(self):
-        """Test that update with vector=None uses set_payload instead of upsert (fixes #3708)."""
+        """Test that update with vector=None merges the payload and leaves the vector alone (fixes #3708)."""
         vector_id = str(uuid.uuid4())
         updated_payload = {"key": "updated_value"}
 
         self.qdrant.update(vector_id=vector_id, vector=None, payload=updated_payload)
 
         self.client_mock.upsert.assert_not_called()
-        self.client_mock.set_payload.assert_called_once_with(
+        self.client_mock.batch_update_points.assert_called_once_with(
             collection_name="test_collection",
-            payload=updated_payload,
-            points=[vector_id],
+            update_operations=[
+                models.SetPayloadOperation(set_payload=models.SetPayload(payload=updated_payload, points=[vector_id]))
+            ],
         )
 
     def test_update_with_none_payload_uses_update_vectors(self):
-        """Test that update with payload=None uses update_vectors instead of upsert."""
         vector_id = str(uuid.uuid4())
         updated_vector = [0.2, 0.3]
 
         self.qdrant.update(vector_id=vector_id, vector=updated_vector, payload=None)
 
         self.client_mock.upsert.assert_not_called()
-        self.client_mock.update_vectors.assert_called_once_with(
+        self.client_mock.batch_update_points.assert_called_once_with(
             collection_name="test_collection",
-            points=[PointVectors(id=vector_id, vector=updated_vector)],
+            update_operations=[
+                models.UpdateVectorsOperation(
+                    update_vectors=models.UpdateVectors(points=[PointVectors(id=vector_id, vector=updated_vector)])
+                )
+            ],
         )
 
     def test_update_with_both_none_is_noop(self):
         """Test that update with both vector=None and payload=None is a no-op."""
         vector_id = str(uuid.uuid4())
 
-        self.qdrant.update(vector_id=vector_id, vector=None, payload=None)
+        self.assertIsNone(self.qdrant.update(vector_id=vector_id, vector=None, payload=None))
 
         self.client_mock.upsert.assert_not_called()
-        self.client_mock.set_payload.assert_not_called()
-        self.client_mock.update_vectors.assert_not_called()
+        self.client_mock.batch_update_points.assert_not_called()
+
+    def test_update_missing_point_on_server_returns_false(self):
+        self.client_mock.batch_update_points.side_effect = UnexpectedResponse(
+            404, "Not Found", b'{"status":{"error":"Not found: No point with id 1 found"}}', httpx.Headers()
+        )
+
+        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=None, payload={"k": "v"}), False)
+        self.client_mock.upsert.assert_not_called()
+
+    def test_update_reraises_other_not_found_errors(self):
+        self.client_mock.batch_update_points.side_effect = UnexpectedResponse(
+            404, "Not Found", b'{"status":{"error":"Not found: Collection `x` doesn\'t exist!"}}', httpx.Headers()
+        )
+
+        with self.assertRaises(UnexpectedResponse):
+            self.qdrant.update(vector_id=str(uuid.uuid4()), vector=None, payload={"k": "v"})
+
+    def test_local_update_checks_the_point_exists_first(self):
+        self.qdrant._local = True
+        self.client_mock.retrieve.return_value = []
+
+        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"k": "v"}), False)
+        self.client_mock.upsert.assert_not_called()
+
+    def test_update_missing_point_over_grpc_returns_false(self):
+        class NotFound(grpc.RpcError):
+            def code(self):
+                return grpc.StatusCode.NOT_FOUND
+
+            def details(self):
+                return "Not found: No point with id 1 found"
+
+        self.client_mock.batch_update_points.side_effect = NotFound()
+
+        self.assertIs(self.qdrant.update(vector_id=str(uuid.uuid4()), vector=None, payload={"k": "v"}), False)
+
+    def test_stores_sharing_a_local_client_share_one_write_lock(self):
+        client = QdrantClient(":memory:")
+        memories = Qdrant(collection_name="memories", embedding_model_dims=4, client=client)
+        entities = Qdrant(collection_name="entities", embedding_model_dims=4, client=client)
+
+        self.assertIs(memories._write_lock, entities._write_lock)
+        client.close()
+
+    def test_local_update_and_delete_hold_the_write_lock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Qdrant(collection_name="lock", embedding_model_dims=4, path=os.path.join(tmp, "qdrant"))
+            pid = str(uuid.uuid4())
+            store.insert(vectors=[[0.1] * 4], payloads=[{"data": "a"}], ids=[pid])
+            held = []
+            for name in ("upsert", "delete"):
+                real = getattr(store.client, name)
+                setattr(store.client, name, lambda *a, _real=real, **k: held.append(store._write_lock._is_owned()) or _real(*a, **k))
+
+            store.update(vector_id=pid, vector=[0.2] * 4, payload={"data": "b"})
+            store.delete(vector_id=pid)
+
+            self.assertEqual(held, [True, True])
+            store.client.close()
+
+    def test_full_update_sends_no_bm25_when_new_text_has_no_keywords(self):
+        self.qdrant._has_bm25_slot = True
+
+        self.qdrant.update(vector_id=str(uuid.uuid4()), vector=[0.2, 0.3], payload={"data": ""})
+
+        self.assertEqual(self.client_mock.upsert.call_args[1]["points"][0].vector, {"": [0.2, 0.3]})
+
+    def test_update_never_recreates_a_deleted_point_on_local_qdrant(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Qdrant(collection_name="no_resurrect", embedding_model_dims=4, path=os.path.join(tmp, "qdrant"))
+            live, gone = str(uuid.uuid4()), str(uuid.uuid4())
+            store.insert(vectors=[[0.1] * 4, [0.1] * 4], payloads=[{"data": "a", "x": 1}, {"data": "b"}], ids=[live, gone])
+            store.delete(vector_id=gone)
+
+            self.assertIs(store.update(vector_id=gone, vector=[0.2] * 4, payload={"data": "b2"}), False)
+            self.assertIs(store.update(vector_id=gone.upper(), vector=[0.2] * 4, payload={"data": "b2"}), False)
+            self.assertIsNone(store.get(gone))
+            self.assertTrue(store.update(vector_id=live, vector=[0.2] * 4, payload={"data": "a2"}))
+            self.assertEqual(store.get(live).payload, {"data": "a2"})
+            store.client.close()
 
     def test_get(self):
         vector_id = str(uuid.uuid4())
@@ -932,3 +1150,19 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
         types = {type(c.range) for c in result.must}
         self.assertIn(DatetimeRange, types)
         self.assertIn(Range, types)
+
+    def test_missing_fastembed_warns_with_extras_install_hint(self):
+        """When fastembed is missing, the BM25 warning must point at the mem0 optional group
+        that actually provides it (`mem0ai[extras]`), not the bare `fastembed` package -
+        fastembed is declared under [extras], so that is the discoverable install path."""
+        self.qdrant._bm25_encoder = None
+        # Setting the module to None in sys.modules makes `from fastembed import ...` raise ImportError.
+        with patch.dict("sys.modules", {"fastembed": None}):
+            with self.assertLogs("mem0.vector_stores.qdrant", level="WARNING") as cm:
+                result = self.qdrant._get_bm25_encoder()
+        self.assertIsNone(result)  # encoder unavailable -> None
+        self.assertIs(self.qdrant._bm25_encoder, False)  # sentinel: tried and failed, do not retry
+        joined = "\n".join(cm.output)
+        self.assertIn("mem0ai[extras]", joined)  # points at the right install
+        self.assertNotIn("pip install fastembed", joined)  # not the bare package
+        self.assertNotIn("\u2014", joined)  # no em-dash

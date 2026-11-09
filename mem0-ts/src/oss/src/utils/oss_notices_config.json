@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "variant_split": 0.5,
+  "notices": {
+    "first_run": {
+      "copy": "",
+      "enabled": false,
+      "notice_type": "log_line"
+    },
+    "temporal_stub": {
+      "copy": "",
+      "enabled": false,
+      "notice_type": "error"
+    },
+    "temporal_usage": {
+      "copy": "",
+      "enabled": false,
+      "notice_type": "log_line"
+    },
+    "decay_stub": {
+      "copy": "",
+      "enabled": false,
+      "notice_type": "error"
+    },
+    "decay_usage": {
+      "copy": "",
+      "enabled": false,
+      "notice_type": "log_line"
+    },
+    "scale_threshold": {
+      "copies": {
+        "memory_count": "",
+        "top_k": ""
+      },
+      "enabled": false,
+      "notice_type": "log_line"
+    },
+    "performance_slow_query": {
+      "copy": "",
+      "enabled": false,
+      "notice_type": "log_line"
+    }
+  }
+}

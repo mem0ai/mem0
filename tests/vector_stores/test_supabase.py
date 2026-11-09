@@ -1,9 +1,13 @@
-from unittest.mock import Mock, patch
+import logging
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Column, MetaData, String, Table
+from sqlalchemy.dialects import postgresql
 
 from mem0.configs.vector_stores.supabase import IndexMeasure, IndexMethod
-from mem0.vector_stores.supabase import Supabase
+from mem0.vector_stores.supabase import VECS_MAX_QUERY_LIMIT, Supabase
 
 
 @pytest.fixture
@@ -14,13 +18,12 @@ def mock_vecs_client():
 
 @pytest.fixture
 def mock_collection():
-    collection = Mock()
+    collection = MagicMock()
     collection.name = "test_collection"
-    collection.vectors = 100
     collection.dimension = 1536
-    collection.index_method = "hnsw"
-    collection.distance_metric = "cosine_distance"
-    collection.describe.return_value = collection
+    collection.index = "ix_vector_cosine_ops_hnsw_m16_efc64_abc1234"
+    collection.is_indexed_for_measure.return_value = True
+    collection.__len__.return_value = 100
     return collection
 
 
@@ -75,7 +78,7 @@ def test_search_vectors(supabase_instance, mock_collection):
 
     assert len(results) == 2
     assert results[0].id == "id1"
-    assert results[0].score == 0.9
+    assert results[0].score == pytest.approx(0.1)
     assert results[0].payload == {"name": "vector1"}
 
 
@@ -85,13 +88,49 @@ def test_delete_vector(supabase_instance, mock_collection):
     mock_collection.delete.assert_called_once_with([("id1",)])
 
 
+def _session_matching(mock_collection, rowcount):
+    """Give the collection a real vecs-shaped table and a session whose UPDATE matches `rowcount` rows."""
+    columns = [Column("id", String, primary_key=True), Column("vec", Vector(3)), Column("metadata", postgresql.JSONB)]
+    mock_collection.table = Table("test_collection", MetaData(), *columns)
+    sess = mock_collection.client.Session.return_value.__enter__.return_value
+    sess.execute.return_value.rowcount = rowcount
+    return sess
+
+
+def _executed_sql(sess):
+    compiled = sess.execute.call_args[0][0].compile()
+    return str(compiled), compiled.params
+
+
 def test_update_vector(supabase_instance, mock_collection):
-    vector_id = "id1"
+    sess = _session_matching(mock_collection, rowcount=1)
     new_vector = [0.7, 0.8, 0.9]
     new_payload = {"name": "updated_vector"}
 
-    supabase_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload)
-    mock_collection.upsert.assert_called_once_with([("id1", new_vector, new_payload)])
+    assert supabase_instance.update(vector_id="id1", vector=new_vector, payload=new_payload) is True
+    sql, params = _executed_sql(sess)
+    assert sql == "UPDATE test_collection SET vec=:vec, metadata=:metadata WHERE test_collection.id = :id_1"
+    assert params == {"vec": new_vector, "metadata": new_payload, "id_1": "id1"}
+    mock_collection.upsert.assert_not_called()
+
+
+def test_update_missing_id_returns_false_without_writing(supabase_instance, mock_collection):
+    """A memory deleted after Memory read it must stay deleted: an UPDATE matching no row returns False."""
+    sess = _session_matching(mock_collection, rowcount=0)
+
+    assert supabase_instance.update(vector_id="gone", vector=[0.1, 0.2, 0.3], payload={"data": "d"}) is False
+    assert _executed_sql(sess)[0].startswith("UPDATE test_collection SET")
+    mock_collection.upsert.assert_not_called()
+
+
+def test_update_payload_only_leaves_vector_alone(supabase_instance, mock_collection):
+    sess = _session_matching(mock_collection, rowcount=1)
+
+    assert supabase_instance.update(vector_id="id1", payload={"data": "d"}) is True
+    assert _executed_sql(sess) == (
+        "UPDATE test_collection SET metadata=:metadata WHERE test_collection.id = :id_1",
+        {"metadata": {"data": "d"}, "id_1": "id1"},
+    )
 
 
 def test_get_vector(supabase_instance, mock_collection):
@@ -109,6 +148,13 @@ def test_get_vector(supabase_instance, mock_collection):
     mock_collection.fetch.assert_called_once_with([("id1",)])
     assert result.id == "id1"
     assert result.payload == {"name": "vector1"}
+
+
+def test_get_missing_returns_none(supabase_instance, mock_collection):
+    # An unknown id yields an empty fetch; get() must return None (not []).
+    mock_collection.fetch.return_value = []
+
+    assert supabase_instance.get(vector_id="missing") is None
 
 
 def test_list_vectors(supabase_instance, mock_collection):
@@ -134,8 +180,55 @@ def test_col_info(supabase_instance, mock_collection):
         "name": "test_collection",
         "count": 100,
         "dimension": 1536,
-        "index": {"method": "hnsw", "metric": "cosine_distance"},
+        "index": {
+            "name": "ix_vector_cosine_ops_hnsw_m16_efc64_abc1234",
+            "measure": "cosine_distance",
+            "is_indexed": True,
+        },
     }
+
+
+def test_search_clamps_top_k_to_vecs_limit(supabase_instance, mock_collection, caplog):
+    mock_collection.query.return_value = []
+
+    with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.supabase"):
+        supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=5000)
+
+    mock_collection.query.assert_called_once_with(
+        data=[[0.1, 0.2, 0.3]], limit=VECS_MAX_QUERY_LIMIT, filters=None, include_metadata=True, include_value=True
+    )
+    assert "5000" in caplog.text
+    assert str(VECS_MAX_QUERY_LIMIT) in caplog.text
+
+
+def test_search_does_not_clamp_top_k_within_limit(supabase_instance, mock_collection):
+    mock_collection.query.return_value = []
+
+    supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]], top_k=5)
+
+    mock_collection.query.assert_called_once_with(
+        data=[[0.1, 0.2, 0.3]], limit=5, filters=None, include_metadata=True, include_value=True
+    )
+
+
+def test_list_clamps_top_k_to_vecs_limit(supabase_instance, mock_collection, caplog):
+    mock_collection.query.return_value = []
+    mock_collection.fetch.return_value = []
+
+    with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.supabase"):
+        supabase_instance.list(top_k=5000)
+
+    _, kwargs = mock_collection.query.call_args
+    assert kwargs["limit"] == VECS_MAX_QUERY_LIMIT
+    assert "5000" in caplog.text
+    assert str(VECS_MAX_QUERY_LIMIT) in caplog.text
+
+
+def test_col_info_does_not_raise(supabase_instance):
+    info = supabase_instance.col_info()
+
+    assert isinstance(info, dict)
+    assert info["name"] == "test_collection"
 
 
 def test_preprocess_filters(supabase_instance):

@@ -29,6 +29,7 @@ STATE_PATH = Path(os.environ.get("MEM0_TELEMETRY_STATE_PATH", "/app/history/tele
 
 _lock = Lock()
 _client: Any = None
+_dashboard_nudge_logged = False
 
 
 def _load_state() -> dict[str, Any]:
@@ -110,3 +111,19 @@ def capture_admin_registered(email: str) -> None:
 
 def capture_onboarding_completed(email: str, use_case: str) -> None:
     _capture_once(email, "onboarding_completed", "onboarding_sent_at", {"use_case": use_case})
+
+
+def log_dashboard_nudge_once(dashboard_url: str) -> None:
+    """Log a hint pointing the operator to the web dashboard the first time a memory
+    is stored. Fires at most once per process (so a restart may re-log it on the next
+    add — harmless for a discovery nudge). LOCAL console log only — sends nothing
+    off-box, so it is intentionally NOT gated by MEM0_TELEMETRY.
+    """
+    global _dashboard_nudge_logged
+    if _dashboard_nudge_logged:
+        return
+    _dashboard_nudge_logged = True
+    logging.info(
+        "First memory stored. Open the dashboard at %s to view and manage your memories.",
+        dashboard_url,
+    )

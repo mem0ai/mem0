@@ -62,3 +62,24 @@ class VertexAIEmbedding(EmbeddingBase):
         embeddings = self.model.get_embeddings(texts=[text_input], output_dimensionality=self.config.embedding_dims)
 
         return embeddings[0].values
+
+    def embed_batch(self, texts, memory_action="add"):
+        if not texts:
+            return []
+        embedding_type = "SEMANTIC_SIMILARITY"
+        if memory_action is not None:
+            if memory_action not in self.embedding_types:
+                raise ValueError(f"Invalid memory action: {memory_action}")
+            embedding_type = self.embedding_types[memory_action]
+        all_embeddings = []
+        for i in range(0, len(texts), 250):
+            chunk = texts[i : i + 250]
+            inputs = [TextEmbeddingInput(text=t, task_type=embedding_type) for t in chunk]
+            results = self.model.get_embeddings(texts=inputs, output_dimensionality=self.config.embedding_dims)
+            all_embeddings.extend(r.values for r in results)
+        if len(all_embeddings) != len(texts):
+            raise ValueError(
+                f"Vertex AI embed_batch() returned {len(all_embeddings)} embeddings for {len(texts)} texts"
+                f" using model '{self.config.model}'"
+            )
+        return all_embeddings

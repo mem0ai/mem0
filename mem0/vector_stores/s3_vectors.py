@@ -69,6 +69,16 @@ class S3Vectors(VectorStoreBase):
             else:
                 raise
 
+    def _distance_to_score(self, raw_distance: Optional[float]) -> Optional[float]:
+        if raw_distance is None:
+            return None
+        # Euclidean distance is unbounded, so 1 - distance would collapse most
+        # scores to 0. Use a bounded monotonic map instead. Cosine distance is
+        # in [0, 2], where 1 - distance is already a valid similarity.
+        if self.distance_metric == "euclidean":
+            return 1.0 / (1.0 + raw_distance)
+        return max(0.0, 1.0 - raw_distance)
+
     def _parse_output(self, vectors: List[Dict]) -> List[OutputData]:
         results = []
         for v in vectors:
@@ -80,7 +90,9 @@ class S3Vectors(VectorStoreBase):
                 except json.JSONDecodeError:
                     logger.warning(f"Failed to parse metadata for key {v.get('key')}")
                     payload = {}
-            results.append(OutputData(id=v.get("key"), score=v.get("distance"), payload=payload))
+            raw_distance = v.get("distance")
+            score = self._distance_to_score(raw_distance)
+            results.append(OutputData(id=v.get("key"), score=score, payload=payload))
         return results
 
     def insert(self, vectors, payloads=None, ids=None):
@@ -180,10 +192,6 @@ class S3Vectors(VectorStoreBase):
         return response.get("index", {})
 
     def list(self, filters=None, top_k=None):
-        # Note: list_vectors does not support metadata filtering.
-        if filters:
-            logger.warning("S3 Vectors `list` does not support metadata filtering. Ignoring filters.")
-
         params = {
             "vectorBucketName": self.vector_bucket_name,
             "indexName": self.collection_name,
@@ -198,7 +206,16 @@ class S3Vectors(VectorStoreBase):
         all_vectors = []
         for page in pages:
             all_vectors.extend(page.get("vectors", []))
-        return [self._parse_output(all_vectors)]
+        results = self._parse_output(all_vectors)
+        if filters:
+            results = [
+                result
+                for result in results
+                if result.payload and all(result.payload.get(k) == v for k, v in filters.items())
+            ]
+        if top_k:
+            results = results[:top_k]
+        return [results]
 
     def reset(self):
         logger.warning(f"Resetting index {self.collection_name}...")

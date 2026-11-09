@@ -5,7 +5,13 @@ This module provides configuration settings for integrating with Amazon Neptune 
 as a vector store backend for Mem0's memory layer.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+import re
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# Rejecting any identifier that doesn't match this pattern is what keeps the
+# f-string label interpolations in mem0/vector_stores/neptune_analytics.py safe.
+_VALID_CYPHER_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class NeptuneAnalyticsConfig(BaseModel):
@@ -21,5 +27,14 @@ class NeptuneAnalyticsConfig(BaseModel):
     """
     collection_name: str = Field("mem0", description="Default name for the collection")
     endpoint: str = Field("endpoint", description="Graph ID for the runtime")
+
+    @field_validator("collection_name")
+    def validate_collection_name(cls, v):
+        if not _VALID_CYPHER_IDENTIFIER.match(v):
+            raise ValueError(
+                f"Invalid collection_name: {v!r}. Must start with a letter or underscore and "
+                "contain only letters, digits, and underscores."
+            )
+        return v
 
     model_config = ConfigDict(arbitrary_types_allowed=False)

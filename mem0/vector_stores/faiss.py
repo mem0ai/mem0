@@ -1,7 +1,9 @@
+import functools
 import json
 import logging
 import os
 import pickle
+import threading
 import uuid
 import warnings
 from pathlib import Path
@@ -29,6 +31,17 @@ except ImportError:
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+
+def _locked(method):
+    """Hold the instance lock so update's existence check and its write cannot interleave with a delete."""
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 class SafeUnpickler(pickle.Unpickler):
@@ -154,6 +167,7 @@ class FAISS(VectorStoreBase):
         self.index = None
         self.docstore = {}
         self.index_to_id = {}
+        self._lock = threading.RLock()
 
         # Create directory if it doesn't exist
         if self.path:
@@ -248,6 +262,19 @@ class FAISS(VectorStoreBase):
         except Exception as e:
             logger.warning(f"Failed to save FAISS index: {e}")
 
+    def _should_normalize(self) -> bool:
+        """Whether vectors must be L2-normalized before indexing/searching.
+
+        Cosine similarity is implemented on top of an inner-product index
+        (``IndexFlatIP``), which only equals cosine when the inputs are unit
+        vectors — so cosine *always* requires normalization. For euclidean the
+        ``normalize_L2`` flag remains an opt-in.
+        """
+        strategy = self.distance_strategy.lower()
+        if strategy == "cosine":
+            return True
+        return self.normalize_L2 and strategy == "euclidean"
+
     def _parse_output(self, scores, ids, top_k=None) -> List[OutputData]:
         """
         Parse the output data.
@@ -279,7 +306,11 @@ class FAISS(VectorStoreBase):
 
             payload_copy = payload.copy()
 
-            score = float(scores[i])
+            raw_score = float(scores[i])
+            if self.distance_strategy.lower() == "euclidean":
+                score = 1.0 / (1.0 + raw_score)
+            else:
+                score = raw_score
             entry = OutputData(
                 id=vector_id,
                 score=score,
@@ -343,7 +374,7 @@ class FAISS(VectorStoreBase):
 
         vectors_np = np.array(vectors, dtype=np.float32)
 
-        if self.normalize_L2 and self.distance_strategy.lower() == "euclidean":
+        if self._should_normalize():
             faiss.normalize_L2(vectors_np)
 
         self.index.add(vectors_np)
@@ -380,13 +411,13 @@ class FAISS(VectorStoreBase):
         if len(query_vectors.shape) == 1:
             query_vectors = query_vectors.reshape(1, -1)
 
-        if self.normalize_L2 and self.distance_strategy.lower() == "euclidean":
+        if self._should_normalize():
             faiss.normalize_L2(query_vectors)
 
         fetch_k = top_k * 2 if filters else top_k
         scores, indices = self.index.search(query_vectors, fetch_k)
 
-        results = self._parse_output(scores[0], indices[0], top_k)
+        results = self._parse_output(scores[0], indices[0], fetch_k)
 
         if filters:
             filtered_results = []
@@ -425,6 +456,7 @@ class FAISS(VectorStoreBase):
 
         return True
 
+    @_locked
     def delete(self, vector_id: str):
         """
         Delete a vector by ID.
@@ -466,6 +498,7 @@ class FAISS(VectorStoreBase):
         else:
             logger.warning(f"Vector {vector_id} not found in collection {self.collection_name}")
 
+    @_locked
     def update(
         self,
         vector_id: str,
@@ -484,7 +517,7 @@ class FAISS(VectorStoreBase):
             raise ValueError("Collection not initialized. Call create_col first.")
 
         if vector_id not in self.docstore:
-            raise ValueError(f"Vector {vector_id} not found")
+            return False
 
         current_payload = self.docstore[vector_id].copy()
 
@@ -499,6 +532,7 @@ class FAISS(VectorStoreBase):
             self._save()
 
         logger.info(f"Updated vector {vector_id} in collection {self.collection_name}")
+        return True
 
     def get(self, vector_id: str) -> OutputData:
         """
@@ -599,7 +633,7 @@ class FAISS(VectorStoreBase):
             List[OutputData]: List of vectors.
         """
         if self.index is None:
-            return []
+            return [[]]
 
         results = []
         count = 0

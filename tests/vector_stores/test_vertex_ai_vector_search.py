@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import Mock, patch
 
 import pytest
@@ -112,8 +113,34 @@ def test_search_vectors(vector_store, mock_vertex_ai):
 
     assert len(results) == 1
     assert results[0].id == "test-id"
-    assert results[0].score == 0.1
+    assert results[0].score == 0.9
     assert results[0].payload == {"user_id": "test_user"}
+
+
+def test_list_does_not_raise_type_error(vector_store, mock_vertex_ai):
+    """list() must call search() with the required positional `vectors` arg."""
+    mock_vertex_ai["endpoint"].find_neighbors.return_value = [[]]
+
+    results = vector_store.list(filters={"user_id": "test_user"}, top_k=5)
+
+    mock_vertex_ai["endpoint"].find_neighbors.assert_called_once()
+    queries = mock_vertex_ai["endpoint"].find_neighbors.call_args[1]["queries"]
+    assert queries == [[0.0] * 768]
+    assert results == [[]]
+
+
+def test_similarity_search_with_score_passes_embedding(vector_store, mock_vertex_ai):
+    """similarity_search_with_score() must pass the embedding as `vectors`."""
+    embedding = [0.1, 0.2, 0.3]
+    vector_store.embedder = Mock()
+    vector_store.embedder.embed_query.return_value = embedding
+    mock_vertex_ai["endpoint"].find_neighbors.return_value = [[]]
+
+    vector_store.similarity_search_with_score(query="hello", k=3)
+
+    mock_vertex_ai["endpoint"].find_neighbors.assert_called_once()
+    queries = mock_vertex_ai["endpoint"].find_neighbors.call_args[1]["queries"]
+    assert queries == [embedding]
 
 
 def test_delete(vector_store, mock_vertex_ai):
@@ -139,3 +166,43 @@ def test_error_handling(vector_store, mock_vertex_ai):
 
     assert isinstance(exc_info.value, exceptions.InvalidArgument)
     assert "Invalid request" in str(exc_info.value)
+
+
+def test_update_raises_api_errors(vector_store, mock_vertex_ai):
+    mock_vertex_ai["index"].upsert_datapoints.side_effect = exceptions.ServiceUnavailable("down")
+
+    with patch.object(vector_store, "get", return_value=Mock()):
+        with pytest.raises(exceptions.ServiceUnavailable):
+            vector_store.update(vector_id="test-id", vector=[0.1, 0.2, 0.3], payload={"name": "test"})
+
+
+def test_debug_logs_never_carry_service_account_key(caplog):
+    """Regression for #7503: constructor DEBUG lines must not log the inline credential.
+
+    The constructor emits the whole kwargs dict and the validated config dump at
+    DEBUG; when ``service_account_json`` is passed inline that writes the PEM
+    private key to the log sink. Constructor diagnostics should name the fields,
+    never their values.
+    """
+    private_key = "-----BEGIN PRIVATE KEY-----\nFAKE-KEY-MATERIAL-FOR-TEST\n-----END PRIVATE KEY-----\n"
+    kwargs = {
+        "project_id": "test-project",
+        "project_number": "123456789",
+        "region": "us-central1",
+        "endpoint_id": "test-endpoint",
+        "index_id": "test-index",
+        "deployment_index_id": "test-deployment",
+        "service_account_json": {"type": "service_account", "private_key": private_key},
+    }
+
+    with caplog.at_level(logging.DEBUG, logger="mem0.vector_stores.vertex_ai_vector_search"):
+        # Fails later at credential load (no network, no valid key); the two
+        # DEBUG statements under test run before that.
+        with pytest.raises(Exception):
+            GoogleMatchingEngine(**kwargs)
+
+    logged = caplog.text
+    assert private_key not in logged
+    assert "FAKE-KEY-MATERIAL-FOR-TEST" not in logged
+    # The diagnostics must stay useful: field names are still logged.
+    assert "service_account_json" in logged

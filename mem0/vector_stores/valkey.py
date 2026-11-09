@@ -7,7 +7,7 @@ import numpy as np
 import pytz
 import valkey
 from pydantic import BaseModel
-from valkey.exceptions import ResponseError
+from valkey.exceptions import NoPermissionError, ResponseError, WatchError
 
 from mem0.memory.utils import extract_json
 from mem0.vector_stores.base import VectorStoreBase
@@ -21,7 +21,7 @@ DEFAULT_FIELDS = [
     {"name": "agent_id", "type": "tag"},
     {"name": "run_id", "type": "tag"},
     {"name": "user_id", "type": "tag"},
-    {"name": "memory", "type": "tag"},  # Using TAG instead of TEXT for Valkey compatibility
+    {"name": "memory", "type": "text"},  # TEXT for full-text search over memory content (see #5006)
     {"name": "metadata", "type": "tag"},  # Using TAG instead of TEXT for Valkey compatibility
     {"name": "created_at", "type": "numeric"},
     {"name": "updated_at", "type": "numeric"},
@@ -34,6 +34,11 @@ DEFAULT_FIELDS = [
 
 excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
 
+# HSET creates a missing key; a Lua script runs atomically, so no delete can land between the check and the write.
+_HSET_IF_EXISTS = (
+    "if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end redis.call('HSET', KEYS[1], unpack(ARGV)) return 1"
+)
+
 
 class OutputData(BaseModel):
     id: str
@@ -41,7 +46,20 @@ class OutputData(BaseModel):
     payload: Dict
 
 
+_VALKEY_TAG_SPECIAL = set(r',.<>{}[]"\':;!@#$%^&*()-+=~| ')
+
+
 class ValkeyDB(VectorStoreBase):
+    @staticmethod
+    def _escape_tag_value(value):
+        """Escape special characters in a Valkey FT.SEARCH tag filter value.
+
+        Without escaping, characters like * (wildcard) or | (OR) alter query
+        semantics and can bypass tenant-isolation filters.
+        """
+        s = str(value)
+        return "".join(f"\\{c}" if c in _VALKEY_TAG_SPECIAL else c for c in s)
+
     def __init__(
         self,
         valkey_url: str,
@@ -169,7 +187,7 @@ class ValkeyDB(VectorStoreBase):
             "user_id",
             "TAG",
             "memory",
-            "TAG",
+            "TEXT",
             "metadata",
             "TAG",
             "created_at",
@@ -286,13 +304,8 @@ class ValkeyDB(VectorStoreBase):
                 # Create the key for the hash
                 key = f"{self.prefix}:{id}"
 
-                # Check for required fields and provide defaults if missing
-                if "data" not in payload:
-                    # Silently use default value for missing 'data' field
-                    pass
-
-                # Ensure created_at is present
-                if "created_at" not in payload:
+                # Default created_at when missing or None to current time
+                if not payload.get("created_at"):
                     payload["created_at"] = datetime.now(pytz.timezone(self.timezone)).isoformat()
 
                 # Prepare the hash data
@@ -329,8 +342,8 @@ class ValkeyDB(VectorStoreBase):
             knn_part (str): The KNN part of the query.
             filters (dict, optional): Filters to apply to the search. Each key-value pair
                 becomes a tag filter (@key:{value}). None values are ignored.
-                Values are used as-is (no validation) - wildcards, lists, etc. are
-                passed through literally to Valkey search. Multiple filters are
+                Values are escaped via _escape_tag_value() before interpolation
+                to prevent wildcard/operator injection. Multiple filters are
                 combined with AND logic (space-separated).
 
         Returns:
@@ -345,8 +358,8 @@ class ValkeyDB(VectorStoreBase):
         filter_parts = []
         for key, value in filters.items():
             if value is not None:
-                # Use the correct filter syntax for Valkey
-                filter_parts.append(f"@{key}:{{{value}}}")
+                escaped = self._escape_tag_value(value)
+                filter_parts.append(f"@{key}:{{{escaped}}}")
 
         # No valid filter parts
         if not filter_parts:
@@ -388,8 +401,8 @@ class ValkeyDB(VectorStoreBase):
         """
         memory_results = []
         for doc in results.docs:
-            # Extract the score
-            score = float(doc.vector_score) if hasattr(doc, "vector_score") else None
+            raw_distance = float(doc.vector_score) if hasattr(doc, "vector_score") else None
+            score = max(0.0, 1.0 - raw_distance) if raw_distance is not None else None
 
             # Create the payload
             payload = {
@@ -486,13 +499,8 @@ class ValkeyDB(VectorStoreBase):
         try:
             key = f"{self.prefix}:{vector_id}"
 
-            # Check for required fields and provide defaults if missing
-            if "data" not in payload:
-                # Silently use default value for missing 'data' field
-                pass
-
-            # Ensure created_at is present
-            if "created_at" not in payload:
+            # Default created_at when missing or None to current time
+            if not payload.get("created_at"):
                 payload["created_at"] = datetime.now(pytz.timezone(self.timezone)).isoformat()
 
             # Prepare the hash data
@@ -508,7 +516,7 @@ class ValkeyDB(VectorStoreBase):
                 hash_data["embedding"] = np.array(vector, dtype=np.float32).tobytes()
 
             # Add updated_at if available
-            if "updated_at" in payload:
+            if payload.get("updated_at"):
                 hash_data["updated_at"] = int(datetime.fromisoformat(payload["updated_at"]).timestamp())
 
             # Add optional fields
@@ -520,8 +528,24 @@ class ValkeyDB(VectorStoreBase):
             hash_data["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in excluded_keys})
 
             # Update in Valkey
-            self.client.hset(key, mapping=hash_data)
-            logger.debug(f"Successfully updated vector with ID {vector_id}")
+            try:
+                updated = bool(self.client.eval(_HSET_IF_EXISTS, 1, key, *[x for kv in hash_data.items() for x in kv]))
+            except NoPermissionError:
+                # Scripting denied by ACL: WATCH aborts EXEC if the key changes after the check; the retry re-checks.
+                with self.client.pipeline() as pipe:
+                    while True:
+                        try:
+                            pipe.watch(key)
+                            if not pipe.exists(key):
+                                return False
+                            pipe.multi()
+                            pipe.hset(key, mapping=hash_data)
+                            pipe.execute()
+                            return True
+                        except WatchError:
+                            continue
+            logger.debug(f"Update of vector with ID {vector_id} applied: {updated}")
+            return updated
         except KeyError as e:
             logger.error(f"Error updating vector with ID {vector_id}: Missing required field {e}")
         except Exception as e:
@@ -750,34 +774,6 @@ class ValkeyDB(VectorStoreBase):
             logger.exception(f"Error resetting index {self.collection_name}: {e}")
             raise
 
-    def _build_list_query(self, filters=None):
-        """
-        Build a query for listing vectors.
-
-        Args:
-            filters (dict, optional): Filters to apply to the list. Each key-value pair
-                becomes a tag filter (@key:{value}). None values are ignored.
-                Values are used as-is (no validation) - wildcards, lists, etc. are
-                passed through literally to Valkey search.
-
-        Returns:
-            str: The query string. Returns "*" if no valid filters provided.
-        """
-        # Default query
-        q = "*"
-
-        # Add filters if provided
-        if filters and any(value is not None for key, value in filters.items()):
-            filter_conditions = []
-            for key, value in filters.items():
-                if value is not None:
-                    filter_conditions.append(f"@{key}:{{{value}}}")
-
-            if filter_conditions:
-                q = " ".join(filter_conditions)
-
-        return q
-
     def list(self, filters: dict = None, top_k: int = None) -> list:
         """
         List all recent created memories from the vector store.
@@ -785,8 +781,8 @@ class ValkeyDB(VectorStoreBase):
         Args:
             filters (dict, optional): Filters to apply to the list. Each key-value pair
                 becomes a tag filter (@key:{value}). None values are ignored.
-                Values are used as-is without validation - wildcards, special characters,
-                lists, etc. are passed through literally to Valkey search.
+                Values are escaped via _escape_tag_value() before interpolation
+                to prevent wildcard/operator injection.
                 Multiple filters are combined with AND logic.
             top_k (int, optional): Maximum number of results to return. Defaults to 1000
                 if not specified.

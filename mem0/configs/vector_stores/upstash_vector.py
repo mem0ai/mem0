@@ -29,6 +29,13 @@ class UpstashVectorConfig(BaseModel):
 
         if not client and not (url and token):
             raise ValueError("Either a client or URL and token must be provided.")
+
+        # Persist the env-resolved credentials so the provider constructor receives
+        # them; the validator used to check the env vars but drop them, so an
+        # env-var-only config passed validation and then raised on build.
+        if not client:
+            values["url"] = url
+            values["token"] = token
         return values
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

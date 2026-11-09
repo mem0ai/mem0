@@ -1,0 +1,359 @@
+---
+title: Profiles
+description: "Build a structured, always-current summary of each user from their memories, shaped by a JSON Schema you define."
+---
+
+# Profiles
+
+Memories are individual facts. A profile is the summary of all of them for one entity: a single structured object, shaped by a JSON Schema you define, that Mem0 keeps current as new memories arrive.
+
+Search answers "what did this user say about X". A profile answers "who is this user", in one read, with no query to write.
+
+<Info>
+  **Use profiles when…**
+  - You want to personalize a first response, before the user says anything in this session.
+  - You need a compact object to drop into a prompt instead of a list of memories.
+  - You want the same fields for every user, so your code can rely on their shape.
+</Info>
+
+<Note>
+  User Profiles are in **beta** and available on request. To enable them for your
+  organization, contact [support@mem0.ai](mailto:support@mem0.ai).
+</Note>
+
+## How it works
+
+1. You define a **schema**: the fields a profile should contain, each with a description.
+2. Mem0 builds each entity's profile from their memories, and rebuilds it as new memories arrive.
+3. You read the profile whenever you need it.
+
+Generation is **asynchronous**. A profile is not ready the instant an entity's first memory lands, so a read tells you where it is with a `status` rather than failing.
+
+## Define the schema
+
+The schema is JSON Schema. Every property needs a `description` — that is what tells the model how to fill the field, so a vague description gives a vague profile.
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient()
+
+client.update_profile_settings(
+    enabled=True,
+    schema={
+        "type": "object",
+        "properties": {
+            "communication_style": {
+                "type": "string",
+                "description": "How the user prefers to be addressed: terse, detailed, formal, casual",
+            },
+            "expertise_areas": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Subjects the user demonstrates working knowledge of",
+            },
+            "current_goals": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "What the user is actively trying to accomplish",
+            },
+        },
+    },
+    custom_instructions="Prefer durable traits over one-off remarks.",
+)
+```
+
+```typescript TypeScript
+import MemoryClient from "mem0ai";
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+
+await client.updateProfileSettings({
+  enabled: true,
+  schema: {
+    type: "object",
+    properties: {
+      communication_style: {
+        type: "string",
+        description:
+          "How the user prefers to be addressed: terse, detailed, formal, casual",
+      },
+      expertise_areas: {
+        type: "array",
+        items: { type: "string" },
+        description: "Subjects the user demonstrates working knowledge of",
+      },
+      current_goals: {
+        type: "array",
+        items: { type: "string" },
+        description: "What the user is actively trying to accomplish",
+      },
+    },
+  },
+  customInstructions: "Prefer durable traits over one-off remarks.",
+});
+```
+</CodeGroup>
+
+<Note>
+  Your schema's property names reach the API exactly as you write them. The SDKs do not rewrite them, so a profile always comes back with the field names you chose.
+</Note>
+
+Only the fields you pass are written. To turn the feature off without touching your schema, send `enabled` alone.
+
+## Read a profile
+
+<CodeGroup>
+```python Python
+result = client.get_profile("alice")
+
+if result["status"] == "succeeded":
+    print(result["profile"])
+else:
+    print("not ready:", result["status"])
+```
+
+```typescript TypeScript
+const result = await client.getProfile({ entityId: "alice" });
+
+if (result.status === "succeeded") {
+  console.log(result.profile);
+} else {
+  console.log("not ready:", result.status);
+}
+```
+</CodeGroup>
+
+A response looks like this:
+
+```json
+{
+  "profile": {
+    "communication_style": "terse",
+    "expertise_areas": ["distributed systems", "postgres"],
+    "current_goals": ["cut p99 latency", "migrate off the legacy queue"]
+  },
+  "status": "succeeded",
+  "entity_type": "user",
+  "entity_id": "alice",
+  "updated_at": "2026-02-08T10:30:00Z",
+  "generation_count": 3
+}
+```
+
+`generation_count` is how many times this profile has been (re)generated — `0` before the first generation completes.
+
+### Always branch on `status`
+
+`profile` is empty unless `status` is `succeeded`. Check the status rather than the emptiness of the object, so a profile that is merely still building is not mistaken for a user you know nothing about.
+
+| `status` | Meaning | What to do |
+|---|---|---|
+| `succeeded` | Profile is built and current | Use it |
+| `pending` | Generation is queued or running | Read again shortly |
+| `insufficient_data` | Not enough memories to say anything yet | Fall back to defaults |
+| `not_enabled` | Profiles are off for this project | Enable them in settings |
+| `failed` | The last generation did not complete | Retry, or trigger a new one |
+
+A `404` means only that no such entity exists in your project.
+
+## Generate a profile on demand
+
+Profiles are built once an entity has accumulated enough messages, so a brand-new user has none during their first few interactions. Trigger one directly to close that gap:
+
+<CodeGroup>
+```python Python
+client.generate_profile("alice")
+```
+
+```typescript TypeScript
+await client.generateProfile({ entityId: "alice" });
+```
+</CodeGroup>
+
+The call returns as soon as the work is queued. Poll the read endpoint and branch on `status`.
+
+## Test a schema before applying it
+
+A schema that reads well can still produce disappointing profiles. Sample a few real entities and inspect the output before committing to it.
+
+Sampling is asynchronous: the call returns a job as soon as it is queued. Poll `status_url` until the job is terminal, then read each sampled entity's profile:
+
+<CodeGroup>
+```python Python
+import time
+
+job = client.sample_profiles(limit=5)
+
+# Poll until the sample job reaches a terminal state (job status is UPPERCASE).
+TERMINAL = {"SUCCEEDED", "PARTIALLY_SUCCEEDED", "FAILED", "CANCELLED"}
+deadline = time.time() + 120
+while True:
+    status = client.get_profile_job(job["status_url"])["job"]
+    if status["status"] in TERMINAL:
+        break
+    if time.time() > deadline:
+        raise TimeoutError("Sample job did not finish in time")
+    time.sleep(3)
+
+print(status["status"], status["succeeded"], "of", status["total"])
+
+# The create response lists the sampled entities; read each one's saved profile.
+for entity_id in job.get("entity_ids", []):
+    print(client.get_profile(entity_id))
+```
+
+```typescript TypeScript
+const job = await client.sampleProfiles({ limit: 5 });
+
+// Poll until the sample job reaches a terminal state (job status is UPPERCASE).
+const TERMINAL = ["SUCCEEDED", "PARTIALLY_SUCCEEDED", "FAILED", "CANCELLED"];
+const deadline = Date.now() + 120_000;
+let status;
+while (true) {
+  status = (await client.getProfileJob(job.statusUrl)).job;
+  if (TERMINAL.includes(status.status)) break;
+  if (Date.now() > deadline)
+    throw new Error("Sample job did not finish in time");
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+}
+
+console.log(status.status, status.succeeded, "of", status.total);
+
+// The create response lists the sampled entities; read each one's saved profile.
+for (const entityId of job.entityIds ?? []) {
+  console.log(await client.getProfile({ entityId }));
+}
+```
+</CodeGroup>
+
+These are real generations. The profiles are saved to those entities and count toward your usage, so sampling is not wasted work and not a free dry run. A sample covers up to 10 entities and cannot be repeated immediately.
+
+## Apply a new schema to existing entities
+
+A new schema shapes the next generation. Profiles that already exist keep their values until their entity is generated again.
+
+Each entity picks the new schema up as it sends more memories, and you can generate one now with `generate_profile`.
+
+<Note>
+Rebuilding every profile in a project at once is not available yet. Refresh profiles one entity at a time with `generate_profile`, or let each one update on its own as its entity sends more memories.
+</Note>
+
+## When profiles update
+
+You never call an "update profile" endpoint — Mem0 keeps each profile current for you. Two things drive it:
+
+- **Automatically, as memories accumulate.** Mem0 refreshes an entity's profile after roughly every **10 messages** it receives, folding the new memories into the existing profile. There is no schedule to wait for and no extra call to make: the same `add` you already do keeps the profile moving.
+- **On demand.** Call `generate_profile` to build or refresh a profile immediately — useful for a brand-new entity that has not yet crossed the automatic threshold.
+
+Generation is **asynchronous and incremental**. A refresh runs in the background a short while after its trigger, so a read taken immediately after an `add` may still show the previous profile (or `pending`). Branch on `status` rather than assuming the latest memory is already reflected.
+
+<Note>
+  Updates are **incremental**, not a full rebuild each time — Mem0 merges what it newly learns into the stored profile and keeps the fields your schema still defines. After a schema change, existing profiles pick it up as their entities send more memories, or when you call `generate_profile` — see [Apply a new schema to existing entities](#apply-a-new-schema-to-existing-entities).
+</Note>
+
+## Use a profile in a prompt
+
+The point of the structure is that it drops straight into a prompt:
+
+```python
+result = client.get_profile(user_id)
+
+if result["status"] == "succeeded":
+    profile = result["profile"]
+    system_prompt = f"""You are helping {user_id}.
+Communication style: {profile.get("communication_style", "unknown")}
+Areas of expertise: {", ".join(profile.get("expertise_areas", []))}
+Current goals: {", ".join(profile.get("current_goals", []))}
+
+Match their style and do not explain what they already know."""
+else:
+    system_prompt = "You are a helpful assistant."
+```
+
+## Writing a schema that works
+
+- **Describe every field.** The description is the instruction; without it the model guesses.
+- **Prefer durable traits.** "Prefers dark mode" ages well; "is annoyed today" does not.
+- **Keep it small.** Ten focused fields beat forty speculative ones, and cost less to generate.
+- **Say what the field is not.** A description that rules out the near-miss interpretation is worth more than one that only states the obvious.
+- **Sample before you commit.** It is the only way to see what your descriptions actually produce.
+
+<Note>
+  A schema has a size budget of roughly **10,000 tokens** of serialized JSON — the whole schema is sent to the model on every generation, so a handful of verbose fields can cost more than many terse ones. Oversized schemas are rejected on save.
+</Note>
+
+## Availability
+
+The feature is in beta and enabled per organization on request — see the note at the top of this page.
+
+Once it is on, an entity gets a profile when two more things hold:
+
+- profiles are **enabled** with a schema for the project (see [Define the schema](#define-the-schema)), and
+- the memory is scoped to an entity — a `user_id`.
+
+On a project where profiles are turned off, a read returns `status: not_enabled` rather than an error, so you can call it unconditionally and branch on the status.
+
+## Settings reference
+
+| Argument | Type | Description |
+|---|---|---|
+| `enabled` | boolean | Whether profile generation runs for the project |
+| `schema` | object | JSON Schema describing the profile. Every property needs a `description` |
+| `custom_instructions` | string | Extra guidance applied during extraction |
+
+`enabled` is project-wide. `schema` and `custom_instructions` apply to user
+profiles, so the stored settings nest them under `entities`:
+
+```json
+{
+  "enabled": true,
+  "entities": {
+    "user": {
+      "schema": { "type": "object", "properties": { "...": {} } },
+      "custom_instructions": "Prefer durable traits over one-off remarks."
+    }
+  },
+  "capabilities": { "full_rebuild": false }
+}
+```
+
+That is what a read returns and what a write accepts. The SDKs take the fields
+flat and nest them for you, so a schema you write with
+`update_profile_settings` comes back unchanged from `get_profile_settings`.
+
+<Note>
+  Profile settings are per project. An API key is scoped to one project, so profiles never cross a project boundary.
+</Note>
+
+## FAQ
+
+**Do I need to change my `add` or `search` calls to use profiles?**
+No. Profiles are built from the memories you already add. You define a schema once and read the profile when you need it — your ingestion and retrieval code is unchanged.
+
+**Why is `profile` empty even though the entity has memories?**
+Generation is asynchronous and needs enough to work with. Branch on `status`: `pending` means it is still building, and `insufficient_data` means there are not yet enough memories to fill the schema. Read again shortly, or call `generate_profile` to build one now.
+
+**Is sampling free?**
+No. `sample_profiles` runs real generations against real memories and **keeps** the profiles it produces, so it counts toward your usage like any other generation. It exists to check a schema on a few entities before you commit to it — not as a zero-cost dry run.
+
+**Does changing the schema rewrite existing profiles?**
+No. A schema change applies to the next generation. An existing profile keeps its values until its entity is generated again, which happens as that entity sends more memories, or when you call `generate_profile` for it.
+
+**What happens to a field I remove from the schema?**
+It stops being maintained. On an entity's next generation, fields your schema no longer defines are pruned from the stored profile — so keep a field in the schema for as long as you want its value kept.
+
+**How current is a profile?**
+It refreshes automatically as memories accumulate (about every 10 messages for an entity), plus any on-demand `generate_profile` calls. Because refreshes run in the background, expect a short delay after the triggering `add` rather than an instant update.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Entity-Scoped Memory" icon="users" href="/platform/features/entity-scoped-memory">
+    How users, agents, apps and runs partition memories.
+  </Card>
+  <Card title="Custom Instructions" icon="pen" href="/platform/features/custom-instructions">
+    Steer what Mem0 extracts in the first place.
+  </Card>
+</CardGroup>

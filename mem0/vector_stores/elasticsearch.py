@@ -1,8 +1,9 @@
 import logging
+import re
 from typing import Any, Dict, List, Optional
 
 try:
-    from elasticsearch import Elasticsearch
+    from elasticsearch import Elasticsearch, NotFoundError
     from elasticsearch.helpers import bulk
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
@@ -19,6 +20,19 @@ class OutputData(BaseModel):
     id: str
     score: float
     payload: Dict
+
+
+_SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _validate_filter(key: str, value: Any) -> None:
+    if not isinstance(key, str) or not _SAFE_FILTER_KEY.match(key):
+        raise ValueError(f"Invalid filter key: {key!r}")
+    if not isinstance(value, (str, int, float, bool)):
+        raise ValueError(
+            f"Filter value for {key!r} must be str, int, float, or bool, "
+            f"got {type(value).__name__}"
+        )
 
 
 class ElasticsearchDB(VectorStoreBase):
@@ -149,11 +163,15 @@ class ElasticsearchDB(VectorStoreBase):
             search_query = self.custom_search_query(vectors, top_k, filters)
         else:
             search_query = {
-                "knn": {"field": "vector", "query_vector": vectors, "k": top_k, "num_candidates": top_k * 2}
+                # Without `size`, Elasticsearch caps the response at its default of 10 hits
+                # regardless of `knn.k`, silently truncating results when top_k > 10.
+                "size": top_k,
+                "knn": {"field": "vector", "query_vector": vectors, "k": top_k, "num_candidates": top_k * 2},
             }
             if filters:
                 filter_conditions = []
                 for key, value in filters.items():
+                    _validate_filter(key, value)
                     filter_conditions.append({"term": {f"metadata.{key}": value}})
                 search_query["knn"]["filter"] = {"bool": {"must": filter_conditions}}
 
@@ -192,6 +210,7 @@ class ElasticsearchDB(VectorStoreBase):
         if filters:
             filter_conditions = []
             for key, value in filters.items():
+                _validate_filter(key, value)
                 filter_conditions.append({"term": {f"metadata.{key}": value}})
             bool_query["filter"] = filter_conditions
 
@@ -214,15 +233,19 @@ class ElasticsearchDB(VectorStoreBase):
         """Delete a vector by ID."""
         self.client.delete(index=self.collection_name, id=vector_id)
 
-    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> None:
-        """Update a vector and its payload."""
+    def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> bool:
+        """Update a vector and its payload. Returns False if no document has this ID."""
         doc = {}
         if vector is not None:
             doc["vector"] = vector
         if payload is not None:
             doc["metadata"] = payload
 
-        self.client.update(index=self.collection_name, id=vector_id, body={"doc": doc})
+        try:
+            self.client.update(index=self.collection_name, id=vector_id, body={"doc": doc})
+        except NotFoundError:
+            return False
+        return True
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """Retrieve a vector by ID."""
@@ -262,6 +285,7 @@ class ElasticsearchDB(VectorStoreBase):
         if filters:
             filter_conditions = []
             for key, value in filters.items():
+                _validate_filter(key, value)
                 filter_conditions.append({"term": {f"metadata.{key}": value}})
             query["query"] = {"bool": {"must": filter_conditions}}
 

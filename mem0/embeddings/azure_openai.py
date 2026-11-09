@@ -69,4 +69,9 @@ class AzureOpenAIEmbedding(EmbeddingBase):
                 model=self.config.model,
             )
             all_embeddings.extend(item.embedding for item in sorted(response.data, key=lambda x: x.index))
+        if len(all_embeddings) != len(texts):
+            raise ValueError(
+                f"Azure OpenAI embed_batch() returned {len(all_embeddings)} embeddings for {len(texts)} texts"
+                f" using model '{self.config.model}'"
+            )
         return all_embeddings

@@ -1,0 +1,88 @@
+name: n8n-nodes-mem0 checks
+
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main and manual runs remain standalone.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'integrations/n8n-nodes-mem0/**'
+      - '.github/workflows/n8n-nodes-mem0-checks.yml'
+  workflow_call:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: integrations/n8n-nodes-mem0/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: cd integrations/n8n-nodes-mem0 && pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Lint
+        run: cd integrations/n8n-nodes-mem0 && pnpm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: integrations/n8n-nodes-mem0/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: cd integrations/n8n-nodes-mem0 && pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Run tests
+        run: cd integrations/n8n-nodes-mem0 && pnpm test
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: integrations/n8n-nodes-mem0/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: cd integrations/n8n-nodes-mem0 && pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build
+        run: cd integrations/n8n-nodes-mem0 && pnpm run build
+
+      - name: Verify dist output exists
+        run: |
+          test -f integrations/n8n-nodes-mem0/dist/nodes/Mem0/Mem0.node.js || (echo "Build output missing: dist/nodes/Mem0/Mem0.node.js" && exit 1)
+          test -f integrations/n8n-nodes-mem0/dist/credentials/Mem0Api.credentials.js || (echo "Build output missing: dist/credentials/Mem0Api.credentials.js" && exit 1)
+          test -f integrations/n8n-nodes-mem0/dist/nodes/Mem0/mem0.svg || (echo "Build output missing: dist/nodes/Mem0/mem0.svg" && exit 1)

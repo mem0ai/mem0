@@ -9,9 +9,9 @@ Quick-reference cheatsheet for developers working across both Mem0 SDKs.
 | Import (Platform) | `from mem0 import MemoryClient` | `import MemoryClient from 'mem0ai'` |
 | Import (OSS) | `from mem0 import Memory` | `import { Memory } from 'mem0ai/oss'` |
 | Constructor | `MemoryClient(api_key="m0-xxx")` | `new MemoryClient({ apiKey: 'm0-xxx' })` |
-| Required param | `api_key` (positional or kwarg) | `apiKey` (in options object) |
+| Required param | `api_key` (optional, falls back to `MEM0_API_KEY`) | `apiKey` (required, in options object) |
 
-Both read from `MEM0_API_KEY` env var if no key provided.
+Python reads `MEM0_API_KEY` if no key is passed. TypeScript does not read the environment: pass `apiKey: process.env.MEM0_API_KEY` yourself.
 
 ## Method Naming
 
@@ -38,6 +38,11 @@ Both read from `MEM0_API_KEY` env var if no key provided.
 | Create export | `create_memory_export()` | `createMemoryExport()` |
 | Get export | `get_memory_export()` | `getMemoryExport()` |
 | Feedback | `feedback()` | `feedback()` |
+| Get profile | `get_profile(entity_id)` | `getProfile({ entityId })` |
+| Generate profile | `generate_profile(entity_id)` | `generateProfile({ entityId })` |
+| Profile settings | `get_profile_settings()` / `update_profile_settings()` | `getProfileSettings()` / `updateProfileSettings()` |
+| Sample profiles | `sample_profiles()` | `sampleProfiles()` |
+| Profile job | `get_profile_job()` | `getProfileJob()` |
 
 **Rule:** Python uses `snake_case`, TypeScript uses `camelCase` for method names.
 
@@ -61,8 +66,8 @@ await client.search('query', { filters: { user_id: 'alice' }, topK: 5, rerank: t
 
 | Aspect | Python | TypeScript |
 |--------|--------|------------|
-| HTTP library | httpx | axios |
-| Default timeout | 300s | 60s |
+| HTTP library | httpx | native `fetch` |
+| Default timeout | 300s | None set by the SDK |
 | Sync support | Yes (`MemoryClient`) | No (all async) |
 | Async support | Yes (`AsyncMemoryClient`) | All methods are async |
 | Project management | `client.project.*` (separate class) | `client.getProject()` / `client.updateProject()` |
@@ -87,7 +92,7 @@ These methods exist in Python but not TypeScript:
 
 | Method | Description |
 |--------|-------------|
-| `deleteUser(data)` | Convenience method for single entity deletion |
+| `deleteUser(data)` | Deprecated single entity deletion (use `deleteUsers`) |
 | `ping()` | Health check endpoint |
 
 ## OSS Config Naming

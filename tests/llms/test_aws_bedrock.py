@@ -6,7 +6,6 @@ from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.llms.aws_bedrock import AWSBedrockLLM, extract_provider
 from mem0.utils.factory import LlmFactory
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -70,6 +69,23 @@ class TestExtractProvider:
         with pytest.raises(ValueError, match="Unknown provider"):
             extract_provider("unknown-vendor.some-model-v1:0")
 
+    def test_application_inference_profile_arn_without_override_raises(self):
+        arn = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz"
+        with pytest.raises(ValueError, match="Unknown provider"):
+            extract_provider(arn)
+
+    def test_application_inference_profile_arn_with_explicit_provider(self):
+        arn = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz"
+        assert extract_provider(arn, "anthropic") == "anthropic"
+
+    def test_explicit_provider_takes_precedence_over_regex(self):
+        assert extract_provider("anthropic.claude-3-5-sonnet-20240620-v1:0", "amazon") == "amazon"
+
+    def test_explicit_provider_typo_raises(self):
+        arn = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz"
+        with pytest.raises(ValueError, match="Unknown provider_override 'anthorpic'"):
+            extract_provider(arn, "anthorpic")
+
 
 # ---------------------------------------------------------------------------
 # AWSBedrockConfig
@@ -113,6 +129,44 @@ class TestAWSBedrockConfig:
             aws_region="us-east-2",
         )
         assert config.aws_region == "us-east-2"
+
+    def test_provider_override_defaults_to_none(self):
+        config = AWSBedrockConfig(model="anthropic.claude-3-5-sonnet-20240620-v1:0")
+        assert config.provider_override is None
+
+    def test_provider_override_stored(self):
+        arn = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz"
+        config = AWSBedrockConfig(model=arn, provider_override="anthropic")
+        assert config.provider_override == "anthropic"
+
+
+# ---------------------------------------------------------------------------
+# AWSBedrockLLM with application inference profile ARNs
+# ---------------------------------------------------------------------------
+
+class TestApplicationInferenceProfileArn:
+    ARN = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz"
+
+    def test_arn_without_provider_override_raises(self, mock_boto3):
+        with pytest.raises(ValueError, match="Unknown provider"):
+            _make_llm(self.ARN, mock_boto3)
+
+    def test_arn_with_provider_override_resolves(self, mock_boto3):
+        llm = _make_llm(self.ARN, mock_boto3, provider_override="anthropic")
+        assert llm.provider == "anthropic"
+        assert llm.supports_tools is True
+
+    def test_plain_model_id_unaffected(self, mock_boto3):
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+        assert llm.provider == "anthropic"
+
+    def test_cross_region_inference_profile_unaffected(self, mock_boto3):
+        llm = _make_llm("us.anthropic.claude-haiku-4-5-20251001-v1:0", mock_boto3)
+        assert llm.provider == "anthropic"
+
+    def test_arn_with_misspelled_provider_override_raises(self, mock_boto3):
+        with pytest.raises(ValueError, match="Unknown provider_override 'anthorpic'"):
+            _make_llm(self.ARN, mock_boto3, provider_override="anthorpic")
 
 
 # ---------------------------------------------------------------------------
@@ -424,3 +478,79 @@ class TestMiniMaxProvider:
             assert msg["role"] != "system"
         # user message must be present
         assert kwargs["messages"][0]["role"] == "user"
+
+
+# ---------------------------------------------------------------------------
+# _parse_response — legacy InvokeModel provider-specific parsing
+# ---------------------------------------------------------------------------
+
+class TestParseResponseLegacy:
+    def test_ai21_missing_completions_returns_empty(self, mock_boto3):
+        """When AI21 response lacks 'completions', the fallback default must
+        be a valid dict (not a set literal), returning empty string."""
+        llm = _make_llm("ai21.j2-mid-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({"not_completions": True}).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == ""
+
+    def test_ai21_normal_response(self, mock_boto3):
+        llm = _make_llm("ai21.j2-mid-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({
+            "completions": [{"data": {"text": "hello from ai21"}}]
+        }).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == "hello from ai21"
+
+
+class TestAnthropicConverseContentParsing:
+    """The Anthropic Converse branch must not assume content[0] is the text
+    block: Claude reasoning models emit a reasoningContent block before the
+    text block, and some stop conditions produce an empty content array. The
+    parser iterates for the first block carrying text, like the MiniMax branch.
+    """
+
+    def test_text_after_reasoning_content_block(self, mock_boto3):
+        mock_boto3.converse.return_value = {
+            "output": {
+                "message": {
+                    "content": [
+                        {"reasoningContent": {"reasoningText": {"text": "step by step..."}}},
+                        {"text": "final answer"},
+                    ]
+                }
+            }
+        }
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        assert llm.generate_response(MESSAGES) == "final answer"
+
+    def test_empty_content_returns_empty_string(self, mock_boto3):
+        mock_boto3.converse.return_value = {"output": {"message": {"content": []}}}
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        assert llm.generate_response(MESSAGES) == ""
+
+    def test_plain_text_content_still_returned(self, mock_boto3):
+        mock_boto3.converse.return_value = _converse_response("plain answer")
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        assert llm.generate_response(MESSAGES) == "plain answer"
+
+    def test_object_style_response_iterates_blocks(self, mock_boto3):
+        # Defensive attr-style branch: object wrapper with a reasoning block first.
+        from types import SimpleNamespace
+
+        reasoning_block = SimpleNamespace(reasoningContent={"reasoningText": {"text": "hmm"}})
+        text_block = SimpleNamespace(text="object answer")
+        mock_boto3.converse.return_value = SimpleNamespace(
+            output=SimpleNamespace(message=SimpleNamespace(content=[reasoning_block, text_block]))
+        )
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        assert llm.generate_response(MESSAGES) == "object answer"

@@ -1,3 +1,6 @@
+import builtins
+import importlib
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -60,3 +63,59 @@ def test_embed_empty_response_raises(mock_ollama_client):
 
     with pytest.raises(ValueError, match="returned no embeddings"):
         embedder.embed("some text")
+
+
+def test_embed_batch_single_call(mock_ollama_client):
+    config = BaseEmbedderConfig(model="nomic-embed-text", embedding_dims=512)
+    embedder = OllamaEmbedding(config)
+
+    mock_response = {"embeddings": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]}
+    mock_ollama_client.embed.return_value = mock_response
+
+    texts = ["First text.", "Second text.", "Third text."]
+    embeddings = embedder.embed_batch(texts)
+
+    mock_ollama_client.embed.assert_called_once_with(model="nomic-embed-text", input=texts)
+    assert embeddings == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]
+
+
+def test_embed_batch_empty_list(mock_ollama_client):
+    config = BaseEmbedderConfig(model="nomic-embed-text", embedding_dims=512)
+    embedder = OllamaEmbedding(config)
+
+    result = embedder.embed_batch([])
+
+    assert result == []
+    mock_ollama_client.embed.assert_not_called()
+
+
+def test_embed_batch_count_mismatch_raises(mock_ollama_client):
+    config = BaseEmbedderConfig(model="nomic-embed-text", embedding_dims=512)
+    embedder = OllamaEmbedding(config)
+
+    mock_ollama_client.embed.return_value = {"embeddings": [[0.1, 0.2, 0.3]]}
+
+    with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
+        embedder.embed_batch(["first text", "second text"])
+
+
+def test_missing_ollama_raises_actionable_import_error(monkeypatch):
+    """Missing ollama raises a catchable ImportError naming the install command, never input()/sys.exit()."""
+    monkeypatch.delitem(sys.modules, "mem0.embeddings.ollama", raising=False)
+    monkeypatch.delitem(sys.modules, "ollama", raising=False)
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "ollama":
+            raise ImportError("No module named 'ollama'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    with patch("builtins.input") as mock_input, patch("sys.exit") as mock_exit:
+        with pytest.raises(ImportError, match="pip install ollama"):
+            importlib.import_module("mem0.embeddings.ollama")
+
+    mock_input.assert_not_called()
+    mock_exit.assert_not_called()

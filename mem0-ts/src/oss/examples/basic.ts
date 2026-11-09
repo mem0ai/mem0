@@ -73,10 +73,9 @@ async function runTests(memory: Memory) {
     }
 
     // Updating this memory
-    const result4 = await memory.update(
-      result1.results[0].id,
-      "I love India, it is my favorite country.",
-    );
+    const result4 = await memory.update(result1.results[0].id, {
+      text: "I love India, it is my favorite country.",
+    });
     console.log("Updated memory:", result4);
 
     // Get all memories

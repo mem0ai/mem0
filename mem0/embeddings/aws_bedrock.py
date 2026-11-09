@@ -34,7 +34,12 @@ class AWSBedrockEmbedding(EmbeddingBase):
             aws_access_key = self.config.aws_access_key_id
         if hasattr(self.config, "aws_secret_access_key"):
             aws_secret_key = self.config.aws_secret_access_key
-        
+        # Honor a session token supplied via config (temporary credentials from
+        # STS / assume-role), falling back to the env var when unset. The LLM
+        # Bedrock provider already supports this; mirror it here.
+        if getattr(self.config, "aws_session_token", None):
+            aws_session_token = self.config.aws_session_token
+
         # AWS region is always set in config - see BaseEmbedderConfig
         aws_region = self.config.aws_region or "us-west-2"
 
@@ -65,6 +70,11 @@ class AWSBedrockEmbedding(EmbeddingBase):
         else:
             # Amazon and other providers
             input_body["inputText"] = text
+            # Titan Text Embeddings V2 accepts an optional output dimension
+            # (256/512/1024). Only forward embedding_dims when the user set it,
+            # mirroring the OpenAI embedder's guarded `dimensions` pass-through.
+            if self.config.embedding_dims is not None and "v2" in self.config.model:
+                input_body["dimensions"] = self.config.embedding_dims
 
         body = json.dumps(input_body)
 
