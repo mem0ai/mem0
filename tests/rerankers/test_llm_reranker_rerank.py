@@ -16,6 +16,11 @@ class TestExtractScore:
             ("1.0", 1.0),
             ("The score is 0.72.", 0.72),
             ("Score: 0.9 out of 1.0", 0.9),
+            ("5e-2", 0.05),
+            ("9.5e-1", 0.95),
+            ("1.0e-3", 0.001),
+            ("1E-3", 0.001),
+            (".05", 0.05),
         ],
     )
     def test_valid_scores(self, reranker, text, expected):
@@ -50,6 +55,21 @@ class TestRerank:
         reranker = LLMReranker({"provider": "openai"})
         result = reranker.rerank("query", [])
         assert result == []
+
+    def test_scientific_notation_does_not_reverse_ranking(self, mock_llm):
+        _, mock_llm_instance = mock_llm
+        mock_llm_instance.generate_response.side_effect = ["5e-2", "0.9"]
+
+        reranker = LLMReranker({"provider": "openai"})
+        docs = [
+            {"id": "irrelevant", "memory": "The user filed taxes in April."},
+            {"id": "relevant", "memory": "The user has a dog named Max."},
+        ]
+
+        result = reranker.rerank("What pets does the user have?", docs, top_k=1)
+
+        assert result[0]["id"] == "relevant"
+        assert result[0]["rerank_score"] == 0.9
 
     def test_documents_sorted_by_score_descending(self, mock_llm):
         _, mock_llm_instance = mock_llm
