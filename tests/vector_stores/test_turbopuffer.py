@@ -232,6 +232,35 @@ class TestParseOutput:
     def test_parse_empty_rows(self, db):
         assert db._parse_output([]) == []
 
+    def test_parse_cosine_score_is_one_minus_dist(self, db):
+        # Default cosine metric: score = 1 - dist, unchanged by the metric fix.
+        results = db._parse_output([_make_row("id1", dist=0.25)])
+        assert results[0].score == pytest.approx(0.75)
+
+    def test_parse_euclidean_squared_score_is_bounded(self, mock_client):
+        # euclidean_squared $dist is unbounded (e.g. 4.0). 1 - dist would give -3.0,
+        # violating the higher-is-better contract; map it to 1/(1+dist) instead.
+        db = TurbopufferDB(
+            collection_name="test_ns",
+            embedding_model_dims=4,
+            api_key="tpuf_test_key",
+            region="gcp-us-central1",
+            distance_metric="euclidean_squared",
+        )
+        results = db._parse_output([_make_row("id1", dist=4.0)])
+        assert results[0].score == pytest.approx(0.2)
+        assert 0.0 <= results[0].score <= 1.0
+
+    def test_parse_euclidean_squared_preserves_none(self, mock_client):
+        db = TurbopufferDB(
+            collection_name="test_ns",
+            embedding_model_dims=4,
+            api_key="tpuf_test_key",
+            region="gcp-us-central1",
+            distance_metric="euclidean_squared",
+        )
+        assert db._parse_output([_make_row("id1")])[0].score is None
+
 
 # ── _convert_filters ─────────────────────────────────────────────────
 
@@ -275,6 +304,40 @@ class TestConvertFilters:
         conditions = result[1]
         assert ("user_id", "Eq", "u1") in conditions
         assert ("score", "Gte", 0.5) in conditions
+
+    def test_gt_operator_not_dropped(self, db):
+        """Regression: {"gt": ...} was silently dropped, returning unfiltered results."""
+        result = db._convert_filters({"age": {"gt": 18}})
+        assert result == ("age", "Gt", 18)
+
+    @pytest.mark.parametrize(
+        "op,expected_token",
+        [
+            ("eq", "Eq"),
+            ("ne", "NotEq"),
+            ("gt", "Gt"),
+            ("gte", "Gte"),
+            ("lt", "Lt"),
+            ("lte", "Lte"),
+            ("in", "In"),
+            ("nin", "NotIn"),
+        ],
+    )
+    def test_all_operators_mapped(self, db, op, expected_token):
+        operand = [1, 2] if op in ("in", "nin") else 5
+        result = db._convert_filters({"age": {op: operand}})
+        assert result == ("age", expected_token, operand)
+
+    def test_multiple_operators_on_one_field(self, db):
+        result = db._convert_filters({"age": {"gt": 18, "lt": 65}})
+        assert result[0] == "And"
+        conditions = result[1]
+        assert ("age", "Gt", 18) in conditions
+        assert ("age", "Lt", 65) in conditions
+
+    def test_unknown_operator_raises(self, db):
+        with pytest.raises(ValueError, match="Unsupported filter operator"):
+            db._convert_filters({"age": {"between": [1, 2]}})
 
 
 # ── search ───────────────────────────────────────────────────────────

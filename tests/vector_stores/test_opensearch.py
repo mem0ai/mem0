@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import dotenv
 
 try:
-    from opensearchpy import AWSV4SignerAuth, OpenSearch
+    from opensearchpy import AWSV4SignerAuth, NotFoundError, OpenSearch
 except ImportError:
     raise ImportError("OpenSearch requires extra dependencies. Install with `pip install opensearch-py`") from None
 
@@ -255,12 +255,31 @@ class TestOpenSearchDB(unittest.TestCase):
         payload = {"key3": "value3"}
         mock_search_response = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "id1"}}]}}
         self.client_mock.search.return_value = mock_search_response
-        self.os_db.update("id1", vector=vector, payload=payload)
+        self.assertIs(self.os_db.update("id1", vector=vector, payload=payload), True)
         self.client_mock.update.assert_called_once()
         update_args = self.client_mock.update.call_args[1]
         self.assertEqual(update_args["index"], "test_collection")
         self.assertEqual(update_args["id"], "doc1")
         self.assertEqual(update_args["body"], {"doc": {"vector_field": vector, "payload": payload}})
+
+    def test_update_payload_only_returns_true(self):
+        self.client_mock.search.return_value = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "id1"}}]}}
+        self.assertIs(self.os_db.update("id1", payload={"key3": "value3"}), True)
+        self.assertEqual(self.client_mock.update.call_args[1]["body"], {"doc": {"payload": {"key3": "value3"}}})
+
+    def test_update_missing_id_returns_false_without_inserting(self):
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+        self.assertIs(self.os_db.update("gone", vector=[0.3] * 1536, payload={"key": "value"}), False)
+        self.client_mock.update.assert_not_called()
+        self.client_mock.index.assert_not_called()
+
+    def test_update_deleted_after_search_returns_false(self):
+        # Search is near-real-time, so it can still return a document that was just deleted.
+        self.client_mock.search.return_value = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "gone"}}]}}
+        self.client_mock.update.side_effect = NotFoundError(404, "document_missing_exception", {})
+        self.assertIs(self.os_db.update("gone", vector=[0.3] * 1536, payload={"key": "value"}), False)
+        self.assertNotIn("doc_as_upsert", self.client_mock.update.call_args[1]["body"])
+        self.client_mock.index.assert_not_called()
 
     def test_list_cols(self):
         self.client_mock.indices.get_alias.return_value = {"test_collection": {}}

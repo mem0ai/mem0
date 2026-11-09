@@ -18,6 +18,7 @@ import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOP
 import {parseProjectFromRemote} from "./project";
 import {resolveApiKey} from "./api-key";
 import {createMemoryLifecycle} from "../agent-plugin-core/typescript/src/lifecycle.ts";
+import {SEARCH_QUERY_DESCRIPTION, SEARCH_TOOL_DESCRIPTION} from "../agent-plugin-core/typescript/src/prompts.ts";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -424,9 +425,9 @@ Identity context (resolved at plugin startup):
       }),
 
       search_memories: tool({
-        description: "Search stored memories by semantic meaning. Use this proactively before answering when the request may depend on the user's past work, preferences, decisions, or environment -- relevant memories are not always auto-injected. For multi-part or comparative questions, run several searches with different phrasings and combine the results rather than stopping after one (multi-hop).",
+        description: SEARCH_TOOL_DESCRIPTION,
         args: {
-          query: tool.schema.string().describe("Search query"),
+          query: tool.schema.string().describe(SEARCH_QUERY_DESCRIPTION),
           user_id: tool.schema.string().optional().describe("User ID"),
           app_id: tool.schema.string().optional().describe("App/Project ID"),
           agent_id: tool.schema.string().optional().describe("Agent ID"),
@@ -636,9 +637,6 @@ Identity context (resolved at plugin startup):
         }
 
         if (memoryCount > 0) {
-          systemContext.push(
-            "Search mem0 for recent decisions and task learnings before responding. Run 2 parallel searches: one for decision type, one for task_learning type.",
-          );
           try {
             const res = await mem0.search(
               "recent session state decisions and learnings",
@@ -659,9 +657,6 @@ Identity context (resolved at plugin startup):
           }
         }
 
-        systemContext.push(
-          "Mem0 searches apply when user references past work, decision questions, errors, or non-trivial tasks. Queries use noun-phrases, 2-4 parallel calls with different metadata.type filters, and include user_id + app_id.",
-        );
         systemContext.push(SCOPE_GUIDANCE);
         const activeScope = loadDefaultScope();
         if (activeScope !== "project") {

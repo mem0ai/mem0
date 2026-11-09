@@ -8,7 +8,7 @@ This directory is the single source of shared memory behavior for Mem0 coding-ag
 integrations/
 ├── agent-plugin-core/       # Shared source; never installed as a plugin
 │   ├── python/              # Claude-derived capture, recall, MCP, scoping, and telemetry
-│   ├── typescript/          # Shared lifecycle, formatting, identity, scoping, and telemetry
+│   ├── typescript/          # Shared lifecycle, search prompts, formatting, identity, scoping, and telemetry
 │   ├── skills/              # The only source for the six generated memory skills
 │   ├── build/               # Bundle builder, schemas, and validation
 │   ├── conformance/         # One offline/live verification entry point
@@ -45,7 +45,7 @@ New Git repository writes use a hashed remote identity for shared `agent_id`. Se
 
 Captured prompts and responses preserve their full text after secret redaction. Python extraction splits oversized input across requests without dropping message text. The session-end worker flushes the conversation already collected by hooks without adding the final answer again. Search queries, retrieved context, and tool evidence have separate limits.
 
-TypeScript hosts reuse redaction and lifecycle utilities but retain their own tools, scopes, and capture events. They do not inherit the Python `repo`/`dir`/`mine` contract or its background batching. OpenCode captures selected user prompts; Pi and DeepSeek capture completed conversation turns; OpenClaw selects recent messages and earlier summaries, then filters noise. Removing message-length truncation does not turn these integrations into complete transcript archives.
+TypeScript hosts reuse redaction, lifecycle utilities, and the search prompts in `typescript/src/prompts.ts`, which a test keeps identical to the Python core. They retain their own tools, scopes, and capture events. They do not inherit the Python `repo`/`dir`/`mine` contract or its background batching. OpenCode captures selected user prompts; Pi and DeepSeek capture completed conversation turns; OpenClaw selects recent messages and earlier summaries, then filters noise. Removing message-length truncation does not turn these integrations into complete transcript archives.
 
 For installation, follow the host guides: [Claude Code](../../docs/integrations/claude-code.mdx), [Cursor](../../docs/integrations/cursor.mdx), [Codex](../../docs/integrations/codex.mdx), [Kimi](../../docs/integrations/kimi.mdx), and [Antigravity](../../docs/integrations/antigravity.mdx).
 

@@ -418,7 +418,7 @@ class PGVector(VectorStoreBase):
         vector_id: str,
         vector: Optional[list[float]] = None,
         payload: Optional[dict] = None,
-    ) -> None:
+    ) -> Optional[bool]:
         """
         Update a vector and its payload.
 
@@ -428,6 +428,8 @@ class PGVector(VectorStoreBase):
             payload (Dict, optional): Updated payload.
         """
         self._ensure_collection()
+        if vector is None and payload is None:
+            return None
         with self._get_cursor(commit=True) as cur:
             if vector is not None:
                cur.execute(
@@ -448,6 +450,7 @@ class PGVector(VectorStoreBase):
                         sql.SQL("UPDATE {} SET payload = %s WHERE id = %s").format(self._col()),
                         (Json(payload), vector_id),
                     )
+            return cur.rowcount > 0
 
 
     def get(self, vector_id: str) -> OutputData:

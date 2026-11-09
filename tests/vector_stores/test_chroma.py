@@ -129,8 +129,9 @@ def test_update_vector(chromadb_instance):
     vector_id = "id1"
     new_vector = [0.7, 0.8, 0.9]
     new_payload = {"name": "updated_vector"}
+    chromadb_instance.collection.get.return_value = {"ids": [vector_id], "metadatas": [new_payload]}
 
-    chromadb_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload)
+    assert chromadb_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload) is True
 
     chromadb_instance.collection.update.assert_called_once_with(
         ids=[vector_id], embeddings=[new_vector], metadatas=[new_payload]
@@ -141,8 +142,9 @@ def test_update_vector_metadata_only(chromadb_instance):
     # Metadata-only update (vector=None) must not wrap None in a list.
     vector_id = "id1"
     new_payload = {"name": "updated_vector"}
+    chromadb_instance.collection.get.return_value = {"ids": [vector_id], "metadatas": [new_payload]}
 
-    chromadb_instance.update(vector_id=vector_id, vector=None, payload=new_payload)
+    assert chromadb_instance.update(vector_id=vector_id, vector=None, payload=new_payload) is True
 
     chromadb_instance.collection.update.assert_called_once_with(
         ids=[vector_id], embeddings=None, metadatas=[new_payload]
@@ -153,12 +155,35 @@ def test_update_vector_embedding_only(chromadb_instance):
     # Vector-only update (payload=None) must not wrap None in a list.
     vector_id = "id1"
     new_vector = [0.7, 0.8, 0.9]
+    chromadb_instance.collection.get.return_value = {"ids": [vector_id], "metadatas": [{}]}
 
-    chromadb_instance.update(vector_id=vector_id, vector=new_vector, payload=None)
+    assert chromadb_instance.update(vector_id=vector_id, vector=new_vector, payload=None) is True
 
     chromadb_instance.collection.update.assert_called_once_with(
         ids=[vector_id], embeddings=[new_vector], metadatas=None
     )
+
+
+def test_update_missing_id_returns_false_without_inserting(chromadb_instance):
+    # Chroma ignores update() for an unknown id, so the read-back finds nothing.
+    chromadb_instance.collection.get.return_value = {"ids": [], "metadatas": []}
+
+    assert chromadb_instance.update(vector_id="gone", vector=[0.1, 0.2, 0.3], payload={"name": "x"}) is False
+
+    chromadb_instance.collection.update.assert_called_once()
+    chromadb_instance.collection.get.assert_called_once_with(ids=["gone"])
+    chromadb_instance.collection.add.assert_not_called()
+    chromadb_instance.collection.upsert.assert_not_called()
+
+
+def test_update_read_back_failure_returns_none(chromadb_instance):
+    # The write already landed, so a failed read-back must not surface as an update error.
+    chromadb_instance.collection.get.side_effect = ConnectionError("chroma unreachable")
+
+    assert chromadb_instance.update(vector_id="id1", vector=[0.1, 0.2, 0.3], payload={"name": "x"}) is None
+
+    chromadb_instance.collection.update.assert_called_once()
+    chromadb_instance.collection.upsert.assert_not_called()
 
 
 def test_get_vector(chromadb_instance):

@@ -1,0 +1,96 @@
+---
+title: "Pricing FAQ"
+sidebarTitle: "Pricing"
+description: "Frequently asked questions about Mem0's plans, limits and using your own LLM key."
+icon: "credit-card"
+---
+
+## Existing paid plans
+
+<AccordionGroup>
+  <Accordion title="I'm on Starter, Growth or Pro. What happens to my plan?">
+    Nothing. Your price, limits, extra usage and billing date stay the same, and you can still turn extra usage on or off from your dashboard. These plans are no longer sold to new accounts.
+  </Accordion>
+  <Accordion title="Can I still change my plan?">
+    Plan changes now go through our team. If you need higher limits or more features, [talk to us](https://app.mem0.ai/enterprise?ref=docs) and we'll set up a custom plan. If you cancel, your account moves to the free plan, any extra usage up to then is billed on your last invoice, and the old plan can't be restarted.
+  </Accordion>
+</AccordionGroup>
+
+## Free plan
+
+<AccordionGroup>
+  <Accordion title="What's in the free plan?">
+    For your first 30 days, Mem0 pays for the model calls, with limits of 10,000 adds and 1,000 retrievals a month. After that, connect your own LLM key to keep adding memories, and your limits go up to 50,000 adds and 10,000 retrievals a month at no charge from Mem0. You can connect a key at any time, including during your first 30 days.
+  </Accordion>
+  <Accordion title="When do my 30 days end?">
+    If you signed up before October 26, 2026, you have until November 25, 2026. Otherwise, your 30 days start on the day you sign up.
+  </Accordion>
+  <Accordion title="What happens after 30 days if I don't connect a key?">
+    Your memories stay, and searches keep working up to 1,000 a month. New adds return an error until you connect a key.
+  </Accordion>
+  <Accordion title="What happens when I reach a monthly limit?">
+    Calls past the limit return an error until your limits reset next month.
+  </Accordion>
+  <Accordion title="Will you tell me before I reach a limit?">
+    Yes. We email the organization owner at 50%, 80% and 100% of each monthly limit, and of your usage-based billing cap.
+  </Accordion>
+</AccordionGroup>
+
+## Your own LLM key
+
+<AccordionGroup>
+  <Accordion title="Why do I need my own key?">
+    Adding a memory runs language model calls that extract and organize it. With your key, those calls bill to your provider account. That is how we keep the free plan free at higher limits.
+  </Accordion>
+  <Accordion title="What will my provider charge?">
+    It depends on the model. Our recommended models cost about \$3.55 to \$5.34 per 1,000 adds: GPT-6 Luna on OpenAI, Claude Haiku 5.5 on Anthropic and DeepSeek V4.1 Flash on OpenRouter. The [BYOK guide](/platform/features/byok#choose-a-model) compares accuracy and cost across every model we tested.
+  </Accordion>
+  <Accordion title="Which providers can I use?">
+    OpenAI, Anthropic, Azure OpenAI and OpenRouter.
+  </Accordion>
+  <Accordion title="Is my data sent to my provider?">
+    Yes. The text you add is sent to your provider under your account and its terms. Mem0 stores your key encrypted, never shows it again after you save it, and you can remove it at any time.
+  </Accordion>
+  <Accordion title="Who can connect a key?">
+    Organization owners, in **Settings → BYOK**. One key covers every project in the organization.
+  </Accordion>
+  <Accordion title="What if my key stops working?">
+    Adds fail with a reason you can see in the dashboard, and we email the organization owner, at most once a day. Mem0 doesn't switch to its own key, so send the failed adds again once the key works. Searches keep working.
+  </Accordion>
+  <Accordion title="What happens if I remove my key?">
+    Your limits go back to the ones without a key, and usage-based billing stops until you connect a key again. Anything you used before removing it is still billed on your next invoice.
+  </Accordion>
+</AccordionGroup>
+
+## Vercel
+
+<AccordionGroup>
+  <Accordion title="I signed up through Vercel. Does anything change?">
+    Nothing changes. Your plan is billed through Vercel. Organizations created through the Vercel Marketplace are managed from Vercel and can't use BYOK.
+  </Accordion>
+</AccordionGroup>
+
+## Need more
+
+<AccordionGroup>
+  <Accordion title="What if I need more than the free limits?">
+    Once you've connected your own key, you can turn on usage-based billing from your dashboard and set a monthly spending cap. For SSO, an SLA or a contract, [talk to us](https://app.mem0.ai/enterprise?ref=docs).
+  </Accordion>
+  <Accordion title="How does usage-based billing work?">
+    You pay only for adds and retrievals above your free limits, billed once a month. The rate is shown when you turn it on, and those extra calls stop when you reach your monthly cap.
+  </Accordion>
+  <Accordion title="Can I change my cap or turn off usage-based billing?">
+    Yes, at any time from your dashboard. If you turn it off, you're still billed for what you used before.
+  </Accordion>
+</AccordionGroup>
+
+## Learn more
+
+<CardGroup cols={2}>
+  <Card title="Bring Your Own Key (BYOK)" icon="key" href="/platform/features/byok">
+    Connect your provider key, pick a model and fix failed adds.
+  </Card>
+  <Card title="BYOK model evaluation" icon="chart-line" href="https://mem0.ai/blog/bring-your-own-key-accuracy-cost-latency-by-model">
+    Accuracy, cost and latency for every model we tested.
+  </Card>
+</CardGroup>

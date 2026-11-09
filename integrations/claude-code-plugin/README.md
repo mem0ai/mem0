@@ -136,13 +136,23 @@ Local data lives in `${CLAUDE_PLUGIN_DATA}`:
 - `pending/`: sessions waiting to be sent to Mem0 (retried after interruption)
 - `flush-worker.log`: whether memory creation succeeded
 - `plugin-errors.log`: hook errors (no credentials)
-- `telemetry.jsonl` / `telemetry-identity.json`: anonymous usage events
+- `telemetry.jsonl` / `telemetry-identity.json`: usage events and the id they are sent under
+- `telemetry-salt`: random per-install salt for the repo and session hashes
+- `install-state.json`: records that install has been counted once on this machine
 
 Mem0 receives captured user messages, Claude's answers, sidekick assignments and completed responses, and changed file paths. When a failed command is recorded, extraction can also include bounded command details and results. Complete files and general tool output stay on your machine. Values that look like credentials are redacted before anything is sent.
 
 ## Telemetry
 
-Anonymous usage events (which hook ran, timing, result counts, failure types) so Mem0 can identify what's used and what's breaking. Repo and session IDs are hashed before leaving your machine. Prompts, memory text, file paths, tool output, and API keys are never sent.
+Usage events (which hook ran, timing, result counts, failure types) so Mem0 can identify what's used and what's breaking.
+
+**These events are not anonymous.** When an API key is configured — which installing the plugin requires — events are sent under your Mem0 account email, the same way the Python SDK and the CLI attribute theirs. Without a key they are sent under a random per-machine id.
+
+What each event carries: the event name, the plugin version, the harness it ran in, your OS and Python version, and per-event properties describing what happened — timings, counts, coarse outcome and failure labels, and which model was configured. Repository and session identifiers are hashed with a random salt generated on your machine, so they cannot be linked back to a repository name or path.
+
+Rather than restate a list that drifts, the exact set is enforced in code: `telemetry.record` filters every property through a denylist of sensitive keys and redacts credential-shaped values. See `_PRIVATE_KEYS` in `core/telemetry.py`.
+
+Prompts, memory text, queries, file paths, repository names, and API keys are never sent.
 
 Turn it off:
 

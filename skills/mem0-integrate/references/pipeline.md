@@ -116,8 +116,11 @@ Present in env, continue.
 Mode**: run `mem0 init --agent --agent-caller <your-name> --json` (after
 `pip install mem0-cli` or `npm install -g @mem0/cli`), substituting your agent
 identity such as `claude-code`, `cursor`, `codex`. If you forgot
-`--agent-caller`, run `mem0 identify <your-name>` after init. Cache the key to
-`.env` with user consent and continue. Tell the user to claim it later with
+`--agent-caller`, run `mem0 identify <your-name>` after init. Init does not
+print the key: it saves it to `~/.mem0/config.json` (`platform.api_key`, file
+mode 0600) and reuses a valid key already there instead of minting a new one,
+so read the key from that file. Cache the key to `.env` with user consent and
+continue. Tell the user to claim it later with
 `mem0 init --email <their-email>`: same key, no agent disruption.
 
 Missing and **CI mode** (`MEM0_INTEGRATE_CI=1`), exit code 2 with the name of
@@ -184,8 +187,8 @@ Then write `.mem0-integration/plan.md`:
     call client.add([user_msg, assistant_msg], user_id=<source>).">
 
     **Read pattern:** <one sentence, e.g. "Before building the LLM prompt,
-    call client.search(query=latest_user_msg, user_id=<source>, limit=5)
-    and inject results as a system message.">
+    call client.search(latest_user_msg, filters={"user_id": <source>},
+    top_k=5) and inject results["results"] as a system message.">
 
     **User identifier source:** <code path, e.g. `req.auth.userId`,
     `session.user.email`, `ctx.params.user_id`. If none, ask the user.>
@@ -276,7 +279,8 @@ test framework:
 Test assertion shapes must match the **canonical signatures**:
 
 - Platform method signatures: `https://docs.mem0.ai/openapi.json`, the request
-  body schemas for `/v1/memories/` and `/v1/memories/search/`.
+  body schemas for `/v3/memories/add/` and `/v3/memories/search/` (the
+  `/v1/memories/` POST and `/v1/memories/search/` paths are deprecated).
 - OSS method signatures: the delegated skill named in `plan.md` (fetched from
   its raw URL), or `skills/mem0/SKILL.md` as the default.
 - Do not hand-roll request shapes. If the delegated skill has an example
@@ -341,7 +345,8 @@ Otherwise loop:
 
 1. **Categorize the failing check** from `scorecard.json` and route:
    - `install` / `static_checks`, dependency or import fix.
-   - `unit_tests`, wiring or assertion fix.
+   - `unit_tests_flag_on`, wiring or assertion fix. (`unit_tests_flag_off`
+     failing is the non-invasiveness case below.)
    - `smoke_test`, API key or SDK call-shape fix.
    - `e2e_test`, recipe, flag-wiring, or integration-point fix.
    - **Pre-existing test failure** (test skill exit code 7,
@@ -351,7 +356,7 @@ Otherwise loop:
 
 2. **Spawn a remediation subagent** with fresh context. Inputs: `plan.md`,
    `goal.md`, `scorecard.md`, `scorecard.json`, the last committed diff, and
-   the relevant log for the failing category (`test-stdout.log` /
+   the relevant log for the failing category (`test-stdout-flag-on.log` /
    `smoke-stdout.log` / `e2e-app.log` / `e2e-calls.log`). Use the remediation
    prompt in [`subagent-prompts.md`](subagent-prompts.md) verbatim.
 

@@ -136,8 +136,8 @@ curl -X POST 'https://api.mem0.ai/v3/memories/?page=1&page_size=50' \
 | Parameter | V1/V2 | V3 | Notes |
 |---|---|---|---|
 | `top_k` | Supported | Supported (1-1000, default 10) | No change |
-| `threshold` | Default: none | Default: `0.1` | Pass `0.0` to disable |
-| `rerank` | Default: `true` | Default: `false` | Pass `true` to enable (adds latency) |
+| `threshold` | Default: `0.3` (v2) | Default: `0.1` | Pass `0.3` to keep the v2 cutoff, or `0.0` to disable |
+| `rerank` | Default: `false` | Default: `false` | No change. Pass `true` to enable (adds latency) |
 | Entity IDs in `search` / `get_all` | Top-level | Inside `filters` dict | Top-level raises 400 |
 
 ### Response Format
@@ -265,10 +265,10 @@ If your application previously read graph relations from the API response (`rela
 
 <Steps>
   <Step title="Review your search thresholds">
-    The default `threshold` is now `0.1` (previously no threshold). If your application was relying on unfiltered results, explicitly pass `threshold=0.0` in your search calls to preserve the old behavior. In most cases, the new default is better: it filters out low-relevance noise.
+    The default `threshold` is now `0.1` (it was `0.3` on v2), so lower-scoring matches that v2 hid can now appear. Scores are computed differently in v3, so retune against representative queries. To keep a stricter cutoff, pass an explicit `threshold` in your search calls, or pass `threshold=0.0` to disable filtering.
   </Step>
   <Step title="Review reranking usage">
-    Reranking is now `false` by default. If your application depended on reranked results, add `rerank=True` to your search calls. Note that reranking adds latency (~200-400ms) but can improve ordering quality for complex queries.
+    Reranking is `false` by default, the same as on v2. If your application depends on reranked results, pass `rerank=True` to your search calls. Note that reranking adds latency (~200-400ms) but can improve ordering quality for complex queries.
   </Step>
   <Step title="Update score handling (optional)">
     The top-level `score` field continues to work as before. It is now a combined multi-signal score (semantic + keyword + entity) rather than pure cosine similarity, so the absolute numbers will differ. Relative ranking remains comparable: if you have threshold-based filtering in your app, retune on a representative query set.

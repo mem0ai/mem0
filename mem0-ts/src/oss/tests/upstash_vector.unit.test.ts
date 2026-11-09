@@ -110,7 +110,9 @@ describe("UpstashVector", () => {
       id: "memory-1",
       payload: { data: "hello" },
     });
-    await store.update("memory-1", [0.3], { data: "updated" });
+    await expect(
+      store.update("memory-1", [0.3], { data: "updated" }),
+    ).resolves.toBe(true);
     await store.delete("memory-1");
     await store.deleteCol();
     await store.reset();
@@ -126,13 +128,49 @@ describe("UpstashVector", () => {
       includeMetadata: true,
       namespace,
     });
-    expect(client.upsert).toHaveBeenCalledWith(
-      { id: "memory-1", vector: [0.3], metadata: { data: "updated" } },
+    expect(client.update).toHaveBeenCalledWith(
+      {
+        id: "memory-1",
+        vector: [0.3],
+        metadata: { data: "updated" },
+        metadataUpdateMode: "OVERWRITE",
+      },
       { namespace },
     );
+    expect(client.upsert).not.toHaveBeenCalled();
     expect(client.delete).toHaveBeenCalledWith("memory-1", { namespace });
     expect(client.reset).toHaveBeenCalledTimes(2);
     expect(client.reset).toHaveBeenCalledWith({ namespace });
+  });
+
+  it("update never upserts: 0 is not read as missing, payload-only keeps the vector", async () => {
+    const client = createClient({
+      update: jest
+        .fn()
+        .mockResolvedValueOnce({ updated: 0 })
+        .mockResolvedValueOnce({ updated: 1 })
+        .mockResolvedValueOnce({}),
+    });
+    const store = new UpstashVector({
+      collectionName: namespace,
+      client: client as any,
+    });
+
+    await expect(
+      store.update("gone", [0.3], { data: "x" }),
+    ).resolves.toBeUndefined();
+    await expect(
+      store.update("memory-1", null as any, { data: "y" }),
+    ).resolves.toBe(true);
+    // No documented count in the reply means we cannot tell, so not "missing".
+    await expect(store.update("memory-1", [0.3], {})).resolves.toBeUndefined();
+
+    expect(client.upsert).not.toHaveBeenCalled();
+    expect(client.update.mock.calls[1][0]).toEqual({
+      id: "memory-1",
+      metadata: { data: "y" },
+      metadataUpdateMode: "OVERWRITE",
+    });
   });
 
   it("stops paging when the cursor is exhausted instead of re-scanning", async () => {

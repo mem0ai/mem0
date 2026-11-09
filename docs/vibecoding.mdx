@@ -96,8 +96,8 @@ time. Storage: vector embeddings.
 **Architecture Overview:**
 - Memory is scoped by user_id, agent_id, or run_id
 - Core operations: add, search, update, delete
-- Memory types: factual (preferences, facts), episodic (past interactions),
-  semantic (concept relationships), working (session state)
+- Store preferences, facts, and past interactions; use run_id to scope a
+  session. Platform does not expose a memory_type selector.
 - Integration pattern: retrieve relevant memories → generate response → store
   new memories
 

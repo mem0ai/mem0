@@ -14,6 +14,16 @@ interface ValkeyClient {
   set: (key: string, value: string) => Promise<"OK">;
   quit: () => Promise<"OK">;
   on: (event: string, listener: (...args: any[]) => void) => void;
+  duplicate: () => ValkeyClient;
+  watch: (key: string) => Promise<"OK">;
+  unwatch: () => Promise<"OK">;
+  multi: () => {
+    hset: (
+      key: string,
+      data: Record<string, string | Buffer>,
+    ) => { exec: () => Promise<[Error | null, unknown][] | null> };
+  };
+  disconnect: () => void;
 }
 
 /**
@@ -35,6 +45,11 @@ const EXCLUDED_KEYS = new Set([
   "created_at",
   "updated_at",
 ]);
+
+// HSET alone creates a missing hash; the script checks and writes atomically.
+const HSET_IF_EXISTS =
+  "if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end " +
+  "redis.call('HSET', KEYS[1], unpack(ARGV)) return 1";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   if (typeof obj !== "object" || obj === null) return obj;
@@ -503,7 +518,7 @@ export class ValkeyDB implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const snakePayload = toSnakeCase(payload);
     const key = `${this.indexPrefix}:${vectorId}`;
 
@@ -518,13 +533,15 @@ export class ValkeyDB implements VectorStore {
       created_at: String(
         Math.floor(new Date(snakePayload.created_at).getTime() / 1000),
       ),
-      embedding: Buffer.from(new Float32Array(vector).buffer),
       metadata: JSON.stringify(
         Object.fromEntries(
           Object.entries(snakePayload).filter(([k]) => !EXCLUDED_KEYS.has(k)),
         ),
       ),
     };
+    if (vector) {
+      hashData.embedding = Buffer.from(new Float32Array(vector).buffer);
+    }
 
     if (snakePayload.updated_at) {
       hashData.updated_at = String(
@@ -538,7 +555,31 @@ export class ValkeyDB implements VectorStore {
       }
     }
 
-    await this.client.hset(key, hashData);
+    const updated = await this.client
+      .call("EVAL", HSET_IF_EXISTS, 1, key, ...Object.entries(hashData).flat())
+      .catch(async (error: Error) => {
+        // ACL users without +@scripting: WATCH/MULTI is also atomic, but needs its own connection.
+        if (!String(error?.message).includes("NOPERM")) throw error;
+        const conn = this.client.duplicate();
+        try {
+          for (;;) {
+            await conn.watch(key);
+            if (!(await conn.exists(key))) {
+              await conn.unwatch();
+              return 0;
+            }
+            // exec() resolves to null when a watched key changed: retry.
+            const replies = await conn.multi().hset(key, hashData).exec();
+            if (!replies) continue;
+            const failed = replies.find(([err]) => err);
+            if (failed) throw failed[0];
+            return 1;
+          }
+        } finally {
+          conn.disconnect();
+        }
+      });
+    return updated === 1;
   }
 
   async delete(vectorId: string): Promise<void> {

@@ -140,12 +140,49 @@ def test_update(azure_mysql_instance):
     """Test vector update."""
     new_vector = [0.7, 0.8, 0.9]
     new_payload = {"text": "updated"}
+    cursor = azure_mysql_instance.connection_pool.connection().cursor()
+    cursor.fetchone = Mock(return_value={"1": 1})
 
-    azure_mysql_instance.update(vector_id="test_id", vector=new_vector, payload=new_payload)
+    assert azure_mysql_instance.update(vector_id="test_id", vector=new_vector, payload=new_payload) is True
 
-    conn = azure_mysql_instance.connection_pool.connection()
-    cursor = conn.cursor()
-    assert cursor.execute.called
+    assert [c.args for c in cursor.execute.call_args_list[-2:]] == [
+        ("UPDATE `test_collection` SET vector = %s WHERE id = %s", (json.dumps(new_vector), "test_id")),
+        ("UPDATE `test_collection` SET payload = %s WHERE id = %s", (json.dumps(new_payload), "test_id")),
+    ]
+
+
+def test_update_payload_only(azure_mysql_instance):
+    cursor = azure_mysql_instance.connection_pool.connection().cursor()
+    cursor.fetchone = Mock(return_value={"1": 1})
+    cursor.execute.reset_mock()
+
+    assert azure_mysql_instance.update(vector_id="test_id", payload={"text": "only"}) is True
+
+    assert cursor.execute.call_count == 2
+    assert cursor.execute.call_args.args == (
+        "UPDATE `test_collection` SET payload = %s WHERE id = %s",
+        (json.dumps({"text": "only"}), "test_id"),
+    )
+
+
+def test_update_missing_id_returns_false_without_writing(azure_mysql_instance):
+    cursor = azure_mysql_instance.connection_pool.connection().cursor()
+    cursor.fetchone = Mock(return_value=None)
+    cursor.execute.reset_mock()
+
+    assert azure_mysql_instance.update(vector_id="missing", vector=[0.1], payload={"text": "x"}) is False
+
+    statements = [c.args[0] for c in cursor.execute.call_args_list]
+    assert not [s for s in statements if s.lstrip().startswith(("UPDATE", "INSERT", "REPLACE"))]
+    cursor.executemany.assert_not_called()
+
+
+def test_update_with_nothing_to_write_returns_none_without_querying(azure_mysql_instance):
+    cursor = azure_mysql_instance.connection_pool.connection().cursor()
+    cursor.execute.reset_mock()
+
+    assert azure_mysql_instance.update(vector_id="test_id") is None
+    cursor.execute.assert_not_called()
 
 
 def test_get(azure_mysql_instance):

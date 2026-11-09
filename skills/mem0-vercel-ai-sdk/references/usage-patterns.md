@@ -20,7 +20,7 @@ const { text } = await generateText({
 console.log(text);
 ```
 
-Memories are automatically retrieved before the call and stored after.
+The prompt is stored to Mem0 and relevant memories are retrieved before the LLM call (see section 8).
 
 ## 2. Wrapped Model with streamText (Streaming)
 
@@ -42,7 +42,7 @@ for await (const chunk of result.textStream) {
 }
 ```
 
-Memory retrieval happens before streaming begins. The conversation is stored to Mem0 as a fire-and-forget call (non-blocking).
+The add request and the memory search both finish before streaming begins (extraction itself is async). The Mem0 source (`sources`) is only attached by `generateText`, not by streaming.
 
 ## 3. Standalone Utilities with OpenAI
 
@@ -136,7 +136,7 @@ console.log(object);
 // { breakfast: "Avocado toast (you mentioned loving it)", lunch: "...", ... }
 ```
 
-The `defaultObjectGenerationMode` is `"json"`, so structured output works out of the box.
+The wrapped model forwards all call options (including the response format) to the underlying provider, so structured output works out of the box. `generateObject` is deprecated in AI SDK v6 in favor of `generateText` with `output: Output.object({ schema })`; both go through the same wrapped model.
 
 ## 6. Multi-Provider Setup
 
@@ -195,22 +195,20 @@ A POST handler that uses the wrapped model in a Next.js App Router API route.
 
 ```typescript
 // app/api/chat/route.ts
-import { streamText } from "ai";
+import { convertToModelMessages, streamText, UIMessage } from "ai";
 import { createMem0 } from "@mem0/vercel-ai-provider";
 
 const mem0 = createMem0();
 
 export async function POST(req: Request) {
-  const { messages, user_id } = await req.json();
-
-  const lastMessage = messages[messages.length - 1];
+  const { messages, user_id }: { messages: UIMessage[]; user_id: string } = await req.json();
 
   const result = streamText({
     model: mem0("gpt-5-mini", { user_id }),
-    prompt: lastMessage.content,
+    messages: await convertToModelMessages(messages),
   });
 
-  return result.toDataStreamResponse();
+  return result.toUIMessageStreamResponse();
 }
 ```
 
@@ -219,22 +217,25 @@ export async function POST(req: Request) {
 ```typescript
 // app/api/chat/route.ts
 import { openai } from "@ai-sdk/openai";
-import { streamText } from "ai";
+import { convertToModelMessages, streamText, UIMessage } from "ai";
 import { retrieveMemories, addMemories } from "@mem0/vercel-ai-provider";
 
 export async function POST(req: Request) {
-  const { messages, user_id } = await req.json();
+  const { messages, user_id }: { messages: UIMessage[]; user_id: string } = await req.json();
   const lastMessage = messages[messages.length - 1];
+  const lastText = lastMessage.parts
+    .flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .join(" ");
 
   // Retrieve relevant memories
-  const memories = await retrieveMemories(lastMessage.content, {
+  const memories = await retrieveMemories(lastText, {
     user_id,
   });
 
   // Stream the response
   const result = streamText({
     model: openai("gpt-5-mini"),
-    prompt: lastMessage.content,
+    messages: await convertToModelMessages(messages),
     system: memories,
   });
 
@@ -242,14 +243,14 @@ export async function POST(req: Request) {
   result.text.then(async (text) => {
     await addMemories(
       [
-        { role: "user", content: [{ type: "text", text: lastMessage.content }] },
+        { role: "user", content: [{ type: "text", text: lastText }] },
         { role: "assistant", content: [{ type: "text", text }] },
       ],
       { user_id }
     );
   });
 
-  return result.toDataStreamResponse();
+  return result.toUIMessageStreamResponse();
 }
 ```
 
@@ -260,25 +261,26 @@ export async function POST(req: Request) {
 ```
 1. doGenerate(options) or doStream(options) is called
 2. processMemories(messagesPrompts, mem0Config):
-   a. addMemories(messagesPrompts, mem0Config)
-      --> fire-and-forget: .then().catch(), NO await
+   a. await addMemories(messagesPrompts, mem0Config)
       --> POST /v3/memories/add/ with converted messages
+      --> errors are caught and logged
    b. await getMemories(messagesPrompts, mem0Config)
       --> POST /v3/memories/search/ with flattened prompt
       --> returns memory array
    c. Format memories into system message string
-   d. Prepend system message to messagesPrompts array
+   d. If memories were found, prepend the system message to a copy of messagesPrompts
    e. Return { memories, messagesPrompts }
 3. Create underlying LLM via Mem0ClassSelector.createProvider()
 4. Call model.doGenerate(updatedOptions) or model.doStream(updatedOptions)
-5. Return result
+5. doGenerate appends the "Mem0 Memories" source when memories were found
+6. Return result
 ```
 
-**Critical detail:** The `addMemories` call in step 2a is **NON-BLOCKING**. It uses `.then().catch()` without `await`, meaning:
-- Memory storage happens asynchronously in the background
-- The LLM response is not delayed by the memory write
-- If the memory write fails, it logs an error but does not affect the response
-- There is a brief window where the latest conversation is not yet stored
+**Critical detail:** The `addMemories` call in step 2a is **awaited**, meaning:
+- The add request is sent (and awaited) before the search and the LLM call, but extraction is async (`/v3/memories/add/` only queues the work and returns `PENDING`), so facts from the current prompt are usually not searchable until a later call
+- Each wrapped call adds one Mem0 write and one Mem0 search of latency before the LLM starts
+- If the memory write fails, it logs an error and the call continues
+- `messagesPrompts` is the full prompt (all roles, including earlier turns), so every call sends the entire conversation to the add endpoint
 
 ### Memory injection format
 
@@ -318,8 +320,8 @@ const memories = await retrieveMemories(prompt, {
 const mem0 = createMem0();
 const model = mem0("gpt-5-mini", {
   user_id: "alice",
-  top_k: 10,          // retrieve up to 10 memories (default: 5)
-  threshold: 0.8,     // only memories with score >= 0.8
+  top_k: 20,          // retrieve up to 20 memories (default: 10)
+  threshold: 0.8,     // server-side cutoff applied before score blending
   rerank: true,       // enable re-ranking of results
 });
 ```

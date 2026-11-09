@@ -654,7 +654,7 @@ export class OracleAIVectorSearch implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean | void> {
     await this.initialize();
 
     const assignments: string[] = [];
@@ -670,7 +670,7 @@ export class OracleAIVectorSearch implements VectorStore {
     }
     if (assignments.length === 0) return;
 
-    await this.withConnection(
+    const result = await this.withConnection(
       (connection) =>
         connection.execute(
           `UPDATE ${this.collectionName} SET ${assignments.join(", ")} WHERE id = :vector_id`,
@@ -678,6 +678,8 @@ export class OracleAIVectorSearch implements VectorStore {
         ),
       true,
     );
+    const affected = result.rowsAffected;
+    return typeof affected === "number" ? affected > 0 : undefined;
   }
 
   async delete(vectorId: string): Promise<void> {

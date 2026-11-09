@@ -171,6 +171,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Introduction](https://docs.mem0.ai/introduction) [Both]: Use when the user wants a one-page overview of how memory fits between the LLM and the app.
 - [Vibe Code with Mem0](https://docs.mem0.ai/vibecoding) [Both]: Use when the user is in Claude Code, Cursor, or Windsurf and wants memory wired into their editor.
 - [Platform Overview](https://docs.mem0.ai/platform/overview) [Platform]: Use when the user picks the managed product - 4-line integration, hosted API, dashboard.
+- [Mem0 Copilot](https://docs.mem0.ai/platform/copilot) [Platform]: Use when inspecting project memories, reviewing configuration changes, or testing extraction in the dashboard.
 - [Sign up as an agent](https://docs.mem0.ai/platform/agent-signup) [Platform]: Use when an AI agent needs to mint a Mem0 API key autonomously - four commands, no email or dashboard, human claims ownership later.
 - [Platform vs Open Source](https://docs.mem0.ai/platform/platform-vs-oss) [Both]: Use when the user is deciding between managed and self-hosted.
 - [Platform Quickstart](https://docs.mem0.ai/platform/quickstart) [Platform]: Use for the first Platform integration - API key plus `MemoryClient.add/search`.
@@ -185,7 +186,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 ## Core Concepts
 
 - [How Mem0 Works](https://docs.mem0.ai/core-concepts/how-it-works) [Both]: Use when explaining the end-to-end pipeline: extraction (ADD-only distillation), storage across vector/entity/history stores, and multi-signal retrieval.
-- [Memory Types](https://docs.mem0.ai/core-concepts/memory-types) [Both]: Use when checking which `memory_type` values actually work: `procedural_memory` is implemented, `semantic_memory` and `episodic_memory` are defined in the enum but rejected by validation.
 - [Memory Operations - Add](https://docs.mem0.ai/core-concepts/memory-operations/add) [Both]: Use when explaining how `add()` extracts facts, resolves conflicts, and writes to both stores.
 - [Memory Operations - Search](https://docs.mem0.ai/core-concepts/memory-operations/search) [Both]: Use when explaining how queries are processed and ranked.
 - [Memory Operations - Update](https://docs.mem0.ai/core-concepts/memory-operations/update) [Both]: Use when memories need to be edited in place or reconciled against new info.
@@ -197,6 +197,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 ### Features - Essential
 - [V2 Memory Filters](https://docs.mem0.ai/platform/features/v2-memory-filters) [Platform]: Use when compound filters (AND/OR on metadata, entity, time) are needed at search.
 - [Entity-Scoped Memory](https://docs.mem0.ai/platform/features/entity-scoped-memory) [Platform]: Use when partitioning memories by user, agent, app, or run.
+- [Profiles](https://docs.mem0.ai/platform/features/user-profiles) [Platform]: Use when a structured always-current summary of a user is needed in one read, instead of searching their memories.
 - [Graph Memory](https://docs.mem0.ai/platform/features/graph-memory) [Platform]: Use when connecting facts across memories through shared entities for entity-centric or multi-hop questions.
 - [Async Client](https://docs.mem0.ai/platform/features/async-client) [Platform]: Use when the app issues many concurrent Mem0 calls and needs non-blocking I/O.
 - [Multimodal Support](https://docs.mem0.ai/platform/features/multimodal-support) [Platform]: Use when storing images or PDFs as memory input.
@@ -208,6 +209,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Custom Instructions](https://docs.mem0.ai/platform/features/custom-instructions) [Platform]: Use when tailoring what Mem0 extracts and stores on Platform.
 - [Memory Decay](https://docs.mem0.ai/platform/features/memory-decay) [Platform]: Use when search results should boost recently-reinforced memories and dampen stale ones. Opt in per project; applies at search time and never filters candidates out.
 - [Dream](https://docs.mem0.ai/platform/features/dream) [Platform]: Use when long-lived user memory should stay coherent on its own - synthesizing recurring patterns, superseding outdated facts, and merging duplicates in the background. Synthesis is opt-in (Pro+); Supersede and Merge are always on.
+- [Bring Your Own Key (BYOK)](https://docs.mem0.ai/platform/features/byok) [Platform]: Use when connecting your own OpenAI, Anthropic, OpenRouter or Azure OpenAI key so memories are created on your model - setup, key-check errors, failed adds, rate limits and choosing a model.
 - [Advanced Memory Operations](https://docs.mem0.ai/platform/advanced-memory-operations) [Platform]: Use when basic CRUD is not enough - batch ops, complex filters, workflows.
 
 ### Features - Data Management
@@ -223,6 +225,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 
 ### Support & Migration
 - [FAQs](https://docs.mem0.ai/platform/faqs) [Platform]: Use when answering common Platform questions.
+- [Pricing FAQ](https://docs.mem0.ai/platform/pricing) [Platform]: Use when a user asks how the October 26, 2026 pricing change affects their plan - existing Starter, Growth and Pro plans, free plan limits and the 30-day period, connecting their own LLM key, Vercel accounts and usage-based billing.
 - [Contribute to Platform](https://docs.mem0.ai/platform/contribute) [Platform]: Use when a user wants to contribute to Platform docs or code.
 - [OSS to Platform Migration](https://docs.mem0.ai/migration/oss-to-platform) [Both]: Use when moving from self-hosted to managed.
 - [OSS v2 to v3 Migration](https://docs.mem0.ai/migration/oss-v2-to-v3) [OSS]: Use when upgrading a self-hosted deployment across major versions.
@@ -255,7 +258,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Agno](https://docs.mem0.ai/integrations/agno) [Platform]: Use when the user is on Agno.
 - [Camel AI](https://docs.mem0.ai/integrations/camel-ai) [Both]: Use when the user is on Camel AI.
 - [ChatDev](https://docs.mem0.ai/integrations/chatdev) [Platform]: Use when the user is on ChatDev.
-- [Hermes](https://docs.mem0.ai/integrations/hermes) [Both]: Use when the user is on Hermes.
+- [Hermes](https://docs.mem0.ai/integrations/hermes) [Both]: Use when installing or configuring the standalone Hermes memory plugin, or migrating from the bundled Mem0 provider.
 - [Pi Agent](https://docs.mem0.ai/integrations/pi-agent) [Platform]: Use when adding automatic capture, prompt recall, scoped memory, and six memory commands to Pi Agent.
 - [DeepSeek Harness](https://docs.mem0.ai/integrations/deepseek-plugin) [Platform]: Use when adding automatic recall, completed-turn capture, and native search/add tools to DeepSeek Harness.
 - [OpenAI Agents SDK](https://docs.mem0.ai/integrations/openai-agents-sdk) [Platform]: Use when the user is on the OpenAI Agents SDK.
@@ -325,6 +328,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Healthcare Google ADK](https://docs.mem0.ai/cookbooks/integrations/healthcare-google-adk) [Platform]: Use when the domain is medical and the framework is Google ADK.
 - [AWS Bedrock](https://docs.mem0.ai/cookbooks/integrations/aws-bedrock) [OSS]: Use when deploying with AWS managed model services.
 - [Tavily Search](https://docs.mem0.ai/cookbooks/integrations/tavily-search) [Platform]: Use when the agent layers web search on memory.
+- [Company Brain (Mem0 Platform + Supabase)](https://docs.mem0.ai/cookbooks/integrations/supabase) [Platform]: Use to build a shared org brain on Mem0 Platform with Supabase as system of record and the MCP server as the access layer (with a new-hire onboarding demo).
 
 ### Framework Examples
 - [LlamaIndex React](https://docs.mem0.ai/cookbooks/frameworks/llamaindex-react) [Both]: Use when building a React UI with LlamaIndex and memory.
@@ -362,6 +366,11 @@ All API Reference docs describe Mem0 Platform REST endpoints (requires API key).
 ### Entities
 - [Get Users](https://docs.mem0.ai/api-reference/entities/get-users) [Platform]: Use when listing users, agents, or apps known to a project.
 - [Delete User](https://docs.mem0.ai/api-reference/entities/delete-user) [Platform]: Use when removing an entity and all its memories.
+- [Get Profile](https://docs.mem0.ai/api-reference/profiles/get-profile) [Platform]: Use when reading a user's structured profile and branching on its generation status.
+- [Get Profile Settings](https://docs.mem0.ai/api-reference/profiles/get-profile-settings) [Platform]: Use when checking the project's profile schema, instructions, or enabled flag.
+- [Update Profile Settings](https://docs.mem0.ai/api-reference/profiles/update-profile-settings) [Platform]: Use when defining or changing the JSON Schema that shapes profiles for a project.
+- [Generate Profiles](https://docs.mem0.ai/api-reference/profiles/generate-profiles) [Platform]: Use when building profiles now: a sample of ten, or one entity.
+- [Get Generation Job](https://docs.mem0.ai/api-reference/profiles/get-profile-job) [Platform]: Use when checking how far a generation has got, and whether it finished.
 
 ### Organizations
 - [Create Organization](https://docs.mem0.ai/api-reference/organization/create-org) [Platform]: Use when setting up a new org.

@@ -367,13 +367,13 @@ export class OpenSearchDB implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.initialize();
     if (vector) {
       this.validateVector(vector, 0);
     }
 
-    await this.client.update({
+    const request = this.client.update({
       index: this.collectionName,
       id: vectorId,
       body: {
@@ -385,6 +385,15 @@ export class OpenSearchDB implements VectorStore {
       },
       refresh: this.autoRefresh,
     });
+    try {
+      await request;
+    } catch (error: any) {
+      if (error?.statusCode === 404 || error?.meta?.statusCode === 404) {
+        return false;
+      }
+      throw error;
+    }
+    return true;
   }
 
   async delete(vectorId: string): Promise<void> {

@@ -407,16 +407,17 @@ export class MemoryVectorStore implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (vector.length !== this.dimension) {
       throw new Error(
         `Vector dimension mismatch. Expected ${this.dimension}, got ${vector.length}`,
       );
     }
     const vectorBuffer = Buffer.from(new Float32Array(vector).buffer);
-    this.db
+    const result = this.db
       .prepare(`UPDATE vectors SET vector = ?, payload = ? WHERE id = ?`)
       .run(vectorBuffer, JSON.stringify(payload), vectorId);
+    return result.changes > 0;
   }
 
   async delete(vectorId: string): Promise<void> {

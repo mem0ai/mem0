@@ -6,6 +6,7 @@ overwriting the real embedding. The fix skips the embedding field entirely
 when vector is None.
 """
 
+import json
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -22,7 +23,15 @@ def _make_redis_db():
     mock_index = MagicMock()
     db.index = mock_index
     db.schema = {"index": {"prefix": "mem0:test"}}
+    db.client = MagicMock()
+    db.client.eval.return_value = 1
     return db, mock_index
+
+
+def _written_fields(db):
+    """Decode the field/value pairs update() passed to its exists-guarded HSET script."""
+    _, _, _, *flat = db.client.eval.call_args[0]
+    return dict(zip(flat[::2], flat[1::2]))
 
 
 def test_update_with_none_vector_preserves_embedding():
@@ -37,11 +46,9 @@ def test_update_with_none_vector_preserves_embedding():
         "user_id": "test_user",
     }
 
-    db.update(vector_id="test_id", vector=None, payload=payload)
+    assert db.update(vector_id="test_id", vector=None, payload=payload) is True
 
-    mock_index.load.assert_called_once()
-    call_kwargs = mock_index.load.call_args
-    data_dict = call_kwargs[1]["data"][0] if "data" in call_kwargs[1] else call_kwargs[0][0][0]
+    data_dict = _written_fields(db)
     assert "embedding" not in data_dict, (
         "embedding should not be in data when vector is None"
     )
@@ -63,9 +70,7 @@ def test_update_with_vector_includes_embedding():
 
     db.update(vector_id="test_id", vector=vector, payload=payload)
 
-    mock_index.load.assert_called_once()
-    call_kwargs = mock_index.load.call_args
-    data_dict = call_kwargs[1]["data"][0] if "data" in call_kwargs[1] else call_kwargs[0][0][0]
+    data_dict = _written_fields(db)
     assert "embedding" in data_dict, (
         "embedding should be in data when vector is provided"
     )
@@ -220,11 +225,59 @@ def test_update_entity_payload_without_hash_and_timestamps():
 
     db.update(vector_id="entity-1", vector=[0.1, 0.2, 0.3], payload=entity_payload)
 
-    mock_index.load.assert_called_once()
-    call_kwargs = mock_index.load.call_args
-    data_dict = call_kwargs[1]["data"][0] if "data" in call_kwargs[1] else call_kwargs[0][0][0]
+    data_dict = _written_fields(db)
     assert data_dict["memory_id"] == "entity-1"
     assert data_dict["memory"] == "OpenAI"
     assert data_dict["hash"] == ""
     assert data_dict["created_at"] == 0
     assert data_dict["updated_at"] == 0
+
+
+def test_update_missing_id_returns_false_without_writing():
+    """A memory deleted after Memory read it must stay deleted: the only write is the
+    script that checks the key exists, and a missing key reports False."""
+    db, mock_index = _make_redis_db()
+    db.client.eval.return_value = 0
+
+    assert db.update(vector_id="gone", vector=[0.1, 0.2], payload={"data": "d"}) is False
+    script, numkeys, key = db.client.eval.call_args[0][:3]
+    assert (numkeys, key) == (1, "mem0:test:gone") and "EXISTS" in script
+    mock_index.load.assert_not_called()
+    db.client.hset.assert_not_called()
+
+
+def test_update_existing_id_writes_the_same_fields_as_before():
+    db, _ = _make_redis_db()
+    created_at, updated_at = "2024-01-01T00:00:00+00:00", "2024-01-02T00:00:00+00:00"
+    payload = {"hash": "h", "data": "d", "created_at": created_at, "updated_at": updated_at, "user_id": "u", "tag": "t"}
+
+    assert db.update(vector_id="m1", vector=[0.5, 0.25], payload=payload) is True
+    assert db.client.eval.call_args[0][2] == "mem0:test:m1"
+    assert _written_fields(db) == {
+        "memory_id": "m1", "hash": "h", "memory": "d", "created_at": 1704067200, "updated_at": 1704153600,
+        "embedding": np.array([0.5, 0.25], dtype=np.float32).tobytes(), "user_id": "u",
+        "metadata": json.dumps({"tag": "t"}),
+    }
+
+
+def test_update_uses_watch_multi_exec_when_acl_denies_scripting():
+    """With @scripting denied, EVAL fails with NOPERM and update() writes inside WATCH/MULTI/EXEC: if the
+    key changes after the check, EXEC aborts and the loop re-checks, so a concurrent delete wins."""
+    import redis
+
+    def run(exists, execute):
+        db, _ = _make_redis_db()
+        db.client.eval.side_effect = redis.exceptions.NoPermissionError("NOPERM no permissions to run 'eval'")
+        db.client.pipeline.return_value.__enter__.return_value = pipe = MagicMock()
+        pipe.exists.side_effect, pipe.execute.side_effect = exists, execute
+        return db.update(vector_id="m1", vector=None, payload={"data": "d"}), pipe
+
+    result, pipe = run(exists=[0], execute=None)
+    assert result is False and not pipe.hset.called
+    result, pipe = run(exists=[1], execute=[[1]])
+    assert result is True and pipe.watch.call_args[0] == ("mem0:test:m1",)
+    assert pipe.hset.call_args[0] == ("mem0:test:m1",) and pipe.hset.call_args[1]["mapping"]["memory"] == "d"
+    result, pipe = run(exists=[1, 1], execute=[redis.exceptions.WatchError(), [1]])
+    assert result is True and pipe.watch.call_count == 2
+    result, pipe = run(exists=[1, 0], execute=[redis.exceptions.WatchError()])
+    assert result is False and pipe.execute.call_count == 1

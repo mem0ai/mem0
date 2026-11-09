@@ -141,19 +141,19 @@ export class UpstashVector implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean | undefined> {
     await this.initialize();
-    // Upstash's `update` can't set the vector and metadata in one call (its
-    // payload is a discriminated union of vector | data | metadata), so a
-    // single `upsert` replaces both atomically, the same way insert() writes.
-    await this.client.upsert(
+    const { updated } = await this.client.update(
       {
         id: vectorId,
-        vector,
+        ...(vector ? { vector } : {}),
         metadata: payload,
+        metadataUpdateMode: "OVERWRITE",
       },
       { namespace: this.collectionName },
     );
+    // 0 is not documented as "missing" and can come back for an existing id.
+    return typeof updated === "number" && updated > 0 ? true : undefined;
   }
 
   async delete(vectorId: string): Promise<void> {

@@ -485,3 +485,18 @@ describe("mem0ConfigSchema.parse() — apiKey edge cases", () => {
     expect(cfg.needsSetup).toBe(false);
   });
 });
+
+describe("telemetry fingerprint round trip", () => {
+  it("a config carrying keyFingerprint is accepted by the real schema", () => {
+    // What writePluginAuth persists after a successful lookup. It was not in
+    // ALLOWED_KEYS, and assertAllowedKeys throws, so the first successful
+    // resolve wrote a config that broke every subsequent load of the plugin.
+    const persisted = {
+      apiKey: "m0-test",
+      userEmail: "person@example.com",
+      keyFingerprint: "0123456789abcdef",
+    };
+
+    expect(() => mem0ConfigSchema.parse(persisted)).not.toThrow();
+  });
+});

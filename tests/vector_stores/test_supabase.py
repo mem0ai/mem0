@@ -2,6 +2,9 @@ import logging
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Column, MetaData, String, Table
+from sqlalchemy.dialects import postgresql
 
 from mem0.configs.vector_stores.supabase import IndexMeasure, IndexMethod
 from mem0.vector_stores.supabase import VECS_MAX_QUERY_LIMIT, Supabase
@@ -85,13 +88,49 @@ def test_delete_vector(supabase_instance, mock_collection):
     mock_collection.delete.assert_called_once_with([("id1",)])
 
 
+def _session_matching(mock_collection, rowcount):
+    """Give the collection a real vecs-shaped table and a session whose UPDATE matches `rowcount` rows."""
+    columns = [Column("id", String, primary_key=True), Column("vec", Vector(3)), Column("metadata", postgresql.JSONB)]
+    mock_collection.table = Table("test_collection", MetaData(), *columns)
+    sess = mock_collection.client.Session.return_value.__enter__.return_value
+    sess.execute.return_value.rowcount = rowcount
+    return sess
+
+
+def _executed_sql(sess):
+    compiled = sess.execute.call_args[0][0].compile()
+    return str(compiled), compiled.params
+
+
 def test_update_vector(supabase_instance, mock_collection):
-    vector_id = "id1"
+    sess = _session_matching(mock_collection, rowcount=1)
     new_vector = [0.7, 0.8, 0.9]
     new_payload = {"name": "updated_vector"}
 
-    supabase_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload)
-    mock_collection.upsert.assert_called_once_with([("id1", new_vector, new_payload)])
+    assert supabase_instance.update(vector_id="id1", vector=new_vector, payload=new_payload) is True
+    sql, params = _executed_sql(sess)
+    assert sql == "UPDATE test_collection SET vec=:vec, metadata=:metadata WHERE test_collection.id = :id_1"
+    assert params == {"vec": new_vector, "metadata": new_payload, "id_1": "id1"}
+    mock_collection.upsert.assert_not_called()
+
+
+def test_update_missing_id_returns_false_without_writing(supabase_instance, mock_collection):
+    """A memory deleted after Memory read it must stay deleted: an UPDATE matching no row returns False."""
+    sess = _session_matching(mock_collection, rowcount=0)
+
+    assert supabase_instance.update(vector_id="gone", vector=[0.1, 0.2, 0.3], payload={"data": "d"}) is False
+    assert _executed_sql(sess)[0].startswith("UPDATE test_collection SET")
+    mock_collection.upsert.assert_not_called()
+
+
+def test_update_payload_only_leaves_vector_alone(supabase_instance, mock_collection):
+    sess = _session_matching(mock_collection, rowcount=1)
+
+    assert supabase_instance.update(vector_id="id1", payload={"data": "d"}) is True
+    assert _executed_sql(sess) == (
+        "UPDATE test_collection SET metadata=:metadata WHERE test_collection.id = :id_1",
+        {"metadata": {"data": "d"}, "id_1": "id1"},
+    )
 
 
 def test_get_vector(supabase_instance, mock_collection):
