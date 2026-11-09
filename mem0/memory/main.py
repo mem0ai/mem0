@@ -901,6 +901,28 @@ class Memory(MemoryBase):
                     per_msg_meta["actor_id"] = actor_name
 
                 msg_content = message_dict["content"]
+                # Skip an exact duplicate already in the store, consistent with the
+                # hash dedup the infer=True path applies. Otherwise a caller retrying
+                # after a partial failure inserts a second vector with a fresh UUID.
+                msg_hash = hashlib.md5(msg_content.encode()).hexdigest()
+                search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+                try:
+                    near_hits = self.vector_store.search(
+                        query=msg_content,
+                        vectors=self.embedding_model.embed(msg_content, "search"),
+                        top_k=10,
+                        filters=search_filters,
+                    )
+                except Exception as search_error:
+                    logger.warning(f"Duplicate check skipped, search failed: {search_error}")
+                    near_hits = []
+                duplicate = any(
+                    getattr(hit, "payload", None) and hit.payload.get("hash") == msg_hash for hit in near_hits
+                )
+                if duplicate:
+                    logger.debug(f"Skipping duplicate memory (hash match): {msg_content[:50]}")
+                    continue
+
                 msg_embeddings = self.embedding_model.embed(msg_content, "add")
                 mem_id = self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
 
@@ -1992,16 +2014,25 @@ class Memory(MemoryBase):
             ids=[memory_id],
             payloads=[new_metadata],
         )
-        self.db.add_history(
-            memory_id,
-            None,
-            data,
-            "ADD",
-            created_at=new_metadata.get("created_at"),
-            updated_at=new_metadata.get("updated_at"),
-            actor_id=new_metadata.get("actor_id"),
-            role=new_metadata.get("role"),
-        )
+        try:
+            self.db.add_history(
+                memory_id,
+                None,
+                data,
+                "ADD",
+                created_at=new_metadata.get("created_at"),
+                updated_at=new_metadata.get("updated_at"),
+                actor_id=new_metadata.get("actor_id"),
+                role=new_metadata.get("role"),
+            )
+        except Exception:
+            # Roll back the vector insert so a failed history write does not leave a
+            # stored memory without its history row (a retry would duplicate it).
+            try:
+                self.vector_store.delete(vector_id=memory_id)
+            except Exception as delete_error:
+                logger.error(f"Failed to roll back vector insert for {memory_id}: {delete_error}")
+            raise
         return memory_id
 
     def _create_procedural_memory(self, messages, metadata=None, prompt=None):
@@ -2585,6 +2616,29 @@ class AsyncMemory(MemoryBase):
                     per_msg_meta["actor_id"] = actor_name
 
                 msg_content = message_dict["content"]
+                # Skip an exact duplicate already in the store, consistent with the
+                # hash dedup the infer=True path applies. Otherwise a caller retrying
+                # after a partial failure inserts a second vector with a fresh UUID.
+                msg_hash = hashlib.md5(msg_content.encode()).hexdigest()
+                search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+                try:
+                    near_hits = await asyncio.to_thread(
+                        self.vector_store.search,
+                        query=msg_content,
+                        vectors=await asyncio.to_thread(self.embedding_model.embed, msg_content, "search"),
+                        top_k=10,
+                        filters=search_filters,
+                    )
+                except Exception as search_error:
+                    logger.warning(f"Duplicate check skipped, search failed: {search_error}")
+                    near_hits = []
+                duplicate = any(
+                    getattr(hit, "payload", None) and hit.payload.get("hash") == msg_hash for hit in near_hits
+                )
+                if duplicate:
+                    logger.debug(f"Skipping duplicate memory (hash match): {msg_content[:50]}")
+                    continue
+
                 msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
                 mem_id = await self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
 
@@ -3693,18 +3747,26 @@ class AsyncMemory(MemoryBase):
             payloads=[new_metadata],
         )
 
-        await asyncio.to_thread(
-            self.db.add_history,
-            memory_id,
-            None,
-            data,
-            "ADD",
-            created_at=new_metadata.get("created_at"),
-            updated_at=new_metadata.get("updated_at"),
-            actor_id=new_metadata.get("actor_id"),
-            role=new_metadata.get("role"),
-        )
-
+        try:
+            await asyncio.to_thread(
+                self.db.add_history,
+                memory_id,
+                None,
+                data,
+                "ADD",
+                created_at=new_metadata.get("created_at"),
+                updated_at=new_metadata.get("updated_at"),
+                actor_id=new_metadata.get("actor_id"),
+                role=new_metadata.get("role"),
+            )
+        except Exception:
+            # Roll back the vector insert so a failed history write does not leave a
+            # stored memory without its history row (a retry would duplicate it).
+            try:
+                await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
+            except Exception as delete_error:
+                logger.error(f"Failed to roll back vector insert for {memory_id}: {delete_error}")
+            raise
         return memory_id
 
     async def _create_procedural_memory(self, messages, metadata=None, llm=None, prompt=None):
