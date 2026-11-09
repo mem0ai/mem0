@@ -7,6 +7,7 @@ import dotenv
 
 try:
     from opensearchpy import AWSV4SignerAuth, NotFoundError, OpenSearch
+    from opensearchpy.helpers import BulkIndexError
 except ImportError:
     raise ImportError("OpenSearch requires extra dependencies. Install with `pip install opensearch-py`") from None
 
@@ -105,6 +106,7 @@ class TestOpenSearchDB(unittest.TestCase):
         self.client_mock.delete = MagicMock()
         self.client_mock.search = MagicMock()
         self.client_mock.index = MagicMock(return_value={"_id": "doc1"})
+        self.client_mock.bulk = MagicMock(return_value={"errors": False, "items": []})
 
         patcher = patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock)
         self.mock_os = patcher.start()
@@ -167,8 +169,8 @@ class TestOpenSearchDB(unittest.TestCase):
 
         self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
 
-        # Verify index was called but refresh was NOT called (default behavior)
-        self.assertEqual(self.client_mock.index.call_count, 1)
+        self.client_mock.bulk.assert_called_once()
+        self.client_mock.index.assert_not_called()
         self.client_mock.indices.refresh.assert_not_called()
 
     def test_auto_refresh_enabled(self):
@@ -184,48 +186,38 @@ class TestOpenSearchDB(unittest.TestCase):
 
         self.assertTrue(auto_refresh_db.auto_refresh)
         # auto_refresh_db reuses self.client_mock (patched above), so reset to drop
-        # the index calls made during construction before asserting on insert().
+        # the calls made during construction before asserting on insert().
         self.client_mock.reset_mock()
 
-        # Insert a batch of 3 vectors to verify the refresh is hoisted out of the
-        # per-document loop: index() is called once per document, but refresh()
-        # must fire exactly once for the whole batch.
+        # A batch should use one bulk request followed by one refresh.
         vectors = [[0.1] * 1536, [0.2] * 1536, [0.3] * 1536]
         payloads = [{"key1": "value1"}, {"key2": "value2"}, {"key3": "value3"}]
         ids = ["id1", "id2", "id3"]
 
         auto_refresh_db.insert(vectors=vectors, payloads=payloads, ids=ids)
 
-        # index() once per document, but refresh() only once for the batch
-        self.assertEqual(self.client_mock.index.call_count, 3)
-        self.assertEqual(self.client_mock.indices.refresh.call_count, 1)
+        self.client_mock.bulk.assert_called_once()
+        self.client_mock.index.assert_not_called()
+        self.client_mock.indices.refresh.assert_called_once_with(index="test_auto_refresh")
+        self.assertEqual([call[0] for call in self.client_mock.mock_calls[-2:]], ["bulk", "indices.refresh"])
 
     def test_insert(self):
         vectors = [[0.1] * 1536, [0.2] * 1536]
         payloads = [{"key1": "value1"}, {"key2": "value2"}]
         ids = ["id1", "id2"]
 
-        # Mock the index method
-        self.client_mock.index = MagicMock()
-
         results = self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
 
-        # Verify index was called twice (once for each vector)
-        self.assertEqual(self.client_mock.index.call_count, 2)
-
-        # Check first call
-        first_call = self.client_mock.index.call_args_list[0]
-        self.assertEqual(first_call[1]["index"], "test_collection")
-        self.assertEqual(first_call[1]["body"]["vector_field"], vectors[0])
-        self.assertEqual(first_call[1]["body"]["payload"], payloads[0])
-        self.assertEqual(first_call[1]["body"]["id"], ids[0])
-
-        # Check second call
-        second_call = self.client_mock.index.call_args_list[1]
-        self.assertEqual(second_call[1]["index"], "test_collection")
-        self.assertEqual(second_call[1]["body"]["vector_field"], vectors[1])
-        self.assertEqual(second_call[1]["body"]["payload"], payloads[1])
-        self.assertEqual(second_call[1]["body"]["id"], ids[1])
+        self.client_mock.bulk.assert_called_once_with(
+            index="test_collection",
+            body=[
+                {"index": {}},
+                {"vector_field": vectors[0], "payload": payloads[0], "id": ids[0]},
+                {"index": {}},
+                {"vector_field": vectors[1], "payload": payloads[1], "id": ids[1]},
+            ],
+        )
+        self.client_mock.index.assert_not_called()
 
         # Check results
         self.assertEqual(len(results), 2)
@@ -233,6 +225,42 @@ class TestOpenSearchDB(unittest.TestCase):
         self.assertEqual(results[0].payload, payloads[0])
         self.assertEqual(results[1].id, "id2")
         self.assertEqual(results[1].payload, payloads[1])
+        self.assertEqual([result.score for result in results], [1.0, 1.0])
+
+    def test_insert_defaults(self):
+        vectors = [[0.1] * 1536, [0.2] * 1536]
+        results = self.os_db.insert(vectors=vectors)
+        self.client_mock.bulk.assert_called_once_with(
+            index="test_collection",
+            body=[
+                {"index": {}},
+                {"vector_field": vectors[0], "payload": {}, "id": "0"},
+                {"index": {}},
+                {"vector_field": vectors[1], "payload": {}, "id": "1"},
+            ],
+        )
+        self.assertEqual([result.id for result in results], ["0", "1"])
+        self.assertEqual([result.payload for result in results], [{}, {}])
+
+    def test_insert_empty_batch(self):
+        self.assertEqual(self.os_db.insert(vectors=[]), [])
+        self.client_mock.bulk.assert_not_called()
+        self.client_mock.index.assert_not_called()
+
+    @patch("mem0.vector_stores.opensearch.logger")
+    def test_insert_bulk_item_error(self, mock_logger):
+        self.os_db.auto_refresh = True
+        failure = {"index": {"status": 400, "error": {"type": "mapper_parsing_exception"}}}
+        self.client_mock.bulk.return_value = {
+            "errors": True,
+            "items": [{"index": {"status": 201}}, failure],
+        }
+        with self.assertRaises(BulkIndexError) as ctx:
+            self.os_db.insert(vectors=[[0.1] * 1536, [0.2] * 1536], ids=["id1", "id2"])
+        self.assertEqual(ctx.exception.errors, [failure])
+        mock_logger.error.assert_called_once()
+        self.assertTrue(mock_logger.error.call_args.kwargs["exc_info"])
+        self.client_mock.indices.refresh.assert_not_called()
 
     def test_get(self):
         mock_response = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "id1", "payload": {"key1": "value1"}}}]}}
@@ -364,6 +392,7 @@ class TestOpenSearchDB(unittest.TestCase):
 
         self.assertIn("null", str(ctx.exception).lower())
         self.client_mock.index.assert_not_called()
+        self.client_mock.bulk.assert_not_called()
 
     def test_insert_rejects_empty_vectors(self):
         """Empty vector lists should raise ValueError."""
@@ -376,6 +405,7 @@ class TestOpenSearchDB(unittest.TestCase):
 
         self.assertIn("empty", str(ctx.exception).lower())
         self.client_mock.index.assert_not_called()
+        self.client_mock.bulk.assert_not_called()
 
     def test_insert_rejects_dimension_mismatch(self):
         """Vectors with wrong dimensions should raise ValueError with a clear message."""
@@ -390,6 +420,7 @@ class TestOpenSearchDB(unittest.TestCase):
         self.assertIn("768", error_msg)
         self.assertIn("1536", error_msg)
         self.client_mock.index.assert_not_called()
+        self.client_mock.bulk.assert_not_called()
 
     def test_update_rejects_empty_vector(self):
         """Update with an empty vector should raise ValueError."""
@@ -432,11 +463,15 @@ class TestOpenSearchDB(unittest.TestCase):
         vectors = [[0.1] * 1536]
         payloads = [{"key": "value"}]
         ids = ["id1"]
-        self.client_mock.index.side_effect = Exception("Connection refused")
+        self.os_db.auto_refresh = True
+        error = Exception("Connection refused")
+        self.client_mock.bulk.side_effect = error
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception) as ctx:
             self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
 
+        self.assertIs(ctx.exception, error)
+        self.client_mock.indices.refresh.assert_not_called()
         mock_logger.error.assert_called_once()
         call_kwargs = mock_logger.error.call_args
         self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")

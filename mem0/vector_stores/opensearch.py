@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 try:
     from opensearchpy import NotFoundError, OpenSearch, RequestsHttpConnection
+    from opensearchpy.helpers import BulkIndexError
 except ImportError:
     raise ImportError("OpenSearch requires extra dependencies. Install with `pip install opensearch-py`") from None
 
@@ -179,24 +180,30 @@ class OpenSearchDB(VectorStoreBase):
                 )
 
         results = []
+        actions = []
         for i, (vec, id_) in enumerate(zip(vectors, ids)):
             body = {
                 "vector_field": vec,
                 "payload": payloads[i],
                 "id": id_,
             }
-            try:
-                self.client.index(index=self.collection_name, body=body)
-
-                results.append(
-                    OutputData(
-                        id=id_,
-                        score=1.0,  # No score for inserts
-                        payload=payloads[i],
-                    )
+            actions.extend([{"index": {}}, body])
+            results.append(
+                OutputData(
+                    id=id_,
+                    score=1.0,  # No score for inserts
+                    payload=payloads[i],
                 )
+            )
+
+        if actions:
+            try:
+                response = self.client.bulk(index=self.collection_name, body=actions)
+                if response.get("errors"):
+                    errors = [item for item in response["items"] if not 200 <= item["index"]["status"] < 300]
+                    raise BulkIndexError(f"{len(errors)} document(s) failed to index.", errors)
             except Exception as e:
-                logger.error(f"Error inserting vector {id_}: {e}", exc_info=True)
+                logger.error(f"Error inserting vectors: {e}", exc_info=True)
                 raise
 
         # Refresh once after the full batch (not per document) if explicitly enabled.
