@@ -90,7 +90,7 @@ def test_completions_create(mock_memory_client, mock_litellm):
 
 def test_completions_create_keeps_filters_out_of_add(mock_memory_client, mock_litellm):
     completions = Completions(mock_memory_client)
-    mock_memory_client.search.return_value = []
+    mock_memory_client.search.return_value = {"results": []}
     mock_litellm.supports_function_calling.return_value = True
 
     with patch("mem0.proxy.main.threading.Thread") as mock_thread:
@@ -104,7 +104,10 @@ def test_completions_create_keeps_filters_out_of_add(mock_memory_client, mock_li
 
     assert "filters" not in mock_memory_client.add.call_args.kwargs
     assert mock_memory_client.add.call_args.kwargs["user_id"] == "test_user"
-    assert mock_memory_client.search.call_args.kwargs["filters"] == {"categories": {"in": ["travel"]}}
+    assert mock_memory_client.search.call_args.kwargs["filters"] == {
+        "categories": {"in": ["travel"]},
+        "user_id": "test_user",
+    }
 
 
 def test_completions_create_with_system_message(mock_memory_client, mock_litellm):
