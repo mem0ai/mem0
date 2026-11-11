@@ -352,6 +352,12 @@ class MemorySearchResult:
     memories: list[dict[str, Any]]
 
 
+@dataclass(frozen=True)
+class MemoryContext:
+    text: str
+    memories: list[dict[str, Any]]
+
+
 @functools.lru_cache(maxsize=64)
 def _resolve_repo_cached(cwd: str) -> RepoContext:
     given_cwd = cwd
@@ -983,20 +989,21 @@ class EvidenceStore:
                 (session_id, repo_id),
             )
         }
-        return [memory for memory in memories if str(memory.get("id", "")) not in seen]
+        return [
+            memory for memory in memories
+            if not memory.get("id") or str(memory["id"]) not in seen
+        ]
 
     def mark_injected(
         self, session_id: str, repo_id: str, memories: Iterable[dict[str, Any]]
     ) -> None:
+        """Record the already rendered, redacted, and bounded memory fragments."""
         now = utc_now()
         with self.conn:
             for rank, memory in enumerate(memories, start=1):
-                memory_id = str(memory.get("id", ""))
+                memory_id = str(memory.get("id") or "")
                 if memory_id:
-                    memory_text = bounded(
-                        memory.get("memory") or memory.get("text") or "",
-                        4000,
-                    )
+                    memory_text = str(memory.get("memory") or memory.get("text") or "")
                     try:
                         score = float(memory["score"])
                     except (KeyError, TypeError, ValueError):
@@ -1390,9 +1397,9 @@ def record_subagent_start(
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
     agent_id = bounded(hook_input.get("agent_id", "unknown-agent"), 200)
     agent_type = bounded(hook_input.get("agent_type", "unknown-agent"), 200)
-    context = combine_context(
-        format_context(store.injected_memories(session_id, repo.identity))
-    )
+    context = format_context(
+        store.injected_memories(session_id, repo.identity), already_formatted=True
+    ).text
     first_start = store.start_subagent(
         repo, session_id, agent_id, agent_type, len(context)
     )
@@ -2350,7 +2357,6 @@ def search_memories(
         ][:result_limit]
         if track_session:
             returned_memories = store.unseen(session_id, repo.identity, memories)
-            store.mark_injected(session_id, repo.identity, returned_memories)
             already_shown_count = len(memories) - len(returned_memories)
         else:
             returned_memories = memories
@@ -2404,12 +2410,37 @@ def search_memories(
         return MemorySearchResult(False, 0, 0, [])
 
 
+def _context_allocations(lengths: list[int], budget: int) -> list[int]:
+    """Share space equally, returning unused space from short entries."""
+    allocations = [0] * len(lengths)
+    pending = list(range(len(lengths)))
+    while pending:
+        share, remainder = divmod(budget, len(pending))
+        complete = [index for index in pending if lengths[index] <= share]
+        if not complete:
+            for rank, index in enumerate(pending):
+                allocations[index] = share + (rank < remainder)
+            break
+        for index in complete:
+            allocations[index] = lengths[index]
+            budget -= lengths[index]
+            pending.remove(index)
+    return allocations
+
+
 def format_context(
     memories: list[dict[str, Any]],
     heading: str = "Relevant repository memories:",
-) -> str:
+    *,
+    already_formatted: bool = False,
+) -> MemoryContext:
+    """Render bounded recall and retain exactly the fragments that were shown.
+
+    ``already_formatted`` is only for replaying stored, rendered fragments: they
+    include branch labels and must not be redacted or normalized a second time.
+    """
     if not memories:
-        return ""
+        return MemoryContext("", [])
     limit = min(
         max(
             _int_option(
@@ -2421,43 +2452,62 @@ def format_context(
         ),
         10000,
     )
-    lines = [heading] if heading else []
+    candidates = []
     for memory in memories:
-        text = re.sub(
-            r"\s+",
-            " ",
-            redact(memory.get("memory") or memory.get("text") or ""),
-        )
-        text = text.strip()
+        text = memory.get("memory") or memory.get("text") or ""
+        if not already_formatted:
+            text = re.sub(r"\s+", " ", redact(text)).strip()
         if not text:
             continue
-        branch = str((memory.get("metadata") or {}).get("branch") or "").strip()
+        branch = (
+            "" if already_formatted
+            else str((memory.get("metadata") or {}).get("branch") or "").strip()
+        )
         branch_label = (
             f" [learnt on branch {branch}]"
             if branch.casefold() not in {"", "main", "master", "unknown", "detached"}
             else ""
         )
-        number = len(lines) if heading else len(lines) + 1
-        entry = f"{number}. {text}{branch_label}"
-        candidate = "\n".join([*lines, entry])
-        if len(candidate) <= limit:
-            lines.append(entry)
+        candidates.append((memory, text, branch_label))
+
+    while candidates:
+        prefixes = [f"{index}. " for index in range(1, len(candidates) + 1)]
+        budget = limit - len(heading) - (1 if heading else 0) - len(candidates) + 1
+        lengths = [
+            len(prefix) + len(text) + len(branch_label)
+            for prefix, (_, text, branch_label) in zip(prefixes, candidates)
+        ]
+        minimum_lengths = [
+            len(prefix) + len(branch_label) + min(len(text), 2)
+            for prefix, (_, text, branch_label) in zip(prefixes, candidates)
+        ]
+        allocations = _context_allocations(lengths, max(budget, 0))
+        unrenderable = [
+            index for index, (minimum, allocation) in enumerate(zip(minimum_lengths, allocations))
+            if allocation < minimum
+        ]
+        if unrenderable:
+            # Drop the costliest entry first, retaining the earlier rank on ties.
+            omitted = max(unrenderable, key=lambda index: (minimum_lengths[index], index))
+            candidates.pop(omitted)
             continue
-        if not lines or (heading and len(lines) == 1):
-            prefix = f"{number}. "
-            suffix = f"…{branch_label}"
-            available = (
-                limit
-                - len("\n".join(lines))
-                - (1 if lines else 0)
-                - len(prefix)
-                - len(suffix)
-            )
-            if available > 0:
-                lines.append(prefix + text[:available].rstrip() + suffix)
-        break
-    minimum_lines = 2 if heading else 1
-    return "\n".join(lines) if len(lines) >= minimum_lines else ""
+
+        lines = [heading] if heading else []
+        rendered_memories = []
+        for (memory, text, branch_label), prefix, allocation in zip(candidates, prefixes, allocations):
+            available = allocation - len(prefix) - len(branch_label)
+            if len(text) > available:
+                text = text[:available - 1].rstrip() + "…"
+            body = text + branch_label
+            lines.append(prefix + body)
+            rendered_memory = {"memory": body}
+            if memory.get("id"):
+                rendered_memory["id"] = memory["id"]
+            if "score" in memory:
+                rendered_memory["score"] = memory["score"]
+            rendered_memories.append(rendered_memory)
+        return MemoryContext("\n".join(lines), rendered_memories)
+    return MemoryContext("", [])
 
 
 def format_search_result(result: MemorySearchResult) -> str:
@@ -2466,8 +2516,8 @@ def format_search_result(result: MemorySearchResult) -> str:
         return "Memory search failed."
     if result.memories:
         rendered = format_context(result.memories, heading="")
-        if rendered:
-            return rendered
+        if rendered.text:
+            return rendered.text
     return "No matching memories found."
 
 

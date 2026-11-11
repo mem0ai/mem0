@@ -80,16 +80,19 @@ def first_prompt_memory_output(store: EvidenceStore, hook_input: dict) -> dict:
         result.memories,
         "Mem0 found these relevant memories from earlier work in this repository:",
     )
+    if not context.text:
+        return {}
+    store.mark_injected(session_id, repo.identity, context.memories)
     telemetry.record(
         "context_injected",
         repo=repo, session_id=session_id, trigger="first-prompt",
-        memory_count=len(result.memories), context_chars=len(context),
+        memory_count=len(context.memories), context_chars=len(context.text),
         prompt_chars=len(prompt),
     )
     return {
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
-            "additionalContext": context,
+            "additionalContext": context.text,
         },
     }
 

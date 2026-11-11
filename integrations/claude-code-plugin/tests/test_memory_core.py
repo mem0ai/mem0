@@ -2144,7 +2144,7 @@ def test_no_key_preserves_events_for_a_later_flush(isolated_env):
     store.close()
 
 
-def test_search_is_repo_scoped_and_does_not_reinject_seen_results(
+def test_search_is_repo_scoped_and_only_filters_memories_actually_injected(
     isolated_env, monkeypatch
 ):
     monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
@@ -2189,6 +2189,15 @@ def test_search_is_repo_scoped_and_does_not_reinject_seen_results(
         second_result = memory_core.search_memories(
             store, repo(), "s1", "Where is ODS serialization implemented?"
         )
+        assert second_result.memories == first_result.memories
+        assert second_result.already_shown_count == 0
+        assert store.conn.execute("SELECT COUNT(*) FROM retrievals").fetchone()[0] == 0
+
+        rendered = memory_core.format_context(first_result.memories)
+        store.mark_injected("s1", repo().identity, rendered.memories)
+        third_result = memory_core.search_memories(
+            store, repo(), "s1", "Where is ODS serialization implemented?"
+        )
 
     first = first_result.memories
     assert [memory["id"] for memory in first] == [
@@ -2196,11 +2205,10 @@ def test_search_is_repo_scoped_and_does_not_reinject_seen_results(
         "lower-score",
         "missing-score",
     ]
-    rendered = memory_core.format_context(first)
-    assert "[durable_candidate]" not in rendered
-    assert "1. The ODS serializer is in src/ods.py." in rendered
-    assert second_result.memories == []
-    assert second_result.already_shown_count == 3
+    assert "[durable_candidate]" not in rendered.text
+    assert "1. The ODS serializer is in src/ods.py." in rendered.text
+    assert third_result.memories == []
+    assert third_result.already_shown_count == 3
     assert captured_payloads[0]["app_id"] == "code-example"
     assert captured_payloads[0]["filters"] == {
         "OR": [
@@ -2272,6 +2280,26 @@ def test_search_rejects_unknown_memory_category(isolated_env, monkeypatch):
     store.close()
 
 
+def test_legacy_null_id_tracking_does_not_hide_idless_results(isolated_env):
+    store = memory_core.EvidenceStore()
+    try:
+        store.mark_injected("s1", repo().identity, [
+            {"id": "None", "memory": "Legacy null ID."},
+            {"id": "known", "memory": "Already displayed."},
+        ])
+        memories = [
+            {"id": None, "memory": "Null ID."},
+            {"id": "", "memory": "Empty ID."},
+            {"memory": "Absent ID."},
+            {"id": "known", "memory": "Already displayed."},
+            {"id": "new", "memory": "New memory."},
+        ]
+
+        assert store.unseen("s1", repo().identity, memories) == [*memories[:3], memories[4]]
+    finally:
+        store.close()
+
+
 def test_format_context_labels_memories_from_non_main_branches():
     rendered = memory_core.format_context(
         [
@@ -2291,7 +2319,7 @@ def test_format_context_labels_memories_from_non_main_branches():
                 "metadata": {"branch": "unknown"},
             },
         ]
-    )
+    ).text
 
     assert "1. The default parser is in parser.py." in rendered
     assert (
@@ -2561,7 +2589,7 @@ def test_explicit_search_formats_memories_and_empty_results():
     assert memory_core.format_search_result(empty_result) == "No matching memories found."
 
 
-def test_search_output_uses_one_budget_without_per_memory_cutoff(
+def test_search_output_redistributes_budget_after_short_memories_fit(
     isolated_env, monkeypatch
 ):
     monkeypatch.setenv("MEM0_CODE_MAX_CONTEXT_CHARS", "1000")
@@ -2580,11 +2608,125 @@ def test_search_output_uses_one_budget_without_per_memory_cutoff(
         )
     )
 
-    assert first_text in rendered
-    assert "B" not in rendered
-    assert len(rendered) <= 1000
+    assert rendered == "1. " + "A" * 592 + "…\n2. " + second_text
+    assert len(rendered) == 1000
     assert "category" not in rendered
     assert "id" not in rendered
+
+
+@pytest.mark.parametrize("configured_limit", [None, 10000])
+@pytest.mark.parametrize("lengths", [(20000, 30, 45), (30, 20000, 45), (20000, 20000, 45)])
+@pytest.mark.parametrize("heading", ["", "Relevant repository memories:"])
+def test_context_budget_preserves_later_results_and_ranking(
+    isolated_env, monkeypatch, configured_limit, lengths, heading
+):
+    if configured_limit is None:
+        monkeypatch.delenv("MEM0_CODE_MAX_CONTEXT_CHARS", raising=False)
+    else:
+        monkeypatch.setenv("MEM0_CODE_MAX_CONTEXT_CHARS", str(configured_limit))
+    limit = configured_limit or 4000
+    memories = [
+        {"id": str(index), "memory": character * length}
+        for index, (character, length) in enumerate(zip("ABC", lengths), 1)
+    ]
+
+    rendered = memory_core.format_context(memories, heading)
+
+    assert len(rendered.text) == limit
+    assert [memory["id"] for memory in rendered.memories] == ["1", "2", "3"]
+    lines = rendered.text.splitlines()[bool(heading):]
+    for index, (original, fragment, line) in enumerate(zip(memories, rendered.memories, lines), 1):
+        assert line == f"{index}. {fragment['memory']}"
+        if len(original["memory"]) < limit // 3:
+            assert fragment["memory"] == original["memory"]
+        else:
+            assert fragment["memory"].endswith("…")
+            assert original["memory"].startswith(fragment["memory"][:-1])
+
+
+def test_context_shares_budget_fairly_including_two_digit_numbering(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_CODE_MAX_CONTEXT_CHARS", "1000")
+    memories = [{"id": str(index), "memory": "X" * 2000} for index in range(20)]
+
+    rendered = memory_core.format_context(memories)
+
+    entries = rendered.text.splitlines()[1:]
+    assert len(entries) == 20
+    assert [memory["id"] for memory in rendered.memories] == [str(index) for index in range(20)]
+    assert len(rendered.text) == 1000
+    assert max(map(len, entries)) - min(map(len, entries)) <= 1
+    assert all(entry.endswith("…") for entry in entries)
+
+
+def test_context_preserves_fitting_text_and_branch_annotations(isolated_env):
+    rendered = memory_core.format_context([
+        {"id": "one", "memory": "  First\n memory. ", "score": 0.9, "metadata": {"branch": "main"}},
+        {"id": "two", "text": "Second memory.", "metadata": {"branch": "feature/parser"}},
+    ])
+
+    assert rendered.text == (
+        "Relevant repository memories:\n1. First memory.\n"
+        "2. Second memory. [learnt on branch feature/parser]"
+    )
+    assert rendered.memories == [
+        {"id": "one", "memory": "First memory.", "score": 0.9},
+        {"id": "two", "memory": "Second memory. [learnt on branch feature/parser]"},
+    ]
+
+
+def test_context_budget_includes_branch_annotations_and_ellipsis(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_CODE_MAX_CONTEXT_CHARS", "1000")
+    branch_label = " [learnt on branch feature/parser]"
+    rendered = memory_core.format_context([
+        {"id": "long", "memory": "A" * 2000, "metadata": {"branch": "feature/parser"}},
+        {"id": "short", "memory": "Keep this later fact."},
+    ])
+
+    assert len(rendered.text) == 1000
+    assert rendered.memories[0]["memory"].endswith("…" + branch_label)
+    assert rendered.memories[1]["memory"] == "Keep this later fact."
+    assert rendered.text.count(branch_label) == 1
+    assert rendered.text.splitlines()[1] == "1. " + rendered.memories[0]["memory"]
+
+
+def test_context_skips_empty_or_unfit_entries_and_keeps_idless_entries(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_CODE_MAX_CONTEXT_CHARS", "1000")
+    rendered = memory_core.format_context([
+        {"id": "empty", "memory": " \n "},
+        {"id": "unfit", "memory": "Cannot fit its annotation.", "metadata": {"branch": "B" * 2000}},
+        {"memory": "Display without an ID."},
+        {"id": None, "memory": "Display with a null ID."},
+        {"id": "later", "memory": "Later result."},
+    ])
+
+    assert rendered.text == (
+        "Relevant repository memories:\n1. Display without an ID.\n"
+        "2. Display with a null ID.\n3. Later result."
+    )
+    assert [memory.get("id") for memory in rendered.memories] == [None, None, "later"]
+    empty = memory_core.format_context([{"id": "empty", "memory": "\t "}])
+    assert empty.text == ""
+    assert empty.memories == []
+
+
+@pytest.mark.parametrize("prepend_unfit", [False, True])
+def test_context_keeps_highest_ranked_entry_when_annotations_cannot_all_fit(
+    isolated_env, monkeypatch, prepend_unfit
+):
+    monkeypatch.setenv("MEM0_CODE_MAX_CONTEXT_CHARS", "1000")
+    branch = "B" * 600
+    memories = [
+        {"id": "first", "memory": "ok", "metadata": {"branch": branch}},
+        {"id": "second", "memory": "ok", "metadata": {"branch": branch}},
+    ]
+    if prepend_unfit:
+        memories.insert(0, {"id": "unfit", "memory": "ok", "metadata": {"branch": "B" * 20000}})
+
+    rendered = memory_core.format_context(memories)
+
+    assert [memory["id"] for memory in rendered.memories] == ["first"]
+    assert rendered.text == f"Relevant repository memories:\n1. ok [learnt on branch {branch}]"
+    assert len(rendered.text) <= 1000
 
 
 def test_mcp_tool_contract_is_small_and_read_only():
@@ -3172,6 +3314,126 @@ def test_later_user_prompts_do_not_search_automatically(isolated_env, monkeypatc
     store.close()
 
 
+@pytest.mark.parametrize("configured_limit", [None, 10000])
+@pytest.mark.parametrize("id_fields", [{}, {"id": None}])
+def test_first_prompt_tracks_only_emitted_excerpts_and_subagents_reuse_them(
+    isolated_env, monkeypatch, configured_limit, id_fields
+):
+    import hook_runner
+
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    if configured_limit is None:
+        monkeypatch.delenv("MEM0_CODE_MAX_CONTEXT_CHARS", raising=False)
+    else:
+        monkeypatch.setenv("MEM0_CODE_MAX_CONTEXT_CHARS", str(configured_limit))
+    limit = configured_limit or 4000
+    memories = [
+        {"id": "long", "memory": "A" * 20000 + "OMITTED TAIL", "score": 0.9,
+         "metadata": {"branch": "feature/parser"}},
+        {"id": "empty", "memory": "\n "},
+        {"id": "unfit", "memory": "Unfit annotation.", "metadata": {"branch": "B" * 20000}},
+        {**id_fields, "memory": "An idless displayed fact."},
+        {"id": "later", "memory": "A later displayed fact."},
+    ]
+    store = memory_core.EvidenceStore()
+    try:
+        with (
+            patch.object(memory_core, "resolve_repo", return_value=repo()),
+            patch.object(memory_core, "_request_json", return_value=({"results": memories}, 100, 30000)),
+            patch.object(hook_runner.telemetry, "record") as record_telemetry,
+        ):
+            output = hook_runner.first_prompt_memory_output(
+                store,
+                {"session_id": "s1", "cwd": "/tmp/repo", "prompt": "Find the parser facts from earlier work."},
+            )
+            later_search = memory_core.search_memories(store, repo(), "s1", "parser", top_k=5)
+            child_context = memory_core.record_subagent_start(
+                store, {"session_id": "s1", "cwd": "/tmp/repo", "agent_id": "worker"}
+            )
+
+        context = output["hookSpecificOutput"]["additionalContext"]
+        entries = context.splitlines()[1:]
+        assert len(context) == limit
+        assert len(entries) == 3
+        assert entries[0].endswith("… [learnt on branch feature/parser]")
+        assert entries[1] == "2. An idless displayed fact."
+        assert entries[2] == "3. A later displayed fact."
+        rows = store.conn.execute(
+            "SELECT memory_id, memory_text, context_chars FROM retrievals ORDER BY rank"
+        ).fetchall()
+        assert [row["memory_id"] for row in rows] == ["long", "later"]
+        assert [row["memory_text"] for row in rows] == [entries[0][3:], entries[2][3:]]
+        assert all(row["context_chars"] == len(row["memory_text"]) for row in rows)
+        if configured_limit == 10000:
+            assert rows[0]["context_chars"] > 4000
+        assert later_search.already_shown_count == 2
+        assert later_search.memories == [memories[1], memories[2], memories[3]]
+        assert child_context == (
+            "Relevant repository memories:\n1. " + rows[0]["memory_text"] + "\n2. " + rows[1]["memory_text"]
+        )
+        assert "OMITTED TAIL" not in child_context
+        assert child_context.count("[learnt on branch feature/parser]") == 1
+        injected_events = [call for call in record_telemetry.call_args_list if call.args[0] == "context_injected"]
+        assert len(injected_events) == 1
+        assert injected_events[0].kwargs["memory_count"] == 3
+        assert injected_events[0].kwargs["context_chars"] == len(context)
+    finally:
+        store.close()
+
+
+def test_first_prompt_does_not_record_empty_context(isolated_env, monkeypatch):
+    import hook_runner
+
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    store = memory_core.EvidenceStore()
+    try:
+        with (
+            patch.object(memory_core, "resolve_repo", return_value=repo()),
+            patch.object(memory_core, "_request_json", return_value=({"results": [{"id": "empty", "memory": " "}]}, 10, 10)),
+            patch.object(hook_runner.telemetry, "record") as record_telemetry,
+        ):
+            output = hook_runner.first_prompt_memory_output(
+                store,
+                {"session_id": "s1", "cwd": "/tmp/repo", "prompt": "Find facts from earlier work."},
+            )
+        assert output == {}
+        assert store.conn.execute("SELECT COUNT(*) FROM retrievals").fetchone()[0] == 0
+        assert not any(call.args[0] == "context_injected" for call in record_telemetry.call_args_list)
+    finally:
+        store.close()
+
+
+def test_redacted_excerpt_is_stored_and_replayed_without_losing_ellipsis(isolated_env, monkeypatch):
+    import hook_runner
+
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    monkeypatch.setenv("MEM0_CODE_MAX_CONTEXT_CHARS", "1000")
+    memory = {"id": "redacted", "memory": "A" * 902 + " password=secret " + "tail " * 100}
+    store = memory_core.EvidenceStore()
+    try:
+        with (
+            patch.object(memory_core, "resolve_repo", return_value=repo()),
+            patch.object(memory_core, "_request_json", return_value=({"results": [memory]}, 100, 1500)),
+        ):
+            output = hook_runner.first_prompt_memory_output(
+                store,
+                {"session_id": "s1", "cwd": "/tmp/repo", "prompt": "Find facts from earlier work."},
+            )
+            child_context = memory_core.record_subagent_start(
+                store, {"session_id": "s1", "cwd": "/tmp/repo", "agent_id": "worker"}
+            )
+
+        context = output["hookSpecificOutput"]["additionalContext"]
+        fragment = context.splitlines()[1][3:]
+        assert fragment.endswith("password=[REDACTED]…")
+        assert "secret" not in context
+        stored = store.conn.execute("SELECT memory_text FROM retrievals").fetchone()[0]
+        assert stored == fragment
+        assert child_context == "Relevant repository memories:\n1. " + fragment
+    finally:
+        store.close()
+
+
 def test_manual_search_remains_available_after_automatic_search(
     isolated_env, monkeypatch
 ):
@@ -3345,6 +3607,8 @@ def test_plugin_entrypoints_share_explicit_claude_data_dir(tmp_path, monkeypatch
             "Where does Mem0 store the plugin evidence database?",
         )
     assert len(result.memories) == 1
+    rendered = memory_core.format_context(result.memories)
+    store.mark_injected("shared-session", repo_context.identity, rendered.memories)
     store.close()
 
     env = os.environ.copy()
@@ -4437,7 +4701,7 @@ def test_branch_is_labelled_in_injected_context():
                 "metadata": {"lane": "project", "branch": "feature/x"},
             },
         ]
-    )
+    ).text
 
     assert "1. The parser lives in src/ods.py." in context
     assert "2. pytest needs MEM0_API_KEY set. [learnt on branch feature/x]" in context
