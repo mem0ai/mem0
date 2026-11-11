@@ -77,8 +77,7 @@ class RedisDB(VectorStoreBase):
         self.schema = {"index": index_schema, "fields": fields}
 
         self.client = redis.Redis.from_url(redis_url)
-        self.index = SearchIndex.from_dict(self.schema)
-        self.index.set_client(self.client)
+        self.index = SearchIndex.from_dict(self.schema, redis_client=self.client)
         self.index.create(overwrite=True)
 
     def create_col(self, name=None, vector_size=None, distance=None):
@@ -114,8 +113,7 @@ class RedisDB(VectorStoreBase):
         schema = {"index": index_schema, "fields": fields}
 
         # Create the index
-        index = SearchIndex.from_dict(schema)
-        index.set_client(self.client)
+        index = SearchIndex.from_dict(schema, redis_client=self.client)
         index.create(overwrite=True)
 
         # Update instance attributes if creating a new collection
@@ -332,8 +330,7 @@ class RedisDB(VectorStoreBase):
         logger.warning(f"Resetting index {collection_name}...")
         self.delete_col()
 
-        self.index = SearchIndex.from_dict(self.schema)
-        self.index.set_client(self.client)
+        self.index = SearchIndex.from_dict(self.schema, redis_client=self.client)
         self.index.create(overwrite=True)
 
         # or use

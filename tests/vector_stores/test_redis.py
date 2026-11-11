@@ -133,16 +133,17 @@ def test_create_col_keeps_distinct_dims_across_instances():
 
     captured = []
 
-    def capture_schema(schema):
-        captured.append(schema)
+    def capture_schema(schema, **kwargs):
+        captured.append((schema, kwargs))
         return MagicMock()
 
     with patch.object(redis_module.SearchIndex, "from_dict", side_effect=capture_schema):
         db.create_col(name="col_384", vector_size=384)
         db.create_col(name="col_1536", vector_size=1536)
 
-    assert captured[0]["fields"][-1]["attrs"]["dims"] == 384
-    assert captured[1]["fields"][-1]["attrs"]["dims"] == 1536
+    assert captured[0][0]["fields"][-1]["attrs"]["dims"] == 384
+    assert captured[1][0]["fields"][-1]["attrs"]["dims"] == 1536
+    assert all(entry[1]["redis_client"] is db.client for entry in captured)
     # the module-level default must never be mutated by building a schema
     assert "dims" not in redis_module.DEFAULT_FIELDS[-1]["attrs"]
 
@@ -157,20 +158,43 @@ def test_init_keeps_distinct_dims_from_module_global():
 
     captured = []
 
-    def capture_schema(schema):
-        captured.append(schema)
+    def capture_schema(schema, **kwargs):
+        captured.append((schema, kwargs))
         return MagicMock()
 
+    redis_client = MagicMock()
     with (
-        patch("mem0.vector_stores.redis.redis.Redis.from_url", return_value=MagicMock()),
+        patch("mem0.vector_stores.redis.redis.Redis.from_url", return_value=redis_client),
         patch.object(redis_module.SearchIndex, "from_dict", side_effect=capture_schema),
     ):
         RedisDB("redis://localhost:6379", "col_384", 384)
 
-    assert captured[0]["fields"][-1]["attrs"]["dims"] == 384
+    assert captured[0][0]["fields"][-1]["attrs"]["dims"] == 384
+    assert captured[0][1]["redis_client"] is redis_client
     # the module-level default must never be mutated by constructing an instance
     assert "dims" not in redis_module.DEFAULT_FIELDS[-1]["attrs"]
 
+
+
+def test_reset_recreates_indexes_with_the_existing_redis_client():
+    """Every SearchIndex built during reset must receive the configured client."""
+    import mem0.vector_stores.redis as redis_module
+
+    db, _ = _make_redis_db()
+    db.schema = {"index": {"name": "test", "prefix": "mem0:test"}}
+    db.embedding_model_dims = 384
+
+    captured = []
+
+    def capture_schema(schema, **kwargs):
+        captured.append((schema, kwargs))
+        return MagicMock()
+
+    with patch.object(redis_module.SearchIndex, "from_dict", side_effect=capture_schema):
+        db.reset()
+
+    assert len(captured) == 2
+    assert all(entry[1]["redis_client"] is db.client for entry in captured)
 
 def test_get_returns_none_for_missing_id():
     """get() must return None for a missing id.
