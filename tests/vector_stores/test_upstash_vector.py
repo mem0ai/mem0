@@ -138,6 +138,21 @@ def test_get_vector(upstash_instance):
     assert result.payload == {"name": "vector1"}
 
 
+def test_list_never_returns_more_than_top_k(upstash_instance):
+    """Both a small limit and one spanning several pages must be honored."""
+    page = [QueryResult(id=f"id{i}", score=None, metadata={"n": i}) for i in range(100)]
+    upstash_instance.client.info.return_value.dimension = 10
+
+    for requested in (5, 250):
+        handler = MagicMock()
+        handler.fetch_next.side_effect = [page, page, []]
+        upstash_instance.client.resumable_query.return_value = (list(page), handler)
+
+        [results] = upstash_instance.list(top_k=requested)
+
+        assert len(results) == requested
+
+
 def test_list_vectors(upstash_instance):
     mock_result = [
         QueryResult(id="id1", score=None, vector=None, metadata={"name": "vector1"}, data=None),
@@ -163,7 +178,7 @@ def test_list_vectors(upstash_instance):
         filter='age = 30 AND name = "John"',
         include_metadata=True,
         namespace="ns",
-        top_k=100,
+        top_k=15,
     )
 
     handler.fetch_next.assert_has_calls([call(100), call(100), call(100)])
