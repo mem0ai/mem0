@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { detectRunId, resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 
 const mockExecFileSync = vi.fn();
@@ -10,8 +10,19 @@ vi.mock("node:child_process", () => ({
 const { detectAppId } = await import("./scoping.ts");
 
 describe("detectAppId", () => {
+  const originalEnvAppId = process.env.MEM0_APP_ID;
+
   beforeEach(() => {
     mockExecFileSync.mockReset();
+    delete process.env.MEM0_APP_ID;
+  });
+
+  afterEach(() => {
+    if (originalEnvAppId === undefined) {
+      delete process.env.MEM0_APP_ID;
+    } else {
+      process.env.MEM0_APP_ID = originalEnvAppId;
+    }
   });
 
   it("uses git root basename for a git repo", () => {
@@ -32,6 +43,47 @@ describe("detectAppId", () => {
       throw new Error("fatal: not a git repository");
     });
     expect(detectAppId("/home/user/scratch")).toBe("scratch");
+  });
+
+  it("prefers MEM0_APP_ID over the git root", () => {
+    process.env.MEM0_APP_ID = "pinned-app";
+    mockExecFileSync.mockReturnValue("/home/user/projects/my-app\n");
+    expect(detectAppId("/home/user/projects/my-app")).toBe("pinned-app");
+    expect(mockExecFileSync).not.toHaveBeenCalled();
+  });
+
+  it("uses MEM0_APP_ID outside a git repository", () => {
+    process.env.MEM0_APP_ID = "pinned-app";
+    mockExecFileSync.mockImplementation(() => {
+      throw new Error("fatal: not a git repository");
+    });
+    expect(detectAppId("/home/user/scratch")).toBe("pinned-app");
+  });
+
+  it("falls through to git detection for an empty MEM0_APP_ID", () => {
+    process.env.MEM0_APP_ID = "";
+    mockExecFileSync.mockReturnValue("/home/user/projects/my-app\n");
+    expect(detectAppId("/home/user/projects/my-app")).toBe("my-app");
+  });
+
+  it("falls through to git detection for a whitespace-only MEM0_APP_ID", () => {
+    mockExecFileSync.mockReturnValue("/home/user/projects/my-app\n");
+    for (const value of ["  ", "\t", "\n  "]) {
+      process.env.MEM0_APP_ID = value;
+      expect(detectAppId("/home/user/projects/my-app")).toBe("my-app");
+    }
+  });
+
+  it("falls through to git detection for a wildcard MEM0_APP_ID", () => {
+    process.env.MEM0_APP_ID = "*";
+    mockExecFileSync.mockReturnValue("/home/user/projects/my-app\n");
+    expect(detectAppId("/home/user/projects/my-app")).toBe("my-app");
+  });
+
+  it("uses a padded MEM0_APP_ID verbatim", () => {
+    process.env.MEM0_APP_ID = "  my-app  ";
+    mockExecFileSync.mockReturnValue("/home/user/projects/other-repo\n");
+    expect(detectAppId("/home/user/projects/other-repo")).toBe("  my-app  ");
   });
 });
 
