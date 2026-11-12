@@ -19,6 +19,18 @@ def mock_openai_client():
         yield mock_client
 
 
+def test_rewrite_assistant_keyword_leaves_words_containing_assistant_alone():
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "The assistants and the assistant."},
+    ]
+
+    rewritten = AzureOpenAILLM._rewrite_assistant_keyword(messages)
+
+    assert rewritten[-1]["content"] == "The assistants and the ai."
+    assert messages[-1]["content"] == "The assistants and the assistant."
+
+
 def test_generate_response_without_tools(mock_openai_client):
     config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
     llm = AzureOpenAILLM(config)
