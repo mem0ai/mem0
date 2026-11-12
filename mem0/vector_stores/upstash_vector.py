@@ -299,7 +299,7 @@ class UpstashVector(VectorStoreBase):
             filter=filters_str or "",
             include_metadata=True,
             namespace=self.collection_name,
-            top_k=100,
+            top_k=min(top_k, 1000),  # server caps topK at 1000, the loop below pages for the rest
         )
         with query:
             while True:
@@ -318,7 +318,7 @@ class UpstashVector(VectorStoreBase):
             )
             for res in results
         ]
-        return [parsed_result]
+        return [parsed_result[:top_k]]
 
     def create_col(self, name, vector_size, distance):
         """
