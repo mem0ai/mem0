@@ -299,7 +299,7 @@ class UpstashVector(VectorStoreBase):
             filter=filters_str or "",
             include_metadata=True,
             namespace=self.collection_name,
-            top_k=top_k,
+            top_k=min(top_k, 1000),  # server caps topK at 1000, the loop below pages for the rest
         )
         with query:
             while True:

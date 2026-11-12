@@ -153,6 +153,20 @@ def test_list_never_returns_more_than_top_k(upstash_instance):
         assert len(results) == requested
 
 
+def test_list_caps_initial_top_k_and_pages_the_rest(upstash_instance):
+    """Upstash rejects topK above 1000, so a bigger limit has to be paged."""
+    page = [QueryResult(id=f"id{i}", score=None, metadata={"n": i}) for i in range(1000)]
+    upstash_instance.client.info.return_value.dimension = 10
+    handler = MagicMock()
+    handler.fetch_next.side_effect = [page[:100]] * 15 + [[]]
+    upstash_instance.client.resumable_query.return_value = (list(page), handler)
+
+    [results] = upstash_instance.list(top_k=2500)
+
+    assert upstash_instance.client.resumable_query.call_args.kwargs["top_k"] == 1000
+    assert len(results) == 2500
+
+
 def test_list_vectors(upstash_instance):
     mock_result = [
         QueryResult(id="id1", score=None, vector=None, metadata={"name": "vector1"}, data=None),
