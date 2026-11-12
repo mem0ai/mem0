@@ -4,6 +4,15 @@ from unittest.mock import Mock
 from mem0.llms.azure_openai_structured import SCOPE, AzureOpenAIStructuredLLM
 
 
+def test_rewrite_assistant_keyword_leaves_words_containing_assistant_alone():
+    messages = [{"role": "user", "content": "The assistants and the assistant."}]
+
+    rewritten = AzureOpenAIStructuredLLM._rewrite_assistant_keyword(messages)
+
+    assert rewritten[-1]["content"] == "The assistants and the ai."
+
+
+
 class DummyAzureKwargs:
     def __init__(
         self,
