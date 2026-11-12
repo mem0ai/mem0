@@ -346,6 +346,7 @@ class FAISS(VectorStoreBase):
 
         return self
 
+    @_locked
     def insert(
         self,
         vectors: List[list],
@@ -371,6 +372,27 @@ class FAISS(VectorStoreBase):
 
         if len(vectors) != len(ids) or len(vectors) != len(payloads):
             raise ValueError("Vectors, payloads, and IDs must have the same length")
+
+        # One id has to map to one row. A repeated id inside a single batch keeps
+        # its last occurrence, which is what the other stores' upserts do too.
+        last_position = {vector_id: position for position, vector_id in enumerate(ids)}
+        if len(last_position) != len(ids):
+            keep = sorted(last_position.values())
+            vectors = [vectors[position] for position in keep]
+            payloads = [payloads[position] for position in keep]
+            ids = [ids[position] for position in keep]
+
+        # Replace the rows that already hold one of these ids instead of appending
+        # a second row for the same id: search()/delete() both assume one row per id,
+        # so an appended duplicate makes them return the id twice and strand a row.
+        known_ids = set(self.docstore) | set(self.index_to_id.values())
+        replaced_ids = {vector_id for vector_id in ids if vector_id in known_ids}
+        if replaced_ids:
+            self._rebuild_excluding(
+                {index for index, vector_id in self.index_to_id.items() if vector_id in replaced_ids}
+            )
+            for vector_id in replaced_ids:
+                self.docstore.pop(vector_id, None)
 
         vectors_np = np.array(vectors, dtype=np.float32)
 
@@ -456,6 +478,27 @@ class FAISS(VectorStoreBase):
 
         return True
 
+    def _rebuild_excluding(self, positions: set) -> None:
+        """Rebuild the flat index without the given row positions.
+
+        A flat FAISS index addresses rows by position, so dropping a row shifts
+        every later position: the survivors have to be reconstructed and re-added,
+        and ``index_to_id`` rebuilt alongside them.
+        """
+        remaining_vectors = []
+        new_index_to_id = {}
+        for old_idx in sorted(self.index_to_id.keys()):
+            if old_idx in positions:
+                continue
+            remaining_vectors.append(self.index.reconstruct(int(old_idx)))
+            new_index_to_id[len(new_index_to_id)] = self.index_to_id[old_idx]
+
+        self.index.reset()
+        if remaining_vectors:
+            self.index.add(np.array(remaining_vectors, dtype=np.float32))
+
+        self.index_to_id = new_index_to_id
+
     @_locked
     def delete(self, vector_id: str):
         """
@@ -474,23 +517,9 @@ class FAISS(VectorStoreBase):
                 break
 
         if index_to_delete is not None:
-            # Reconstruct remaining vectors and rebuild the FAISS index
-            remaining_vectors = []
-            new_index_to_id = {}
-            new_idx = 0
-            for old_idx in sorted(self.index_to_id.keys()):
-                if old_idx == index_to_delete:
-                    continue
-                remaining_vectors.append(self.index.reconstruct(int(old_idx)))
-                new_index_to_id[new_idx] = self.index_to_id[old_idx]
-                new_idx += 1
-
-            self.index.reset()
-            if remaining_vectors:
-                self.index.add(np.array(remaining_vectors, dtype=np.float32))
+            self._rebuild_excluding({index_to_delete})
 
             self.docstore.pop(vector_id, None)
-            self.index_to_id = new_index_to_id
 
             self._save()
 

@@ -191,9 +191,7 @@ def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_
     search_indices = np.array([[0, 1, 2, 3]])
     mock_faiss_index.search.return_value = (search_scores, search_indices)
 
-    results = faiss_instance.search(
-        query="test query", vectors=query_vector, top_k=2, filters={"category": "A"}
-    )
+    results = faiss_instance.search(query="test query", vectors=query_vector, top_k=2, filters={"category": "A"})
 
     # Two matching vectors exist among the over-fetched set, so we must get top_k of them.
     assert len(results) == 2
@@ -275,6 +273,39 @@ def test_update_cannot_recreate_a_vector_deleted_during_the_update(tmp_path):
     assert store.update("m1", vector=[0.0, 1.0], payload={"data": "new"}) is True
     deleter.join()
     assert store.get("m1") is None and store.index.ntotal == 0
+
+
+def test_insert_replaces_an_existing_id(tmp_path):
+    """One id must map to one row: re-inserting an id used to append a second
+    vector, so search() returned the id twice and delete() stranded the extra row."""
+    store = FAISS(collection_name="replace", path=str(tmp_path / "replace"), embedding_model_dims=2)
+    store.insert([[1.0, 0.0]], [{"data": "old"}], ["a"])
+    store.insert([[0.0, 1.0]], [{"data": "new"}], ["a"])
+
+    assert store.index.ntotal == 1
+    assert store.index_to_id == {0: "a"}
+    assert store.get("a").payload == {"data": "new"}
+
+    hits = store.search(query="", vectors=[[0.0, 1.0]], top_k=5)
+    assert [(hit.id, hit.payload["data"]) for hit in hits] == [("a", "new")]
+
+    store.delete("a")
+    assert store.index.ntotal == 0
+    assert store.get("a") is None
+
+
+def test_insert_keeps_one_row_for_a_repeated_id_in_the_same_batch(tmp_path):
+    """The last occurrence wins, so a batch cannot smuggle in a duplicate row."""
+    store = FAISS(collection_name="batch", path=str(tmp_path / "batch"), embedding_model_dims=2)
+    store.insert(
+        vectors=[[1.0, 0.0], [0.0, 1.0]],
+        payloads=[{"data": "first"}, {"data": "second"}],
+        ids=["a", "a"],
+    )
+
+    assert store.index.ntotal == 1
+    assert store.index_to_id == {0: "a"}
+    assert store.get("a").payload == {"data": "second"}
 
 
 def test_get(faiss_instance):
