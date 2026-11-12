@@ -23,9 +23,10 @@ Mem0 is a managed memory layer that sits between your AI application and users. 
 User Input → Retrieve relevant memories → Enrich LLM prompt → Generate response → Store new memories
 ```
 
-Mem0 handles the complexity of extraction, deduplication, conflict resolution, and semantic retrieval so your application only needs to call `search()` and `add()`.
+Mem0 handles the complexity of extraction, deduplication, and hybrid retrieval so your application only needs to call `search()` and `add()`.
 
 **Storage architecture:**
+- **SQL database**: Facts and metadata (the source of truth for each memory)
 - **Vector store**: Embeddings for semantic similarity search
 - **Entity store**: Automatic entity linking for relationship-aware retrieval
 
@@ -64,20 +65,22 @@ Messages In
 
 v3 processes memories asynchronously by default:
 - API returns immediately: `{"status": "PENDING", "event_id": "evt-..."}`
-- Poll status via `GET /v1/event/{event_id}/`
+- Poll status via `GET /v1/event/{event_id}/` (the TS client camelCases response keys, so it sees `eventId`)
 - Use webhooks for completion notifications
+- `infer=False` is the exception: it runs synchronously and returns `message` and `results`
 
 ### Extraction modes
 
 **Inferred (`infer=True`, default):**
-- LLM extracts structured facts from conversation
-- Conflict resolution deduplicates and resolves contradictions
+- LLM extracts structured facts from conversation, including facts stated by the assistant
+- Redundant facts are removed, but nothing is overwritten: when a fact changes, both versions are kept with temporal context
 - Best for: natural conversation → memory
 
 **Raw (`infer=False`):**
 - Stores text exactly as provided, no LLM processing
-- Skips conflict resolution — same fact can be stored twice
-- Only `user` role messages are stored; `assistant` messages ignored
+- Skips semantic duplicate detection (same fact in different words can be stored twice); exact repeats are deduplicated by hash
+- `user` and `assistant` messages are stored, one memory per message; `system` messages are dropped
+- Structured multimodal content (`image_url`, `pdf_url`, `txt_url`, `mdx_url`) is rejected with a 400, not skipped
 - Best for: bulk imports, pre-structured data, migrations
 
 **Warning:** Don't mix `infer=True` and `infer=False` for the same data — the same fact will be stored twice.
@@ -101,6 +104,7 @@ Query In
 │  2. PARALLEL SCORING │  Semantic search (vector similarity)
 │                      │  BM25 keyword search (term matching)
 │                      │  Entity matching (entity graph boost)
+│                      │  Temporal scoring (time metadata vs query intent)
 └─────────┬───────────┘
           │
           ▼
@@ -117,18 +121,17 @@ Query In
 
 | Parameter | Default | Notes |
 |-----------|---------|-------|
-| `top_k` | 20 | Was 100 in v2 |
-| `threshold` | 0.1 | Was None in v2 |
-| `rerank` | False | Was True in v2 |
+| `top_k` | 10 | Range 1-1000 (OSS default is 20) |
+| `threshold` | server-side cutoff | Not a floor on the returned `score`. On Platform v3 the default and `0.0` return the same or nearly the same results. Was 0.3 on Platform v2 (None on OSS v2) |
+| `rerank` | False | Was False on Platform v2 (True on OSS v2) |
 
-### Implicit null scoping
+### Unmentioned entities are not constrained
 
-When you search with `filters={"user_id": "alice"}` only, Mem0 returns memories where `agent_id`, `app_id`, and `run_id` are all null. This prevents cross-scope leakage by default.
+When you search with `filters={"user_id": "alice"}` only, Mem0 matches on `user_id` alone. It does not require `agent_id`, `app_id`, or `run_id` to be null, so records that also carry those fields are returned.
 
-To include memories with non-null fields, use explicit filters:
+To narrow to a scope, name the entity explicitly:
 ```python
-# Gets memories for alice regardless of agent/app/run
-filters={"OR": [{"user_id": "alice"}]}
+filters={"AND": [{"user_id": "alice"}, {"run_id": "session_123"}]}
 ```
 
 ---
@@ -149,7 +152,7 @@ v3 uses ADD-only extraction. Memories accumulate over time rather than being con
 ### Deletion
 - Single: `client.delete(memory_id)`
 - Batch: `client.batch_delete([...])`
-- Bulk: `client.delete_all(filters={"user_id": "alice"})`
+- Bulk: `client.delete_all(user_id="alice")`
 
 ---
 
@@ -185,13 +188,15 @@ v3 uses ADD-only extraction. Memories accumulate over time rather than being con
 | `user_id` | string | Primary entity scope |
 | `agent_id` | string | Agent scope |
 | `app_id` | string | Application scope |
-| `run_id` | string | Session/run scope |
+| `run_id` | string | Session/run scope (named `session_id` in get, get-all, and history responses) |
 | `metadata` | object | Custom key-value pairs for filtering |
 | `categories` | array | Auto-assigned or custom category tags |
+| `expiration_date` | string | Date after which the memory is hidden unless `show_expired` is true |
 | `created_at` | datetime | Creation timestamp |
 | `updated_at` | datetime | Last modification timestamp |
 | `structured_attributes` | object | Temporal breakdown for time-based queries |
-| `score` | float | Semantic similarity (search results only, 0-1) |
+| `lifecycle_state` | string | Lifecycle state of the memory (returned by get) |
+| `score` | float | Combined multi-signal relevance (search results only, 0-1) |
 
 ---
 
@@ -208,12 +213,12 @@ Mem0 separates memories across four dimensions to prevent data mixing:
 
 ### Storage model
 
-Each entity combination creates separate records. A memory with `user_id="alice"` is stored separately from one with `user_id="alice"` + `agent_id="bot"`.
+`app_id` and `run_id` are stored on every record the call produces. `user_id` and `agent_id` behave differently on the default extraction path: each extracted fact is attributed to whoever stated it, so a record carries `user_id` (from `user` messages) or `agent_id` (from `assistant` messages), not both. Only Direct Import (`infer=False`) writes both on one record.
 
 ### Critical: cross-entity queries
 
 ```python
-# This returns NOTHING — user and agent memories are stored separately
+# This returns NOTHING for inferred memories: a record has user_id OR agent_id, not both
 filters={"AND": [{"user_id": "alice"}, {"agent_id": "bot"}]}
 
 # Use OR to query multiple scopes
@@ -327,4 +332,4 @@ def chat(user_input: str, user_id: str, session_id: str) -> str:
 | **RAG over documents** | Good for static knowledge | No personalization, no memory updates |
 | **Mem0 Platform** | Managed extraction + dedup + graph + scoping | External dependency, async processing delay |
 
-Mem0 combines the best of vector search (semantic retrieval) with automatic extraction (LLM-powered), conflict resolution (deduplication), and structured scoping (multi-tenancy) — in a single managed API.
+Mem0 combines the best of vector search (semantic retrieval) with automatic extraction (LLM-powered), deduplication, and structured scoping (multi-tenancy), in a single managed API.

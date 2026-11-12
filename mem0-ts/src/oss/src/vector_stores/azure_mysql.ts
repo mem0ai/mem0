@@ -1,4 +1,4 @@
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import { loadPeer } from "../utils/load_peer";
@@ -275,16 +275,18 @@ export class AzureMySQLDB implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.initialize();
     const conn = await this.pool!.getConnection();
     try {
       await conn.beginTransaction();
-      await conn.execute(
+      // mysql2 sets CLIENT_FOUND_ROWS by default, so affectedRows counts matched rows.
+      const [result] = await conn.execute<ResultSetHeader>(
         `UPDATE ${this.col()} SET vector = ?, payload = ? WHERE id = ?`,
         [JSON.stringify(vector), JSON.stringify(payload), vectorId],
       );
       await conn.commit();
+      return result.affectedRows > 0;
     } catch (err) {
       await conn.rollback();
       throw err;

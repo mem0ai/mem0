@@ -312,11 +312,14 @@ class AzureAISearch(VectorStoreBase):
             document["payload"] = json_payload
             for field in ["user_id", "run_id", "agent_id"]:
                 document[field] = payload.get(field)
-        response = self.search_client.merge_or_upload_documents(documents=[document])
+        # merge never creates a document; a missing key comes back as a per-document 404.
+        response = self.search_client.merge_documents(documents=[document])
         for doc in response:
-            if not hasattr(doc, "status_code") and doc.get("status_code") != 200:
+            if doc.status_code == 404:
+                return False
+            if not doc.succeeded:
                 raise Exception(f"Update failed for document {vector_id}: {doc}")
-        return response
+        return True
 
     def get(self, vector_id) -> OutputData:
         """

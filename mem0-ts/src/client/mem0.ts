@@ -74,6 +74,34 @@ function rejectTopLevelEntityParams(
   }
 }
 
+function rejectFilters(
+  options: Record<string, any> | undefined,
+  methodName: string,
+): void {
+  if (options?.filters != null) {
+    throw new Error(
+      `filters is not supported in ${methodName}(). ` +
+        `Pass entity IDs at the top level, e.g. userId: "...".`,
+    );
+  }
+}
+
+/** Throws on an empty entity ID, which the API treats as matching every memory. */
+function rejectBlankEntityIds(options: Record<string, any> | undefined): void {
+  for (const [key, value] of Object.entries(options ?? {})) {
+    if (
+      ENTITY_PARAMS.includes(key) &&
+      typeof value === "string" &&
+      value.trim() === ""
+    ) {
+      throw new Error(
+        `${key} cannot be empty or whitespace-only: an empty ID would match every memory in the project. ` +
+          `To delete everything on purpose, call deleteAll() with "*" explicitly.`,
+      );
+    }
+  }
+}
+
 function encodePathSegment(value: unknown): string {
   return encodeURIComponent(String(value));
 }
@@ -396,6 +424,7 @@ export default class MemoryClient {
     if (!messages || (Array.isArray(messages) && messages.length === 0)) {
       throw new Error("Cannot process an empty messages payload.");
     }
+    rejectFilters(options, "add");
 
     const payload = this._preparePayload(messages, options);
     const payloadKeys = Object.keys(payload);
@@ -540,6 +569,8 @@ export default class MemoryClient {
   async deleteAll(
     options: DeleteAllMemoryOptions = {},
   ): Promise<{ message: string }> {
+    rejectFilters(options, "deleteAll");
+    rejectBlankEntityIds(options);
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("delete_all", [payloadKeys]);
     const snakeOptions = camelToSnakeKeys(this._prepareParams(options));
@@ -611,6 +642,7 @@ export default class MemoryClient {
       runId?: string;
     } = {},
   ): Promise<{ message: string }> {
+    rejectBlankEntityIds(params);
     let to_delete: Array<{ type: string; name: string }> = [];
     const { userId, agentId, appId, runId } = params;
 

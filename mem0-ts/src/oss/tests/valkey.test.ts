@@ -30,6 +30,18 @@ describe("Valkey – mocked iovalkey client", () => {
           if (command === "FT.DROPINDEX") {
             return "OK";
           }
+          if (command === "EVAL") {
+            // Mirrors HSET_IF_EXISTS in valkey.ts: write only when the hash exists.
+            const [, , , key, ...pairs] = args;
+            const existing = store.get(key);
+            if (!existing) return 0;
+            for (let i = 0; i < pairs.length; i += 2) {
+              const value = pairs[i + 1];
+              existing[pairs[i]] =
+                value instanceof Buffer ? value.toString("hex") : String(value);
+            }
+            return 1;
+          }
           return "OK";
         }),
         hset: jest.fn().mockImplementation(async (key: string, obj: any) => {
@@ -169,6 +181,130 @@ describe("Valkey – mocked iovalkey client", () => {
     expect(result?.payload.user_id).toBe("alice");
     // created_at is persisted as unix seconds and rendered back to its ISO instant.
     expect(result?.payload.createdAt).toBe("2024-01-01T00:00:00.000Z");
+  });
+
+  it("update never recreates a deleted memory and only patches existing ones", async () => {
+    const store = new ValkeyDB({
+      collectionName: "test",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+    await store.initialize();
+    const mockClient = require("iovalkey").__mockClient;
+    const hex = (v: number[]) =>
+      Buffer.from(new Float32Array(v).buffer).toString("hex");
+
+    await store.insert(
+      [
+        [0.1, 0.2, 0.3, 0.4],
+        [0.1, 0.2, 0.3, 0.4],
+      ],
+      ["mem-u", "mem-gone"],
+      [{ data: "old", user_id: "alice" }, { data: "doomed" }],
+    );
+    await store.delete("mem-gone");
+    mockClient.hset.mockClear();
+
+    await expect(
+      store.update("mem-gone", [0.5, 0.6, 0.7, 0.8], { data: "x" }),
+    ).resolves.toBe(false);
+    await expect(store.get("mem-gone")).resolves.toBeNull();
+
+    await expect(
+      store.update("mem-u", [0.5, 0.6, 0.7, 0.8], { data: "new" }),
+    ).resolves.toBe(true);
+    // Payload-only: the embedding written above must survive.
+    await expect(
+      store.update("mem-u", null as any, { data: "newer" }),
+    ).resolves.toBe(true);
+
+    const row = await mockClient.hgetall("mem0:test:mem-u");
+    expect(row.memory).toBe("newer");
+    expect(row.user_id).toBe("alice");
+    expect(row.embedding).toBe(hex([0.5, 0.6, 0.7, 0.8]));
+    expect(mockClient.hset).not.toHaveBeenCalled();
+  });
+
+  it("NOPERM falls back to WATCH/MULTI on a duplicate connection and retries", async () => {
+    const store = new ValkeyDB({
+      collectionName: "test",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+    await store.initialize();
+    const mockClient = require("iovalkey").__mockClient;
+    const noperm = new Error(
+      "NOPERM User u has no permissions to run the 'eval' command",
+    );
+    mockClient.call
+      .mockRejectedValueOnce(noperm)
+      .mockRejectedValueOnce(noperm)
+      .mockRejectedValueOnce(new Error("ERR boom"));
+    // iovalkey resolves exec() to null when a watched key changed: retry.
+    const exec = jest
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue([[null, 1]]);
+    const hset = jest.fn(() => ({ exec }));
+    const conn = {
+      watch: jest.fn(),
+      unwatch: jest.fn(),
+      disconnect: jest.fn(),
+      exists: jest.fn().mockResolvedValueOnce(0).mockResolvedValue(1),
+      multi: jest.fn(() => ({ hset })),
+    };
+    mockClient.duplicate = jest.fn(() => conn);
+    const vector = [0.1, 0.2, 0.3, 0.4];
+
+    await expect(store.update("gone", vector, { data: "x" })).resolves.toBe(
+      false,
+    );
+    expect(conn.unwatch).toHaveBeenCalledTimes(1);
+    expect(hset).not.toHaveBeenCalled();
+
+    await expect(store.update("mem-a", vector, { data: "new" })).resolves.toBe(
+      true,
+    );
+    expect(conn.watch).toHaveBeenCalledTimes(3);
+    expect(hset).toHaveBeenCalledTimes(2);
+    expect(hset).toHaveBeenLastCalledWith(
+      "mem0:test:mem-a",
+      expect.objectContaining({ memory_id: "mem-a", memory: "new" }),
+    );
+    expect(conn.disconnect).toHaveBeenCalledTimes(2);
+
+    await expect(store.update("mem-a", vector, {})).rejects.toThrow("ERR boom");
+    expect(mockClient.hset).not.toHaveBeenCalled();
+  });
+
+  it("NOPERM fallback rethrows a command error inside EXEC instead of reporting success", async () => {
+    const store = new ValkeyDB({
+      collectionName: "test",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+    await store.initialize();
+    const mockClient = require("iovalkey").__mockClient;
+    mockClient.call.mockRejectedValueOnce(
+      new Error("NOPERM User u has no permissions to run the 'eval' command"),
+    );
+    const wrongType = new Error("WRONGTYPE Operation against a key");
+    const { wrapMultiResult } = jest.requireActual("iovalkey/built/utils");
+    const conn = {
+      watch: jest.fn(),
+      unwatch: jest.fn(),
+      disconnect: jest.fn(),
+      exists: jest.fn().mockResolvedValue(1),
+      multi: () => ({
+        hset: () => ({ exec: async () => wrapMultiResult([wrongType]) }),
+      }),
+    };
+    mockClient.duplicate = jest.fn(() => conn);
+
+    await expect(
+      store.update("mem-a", [0.1, 0.2, 0.3, 0.4], { data: "x" }),
+    ).rejects.toBe(wrongType);
+    expect(conn.disconnect).toHaveBeenCalledTimes(1);
   });
 
   it("uses Cluster client when clusterMode is enabled", async () => {

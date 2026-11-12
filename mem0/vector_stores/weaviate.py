@@ -15,6 +15,7 @@ except ImportError:
 import weaviate.classes.config as wvcc
 from weaviate.classes.init import AdditionalConfig, Auth, Timeout
 from weaviate.classes.query import Filter, MetadataQuery
+from weaviate.exceptions import UnexpectedStatusCodeError
 from weaviate.util import get_valid_uuid
 
 from mem0.vector_stores.base import VectorStoreBase
@@ -290,14 +291,19 @@ class Weaviate(VectorStoreBase):
             vector_id: ID of the vector to update.
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
+
+        Returns:
+            bool: True if the object exists and was updated, False if no object has this ID.
         """
         collection = self.client.collections.get(str(self.collection_name))
 
-        if payload:
-            collection.data.update(uuid=vector_id, properties=payload)
-
-        if vector:
-            collection.data.update(uuid=vector_id, vector=vector)
+        try:
+            collection.data.update(uuid=vector_id, properties=payload or None, vector=vector or None)
+        except UnexpectedStatusCodeError as e:
+            if e.status_code == 404:
+                return False
+            raise
+        return True
 
     def get(self, vector_id) -> Optional[OutputData]:
         """

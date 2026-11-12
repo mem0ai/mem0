@@ -7,7 +7,7 @@ import numpy as np
 import pytz
 import valkey
 from pydantic import BaseModel
-from valkey.exceptions import ResponseError
+from valkey.exceptions import NoPermissionError, ResponseError, WatchError
 
 from mem0.memory.utils import extract_json
 from mem0.vector_stores.base import VectorStoreBase
@@ -33,6 +33,11 @@ DEFAULT_FIELDS = [
 ]
 
 excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
+
+# HSET creates a missing key; a Lua script runs atomically, so no delete can land between the check and the write.
+_HSET_IF_EXISTS = (
+    "if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end redis.call('HSET', KEYS[1], unpack(ARGV)) return 1"
+)
 
 
 class OutputData(BaseModel):
@@ -523,8 +528,24 @@ class ValkeyDB(VectorStoreBase):
             hash_data["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in excluded_keys})
 
             # Update in Valkey
-            self.client.hset(key, mapping=hash_data)
-            logger.debug(f"Successfully updated vector with ID {vector_id}")
+            try:
+                updated = bool(self.client.eval(_HSET_IF_EXISTS, 1, key, *[x for kv in hash_data.items() for x in kv]))
+            except NoPermissionError:
+                # Scripting denied by ACL: WATCH aborts EXEC if the key changes after the check; the retry re-checks.
+                with self.client.pipeline() as pipe:
+                    while True:
+                        try:
+                            pipe.watch(key)
+                            if not pipe.exists(key):
+                                return False
+                            pipe.multi()
+                            pipe.hset(key, mapping=hash_data)
+                            pipe.execute()
+                            return True
+                        except WatchError:
+                            continue
+            logger.debug(f"Update of vector with ID {vector_id} applied: {updated}")
+            return updated
         except KeyError as e:
             logger.error(f"Error updating vector with ID {vector_id}: Missing required field {e}")
         except Exception as e:

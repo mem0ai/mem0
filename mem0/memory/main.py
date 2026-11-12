@@ -2084,11 +2084,13 @@ class Memory(MemoryBase):
         else:
             embeddings = self.embedding_model.embed(data, "update")
 
-        self.vector_store.update(
+        updated = self.vector_store.update(
             vector_id=memory_id,
             vector=embeddings,
             payload=new_metadata,
         )
+        if updated is False:
+            raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
         logger.info(f"Updating memory with ID {memory_id=} with {data=}")
 
         self.db.add_history(
@@ -3802,12 +3804,14 @@ class AsyncMemory(MemoryBase):
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
 
-        await asyncio.to_thread(
+        updated = await asyncio.to_thread(
             self.vector_store.update,
             vector_id=memory_id,
             vector=embeddings,
             payload=new_metadata,
         )
+        if updated is False:
+            raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
         logger.info(f"Updating memory with ID {memory_id=} with {data=}")
 
         await asyncio.to_thread(

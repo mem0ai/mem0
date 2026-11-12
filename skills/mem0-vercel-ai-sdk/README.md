@@ -37,7 +37,7 @@ curl -X POST https://api.anthropic.com/v1/skills \
 ### Prerequisites
 
 - **Node.js 18+**
-- **Vercel AI SDK v5** (`ai` package version 5.x)
+- **Vercel AI SDK v6** (`ai` package version 6.x)
 - A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=skill-mem0-vercel-ai-sdk-readme))
 - An LLM provider API key (OpenAI, Anthropic, Google, Groq, or Cohere)
 - Set environment variables:
@@ -54,7 +54,7 @@ After installing, just ask Claude:
 - "Add memory to my Vercel AI SDK app"
 - "Set up mem0 with streamText in my Next.js API route"
 - "Use retrieveMemories with Anthropic instead of the wrapped model"
-- "Show me how to use graph memories with the Vercel AI provider"
+- "Show me how to read the Mem0 source from generateText with the Vercel AI provider"
 - "Help me store conversation history with addMemories"
 
 ## What's Inside
@@ -67,7 +67,7 @@ skills/mem0-vercel-ai-sdk/
 └── references/                       # Documentation (loaded on demand)
     ├── provider-api.md               # createMem0, Mem0Provider, types, config
     ├── memory-utilities.md           # addMemories, retrieveMemories, getMemories, searchMemories
-    └── usage-patterns.md             # Working examples: streaming, Next.js, multi-provider, graph
+    └── usage-patterns.md             # Working examples: streaming, Next.js, multi-provider
 ```
 
 ## Links

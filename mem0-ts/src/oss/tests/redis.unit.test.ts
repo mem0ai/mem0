@@ -1,6 +1,7 @@
 import { RedisDB } from "../src/vector_stores/redis";
 
 jest.mock("redis", () => ({
+  WatchError: class WatchError extends Error {},
   createClient: jest.fn(() => ({
     connect: jest.fn(),
     on: jest.fn(),
@@ -12,12 +13,21 @@ jest.mock("redis", () => ({
       _list: jest.fn().mockResolvedValue([]),
     },
     hSet: jest.fn(),
+    sendCommand: jest.fn().mockResolvedValue(1),
+    executeIsolated: jest.fn(),
     hGetAll: jest.fn(),
     del: jest.fn(),
     exists: jest.fn(),
     quit: jest.fn(),
   })),
 }));
+
+// update() sends EVAL <script> 1 <key> field value ...; rebuild the field map.
+function evalFields(args: any[]): Record<string, any> {
+  const fields: Record<string, any> = {};
+  for (let i = 4; i < args.length; i += 2) fields[args[i]] = args[i + 1];
+  return fields;
+}
 
 function createStore(): RedisDB {
   return new RedisDB({
@@ -72,17 +82,14 @@ describe("RedisDB – entity payload handling", () => {
 
     await store.update("entity-1", [0.1, 0.2, 0.3, 0.4], entityPayload);
 
-    expect(mockClient.hSet).toHaveBeenCalledTimes(1);
-    const call = mockClient.hSet.mock.calls[0];
-    const entry = call[1];
+    expect(mockClient.sendCommand).toHaveBeenCalledTimes(1);
+    const entry = evalFields(mockClient.sendCommand.mock.calls[0][0]);
 
     expect(entry.memory_id).toBe("entity-1");
     expect(entry.memory).toBe("OpenAI");
     expect(entry.hash).toBe("");
-    expect(entry.created_at).toBe(0);
-    expect(entry.updated_at).toBe(0);
-    expect(Number.isNaN(entry.created_at)).toBe(false);
-    expect(Number.isNaN(entry.updated_at)).toBe(false);
+    expect(entry.created_at).toBe("0");
+    expect(entry.updated_at).toBe("0");
   });
 
   test("update with normal payload preserves timestamps", async () => {
@@ -96,15 +103,107 @@ describe("RedisDB – entity payload handling", () => {
 
     await store.update("mem-1", [0.1, 0.2, 0.3, 0.4], normalPayload);
 
-    const call = mockClient.hSet.mock.calls[0];
-    const entry = call[1];
+    const entry = evalFields(mockClient.sendCommand.mock.calls[0][0]);
 
     expect(entry.hash).toBe("abc123");
     expect(entry.memory).toBe("likes coffee");
-    expect(entry.created_at).toBeGreaterThan(0);
-    expect(entry.updated_at).toBeGreaterThan(0);
-    expect(Number.isNaN(entry.created_at)).toBe(false);
-    expect(Number.isNaN(entry.updated_at)).toBe(false);
+    expect(entry.created_at).toBe(String(Date.parse(normalPayload.createdAt)));
+    expect(entry.updated_at).toBe(String(Date.parse(normalPayload.updatedAt)));
+  });
+
+  test("update on a missing id returns false and never calls HSET directly", async () => {
+    mockClient.sendCommand.mockResolvedValueOnce(0);
+
+    await expect(
+      store.update("gone", [0.1, 0.2, 0.3, 0.4], { data: "x" }),
+    ).resolves.toBe(false);
+
+    expect(mockClient.hSet).not.toHaveBeenCalled();
+    const args = mockClient.sendCommand.mock.calls[0][0];
+    expect(args.slice(0, 4)).toEqual([
+      "EVAL",
+      expect.stringContaining("EXISTS"),
+      "1",
+      "mem0:test:gone",
+    ]);
+  });
+
+  test("update on an existing id returns true and sends the same hash fields", async () => {
+    mockClient.sendCommand.mockResolvedValueOnce(1);
+
+    await expect(
+      store.update("mem-1", [0.1, 0.2, 0.3, 0.4], {
+        data: "tea",
+        userId: "u1",
+      }),
+    ).resolves.toBe(true);
+
+    expect(evalFields(mockClient.sendCommand.mock.calls[0][0])).toEqual({
+      memory_id: "mem-1",
+      hash: "",
+      memory: "tea",
+      created_at: "0",
+      updated_at: "0",
+      embedding: Buffer.from(new Float32Array([0.1, 0.2, 0.3, 0.4]).buffer),
+      user_id: "u1",
+      metadata: "{}",
+    });
+  });
+
+  test("NOPERM falls back to WATCH/MULTI on an isolated connection and retries", async () => {
+    const { WatchError } = jest.requireMock("redis");
+    const noperm = new Error(
+      "NOPERM User u has no permissions to run the 'eval' command",
+    );
+    mockClient.sendCommand
+      .mockRejectedValueOnce(noperm)
+      .mockRejectedValueOnce(noperm)
+      .mockRejectedValueOnce(new Error("ERR boom"));
+    // The first EXEC is aborted because a watched key changed under us.
+    const exec = jest
+      .fn()
+      .mockRejectedValueOnce(new WatchError())
+      .mockResolvedValue([1]);
+    const hSet = jest.fn(() => ({ exec }));
+    const conn = {
+      watch: jest.fn(),
+      unwatch: jest.fn(),
+      exists: jest.fn().mockResolvedValueOnce(0).mockResolvedValue(1),
+      multi: jest.fn(() => ({ hSet })),
+    };
+    mockClient.executeIsolated.mockImplementation((fn: any) => fn(conn));
+    const vector = [0.1, 0.2, 0.3, 0.4];
+
+    await expect(store.update("gone", vector, { data: "x" })).resolves.toBe(
+      false,
+    );
+    expect(conn.unwatch).toHaveBeenCalledTimes(1);
+    expect(hSet).not.toHaveBeenCalled();
+
+    await expect(store.update("mem-1", vector, { data: "tea" })).resolves.toBe(
+      true,
+    );
+    expect(conn.watch).toHaveBeenCalledTimes(3);
+    expect(hSet).toHaveBeenCalledTimes(2);
+    expect(hSet).toHaveBeenLastCalledWith(
+      "mem0:test:mem-1",
+      expect.objectContaining({ memory_id: "mem-1", memory: "tea" }),
+    );
+
+    await expect(store.update("mem-1", vector, {})).rejects.toThrow("ERR boom");
+    expect(mockClient.hSet).not.toHaveBeenCalled();
+  });
+
+  test("payload-only update leaves the stored embedding alone", async () => {
+    mockClient.sendCommand.mockResolvedValueOnce(1);
+
+    await expect(
+      store.update("mem-1", null as any, { data: "x" }),
+    ).resolves.toBe(true);
+
+    expect(
+      evalFields(mockClient.sendCommand.mock.calls[0][0]),
+    ).not.toHaveProperty("embedding");
   });
 
   test("insert with normal payload preserves timestamp", async () => {

@@ -321,13 +321,14 @@ class PineconeDB(VectorStoreBase):
             item["values"] = vector
 
         if payload is not None:
-            item["metadata"] = payload
+            item["set_metadata"] = payload
 
             if self.hybrid_search and self.sparse_encoder and "text" in payload:
                 sparse_vector = self.sparse_encoder.encode_documents(payload["text"])
                 item["sparse_values"] = sparse_vector
 
-        self.index.upsert(vectors=[item], namespace=self.namespace)
+        # update() never creates a missing id but does not report whether it existed, so we return None.
+        self.index.update(**item, namespace=self.namespace)
 
     def get(self, vector_id: Union[str, int]) -> OutputData:
         """

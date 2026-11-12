@@ -154,6 +154,46 @@ describe("OpenSearchDB", () => {
     await expect(store.get("missing")).resolves.toBeNull();
   });
 
+  it("update returns false and inserts nothing when the document is missing (404)", async () => {
+    const client = createClient({
+      update: jest.fn().mockRejectedValue({ meta: { statusCode: 404 } }),
+    });
+    const store = await createStore(client);
+
+    await expect(
+      store.update("missing", [0.1, 0.2, 0.3], { data: "x" }),
+    ).resolves.toBe(false);
+    expect(client.update.mock.calls[0][0].body).not.toHaveProperty(
+      "doc_as_upsert",
+    );
+    expect(client.index).not.toHaveBeenCalled();
+    expect(client.bulk).not.toHaveBeenCalled();
+  });
+
+  it("update returns true and sends the same partial doc for an existing document", async () => {
+    const client = createClient();
+    const store = await createStore(client);
+
+    await expect(
+      store.update("mem-1", [0.1, 0.2, 0.3], { data: "new" }),
+    ).resolves.toBe(true);
+    expect(client.update.mock.calls[0][0].body).toEqual({
+      doc: {
+        vector_field: [0.1, 0.2, 0.3],
+        payload: { data: "new" },
+        id: "mem-1",
+      },
+    });
+
+    await expect(
+      store.update("mem-1", null as any, { data: "only" }),
+    ).resolves.toBe(true);
+    expect(client.update.mock.calls[1][0].body.doc).toEqual({
+      payload: { data: "only" },
+      id: "mem-1",
+    });
+  });
+
   it("keywordSearch queries lemmatized payload fields", async () => {
     const client = createClient();
     const store = await createStore(client);

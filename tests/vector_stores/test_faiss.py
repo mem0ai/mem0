@@ -2,6 +2,7 @@ import json
 import os
 import pickle
 import tempfile
+import threading
 from unittest.mock import Mock, patch
 
 import faiss
@@ -230,7 +231,7 @@ def test_update(faiss_instance, mock_faiss_index):
     faiss_instance.index_to_id = {0: "id1", 1: "id2"}
 
     # Test updating payload only
-    faiss_instance.update(vector_id="id1", payload={"name": "updated_vector1"})
+    assert faiss_instance.update(vector_id="id1", payload={"name": "updated_vector1"}) is True
     assert faiss_instance.docstore["id1"] == {"name": "updated_vector1"}
 
     # Test updating vector
@@ -238,12 +239,42 @@ def test_update(faiss_instance, mock_faiss_index):
     with patch.object(faiss_instance, "delete") as mock_delete:
         with patch.object(faiss_instance, "insert") as mock_insert:
             new_vector = [0.7, 0.8, 0.9]
-            faiss_instance.update(vector_id="id2", vector=new_vector)
+            assert faiss_instance.update(vector_id="id2", vector=new_vector) is True
 
             # Verify delete and insert were called
             # Match the actual call signature (positional arg instead of keyword)
             mock_delete.assert_called_once_with("id2")
             mock_insert.assert_called_once()
+
+
+def test_update_missing_id_returns_false_without_writing(faiss_instance):
+    faiss_instance.docstore = {"id1": {"name": "vector1"}}
+    with patch.object(faiss_instance, "delete") as mock_delete, patch.object(faiss_instance, "insert") as mock_insert:
+        assert faiss_instance.update(vector_id="gone", vector=[0.1, 0.2], payload={"name": "x"}) is False
+    mock_delete.assert_not_called()
+    mock_insert.assert_not_called()
+    assert "gone" not in faiss_instance.docstore
+
+
+def test_update_cannot_recreate_a_vector_deleted_during_the_update(tmp_path):
+    """A delete on another thread that lands after update() read the record must win;
+    without the lock, update's delete+insert put the deleted record back."""
+    store = FAISS(collection_name="race", path=str(tmp_path / "race"), embedding_model_dims=2)
+    store.insert([[1.0, 0.0]], [{"data": "old"}], ["m1"])
+    deleter = threading.Thread(target=store.delete, args=("m1",))
+
+    class DeleteAfterRead(dict):
+        def __getitem__(self, key):
+            value = super().__getitem__(key)
+            if deleter.ident is None:
+                deleter.start()
+                deleter.join(timeout=0.2)
+            return value
+
+    store.docstore = DeleteAfterRead(store.docstore)
+    assert store.update("m1", vector=[0.0, 1.0], payload={"data": "new"}) is True
+    deleter.join()
+    assert store.get("m1") is None and store.index.ntotal == 0
 
 
 def test_get(faiss_instance):

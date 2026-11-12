@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 import pytz
-from valkey.exceptions import ResponseError
+from valkey.exceptions import NoPermissionError, ResponseError, WatchError
 
 from mem0.vector_stores.valkey import ValkeyDB
 
@@ -19,6 +19,7 @@ def mock_valkey_client():
         mock_client.return_value.ft = MagicMock(return_value=mock_ft)
         mock_client.return_value.execute_command = MagicMock()
         mock_client.return_value.hset = MagicMock()
+        mock_client.return_value.eval = MagicMock(return_value=1)
         mock_client.return_value.hgetall = MagicMock()
         mock_client.return_value.delete = MagicMock()
         yield mock_client.return_value
@@ -36,6 +37,12 @@ def valkey_db(mock_valkey_client):
     # Replace the client with our mock
     valkey_db.client = mock_valkey_client
     return valkey_db
+
+
+def _update_call(client):
+    """Return update()'s exists-guarded HSET script call in hset's (args, kwargs) shape."""
+    _, _, key, *flat = client.eval.call_args[0]
+    return (key,), {"mapping": dict(zip(flat[::2], flat[1::2]))}
 
 
 def test_search_filter_syntax(valkey_db, mock_valkey_client):
@@ -179,7 +186,7 @@ def test_insert_and_update_with_none_timestamps(valkey_db, mock_valkey_client):
         vector=vector,
         payload={"hash": "h", "data": "d", "created_at": None, "updated_at": None},
     )
-    _, update_kwargs = mock_valkey_client.hset.call_args
+    _, update_kwargs = _update_call(mock_valkey_client)
     assert isinstance(update_kwargs["mapping"]["created_at"], int)
     assert "updated_at" not in update_kwargs["mapping"]
 
@@ -208,8 +215,8 @@ def test_update(valkey_db, mock_valkey_client):
     valkey_db.update(vector_id="test_id", vector=vector, payload=payload)
 
     # Check that hset was called with the correct arguments
-    mock_valkey_client.hset.assert_called_once()
-    args, kwargs = mock_valkey_client.hset.call_args
+    mock_valkey_client.eval.assert_called_once()
+    args, kwargs = _update_call(mock_valkey_client)
     assert args[0] == "mem0:test_collection:test_id"
     assert kwargs["mapping"]["memory_id"] == "test_id"
     assert kwargs["mapping"]["memory"] == "updated_data"
@@ -225,8 +232,8 @@ def test_update_handles_missing_created_at(valkey_db, mock_valkey_client):
     valkey_db.update(vector_id="test_id", vector=vector, payload=payload)
 
     # Check that hset was called with the correct arguments
-    mock_valkey_client.hset.assert_called_once()
-    args, kwargs = mock_valkey_client.hset.call_args
+    mock_valkey_client.eval.assert_called_once()
+    args, kwargs = _update_call(mock_valkey_client)
     assert "created_at" in kwargs["mapping"]  # Should be added automatically
 
 
@@ -244,10 +251,10 @@ def test_update_with_none_vector_preserves_embedding(valkey_db, mock_valkey_clie
         "user_id": "test_user",
     }
 
-    valkey_db.update(vector_id="test_id", vector=None, payload=payload)
+    assert valkey_db.update(vector_id="test_id", vector=None, payload=payload) is True
 
-    mock_valkey_client.hset.assert_called_once()
-    args, kwargs = mock_valkey_client.hset.call_args
+    mock_valkey_client.eval.assert_called_once()
+    args, kwargs = _update_call(mock_valkey_client)
     assert "embedding" not in kwargs["mapping"], "embedding should not be in hash_data when vector is None"
     assert kwargs["mapping"]["memory_id"] == "test_id"
     assert kwargs["mapping"]["memory"] == "updated_data"
@@ -263,13 +270,45 @@ def test_update_with_vector_includes_embedding(valkey_db, mock_valkey_client):
         "user_id": "test_user",
     }
 
-    valkey_db.update(vector_id="test_id", vector=vector, payload=payload)
+    assert valkey_db.update(vector_id="test_id", vector=vector, payload=payload) is True
 
-    mock_valkey_client.hset.assert_called_once()
-    args, kwargs = mock_valkey_client.hset.call_args
+    mock_valkey_client.eval.assert_called_once()
+    args, kwargs = _update_call(mock_valkey_client)
     assert "embedding" in kwargs["mapping"], "embedding should be in hash_data when vector is provided"
     expected_bytes = np.array(vector, dtype=np.float32).tobytes()
     assert kwargs["mapping"]["embedding"] == expected_bytes
+
+
+def test_update_missing_id_returns_false_without_writing(valkey_db, mock_valkey_client):
+    """A memory deleted after Memory read it must stay deleted: the only write is the
+    script that checks the key exists, and a missing key reports False."""
+    mock_valkey_client.eval.return_value = 0
+
+    assert valkey_db.update(vector_id="gone", vector=None, payload={"hash": "h", "data": "d"}) is False
+    script, numkeys, key = mock_valkey_client.eval.call_args[0][:3]
+    assert (numkeys, key) == (1, "mem0:test_collection:gone") and "EXISTS" in script
+    mock_valkey_client.hset.assert_not_called()
+
+
+def test_update_uses_watch_multi_exec_when_acl_denies_scripting(valkey_db, mock_valkey_client):
+    """With @scripting denied, EVAL fails with NOPERM and update() writes inside WATCH/MULTI/EXEC: if the
+    key changes after the check, EXEC aborts and the loop re-checks, so a concurrent delete wins."""
+    mock_valkey_client.eval.side_effect = NoPermissionError("NOPERM no permissions to run 'eval'")
+
+    def run(exists, execute):
+        mock_valkey_client.pipeline.return_value.__enter__.return_value = pipe = MagicMock()
+        pipe.exists.side_effect, pipe.execute.side_effect = exists, execute
+        return valkey_db.update(vector_id="m1", vector=None, payload={"hash": "h", "data": "d"}), pipe
+
+    result, pipe = run(exists=[0], execute=None)
+    assert result is False and not pipe.hset.called and not mock_valkey_client.hset.called
+    result, pipe = run(exists=[1], execute=[[1]])
+    assert result is True and pipe.watch.call_args[0] == ("mem0:test_collection:m1",)
+    assert pipe.hset.call_args[0] == ("mem0:test_collection:m1",) and pipe.hset.call_args[1]["mapping"]["memory"] == "d"
+    result, pipe = run(exists=[1, 1], execute=[WatchError(), [1]])
+    assert result is True and pipe.watch.call_count == 2
+    result, pipe = run(exists=[1, 0], execute=[WatchError()])
+    assert result is False and pipe.execute.call_count == 1
 
 
 def test_get(valkey_db, mock_valkey_client):
@@ -808,7 +847,7 @@ def test_delete_error(valkey_db, mock_valkey_client):
 
 def test_update_missing_required_field(valkey_db, mock_valkey_client):
     """Test error handling when updating vector with missing required field."""
-    mock_valkey_client.hset.side_effect = KeyError("missing_field")
+    mock_valkey_client.eval.side_effect = KeyError("missing_field")
 
     # This should not raise an exception but should log the error
     valkey_db.update(vector_id="test_id", vector=np.random.rand(1536).tolist(), payload={"memory": "updated"})
@@ -816,7 +855,7 @@ def test_update_missing_required_field(valkey_db, mock_valkey_client):
 
 def test_update_general_error(valkey_db, mock_valkey_client):
     """Test error handling for general exceptions during update."""
-    mock_valkey_client.hset.side_effect = Exception("Update failed")
+    mock_valkey_client.eval.side_effect = Exception("Update failed")
 
     with pytest.raises(Exception, match="Update failed"):
         valkey_db.update(vector_id="test_id", vector=np.random.rand(1536).tolist(), payload={"memory": "updated"})

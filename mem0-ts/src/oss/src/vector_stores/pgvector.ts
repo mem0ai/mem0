@@ -464,10 +464,10 @@ export class PGVector implements VectorStore {
     vectorId: string,
     vector: number[],
     payload: Record<string, any>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.initialize();
     const vectorStr = `[${vector.join(",")}]`;
-    await this.client.query(
+    const result = await this.client.query(
       `
       UPDATE ${this.col()}
       SET vector = $1::vector, payload = $2::jsonb
@@ -475,6 +475,7 @@ export class PGVector implements VectorStore {
       `,
       [vectorStr, payload, vectorId],
     );
+    return (result.rowCount ?? 0) > 0;
   }
 
   async delete(vectorId: string): Promise<void> {

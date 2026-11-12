@@ -1333,3 +1333,48 @@ class TestAsyncPartialInsertFailure:
             )
 
         mock_async_memory.db.save_messages.assert_called_once()
+
+
+def test_update_racing_delete_does_not_recreate_memory(mocker, tmp_path):
+    mocker.patch("mem0.memory.main.MEM0_TELEMETRY", False)
+    embedder = mocker.MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3, 0.4]
+    embedder.embed_batch.side_effect = lambda texts, *a, **k: [[0.1, 0.2, 0.3, 0.4] for _ in texts]
+    mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=embedder)
+    mocker.patch("mem0.utils.factory.LlmFactory.create", return_value=mocker.MagicMock())
+    memory = Memory.from_config(
+        {
+            "vector_store": {
+                "provider": "qdrant",
+                "config": {"path": str(tmp_path / "qdrant"), "collection_name": "race", "embedding_model_dims": 4},
+            },
+            "history_db_path": str(tmp_path / "history.db"),
+        }
+    )
+    added = memory.add([{"role": "user", "content": "call back on Tuesday"}], user_id="alice", infer=False)
+    memory_id = added["results"][0]["id"]
+
+    store_update = memory.vector_store.update
+
+    def delete_then_update(**kwargs):
+        memory.delete(memory_id)
+        return store_update(**kwargs)
+
+    memory.vector_store.update = delete_then_update
+    with pytest.raises(ValueError, match="not found"):
+        memory.update(memory_id, text="call back on Wednesday")
+
+    assert memory.get(memory_id) is None
+    assert "UPDATE" not in [h["event"] for h in memory.history(memory_id)]
+
+
+@pytest.mark.asyncio
+async def test_async_update_reports_not_found_when_store_finds_nothing(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = SimpleNamespace(id="m1", payload={"data": "old", "user_id": "alice"})
+    memory.vector_store.update.return_value = False
+
+    with pytest.raises(ValueError, match="not found"):
+        await memory._update_memory("m1", "new", {"new": [0.1, 0.2, 0.3]})
+
+    memory.db.add_history.assert_not_called()
