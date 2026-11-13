@@ -105,3 +105,33 @@ def test_titan_v1_ignores_embedding_dims(mock_boto3_client):
         body = _captured_request_body(mock_boto3_client, config)
 
     assert "dimensions" not in body
+
+
+@pytest.mark.parametrize(
+    "model,dims",
+    [
+        ("amazon.titan-embed-text-v1", 1536),
+        ("amazon.titan-embed-text-v2:0", 1024),
+        ("cohere.embed-english-v3", 1024),
+        ("cohere.embed-multilingual-v3", 1024),
+        ("cohere.embed-v4:0", None),
+    ],
+)
+def test_embedding_dims_defaults_to_model_output_size(mock_boto3_client, model, dims):
+    """Each supported model reports the vector size it actually produces.
+
+    Without this the vector store keeps its 1536 default, the collection is
+    created with the wrong size and every write fails with a dimension mismatch.
+    """
+    with patch("mem0.embeddings.aws_bedrock.os.environ", {}):
+        embedder = AWSBedrockEmbedding(BaseEmbedderConfig(model=model))
+
+    assert embedder.config.embedding_dims == dims
+
+
+def test_explicit_embedding_dims_wins_over_model_default(mock_boto3_client):
+    """A dimension the user configured must not be overwritten by the default."""
+    with patch("mem0.embeddings.aws_bedrock.os.environ", {}):
+        embedder = AWSBedrockEmbedding(BaseEmbedderConfig(model="amazon.titan-embed-text-v2:0", embedding_dims=512))
+
+    assert embedder.config.embedding_dims == 512
