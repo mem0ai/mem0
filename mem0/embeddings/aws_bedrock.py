@@ -12,6 +12,14 @@ import numpy as np
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
 
+# Output size of the text embedding models below when no `dimensions` is sent.
+DEFAULT_EMBEDDING_DIMS = {
+    "amazon.titan-embed-text-v1": 1536,
+    "amazon.titan-embed-text-v2:0": 1024,
+    "cohere.embed-english-v3": 1024,
+    "cohere.embed-multilingual-v3": 1024,
+}
+
 
 class AWSBedrockEmbedding(EmbeddingBase):
     """AWS Bedrock embedding implementation.
@@ -23,6 +31,9 @@ class AWSBedrockEmbedding(EmbeddingBase):
         super().__init__(config)
 
         self.config.model = self.config.model or "amazon.titan-embed-text-v1"
+        # Like openai.py: forward `dimensions` only when the user set embedding_dims.
+        self._pass_dimensions = self.config.embedding_dims is not None
+        self.config.embedding_dims = self.config.embedding_dims or DEFAULT_EMBEDDING_DIMS.get(self.config.model)
 
         # Get AWS config from environment variables or use defaults
         aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID", "")
@@ -73,7 +84,7 @@ class AWSBedrockEmbedding(EmbeddingBase):
             # Titan Text Embeddings V2 accepts an optional output dimension
             # (256/512/1024). Only forward embedding_dims when the user set it,
             # mirroring the OpenAI embedder's guarded `dimensions` pass-through.
-            if self.config.embedding_dims is not None and "v2" in self.config.model:
+            if self._pass_dimensions and "v2" in self.config.model:
                 input_body["dimensions"] = self.config.embedding_dims
 
         body = json.dumps(input_body)
