@@ -42,6 +42,8 @@ Run this in an interactive terminal and choose a backend:
 
 For a self-hosted server, choose **Self-hosted server** and enter its URL and API key. Requests use `X-API-Key` and the server's `/search` and `/memories` routes. Setting `host` selects this backend unless `mode` is `oss`.
 
+To reach the server through a proxy (HTTP, HTTPS, or SOCKS), set `MEM0_PROXY`, for example `MEM0_PROXY=http://127.0.0.1:1055`. It is read only by the self-hosted backend and is unset by default. The generic `HTTP_PROXY`, `HTTPS_PROXY`, and `ALL_PROXY` variables are not used by this backend.
+
 For the in-process SDK, choose **Open Source**. The wizard offers OpenAI or Ollama and local Qdrant or PGVector. Use manual configuration for custom OpenAI-compatible endpoints, deployment names, or a Qdrant server. OSS does not use Mem0 Cloud; data still goes to whichever model services you configure. Run setup again to switch modes. When switching to Platform, remove any stale `MEM0_HOST` setting from the environment and profile `.env`.
 
 Desktop sessions in the same process and profile share local Qdrant storage when their OSS settings match. Operations are serialized, and storage closes after the last session releases it. Conflicting settings are rejected without changing existing memories; close the active sessions before changing models or credentials. Use a Qdrant server or the self-hosted Mem0 HTTP API when separate processes (for example, CLI and Desktop together) need the same store.

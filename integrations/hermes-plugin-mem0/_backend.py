@@ -82,7 +82,9 @@ class SelfHostedBackend(Mem0Backend):
         import httpx
         headers = {"Content-Type": "application/json", **({"X-API-Key": api_key} if api_key else {})}  # key omitted only for AUTH_DISABLED servers
         # Connect-level retries keep one dropped SYN from counting toward the breaker. ``transport`` is injectable for tests.
-        self._client = httpx.Client(base_url=host.rstrip("/"), headers=headers, timeout=30.0, transport=transport or httpx.HTTPTransport(retries=2))
+        # An explicit transport disables httpx's proxy environment support, so the opt-in ``MEM0_PROXY`` (this backend only) is passed to it directly.
+        proxy = os.environ.get("MEM0_PROXY") or None
+        self._client = httpx.Client(base_url=host.rstrip("/"), headers=headers, timeout=30.0, transport=transport or httpx.HTTPTransport(retries=2, proxy=proxy))
         self._capture_timeout = httpx.Timeout(120.0, connect=30.0)
 
     def _json(self, method: str, path: str, **kwargs) -> Any:

@@ -284,3 +284,66 @@ def test_initialize_tolerates_non_numeric_sync_max_chars(plugin, monkeypatch):
     provider = plugin.Mem0MemoryProvider()
     provider.initialize("test-session")
     assert provider._sync_max_chars == plugin._SYNC_MSG_MAX_CHARS
+
+
+def _selfhosted_pool(plugin, monkeypatch, **env):
+    backend = importlib.import_module(f"{plugin.__name__}._backend")
+    for name in ("MEM0_PROXY", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    client = backend.SelfHostedBackend("k", "http://mem0.example:8888")
+    try:
+        return client._client._transport._pool
+    finally:
+        client._client.close()
+
+
+def test_selfhosted_no_proxy_by_default(plugin, monkeypatch):
+    import httpcore
+
+    pool = _selfhosted_pool(plugin, monkeypatch)
+    assert isinstance(pool, httpcore.ConnectionPool)
+    assert not isinstance(pool, httpcore.HTTPProxy)
+
+
+def test_selfhosted_empty_proxy_ignored(plugin, monkeypatch):
+    import httpcore
+
+    pool = _selfhosted_pool(plugin, monkeypatch, MEM0_PROXY="")
+    assert not isinstance(pool, httpcore.HTTPProxy)
+
+
+def test_selfhosted_mem0_proxy_uses_http_proxy_pool(plugin, monkeypatch):
+    import httpcore
+
+    pool = _selfhosted_pool(plugin, monkeypatch, MEM0_PROXY="http://127.0.0.1:1055")
+    assert isinstance(pool, httpcore.HTTPProxy)
+    assert pool._proxy_url.host == b"127.0.0.1"
+    assert pool._proxy_url.port == 1055
+
+
+def test_selfhosted_generic_proxy_env_not_adopted(plugin, monkeypatch):
+    import httpcore
+
+    pool = _selfhosted_pool(
+        plugin,
+        monkeypatch,
+        HTTP_PROXY="http://127.0.0.1:3128",
+        HTTPS_PROXY="http://127.0.0.1:3128",
+        ALL_PROXY="http://127.0.0.1:3128",
+    )
+    assert not isinstance(pool, httpcore.HTTPProxy)
+
+
+def test_selfhosted_injected_transport_wins_over_proxy(plugin, monkeypatch):
+    import httpx
+
+    backend = importlib.import_module(f"{plugin.__name__}._backend")
+    monkeypatch.setenv("MEM0_PROXY", "http://127.0.0.1:1055")
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json={"results": []}))
+    client = backend.SelfHostedBackend("k", "http://mem0.example:8888", transport=transport)
+    try:
+        assert client._client._transport is transport
+    finally:
+        client._client.close()
