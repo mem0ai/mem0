@@ -326,13 +326,48 @@ class Qdrant(VectorStoreBase):
                     ) from e
             return FieldCondition(key=key, range=Range(**range_kwargs))
         elif "eq" in value:
-            return FieldCondition(key=key, match=MatchValue(value=value["eq"]))
+            eq_value = value["eq"]
+            if isinstance(eq_value, float):
+                # MatchValue rejects floats; a closed range compares numerically.
+                return FieldCondition(key=key, range=Range(gte=eq_value, lte=eq_value))
+            return FieldCondition(key=key, match=MatchValue(value=eq_value))
         elif "ne" in value:
-            return FieldCondition(key=key, match=MatchExcept(**{"except": [value["ne"]]}))
+            ne_value = value["ne"]
+            if isinstance(ne_value, float):
+                # MatchExcept rejects floats: exclude via a nested filter's
+                # must_not with a closed range.
+                return models.Filter(
+                    must_not=[FieldCondition(key=key, range=Range(gte=ne_value, lte=ne_value))],
+                )
+            if isinstance(ne_value, bool):
+                # MatchExcept rejects bools; exclude the matching bool via a
+                # nested filter's must_not (bool MatchValue is accepted).
+                return models.Filter(
+                    must_not=[FieldCondition(key=key, match=MatchValue(value=ne_value))],
+                )
+            return FieldCondition(key=key, match=MatchExcept(**{"except": [ne_value]}))
         elif "in" in value:
-            return FieldCondition(key=key, match=MatchAny(any=value["in"]))
+            in_values = value["in"]
+            if any(isinstance(v, float) for v in in_values):
+                return models.Filter(
+                    should=[
+                        FieldCondition(key=key, range=Range(gte=v, lte=v)) if isinstance(v, float)
+                        else FieldCondition(key=key, match=MatchValue(value=v))
+                        for v in in_values
+                    ],
+                )
+            return FieldCondition(key=key, match=MatchAny(any=in_values))
         elif "nin" in value:
-            return FieldCondition(key=key, match=MatchExcept(**{"except": value["nin"]}))
+            nin_values = value["nin"]
+            if any(isinstance(v, (float, bool)) for v in nin_values):
+                conditions = [
+                    FieldCondition(key=key, range=Range(gte=v, lte=v)) if isinstance(v, float)
+                    else FieldCondition(key=key, match=MatchValue(value=v)) if isinstance(v, bool)
+                    else FieldCondition(key=key, match=MatchExcept(**{"except": [v]}))
+                    for v in nin_values
+                ]
+                return models.Filter(must_not=conditions)
+            return FieldCondition(key=key, match=MatchExcept(**{"except": nin_values}))
         elif "contains" in value or "icontains" in value:
             # MatchText: with a full-text index, tokenized matching (all words must appear).
             # Without a full-text index, exact substring match.

@@ -1166,3 +1166,67 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
         self.assertIn("mem0ai[extras]", joined)  # points at the right install
         self.assertNotIn("pip install fastembed", joined)  # not the bare package
         self.assertNotIn("\u2014", joined)  # no em-dash
+
+
+class TestQdrantFloatBoolFilters(unittest.TestCase):
+    """Float and bool filter values in eq/ne/in/nin must not raise
+    ValidationError (#7904)."""
+
+    def setUp(self):
+        self.client_mock = MagicMock(spec=QdrantClient)
+        self.qdrant = Qdrant(
+            collection_name="test_collection",
+            embedding_model_dims=128,
+            client=self.client_mock,
+            path="test_path",
+            on_disk=True,
+        )
+
+    def test_eq_float_uses_closed_range(self):
+        filters = {"score": {"eq": 0.9}}
+        result = self.qdrant._create_filter(filters)
+        assert result.must is not None
+        cond = result.must[0]
+        assert cond.range is not None
+        assert cond.range.gte == 0.9 and cond.range.lte == 0.9
+
+    def test_ne_float_uses_nested_must_not_range(self):
+        filters = {"score": {"ne": 0.9}}
+        result = self.qdrant._create_filter(filters)
+        cond = result.must[0]
+        assert isinstance(cond, Filter)
+        assert cond.must_not[0].range.gte == 0.9 and cond.must_not[0].range.lte == 0.9
+
+    def test_ne_bool_uses_nested_must_not_match(self):
+        filters = {"archived": {"ne": True}}
+        result = self.qdrant._create_filter(filters)
+        cond = result.must[0]
+        assert isinstance(cond, Filter)
+        assert cond.must_not[0].match.value is True
+
+    def test_in_float_uses_nested_should(self):
+        filters = {"score": {"in": [0.5, 0.9]}}
+        result = self.qdrant._create_filter(filters)
+        cond = result.must[0]
+        assert isinstance(cond, Filter)
+        assert len(cond.should) == 2
+
+    def test_nin_float_uses_nested_must_not(self):
+        filters = {"score": {"nin": [0.5, 0.9]}}
+        result = self.qdrant._create_filter(filters)
+        cond = result.must[0]
+        assert isinstance(cond, Filter)
+        assert len(cond.must_not) == 2
+
+    def test_nin_bool_uses_nested_must_not_match(self):
+        filters = {"archived": {"nin": [True]}}
+        result = self.qdrant._create_filter(filters)
+        cond = result.must[0]
+        assert isinstance(cond, Filter)
+        assert cond.must_not[0].match.value is True
+
+    def test_string_filters_still_use_match(self):
+        filters = {"label": {"eq": "v1"}}
+        result = self.qdrant._create_filter(filters)
+        cond = result.must[0]
+        assert cond.match.value == "v1"
