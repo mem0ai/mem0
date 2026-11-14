@@ -11,6 +11,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 import pytz
 
 
@@ -281,3 +282,96 @@ def test_update_uses_watch_multi_exec_when_acl_denies_scripting():
     assert result is True and pipe.watch.call_count == 2
     result, pipe = run(exists=[1, 0], execute=[redis.exceptions.WatchError()])
     assert result is False and pipe.execute.call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# _build_filter_expression: mem0's universal filter format beyond scalar ==.
+#
+# Regression for #6550: operator dicts like {"age": {"gte": 18}}, list
+# membership, and $or used to be fed to ``Tag(key) == value`` verbatim, which
+# either raised TypeError or produced a nonsense tag match. Assertions are on
+# the redisvl filter expression string, so no live Redis is needed.
+# ---------------------------------------------------------------------------
+
+
+def _build(filters):
+    from mem0.vector_stores.redis import _build_filter_expression
+
+    return _build_filter_expression(filters)
+
+
+def test_build_filter_scalar_equality_unchanged():
+    """Scalar filters still produce a plain Tag match (no behavior change)."""
+    assert str(_build({"user_id": "alice"})) == "@user_id:{alice}"
+    assert str(_build({"user_id": "alice", "agent_id": "a1"})) == "(@user_id:{alice} @agent_id:{a1})"
+
+
+def test_build_filter_empty_and_none_match_all():
+    """No filters, an empty dict, or all-None values yield no expression."""
+    assert _build(None) is None
+    assert _build({}) is None
+    assert _build({"user_id": None}) is None
+
+
+def test_build_filter_list_is_membership():
+    """A list value becomes a Tag OR-of-values (``in`` semantics)."""
+    assert str(_build({"genre": ["comedy", "drama"]})) == "@genre:{comedy|drama}"
+
+
+def test_build_filter_operator_dicts():
+    """Each supported operator maps to the right redisvl field type/expression."""
+    cases = [
+        ({"age": {"gt": 18}}, "@age:[(18 +inf]"),
+        ({"age": {"gte": 18}}, "@age:[18 +inf]"),
+        ({"age": {"lt": 65}}, "@age:[-inf (65]"),
+        ({"age": {"lte": 65}}, "@age:[-inf 65]"),
+        ({"user_id": {"eq": "alice"}}, "@user_id:{alice}"),
+        ({"user_id": {"ne": "alice"}}, "(-@user_id:{alice})"),
+        ({"cat": {"in": ["a", "b"]}}, "@cat:{a|b}"),
+        ({"cat": {"nin": ["a", "b"]}}, "(-@cat:{a|b})"),
+        ({"memory": {"contains": "hello"}}, "@memory:(hello)"),
+        ({"memory": {"icontains": "hello"}}, "@memory:(hello)"),
+    ]
+    for filters, expected in cases:
+        assert str(_build(filters)) == expected, filters
+
+
+def test_build_filter_multiple_operators_on_one_field_are_anded():
+    """Several operators on one field (e.g. a range) AND together."""
+    assert str(_build({"age": {"gte": 18, "lt": 65}})) == "(@age:[18 +inf] @age:[-inf (65])"
+
+
+def test_build_filter_or_combines_subfilters():
+    """$or combines subfilters with a logical OR, including operator subfilters."""
+    assert str(_build({"$or": [{"user_id": "alice"}, {"user_id": "bob"}]})) == ("(@user_id:{alice} | @user_id:{bob})")
+    assert str(_build({"$or": [{"age": {"gte": 18}}, {"user_id": "bob"}]})) == ("(@age:[18 +inf] | @user_id:{bob})")
+
+
+def test_build_filter_or_nested_with_scalar_conditions():
+    """$or groups AND with the surrounding scalar conditions."""
+    assert str(_build({"user_id": "alice", "$or": [{"run_id": "r1"}, {"run_id": "r2"}]})) == (
+        "(@user_id:{alice} (@run_id:{r1} | @run_id:{r2}))"
+    )
+
+
+def test_build_filter_unsupported_operator_raises():
+    """An unknown operator is rejected, not silently dropped."""
+    with pytest.raises(ValueError, match="Unsupported filter operator"):
+        _build({"age": {"foo": 1}})
+
+
+def test_build_filter_not_operator_raises():
+    """$not cannot be expressed in redisvl and must raise, not be dropped."""
+    with pytest.raises(ValueError, match=r"\$not"):
+        _build({"$not": [{"user_id": "alice"}]})
+
+
+def test_search_passes_operator_filters_to_vector_query():
+    """search() forwards the translated expression instead of crashing on dict values."""
+    db, mock_index = _make_redis_db()
+    mock_index.query.return_value = []
+
+    db.search("q", [0.1, 0.2], filters={"user_id": "alice", "age": {"gte": 18}})
+
+    query = mock_index.query.call_args[0][0]
+    assert str(query._filter_expression) == "(@user_id:{alice} @age:[18 +inf])"
