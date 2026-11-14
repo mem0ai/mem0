@@ -119,7 +119,7 @@ The two most common contribution targets are the SDKs:
 
 | Package               | Path       | Language     | Package manager |
 | --------------------- | ---------- | ------------ | --------------- |
-| Python SDK (`mem0ai`) | `mem0/`    | Python 3.9+  | `hatch`         |
+| Python SDK (`mem0ai`) | `mem0/`    | Python 3.10+ | `hatch`         |
 | TypeScript SDK (`mem0ai`) | `mem0-ts/` | TypeScript | `pnpm`        |
 
 Other packages include the CLIs (`cli/python/`, `cli/node/`), integrations
@@ -146,7 +146,7 @@ We use [`hatch`](https://hatch.pypa.io/latest/install/) to manage environments.
 **Do not use `pip` or `conda` for dependency management.**
 
 ```bash
-# Activate a dev environment (3.9 / 3.10 / 3.11 / 3.12)
+# Activate a dev environment (3.10 / 3.11 / 3.12)
 hatch shell dev_py_3_11
 
 # Install pre-commit hooks (runs ruff + isort on commit)
