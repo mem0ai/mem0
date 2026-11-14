@@ -141,7 +141,7 @@ def remove_code_blocks(content: str) -> str:
 def extract_json(text):
     """
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
-    If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
+    If no code block is found, attempts to locate JSON by finding the outermost '{...}' or '[...]'.
     If that also fails, returns the text as-is.
     """
     text = text.strip()
@@ -149,10 +149,13 @@ def extract_json(text):
     if match:
         json_str = match.group(1)
     else:
-        start_idx = text.find("{")
-        end_idx = text.rfind("}")
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_str = text[start_idx : end_idx + 1]
+        # The JSON may be a top-level object ({...}) or array ([...]). Take
+        # the earliest opening and latest closing delimiter so a top-level
+        # array is not truncated to its first object.
+        openers = [i for i in (text.find("{"), text.find("[")) if i != -1]
+        closers = [i for i in (text.rfind("}"), text.rfind("]")) if i != -1]
+        if openers and closers and max(closers) > min(openers):
+            json_str = text[min(openers) : max(closers) + 1]
         else:
             json_str = text
     return json_str

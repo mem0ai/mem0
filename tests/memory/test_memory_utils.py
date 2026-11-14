@@ -3,6 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from mem0.memory.utils import (
+    extract_json,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
@@ -205,3 +206,20 @@ class TestRemoveCodeBlocks:
 
     def test_unsupported_content_type_returns_empty_string(self):
         assert remove_code_blocks(42) == ""
+
+
+class TestExtractJson:
+    def test_top_level_object(self):
+        assert extract_json('{"a": 1}') == '{"a": 1}'
+
+    def test_top_level_array(self):
+        assert extract_json('[{"a": 1}, {"b": 2}]') == '[{"a": 1}, {"b": 2}]'
+
+    def test_top_level_array_with_prefix(self):
+        assert extract_json('prefix [{"a": 1}]') == '[{"a": 1}]'
+
+    def test_nested_object_with_array(self):
+        assert extract_json('{"a": [1, 2]}') == '{"a": [1, 2]}'
+
+    def test_no_json_returns_text_as_is(self):
+        assert extract_json("no json here") == "no json here"
