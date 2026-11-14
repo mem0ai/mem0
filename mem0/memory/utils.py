@@ -140,12 +140,12 @@ def remove_code_blocks(content: str) -> str:
 
 def extract_json(text):
     """
-    Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
+    Extracts JSON content from a string, removing enclosing triple backticks and optional language tag if present.
     If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
     If that also fails, returns the text as-is.
     """
     text = text.strip()
-    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    match = re.search(r"```[a-zA-Z0-9]*\s*(.*?)\s*```", text, re.DOTALL)
     if match:
         json_str = match.group(1)
     else:

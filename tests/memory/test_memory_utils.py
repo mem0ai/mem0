@@ -3,6 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from mem0.memory.utils import (
+    extract_json,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
@@ -205,3 +206,20 @@ class TestRemoveCodeBlocks:
 
     def test_unsupported_content_type_returns_empty_string(self):
         assert remove_code_blocks(42) == ""
+
+
+class TestExtractJson:
+    def test_lowercase_json_tag(self):
+        assert extract_json("```json\n{\"a\": 1}\n```") == '{"a": 1}'
+
+    def test_uppercase_json_tag(self):
+        assert extract_json("```JSON\n{\"a\": 1}\n```") == '{"a": 1}'
+
+    def test_other_language_tag(self):
+        assert extract_json("```python\n{\"a\": 1}\n```") == '{"a": 1}'
+
+    def test_no_tag(self):
+        assert extract_json("```\n{\"a\": 1}\n```") == '{"a": 1}'
+
+    def test_plain_json_without_fence(self):
+        assert extract_json('{"a": 1}') == '{"a": 1}'
