@@ -1131,3 +1131,71 @@ def test_escape_tag_value_normal_strings(valkey_db):
 def test_escape_tag_value_hyphenated_user_id(valkey_db):
     """Hyphenated user IDs must have the hyphen escaped for exact-match."""
     assert valkey_db._escape_tag_value("user-123") == r"user\-123"
+
+
+def test_build_index_schema_prefix_has_trailing_colon(valkey_db):
+    """The FT.CREATE command emitted by _build_index_schema must always have a
+    trailing colon on the PREFIX so it does not match companion collection keys
+    like mem0:test_collection_entities:*.
+
+    Regression test for #5680.
+    """
+    cmd = valkey_db._build_index_schema(
+        collection_name="test_collection",
+        embedding_dims=1536,
+        distance_metric="COSINE",
+        prefix="mem0:test_collection",
+    )
+
+    prefix_idx = cmd.index("PREFIX")
+    # PREFIX is followed by count "1", then the prefix token
+    assert cmd[prefix_idx + 1] == "1"
+    emitted_prefix = cmd[prefix_idx + 2]
+    assert emitted_prefix == "mem0:test_collection:"
+    assert emitted_prefix.endswith(":")
+
+    # Verify that companion entity key does not start with the emitted prefix
+    entity_key = "mem0:test_collection_entities:123"
+    assert not entity_key.startswith(emitted_prefix)
+    # But a normal memory key does
+    memory_key = "mem0:test_collection:123"
+    assert memory_key.startswith(emitted_prefix)
+
+
+def test_create_index_warns_on_legacy_prefix(valkey_db, mock_valkey_client, caplog):
+    """_create_index should log a warning when an existing index has a legacy
+    colon-less prefix, advising remediation.
+    """
+    import logging
+
+    mock_ft = mock_valkey_client.ft.return_value
+    mock_ft.info.return_value = {
+        "index_definition": {
+            "prefixes": ["mem0:test_collection"],
+        }
+    }
+
+    with caplog.at_level(logging.WARNING):
+        valkey_db._create_index(1536)
+
+    assert "legacy prefix" in caplog.text
+    assert "mem0:test_collection" in caplog.text
+    assert "FT.DROPINDEX" in caplog.text
+
+
+def test_create_index_no_warning_when_prefix_has_colon(valkey_db, mock_valkey_client, caplog):
+    """_create_index should not log a warning when an existing index has a trailing colon."""
+    import logging
+
+    mock_ft = mock_valkey_client.ft.return_value
+    mock_ft.info.return_value = {
+        "index_definition": {
+            "prefixes": ["mem0:test_collection:"],
+        }
+    }
+
+    with caplog.at_level(logging.WARNING):
+        valkey_db._create_index(1536)
+
+    assert "legacy prefix" not in caplog.text
+

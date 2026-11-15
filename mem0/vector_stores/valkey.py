@@ -166,6 +166,11 @@ class ValkeyDB(VectorStoreBase):
             # This should never happen due to constructor validation, but be defensive
             raise ValueError(f"Unsupported index_type: {self.index_type}. Must be 'hnsw' or 'flat'")
 
+        # Ensure prefix terminates with a colon so FT.CREATE only matches keys
+        # belonging to this collection and does not match companion collections
+        # like mem0:{collection}_entities:* (fixes #5680).
+        formatted_prefix = prefix.rstrip(":") + ":"
+
         # Build the complete command (comma is default separator for TAG fields)
         cmd = [
             "FT.CREATE",
@@ -174,7 +179,7 @@ class ValkeyDB(VectorStoreBase):
             "HASH",
             "PREFIX",
             "1",
-            prefix,
+            formatted_prefix,
             "SCHEMA",
             "memory_id",
             "TAG",
@@ -225,10 +230,49 @@ class ValkeyDB(VectorStoreBase):
 
         # Check if the index already exists
         try:
-            self.client.ft(self.collection_name).info()
+            info = self.client.ft(self.collection_name).info()
+            # Check for legacy prefix without trailing colon (which leaks entity keys)
+            prefixes = []
+            if isinstance(info, dict):
+                idx_def = info.get("index_definition", {})
+                if isinstance(idx_def, dict):
+                    prefixes = idx_def.get("prefixes", [])
+                elif isinstance(idx_def, list):
+                    for i in range(0, len(idx_def) - 1, 2):
+                        if idx_def[i] == "prefixes":
+                            prefixes = idx_def[i + 1]
+                            break
+                elif "prefixes" in info:
+                    prefixes = info.get("prefixes", [])
+            elif isinstance(info, list):
+                for i in range(0, len(info) - 1, 2):
+                    if info[i] == "index_definition":
+                        idx_def = info[i + 1]
+                        if isinstance(idx_def, dict):
+                            prefixes = idx_def.get("prefixes", [])
+                        elif isinstance(idx_def, list):
+                            for j in range(0, len(idx_def) - 1, 2):
+                                if idx_def[j] == "prefixes":
+                                    prefixes = idx_def[j + 1]
+                                    break
+                        break
+                    elif info[i] == "prefixes":
+                        prefixes = info[i + 1]
+                        break
+
+            if isinstance(prefixes, (list, tuple)):
+                for p in prefixes:
+                    p_str = p.decode("utf-8") if isinstance(p, bytes) else str(p)
+                    if p_str and not p_str.endswith(":"):
+                        logger.warning(
+                            f"Valkey index '{self.collection_name}' has legacy prefix '{p_str}' without a trailing colon. "
+                            "This may cause entity keys to leak into memory search results. "
+                            f"To apply the fix, recreate the index using reset() or run 'FT.DROPINDEX {self.collection_name}'."
+                        )
+                        break
             return
         except ResponseError as e:
-            if "not found" not in str(e).lower():
+            if "not found" not in str(e).lower() and "unknown index" not in str(e).lower():
                 logger.exception(f"Error checking index existence: {e}")
                 raise
 

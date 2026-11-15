@@ -37,8 +37,7 @@ describe("Valkey – mocked iovalkey client", () => {
             if (!existing) return 0;
             for (let i = 0; i < pairs.length; i += 2) {
               const value = pairs[i + 1];
-              existing[pairs[i]] =
-                value instanceof Buffer ? value.toString("hex") : String(value);
+              existing[pairs[i]] = value instanceof Buffer ? value.toString("hex") : String(value);
             }
             return 1;
           }
@@ -48,8 +47,7 @@ describe("Valkey – mocked iovalkey client", () => {
           const existing = store.get(key) ?? {};
           const normalized: Record<string, string> = { ...existing };
           for (const [field, value] of Object.entries(obj)) {
-            normalized[field] =
-              value instanceof Buffer ? value.toString("hex") : String(value);
+            normalized[field] = value instanceof Buffer ? value.toString("hex") : String(value);
           }
           store.set(key, normalized);
           return 1;
@@ -132,9 +130,7 @@ describe("Valkey – mocked iovalkey client", () => {
 
     const iovalkey = require("iovalkey");
     const mockClient = iovalkey.__mockClient;
-    const createCall = mockClient.call.mock.calls.find(
-      (call: any[]) => call[0] === "FT.CREATE",
-    );
+    const createCall = mockClient.call.mock.calls.find((call: any[]) => call[0] === "FT.CREATE");
     expect(createCall).toBeDefined();
     expect(createCall).toContain("HNSW");
   });
@@ -191,8 +187,7 @@ describe("Valkey – mocked iovalkey client", () => {
     });
     await store.initialize();
     const mockClient = require("iovalkey").__mockClient;
-    const hex = (v: number[]) =>
-      Buffer.from(new Float32Array(v).buffer).toString("hex");
+    const hex = (v: number[]) => Buffer.from(new Float32Array(v).buffer).toString("hex");
 
     await store.insert(
       [
@@ -205,18 +200,14 @@ describe("Valkey – mocked iovalkey client", () => {
     await store.delete("mem-gone");
     mockClient.hset.mockClear();
 
-    await expect(
-      store.update("mem-gone", [0.5, 0.6, 0.7, 0.8], { data: "x" }),
-    ).resolves.toBe(false);
+    await expect(store.update("mem-gone", [0.5, 0.6, 0.7, 0.8], { data: "x" })).resolves.toBe(
+      false,
+    );
     await expect(store.get("mem-gone")).resolves.toBeNull();
 
-    await expect(
-      store.update("mem-u", [0.5, 0.6, 0.7, 0.8], { data: "new" }),
-    ).resolves.toBe(true);
+    await expect(store.update("mem-u", [0.5, 0.6, 0.7, 0.8], { data: "new" })).resolves.toBe(true);
     // Payload-only: the embedding written above must survive.
-    await expect(
-      store.update("mem-u", null as any, { data: "newer" }),
-    ).resolves.toBe(true);
+    await expect(store.update("mem-u", null as any, { data: "newer" })).resolves.toBe(true);
 
     const row = await mockClient.hgetall("mem0:test:mem-u");
     expect(row.memory).toBe("newer");
@@ -233,9 +224,7 @@ describe("Valkey – mocked iovalkey client", () => {
     });
     await store.initialize();
     const mockClient = require("iovalkey").__mockClient;
-    const noperm = new Error(
-      "NOPERM User u has no permissions to run the 'eval' command",
-    );
+    const noperm = new Error("NOPERM User u has no permissions to run the 'eval' command");
     mockClient.call
       .mockRejectedValueOnce(noperm)
       .mockRejectedValueOnce(noperm)
@@ -256,15 +245,11 @@ describe("Valkey – mocked iovalkey client", () => {
     mockClient.duplicate = jest.fn(() => conn);
     const vector = [0.1, 0.2, 0.3, 0.4];
 
-    await expect(store.update("gone", vector, { data: "x" })).resolves.toBe(
-      false,
-    );
+    await expect(store.update("gone", vector, { data: "x" })).resolves.toBe(false);
     expect(conn.unwatch).toHaveBeenCalledTimes(1);
     expect(hset).not.toHaveBeenCalled();
 
-    await expect(store.update("mem-a", vector, { data: "new" })).resolves.toBe(
-      true,
-    );
+    await expect(store.update("mem-a", vector, { data: "new" })).resolves.toBe(true);
     expect(conn.watch).toHaveBeenCalledTimes(3);
     expect(hset).toHaveBeenCalledTimes(2);
     expect(hset).toHaveBeenLastCalledWith(
@@ -301,9 +286,9 @@ describe("Valkey – mocked iovalkey client", () => {
     };
     mockClient.duplicate = jest.fn(() => conn);
 
-    await expect(
-      store.update("mem-a", [0.1, 0.2, 0.3, 0.4], { data: "x" }),
-    ).rejects.toBe(wrongType);
+    await expect(store.update("mem-a", [0.1, 0.2, 0.3, 0.4], { data: "x" })).rejects.toBe(
+      wrongType,
+    );
     expect(conn.disconnect).toHaveBeenCalledTimes(1);
   });
 
@@ -334,10 +319,9 @@ describe("Valkey – mocked iovalkey client", () => {
     // Cluster ignores URL-embedded auth, so credentials must be forwarded
     // explicitly via redisOptions — otherwise every cluster connection is
     // silently unauthenticated.
-    expect(iovalkey.Cluster).toHaveBeenCalledWith(
-      [{ host: "cluster.example", port: 6379 }],
-      { redisOptions: { username: "user", password: "s3cret" } },
-    );
+    expect(iovalkey.Cluster).toHaveBeenCalledWith([{ host: "cluster.example", port: 6379 }], {
+      redisOptions: { username: "user", password: "s3cret" },
+    });
   });
 
   it("renders timestamps in the configured timezone", async () => {
@@ -372,9 +356,7 @@ describe("Valkey – mocked iovalkey client", () => {
     const mockClient = iovalkey.__mockClient;
     await store.search([0.1, 0.2, 0.3, 0.4], 5, { user_id: "a|b c" });
 
-    const searchCall = mockClient.call.mock.calls.find(
-      (call: any[]) => call[0] === "FT.SEARCH",
-    );
+    const searchCall = mockClient.call.mock.calls.find((call: any[]) => call[0] === "FT.SEARCH");
     expect(searchCall).toBeDefined();
     // `|` and whitespace must be escaped so a filter value can't rewrite the query.
     expect(searchCall[2]).toContain("@user_id:{a\\|b\\ c}");
@@ -493,5 +475,84 @@ describe("Valkey – mocked iovalkey client", () => {
     expect(unhandled).toHaveLength(0);
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
+  });
+
+  it("builds FT.CREATE command with a trailing colon on PREFIX", async () => {
+    const store = new ValkeyDB({
+      collectionName: "test_collection",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+
+    const cmd = (store as any).buildIndexCreateCommand(
+      "test_collection",
+      4,
+      "COSINE",
+      "mem0:test_collection",
+    );
+
+    const prefixIdx = cmd.indexOf("PREFIX");
+    expect(prefixIdx).toBeGreaterThan(-1);
+    expect(cmd[prefixIdx + 1]).toBe("1");
+    const emittedPrefix = cmd[prefixIdx + 2];
+    expect(emittedPrefix).toBe("mem0:test_collection:");
+    expect(emittedPrefix.endsWith(":")).toBe(true);
+
+    // Entity collection keys must not match the memories index prefix
+    const entityKey = "mem0:test_collection_entities:123";
+    expect(entityKey.startsWith(emittedPrefix)).toBe(false);
+    const memoryKey = "mem0:test_collection:123";
+    expect(memoryKey.startsWith(emittedPrefix)).toBe(true);
+  });
+
+  it("logs a warning when an existing index has a legacy colon-less prefix", async () => {
+    const iovalkey = require("iovalkey");
+    iovalkey.__mockClient.call.mockImplementation(async (...args: any[]) => {
+      const command = args[0];
+      if (command === "FT._LIST") return [];
+      if (command === "FT.INFO") {
+        return ["index_definition", ["prefixes", ["mem0:test_collection"]]];
+      }
+      return "OK";
+    });
+
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const store = new ValkeyDB({
+      collectionName: "test_collection",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+    await store.initialize();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("legacy prefix 'mem0:test_collection' without a trailing colon"),
+    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("FT.DROPINDEX"));
+    warnSpy.mockRestore();
+  });
+
+  it("does not log a warning when an existing index has a trailing colon prefix", async () => {
+    const iovalkey = require("iovalkey");
+    iovalkey.__mockClient.call.mockImplementation(async (...args: any[]) => {
+      const command = args[0];
+      if (command === "FT._LIST") return [];
+      if (command === "FT.INFO") {
+        return ["index_definition", ["prefixes", ["mem0:test_collection:"]]];
+      }
+      return "OK";
+    });
+
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const store = new ValkeyDB({
+      collectionName: "test_collection",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+    await store.initialize();
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
