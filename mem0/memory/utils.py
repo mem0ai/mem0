@@ -140,22 +140,34 @@ def remove_code_blocks(content: str) -> str:
 
 def extract_json(text):
     """
-    Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
-    If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
+    Extracts JSON content from a string, removing enclosing triple backticks and optional language tags.
+    If no code block is found, attempts to locate JSON by finding the first '{' / '[' and matching last '}' / ']'.
     If that also fails, returns the text as-is.
     """
+    if not isinstance(text, str):
+        return ""
+
     text = text.strip()
-    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+
+    # 1. Match code fence blocks with any language identifier (e.g. ```json, ```JSON, ```python)
+    match = re.search(r"```[a-zA-Z0-9_\-\.]*\s*([\s\S]*?)\s*```", text)
     if match:
-        json_str = match.group(1)
-    else:
-        start_idx = text.find("{")
-        end_idx = text.rfind("}")
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_str = text[start_idx : end_idx + 1]
-        else:
-            json_str = text
-    return json_str
+        return match.group(1).strip()
+
+    # 2. Fallback: Search for outermost balanced JSON object ({...}) or array ([...])
+    first_brace = text.find("{")
+    first_bracket = text.find("[")
+
+    if first_brace != -1 and (first_bracket == -1 or first_brace < first_bracket):
+        last_brace = text.rfind("}")
+        if last_brace != -1 and last_brace > first_brace:
+            return text[first_brace : last_brace + 1]
+    elif first_bracket != -1 and (first_brace == -1 or first_bracket < first_brace):
+        last_bracket = text.rfind("]")
+        if last_bracket != -1 and last_bracket > first_bracket:
+            return text[first_bracket : last_bracket + 1]
+
+    return text
 
 
 def get_image_description(image_obj, llm, vision_details):
