@@ -239,7 +239,7 @@ class ValkeyDB(VectorStoreBase):
                     prefixes = idx_def.get("prefixes", [])
                 elif isinstance(idx_def, list):
                     for i in range(0, len(idx_def) - 1, 2):
-                        if idx_def[i] == "prefixes":
+                        if idx_def[i] in ("prefixes", b"prefixes"):
                             prefixes = idx_def[i + 1]
                             break
                 elif "prefixes" in info:
@@ -252,7 +252,7 @@ class ValkeyDB(VectorStoreBase):
                             prefixes = idx_def.get("prefixes", [])
                         elif isinstance(idx_def, list):
                             for j in range(0, len(idx_def) - 1, 2):
-                                if idx_def[j] == "prefixes":
+                                if idx_def[j] in ("prefixes", b"prefixes"):
                                     prefixes = idx_def[j + 1]
                                     break
                         break

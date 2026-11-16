@@ -1199,3 +1199,20 @@ def test_create_index_no_warning_when_prefix_has_colon(valkey_db, mock_valkey_cl
 
     assert "legacy prefix" not in caplog.text
 
+
+def test_create_index_warns_on_legacy_prefix_with_bytes_reply(valkey_db, mock_valkey_client, caplog):
+    """FT.INFO only decodes the top level keys, so index_definition stays a list of bytes
+    on a client created without decode_responses (the default from valkey.from_url).
+    """
+    import logging
+
+    mock_ft = mock_valkey_client.ft.return_value
+    mock_ft.info.return_value = {
+        "index_name": "test_collection",
+        "index_definition": [b"key_type", b"HASH", b"prefixes", [b"mem0:test_collection"], b"default_score", b"1"],
+    }
+
+    with caplog.at_level(logging.WARNING):
+        valkey_db._create_index(1536)
+
+    assert "legacy prefix 'mem0:test_collection'" in caplog.text
