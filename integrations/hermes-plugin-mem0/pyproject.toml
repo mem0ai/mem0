@@ -15,3 +15,4 @@ dependencies = [
 [project.optional-dependencies]
 postgres = ['psycopg2-binary>=2.9,<3']
 qdrant = ['qdrant-client>=1.9,<2']
+hybrid = ['fastembed>=0.3.1,<1']
