@@ -1,4 +1,5 @@
 import importlib
+import os
 import sys
 import unittest
 import uuid
@@ -1314,20 +1315,56 @@ class TestPGVector(unittest.TestCase):
         
         filters = {"user_id": "alice"}
         results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=filters)
-        
+
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
-        
+
         # Verify search query was executed with single filter
-        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list
                        if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
         self.assertTrue(len(search_calls) > 0)
-        
+
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
         self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_search_with_bool_operator_filter_generates_jsonb_comparison(self, mock_get_cursor, mock_connection_pool):
+        """Regression test for #7908: boolean operator filters must compare as JSONB.
+
+        With the old str() binding, {"archived": {"ne": True}} produced
+        payload->>'archived' != 'True', which matched every row (the archived
+        ones included) because JSONB renders booleans as lowercase "true".
+        """
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+
+        pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters={"archived": {"ne": True}})
+
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list
+                       if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
+        self.assertTrue(len(search_calls) > 0)
+        sql_text = str(search_calls[0])
+        self.assertIn("payload->%s IS DISTINCT FROM %s::jsonb", sql_text)
+        self.assertNotIn("'True'", sql_text)
+        # The bound value is the lowercase JSON rendering, not str(True).
+        self.assertIn("true", repr(self.mock_cursor.execute.call_args.args[1]))
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -2400,14 +2437,14 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_eq_operator(self):
         conditions, params = _build_filter_conditions({"status": {"eq": "active"}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s = %s", conditions[0])
-        self.assertEqual(params, ["status", "active"])
+        self.assertIn("payload->%s = %s::jsonb", conditions[0])
+        self.assertEqual(params, ["status", '"active"'])
 
     def test_ne_operator(self):
         conditions, params = _build_filter_conditions({"status": {"ne": "deleted"}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s != %s", conditions[0])
-        self.assertEqual(params, ["status", "deleted"])
+        self.assertIn("payload->%s IS DISTINCT FROM %s::jsonb", conditions[0])
+        self.assertEqual(params, ["status", '"deleted"'])
 
     def test_gt_operator(self):
         conditions, params = _build_filter_conditions({"price": {"gt": 100}})
@@ -2443,14 +2480,14 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_in_operator(self):
         conditions, params = _build_filter_conditions({"status": {"in": ["active", "pending"]}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s = ANY(%s)", conditions[0])
-        self.assertEqual(params, ["status", ["active", "pending"]])
+        self.assertIn("payload->%s = ANY(%s::jsonb[])", conditions[0])
+        self.assertEqual(params, ["status", ['"active"', '"pending"']])
 
     def test_nin_operator(self):
         conditions, params = _build_filter_conditions({"status": {"nin": ["deleted", "archived"]}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("NOT (payload->>%s = ANY(%s))", conditions[0])
-        self.assertEqual(params, ["status", ["deleted", "archived"]])
+        self.assertIn("payload->%s IS NULL OR NOT (payload->%s = ANY(%s::jsonb[]))", conditions[0])
+        self.assertEqual(params, ["status", "status", ['"deleted"', '"archived"']])
 
     def test_contains_operator(self):
         conditions, params = _build_filter_conditions({"name": {"contains": "alice"}})
@@ -2481,8 +2518,8 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_list_shorthand(self):
         conditions, params = _build_filter_conditions({"tags": ["a", "b", "c"]})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s = ANY(%s)", conditions[0])
-        self.assertEqual(params, ["tags", ["a", "b", "c"]])
+        self.assertIn("payload->%s = ANY(%s::jsonb[])", conditions[0])
+        self.assertEqual(params, ["tags", ['"a"', '"b"', '"c"']])
 
     def test_or_operator(self):
         conditions, params = _build_filter_conditions({
@@ -2543,6 +2580,47 @@ class TestBuildFilterConditions(unittest.TestCase):
         conditions, params = _build_filter_conditions({"is_active": False})
         self.assertEqual(params, ["is_active", "false"])
 
+    # Regression tests for #7908: the operator-dict and list branches bound
+    # values with str(), so Python's "True"/"False" never matched the
+    # lowercase "true"/"false" text rendering of JSONB booleans — eq/in
+    # silently matched nothing and ne matched everything.
+    def test_regression_eq_bool_binds_json_boolean(self):
+        conditions, params = _build_filter_conditions({"archived": {"eq": True}})
+        self.assertEqual(conditions, ["payload->%s = %s::jsonb"])
+        self.assertEqual(params, ["archived", "true"])
+
+    def test_regression_ne_bool_binds_json_boolean(self):
+        conditions, params = _build_filter_conditions({"archived": {"ne": True}})
+        self.assertEqual(conditions, ["payload->%s IS DISTINCT FROM %s::jsonb"])
+        self.assertEqual(params, ["archived", "true"])
+
+    def test_regression_in_bool_list_binds_json_booleans(self):
+        conditions, params = _build_filter_conditions({"archived": {"in": [True, False]}})
+        self.assertEqual(conditions, ["payload->%s = ANY(%s::jsonb[])"])
+        self.assertEqual(params, ["archived", ["true", "false"]])
+
+    def test_regression_nin_bool_list_binds_json_booleans(self):
+        conditions, params = _build_filter_conditions({"archived": {"nin": [True]}})
+        self.assertEqual(conditions, ["(payload->%s IS NULL OR NOT (payload->%s = ANY(%s::jsonb[])))"])
+        self.assertEqual(params, ["archived", "archived", ["true"]])
+
+    def test_regression_list_shorthand_with_bool_and_float(self):
+        conditions, params = _build_filter_conditions({"mixed": [True, 1.5]})
+        self.assertEqual(conditions, ["payload->%s = ANY(%s::jsonb[])"])
+        self.assertEqual(params, ["mixed", ["true", "1.5"]])
+
+    def test_regression_eq_float_binds_json_number(self):
+        conditions, params = _build_filter_conditions({"score": {"eq": 0.9}})
+        self.assertEqual(conditions, ["payload->%s = %s::jsonb"])
+        self.assertEqual(params, ["score", "0.9"])
+
+    def test_regression_ne_treats_missing_key_as_not_equal(self):
+        """ne/nin use IS DISTINCT FROM / IS NULL so records without the field pass the filter."""
+        conditions, _ = _build_filter_conditions({"archived": {"ne": True}})
+        self.assertIn("IS DISTINCT FROM", conditions[0])
+        conditions, _ = _build_filter_conditions({"archived": {"nin": [True]}})
+        self.assertIn("IS NULL OR NOT", conditions[0])
+
     def test_numeric_scalar_becomes_string(self):
         conditions, params = _build_filter_conditions({"priority": 42})
         self.assertEqual(params, ["priority", "42"])
@@ -2562,4 +2640,82 @@ class TestBuildFilterConditions(unittest.TestCase):
 
     def test_in_accepts_list_value(self):
         conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
-        self.assertEqual(params, ["user_id", ["alice", "bob"]])
+        self.assertEqual(params, ["user_id", ['"alice"', '"bob"']])
+
+
+@unittest.skipUnless(
+    os.environ.get("TEST_PGVECTOR_CONNECTION_STRING"),
+    "Set TEST_PGVECTOR_CONNECTION_STRING (postgresql://user:pass@host:port/db) to run against a live pgvector database.",
+)
+class TestPGVectorFilterIntegration(unittest.TestCase):
+    """End-to-end filter tests against a real PostgreSQL + pgvector database.
+
+    These assert the exact records returned (not just that the call did not
+    raise), which is what catches silent filter failures like #7908.
+    """
+
+    def setUp(self):
+        import psycopg2
+
+        conn = psycopg2.connect(os.environ["TEST_PGVECTOR_CONNECTION_STRING"])
+        conn.autocommit = True
+        conn.cursor().execute("CREATE EXTENSION IF NOT EXISTS vector")
+        conn.close()
+
+        self.store = PGVector(
+            dbname=None,
+            collection_name=f"filter_regression_{uuid.uuid4().hex[:8]}",
+            embedding_model_dims=4,
+            user=None,
+            password=None,
+            host=None,
+            port=None,
+            diskann=False,
+            hnsw=False,
+            connection_string=os.environ["TEST_PGVECTOR_CONNECTION_STRING"],
+        )
+        self.store.reset()
+        self.ids = {label: str(uuid.uuid4()) for label in ("v1", "v2", "v3")}
+        self.store.insert(
+            vectors=[[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8], [0.9, 0.1, 0.2, 0.3]],
+            payloads=[
+                {"archived": True, "label": "v1", "score": 0.9},
+                {"archived": False, "label": "v2", "score": 0.5},
+                {"label": "v3", "score": 0.8},
+            ],
+            ids=list(self.ids.values()),
+        )
+
+    def tearDown(self):
+        self.store.delete_col()
+
+    def _labels(self, filters):
+        results = self.store.search("q", [0.1, 0.2, 0.3, 0.4], top_k=10, filters=filters)
+        return sorted(r.payload.get("label") for r in results)
+
+    def test_ne_bool_excludes_archived_records(self):
+        """The documented example {"archived": {"ne": True}} must exclude archived records.
+
+        Records without the field count as "not equal" and are included.
+        """
+        self.assertEqual(self._labels({"archived": {"ne": True}}), ["v2", "v3"])
+
+    def test_eq_bool_matches_archived_record(self):
+        self.assertEqual(self._labels({"archived": {"eq": True}}), ["v1"])
+
+    def test_in_bool_list_matches_archived_record(self):
+        self.assertEqual(self._labels({"archived": {"in": [True]}}), ["v1"])
+
+    def test_nin_bool_list_excludes_archived_record(self):
+        self.assertEqual(self._labels({"archived": {"nin": [True]}}), ["v2", "v3"])
+
+    def test_ne_treats_missing_key_as_not_equal(self):
+        """Records without the field count as "not equal" and pass a ne filter."""
+        self.assertEqual(self._labels({"archived": {"ne": True}}), ["v2", "v3"])  # v3 has no "archived"
+        self.assertEqual(self._labels({"no_such_field": {"ne": "x"}}), ["v1", "v2", "v3"])
+
+    def test_scalar_bool_shorthand_still_works(self):
+        self.assertEqual(self._labels({"archived": False}), ["v2"])
+
+    def test_range_operators_still_work(self):
+        self.assertEqual(self._labels({"score": {"gte": 0.8}}), ["v1", "v3"])

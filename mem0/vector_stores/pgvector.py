@@ -33,17 +33,22 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+# eq/ne/in/nin bind their values as JSONB so booleans and numbers keep their
+# types through the comparison: `payload->'key'` yields a jsonb value, and
+# 'true'::jsonb (lowercase, typed) matches a stored boolean, while str(True)
+# ("True") never would (#7908).  `ne`/`nin` treat a missing key as "not
+# equal / not in", so records without the field still pass the filter.
 OPERATOR_SQL_MAP = {
-    "eq": ("payload->>%s = %s", False),
-    "ne": ("payload->>%s != %s", False),
-    "gt": ("(payload->>%s)::numeric > %s", True),
-    "gte": ("(payload->>%s)::numeric >= %s", True),
-    "lt": ("(payload->>%s)::numeric < %s", True),
-    "lte": ("(payload->>%s)::numeric <= %s", True),
-    "in": ("payload->>%s = ANY(%s)", False),
-    "nin": ("NOT (payload->>%s = ANY(%s))", False),
-    "contains": ("payload->>%s LIKE %s", False),
-    "icontains": ("payload->>%s ILIKE %s", False),
+    "eq": "payload->%s = %s::jsonb",
+    "ne": "payload->%s IS DISTINCT FROM %s::jsonb",
+    "gt": "(payload->>%s)::numeric > %s",
+    "gte": "(payload->>%s)::numeric >= %s",
+    "lt": "(payload->>%s)::numeric < %s",
+    "lte": "(payload->>%s)::numeric <= %s",
+    "in": "payload->%s = ANY(%s::jsonb[])",
+    "nin": "(payload->%s IS NULL OR NOT (payload->%s = ANY(%s::jsonb[])))",
+    "contains": "payload->>%s LIKE %s",
+    "icontains": "payload->>%s ILIKE %s",
 }
 
 
@@ -87,28 +92,29 @@ def _build_filter_conditions(filters):
             for op, op_value in value.items():
                 if op not in OPERATOR_SQL_MAP:
                     raise ValueError(f"Unsupported filter operator: {op}")
-                template, is_numeric = OPERATOR_SQL_MAP[op]
                 if op in ("in", "nin"):
                     if not isinstance(op_value, list):
                         raise ValueError(
                             f"Filter operator {op!r} for key {key!r} requires a list value, got {type(op_value).__name__}"
                         )
-                    str_list = [str(v) for v in op_value]
-                    conditions.append(template)
-                    params.extend([key, str_list])
+                    conditions.append(OPERATOR_SQL_MAP[op])
+                    if op == "nin":
+                        params.extend([key, key, [json.dumps(v) for v in op_value]])
+                    else:
+                        params.extend([key, [json.dumps(v) for v in op_value]])
                 elif op in ("contains", "icontains"):
                     escaped = str(op_value).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-                    conditions.append(template + " ESCAPE '\\'")
+                    conditions.append(OPERATOR_SQL_MAP[op] + " ESCAPE '\\'")
                     params.extend([key, f"%{escaped}%"])
-                else:
-                    conditions.append(template)
-                    if is_numeric:
-                        params.extend([key, float(op_value)])
-                    else:
-                        params.extend([key, str(op_value)])
+                elif op in ("eq", "ne"):
+                    conditions.append(OPERATOR_SQL_MAP[op])
+                    params.extend([key, json.dumps(op_value)])
+                else:  # gt, gte, lt, lte
+                    conditions.append(OPERATOR_SQL_MAP[op])
+                    params.extend([key, float(op_value)])
         elif isinstance(value, list):
-            conditions.append("payload->>%s = ANY(%s)")
-            params.extend([key, [str(v) for v in value]])
+            conditions.append("payload->%s = ANY(%s::jsonb[])")
+            params.extend([key, [json.dumps(v) for v in value]])
         else:
             conditions.append("payload->>%s = %s")
             if isinstance(value, bool):
