@@ -93,6 +93,32 @@ class LLMBase(ABC):
         base_model = (model or "").lower().rsplit("/", 1)[-1]
         return base_model.startswith("gpt-5")
 
+    def _get_max_tokens_param(self, model: str) -> str:
+        """
+        Return the output-token-limit parameter name for the model.
+
+        Some model families reject the legacy ``max_tokens`` parameter and
+        expect a different name instead:
+
+        - The GPT-5 family requires ``max_completion_tokens``.
+        - Gemma 4 accepts ``max_output_tokens`` (and ``max_input_tokens``) but
+          rejects ``max_tokens``.
+
+        Older models (gpt-4.x, gpt-3.5, etc.) still accept ``max_tokens``.
+
+        Args:
+            model: The model name to check
+
+        Returns:
+            str: The parameter name to use for the max-tokens limit
+        """
+        if self._uses_max_completion_tokens(model):
+            return "max_completion_tokens"
+        base_model = (model or "").lower().rsplit("/", 1)[-1]
+        if base_model.startswith("gemma-4"):
+            return "max_output_tokens"
+        return "max_tokens"
+
     def _get_supported_params(self, **kwargs) -> Dict:
         """
         Get parameters that are supported by the current model.
@@ -159,10 +185,7 @@ class LLMBase(ABC):
         }
 
         model = getattr(self.config, "model", "")
-        if self._uses_max_completion_tokens(model):
-            params["max_completion_tokens"] = self.config.max_tokens
-        else:
-            params["max_tokens"] = self.config.max_tokens
+        params[self._get_max_tokens_param(model)] = self.config.max_tokens
 
         # Add provider-specific parameters from kwargs
         params.update(kwargs)

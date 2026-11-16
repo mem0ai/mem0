@@ -416,6 +416,35 @@ def test_gpt4_uses_max_tokens(mock_openai_client):
     assert "max_completion_tokens" not in call_kwargs
 
 
+def test_gemma4_uses_max_output_tokens(mock_openai_client):
+    """gemma-4 rejects max_tokens and expects max_output_tokens instead.
+
+    Regression test for https://github.com/mem0ai/mem0/issues/6920
+    """
+    config = OpenAIConfig(model="gemma-4-31b", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs.get("max_output_tokens") == 100
+    assert "max_tokens" not in call_kwargs
+
+
+def test_get_max_tokens_param_classification(mock_openai_client):
+    """_get_max_tokens_param picks the right parameter name per model family."""
+    llm = OpenAILLM(OpenAIConfig(model="gpt-4.1-nano"))
+    assert llm._get_max_tokens_param("gpt-4.1-nano") == "max_tokens"
+    assert llm._get_max_tokens_param("gpt-5.4-mini") == "max_completion_tokens"
+    assert llm._get_max_tokens_param("gemma-4-31b") == "max_output_tokens"
+    assert llm._get_max_tokens_param("openai/gemma-4-31b") == "max_output_tokens"
+
+
 def test_callback_with_tools(mock_openai_client):
     mock_callback = Mock()
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", response_callback=mock_callback)

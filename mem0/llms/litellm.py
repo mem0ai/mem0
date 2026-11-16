@@ -78,10 +78,7 @@ class LiteLLM(LLMBase):
             "temperature": self.config.temperature,
             "top_p": self.config.top_p,
         }
-        if self._uses_max_completion_tokens(self.config.model):
-            params["max_completion_tokens"] = self.config.max_tokens
-        else:
-            params["max_tokens"] = self.config.max_tokens
+        params[self._get_max_tokens_param(self.config.model)] = self.config.max_tokens
         if response_format:
             params["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic

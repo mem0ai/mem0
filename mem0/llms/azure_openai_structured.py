@@ -84,11 +84,12 @@ class AzureOpenAIStructuredLLM(LLMBase):
         if not is_reasoning:
             params["temperature"] = self.config.temperature
             params["top_p"] = self.config.top_p
-        # Reasoning models require max_completion_tokens rather than max_tokens.
-        if is_reasoning or self._uses_max_completion_tokens(self.config.model):
+        # Reasoning models require max_completion_tokens rather than max_tokens;
+        # other families (GPT-5, Gemma 4) use their own output-token parameter.
+        if is_reasoning:
             params["max_completion_tokens"] = self.config.max_tokens
         else:
-            params["max_tokens"] = self.config.max_tokens
+            params[self._get_max_tokens_param(self.config.model)] = self.config.max_tokens
         if is_reasoning:
             reasoning_effort = getattr(self.config, "reasoning_effort", None)
             if reasoning_effort:
