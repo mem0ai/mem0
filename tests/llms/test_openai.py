@@ -233,6 +233,39 @@ def test_reasoning_effort_config_values():
     assert config.reasoning_effort is None
 
 
+def test_o4_family_classified_as_reasoning_model(mock_openai_client):
+    """The o4 series must be classified as reasoning so the parameters the
+    docs list as unsupported (temperature, top_p, max_tokens) are filtered.
+
+    Regression test for issue #7523: o4-mini was the only o-series model that
+    fell through to the common-params path and carried those parameters.
+    """
+    for model in ["o4", "o4-mini", "o4-mini-2025-04-16", "openai/o4-mini"]:
+        llm = OpenAILLM(OpenAIConfig(model=model))
+        assert llm._is_reasoning_model(model) is True, f"{model} should be reasoning"
+
+    # Non-reasoning models must still be classified as such.
+    llm = OpenAILLM(OpenAIConfig(model="gpt-4.1-nano"))
+    assert llm._is_reasoning_model("gpt-4.1-nano") is False
+
+
+def test_o4_mini_does_not_send_unsupported_params(mock_openai_client):
+    """o4-mini must not carry temperature/top_p/max_tokens on the wire."""
+    config = OpenAIConfig(model="o4-mini")
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response from o4-mini"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    for unsupported in ("temperature", "top_p", "max_tokens"):
+        assert unsupported not in call_kwargs[1], f"{unsupported} should not be sent for o4-mini"
+
+
 def test_store_not_sent_by_default(mock_openai_client):
     """`store` must NOT be injected into requests when the user has not
     explicitly configured it. Regression test for issue #4709, where
