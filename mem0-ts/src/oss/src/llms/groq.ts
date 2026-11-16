@@ -14,7 +14,7 @@ export class GroqLLM implements LLM {
       throw new Error("Groq API key is required");
     }
     this.apiKey = apiKey;
-    this.model = config.model || "llama3-70b-8192";
+    this.model = config.model || "openai/gpt-oss-120b";
   }
 
   private async ensureClient(): Promise<void> {

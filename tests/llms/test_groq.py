@@ -182,3 +182,8 @@ def test_generate_response_handles_non_string_model(mock_groq_client):
 
     _, kwargs = mock_groq_client.chat.completions.create.call_args
     assert kwargs["response_format"] == {"type": "json_object"}
+
+
+def test_groq_llm_defaults_to_openai_gpt_oss_120b(mock_groq_client):
+    llm = GroqLLM(BaseLlmConfig())
+    assert llm.config.model == "openai/gpt-oss-120b"
