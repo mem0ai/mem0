@@ -1,0 +1,158 @@
+---
+title: "Prisma Postgres"
+description: "Use Prisma Postgres as a vector store in Mem0, powered by PostgreSQL and pgvector."
+---
+
+Use [Prisma Postgres](https://www.prisma.io/postgres) as a vector store in Mem0, powered by PostgreSQL and the
+[pgvector extension](https://www.prisma.io/docs/postgres/database/postgres-extensions).
+
+Prisma Postgres is a managed Postgres service. Since Mem0 supports Postgres through the
+`pgvector` provider, Prisma Postgres can be used with a standard Postgres connection string.
+
+To get a connection string, run `npx create-db@latest` for a temporary database, or create a
+database in the [Prisma Console](https://console.prisma.io).
+
+## Usage
+
+<CodeGroup>
+```python Python
+import os
+
+from dotenv import load_dotenv
+from mem0 import Memory
+
+load_dotenv()
+
+config = {
+    "vector_store": {
+        "provider": "pgvector",
+        "config": {
+            "connection_string": os.environ["DATABASE_URL"],
+            "collection_name": "memories",
+            "embedding_model_dims": 1536,
+            "hnsw": True,
+        },
+    },
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."},
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+
+results = m.search(
+    "What movies should I recommend?",
+    filters={"user_id": "alice"},
+)
+
+print(results)
+```
+
+```typescript TypeScript
+import "dotenv/config";
+import { Memory } from "mem0ai/oss";
+
+const m = new Memory({
+  vectorStore: {
+    provider: "pgvector",
+    config: {
+      connectionString: process.env.DATABASE_URL!,
+      collectionName: "memories",
+      dimension: 1536,
+      embeddingModelDims: 1536,
+      hnsw: true,
+    },
+  },
+});
+
+const messages = [
+  { role: "user" as const, content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant" as const, content: "How about thriller movies? They can be quite engaging." },
+  { role: "user" as const, content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant" as const, content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+
+await m.add(messages, {
+  userId: "alice",
+  metadata: { category: "movies" },
+});
+
+const results = await m.search("What movies should I recommend?", {
+  filters: { user_id: "alice" },
+});
+
+console.log(results);
+```
+
+</CodeGroup>
+
+## SQL Migration
+
+You don't need to run any SQL migrations. Mem0 enables the `vector` extension and creates the collection table and its indexes when it first uses the `pgvector` store.
+
+## Environment
+
+```env
+OPENAI_API_KEY=sk-xx...
+DATABASE_URL=postgres://user:password@db.prisma.io:5432/postgres?sslmode=require
+```
+
+The same connection string works with the pooled host, `pooled.db.prisma.io`. Mem0 manages its own connections, so the direct host, `db.prisma.io`, is a good default.
+
+## Config
+
+<Tabs>
+<Tab title="Python">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `connection_string` | Prisma Postgres connection string. | Required |
+| `collection_name` | Name for the vector collection. | `mem0` |
+| `embedding_model_dims` | Embedding model dimensions. | `1536` |
+| `hnsw` | Enables HNSW indexing. | `True` |
+| `sslmode` | PostgreSQL SSL mode. Use `require` for Prisma Postgres. | Driver default |
+
+**TLS note:** Prisma Postgres only accepts TLS connections, so keep `sslmode=require` in the connection string. To also verify the server certificate, use `sslmode=verify-full` and set `sslrootcert` to a CA bundle, for example the path returned by `certifi.where()`.
+
+</Tab>
+<Tab title="TypeScript">
+Use the Prisma Postgres `DATABASE_URL` directly with `connectionString`.
+
+| Parameter            | Description                                    | Default        |
+| -------------------- | ---------------------------------------------- | -------------- |
+| `connectionString`   | Prisma Postgres connection string.             | Required       |
+| `ssl`                | Optional TLS settings passed directly to `pg`. | Driver default |
+| `collectionName`     | Name for the vector collection.                | `memories`     |
+| `dimension`          | Vector dimension for Mem0 config.              | Auto-detected  |
+| `embeddingModelDims` | Embedding model dimensions for table creation. | Required       |
+| `hnsw`               | Enables HNSW indexing.                         | `false`        |
+
+**TLS note:** You don't need an `ssl` block. Prisma Postgres uses publicly trusted certificates, and `pg` verifies them when the connection string contains `sslmode=require`. `pg` prints a warning about the future meaning of `require`. Use `sslmode=verify-full` to keep the same behavior without the warning.
+
+</Tab>
+</Tabs>
+
+### Indexing
+
+The `pgvector` provider can create an HNSW index for faster vector search.
+
+- Set `hnsw` to `true` to enable a Hierarchical Navigable Small World index.
+- Set `hnsw` to `false` if you want to create or manage indexes yourself.
+
+### Similarity Search
+
+The `pgvector` provider uses cosine similarity for vector search. Make sure your
+embedding dimensions match the configured `embedding_model_dims` value.
+
+### Best Practices
+
+1. **Index Selection**:
+   - Use `hnsw` for faster search performance when memory usage is not a constraint
+   - Manage indexes manually if you need a different pgvector index strategy
+
+2. **Connection String**:
+   - Always use environment variables or even better, a secret manager for sensitive information in the connection string
+   - Format: `postgres://user:password@db.prisma.io:5432/postgres?sslmode=require`

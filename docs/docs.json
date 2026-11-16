@@ -230,6 +230,7 @@
                               "components/vectordbs/dbs/s3-vectors",
                               "components/vectordbs/dbs/databricks",
                               "components/vectordbs/dbs/neon",
+                              "components/vectordbs/dbs/prisma-postgres",
                               "components/vectordbs/dbs/neptune-analytics",
                               "components/vectordbs/dbs/turbopuffer"
                             ]
