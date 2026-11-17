@@ -15,7 +15,7 @@ export function createMemoryEventStatusTool(deps: ToolDeps) {
       const { event_id: eventId } = params as { event_id: string };
       const start = Date.now();
       try {
-        if (!deps.backend) {
+        if (deps.cfg.mode !== "platform" || !deps.backend) {
           deps.captureToolEvent("memory_event_status", { success: false, latency_ms: 0, error: "not_platform" });
           return {
             content: [{ type: "text", text: "Event tracking is only available in platform mode." }],

@@ -887,3 +887,60 @@ describe("memory_update execute", () => {
   });
 });
 
+
+// ---------------------------------------------------------------------------
+// memory_event_* — platform-only contract
+// ---------------------------------------------------------------------------
+
+describe("memory event tools in open-source mode", () => {
+  const ossDeps = (backend: Record<string, unknown>) =>
+    createMockToolDeps({
+      cfg: { ...createMockToolDeps().cfg, mode: "open-source" },
+      backend: backend as any,
+    });
+
+  it("memory_event_list returns not_platform without calling the backend", async () => {
+    const listEvents = vi.fn(() => {
+      throw new Error("Event management is only available in platform mode.");
+    });
+    const ctx = ossDeps({ listEvents, getEvent: vi.fn() });
+    const result = await createMemoryEventListTool(ctx).execute("call-1", {});
+
+    expect(listEvents).not.toHaveBeenCalled();
+    expect(result.details.error).toBe("not_platform");
+    expect(result.content[0].text).toBe(
+      "Event tracking is only available in platform mode.",
+    );
+    expect(ctx.captureToolEvent).toHaveBeenCalledWith(
+      "memory_event_list",
+      expect.objectContaining({ error: "not_platform" }),
+    );
+  });
+
+  it("memory_event_status returns not_platform without calling the backend", async () => {
+    const getEvent = vi.fn(() => {
+      throw new Error("Event management is only available in platform mode.");
+    });
+    const ctx = ossDeps({ listEvents: vi.fn(), getEvent });
+    const result = await createMemoryEventStatusTool(ctx).execute("call-1", {
+      event_id: "evt-1",
+    });
+
+    expect(getEvent).not.toHaveBeenCalled();
+    expect(result.details.error).toBe("not_platform");
+    expect(result.content[0].text).toBe(
+      "Event tracking is only available in platform mode.",
+    );
+  });
+
+  it("memory_event_list still queries the backend in platform mode", async () => {
+    const listEvents = vi.fn().mockResolvedValue([]);
+    const ctx = createMockToolDeps({
+      backend: { listEvents, getEvent: vi.fn() } as any,
+    });
+    const result = await createMemoryEventListTool(ctx).execute("call-1", {});
+
+    expect(listEvents).toHaveBeenCalledTimes(1);
+    expect(result.details.count).toBe(0);
+  });
+});

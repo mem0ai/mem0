@@ -12,7 +12,7 @@ export function createMemoryEventListTool(deps: ToolDeps) {
     async execute(_toolCallId: string, _params: Record<string, unknown>) {
       const start = Date.now();
       try {
-        if (!deps.backend) {
+        if (deps.cfg.mode !== "platform" || !deps.backend) {
           deps.captureToolEvent("memory_event_list", { success: false, latency_ms: 0, error: "not_platform" });
           return {
             content: [{ type: "text", text: "Event tracking is only available in platform mode." }],
