@@ -110,6 +110,25 @@ describe("updateShellRc — exists-only contract", () => {
 		const rc = path.join(tmpDir, ".zshrc"); // does not exist
 		expect(updateShellRc(rc, "x")).toBe(false);
 	});
+
+	it("updates a symlinked rc file's target and keeps the link", () => {
+		// Dotfile managers (stow, chezmoi, yadm) symlink ~/.zshrc into a repo;
+		// the tmp + rename write must land on that file, not replace the link.
+		const dotfiles = path.join(tmpDir, "dotfiles");
+		fs.mkdirSync(dotfiles);
+		const target = path.join(dotfiles, "zshrc");
+		fs.writeFileSync(target, 'alias ll="ls -l"\nexport MEM0_API_KEY="old"\n');
+		const rc = path.join(tmpDir, ".zshrc");
+		fs.symlinkSync(target, rc);
+
+		expect(updateShellRc(rc, "newkey")).toBe(true);
+
+		expect(fs.lstatSync(rc).isSymbolicLink()).toBe(true);
+		expect(fs.readFileSync(target, "utf-8")).toBe(
+			'alias ll="ls -l"\nexport MEM0_API_KEY="newkey"\n',
+		);
+		expect(fs.readdirSync(dotfiles)).toEqual(["zshrc"]);
+	});
 });
 
 // ── updateClaudeSettings ─────────────────────────────────────────────────
@@ -164,5 +183,18 @@ describe("updateClaudeSettings — never creates entries", () => {
 		const settings = path.join(tmpDir, "settings.json");
 		fs.writeFileSync(settings, "{ this is not json");
 		expect(updateClaudeSettings(settings, "x")).toBe(false);
+	});
+
+	it("updates a symlinked settings file's target and keeps the link", () => {
+		const target = path.join(tmpDir, "claude-settings.json");
+		fs.writeFileSync(target, JSON.stringify({ env: { MEM0_API_KEY: "old" } }));
+		const settings = path.join(tmpDir, "settings.json");
+		fs.symlinkSync(target, settings);
+
+		expect(updateClaudeSettings(settings, "fresh")).toBe(true);
+
+		expect(fs.lstatSync(settings).isSymbolicLink()).toBe(true);
+		const data = JSON.parse(fs.readFileSync(target, "utf-8"));
+		expect(data.env.MEM0_API_KEY).toBe("fresh");
 	});
 });

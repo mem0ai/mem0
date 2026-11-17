@@ -94,7 +94,13 @@ export function updateShellRc(filePath: string, apiKey: string): boolean {
 	return true;
 }
 
-function atomicWriteText(filePath: string, content: string): void {
+function atomicWriteText(linkOrFilePath: string, content: string): void {
+	// Resolve symlinks first (dotfile managers such as stow, chezmoi or yadm
+	// link ~/.zshrc into a repo): renaming over the link would replace the
+	// link itself with a regular file and detach it from the repo.
+	const filePath = fs.existsSync(linkOrFilePath)
+		? fs.realpathSync(linkOrFilePath)
+		: linkOrFilePath;
 	const dir = path.dirname(filePath);
 	const tmp = path.join(dir, `.${path.basename(filePath)}.${process.pid}.tmp`);
 	try {

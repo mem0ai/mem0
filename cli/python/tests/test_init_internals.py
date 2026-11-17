@@ -112,6 +112,23 @@ def test_shell_rc_missing_file_is_noop(tmp_path) -> None:
     assert _update_shell_rc(rc, "x") is False
 
 
+def test_shell_rc_symlink_updates_target_and_keeps_link(tmp_path) -> None:
+    # Dotfile managers (stow, chezmoi, yadm) symlink ~/.zshrc into a repo; the
+    # temp-file + rename write must land on that file, not replace the link.
+    dotfiles = tmp_path / "dotfiles"
+    dotfiles.mkdir()
+    target = dotfiles / "zshrc"
+    target.write_text('alias ll="ls -l"\nexport MEM0_API_KEY="old"\n', encoding="utf-8")
+    rc = tmp_path / ".zshrc"
+    rc.symlink_to(target)
+
+    assert _update_shell_rc(rc, "newkey") is True
+
+    assert rc.is_symlink()
+    assert target.read_text(encoding="utf-8") == 'alias ll="ls -l"\nexport MEM0_API_KEY="newkey"\n'
+    assert not list(dotfiles.glob(".zshrc.*.tmp")) and not list(tmp_path.glob(".*.tmp"))
+
+
 # ── plugin_sync._update_claude_settings ────────────────────────────────────
 
 
@@ -162,6 +179,22 @@ def test_claude_settings_malformed_json_is_noop(tmp_path) -> None:
     settings = tmp_path / "settings.json"
     settings.write_text("{ this is not json", encoding="utf-8")
     assert _update_claude_settings(settings, "x") is False
+
+
+def test_claude_settings_symlink_updates_target_and_keeps_link(tmp_path) -> None:
+    import json
+
+    target = tmp_path / "dotfiles" / "claude-settings.json"
+    target.parent.mkdir()
+    target.write_text(json.dumps({"env": {"MEM0_API_KEY": "old"}}), encoding="utf-8")
+    settings = tmp_path / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    settings.symlink_to(target)
+
+    assert _update_claude_settings(settings, "fresh") is True
+
+    assert settings.is_symlink()
+    assert json.loads(target.read_text(encoding="utf-8"))["env"]["MEM0_API_KEY"] == "fresh"
 
 
 # ── bootstrap rate-limit translation ──────────────────────────────────────

@@ -103,7 +103,13 @@ def _update_shell_rc(path: Path, api_key: str) -> bool:
 
 
 def _atomic_write_text(path: Path, content: str) -> None:
-    """Write content to path atomically (temp + rename)."""
+    """Write content to path atomically (temp + rename).
+
+    A symlinked path (dotfile managers such as stow, chezmoi or yadm link
+    ``~/.zshrc`` into a repo) is resolved first: renaming over the link would
+    replace the link itself with a regular file and detach it from the repo.
+    """
+    path = Path(os.path.realpath(path))
     dirname = path.parent
     fd, tmp_path = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=dirname)
     try:
