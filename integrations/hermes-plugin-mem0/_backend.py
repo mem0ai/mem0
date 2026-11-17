@@ -19,8 +19,28 @@ def _add_kwargs(user_id: str, agent_id: str, infer: bool, metadata: dict | None)
 
 
 def _unwrap_results(response: Any) -> list:
-    """Normalize API response — extract results list from dict or pass through."""
-    return response.get("results", []) if isinstance(response, dict) else response if isinstance(response, list) else []
+    """Normalize API response — extract the results list and normalize item shape.
+
+    The self-hosted ``/search`` endpoint wraps the SDK payload a second time
+    (``{"results": {"results": [...]}}``), so unwrap repeatedly until a list is reached.
+    Item shape also varies across backends and versions: dicts with a ``memory`` key on the
+    platform, bare strings on some self-hosted builds.
+    """
+    items = response
+    for _ in range(3):
+        if isinstance(items, dict) and "results" in items:
+            items = items["results"]
+        else:
+            break
+    if not isinstance(items, list):
+        return []
+    normalized = []
+    for item in items:
+        if isinstance(item, dict):
+            normalized.append(item)
+        elif isinstance(item, str) and item.strip():
+            normalized.append({"memory": item})
+    return normalized
 
 
 class Mem0Backend(ABC):
