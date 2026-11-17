@@ -1158,6 +1158,9 @@ class Memory(MemoryBase):
 
                     # 7d: Separate into inserts vs updates
                     to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                    # Several keys can resolve to the same stored entity; each match carries
+                    # its own payload copy, so accumulate links per entity id across keys.
+                    linked_by_entity = {}
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
@@ -1168,7 +1171,9 @@ class Memory(MemoryBase):
                         if match:
                             # Update existing entity
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
+                            linked = linked_by_entity.setdefault(
+                                str(match.id), set(payload.get("linked_memory_ids", []))
+                            )
                             linked |= memory_ids
                             payload["linked_memory_ids"] = sorted(linked)
                             try:
@@ -2841,6 +2846,8 @@ class AsyncMemory(MemoryBase):
 
                     # 7d: Separate into inserts vs updates
                     to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                    # Several keys can resolve to the same stored entity (see sync counterpart).
+                    linked_by_entity = {}
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
@@ -2850,7 +2857,9 @@ class AsyncMemory(MemoryBase):
                         match = exact_match or semantic_match
                         if match:
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
+                            linked = linked_by_entity.setdefault(
+                                str(match.id), set(payload.get("linked_memory_ids", []))
+                            )
                             linked |= memory_ids
                             payload["linked_memory_ids"] = sorted(linked)
                             try:

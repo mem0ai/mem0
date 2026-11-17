@@ -1180,6 +1180,87 @@ class TestAddPipelineEntityEmbeddingCountGuard:
             "expected count-mismatch warning was not emitted"
         )
 
+class TestAddPipelineSharedEntityMatch:
+    """Two entities in one add() that resolve to the same stored entity row must
+    both keep their links. One matches the row by exact text, the other by the
+    >= 0.95 semantic match; each match is a separate copy of the row's payload,
+    so the second update used to overwrite the first one's linked_memory_ids.
+    """
+
+    LLM_RESPONSE = '{"memory": [{"text": "Alice met Bob"}, {"text": "Alice. is a nurse"}]}'
+    ENTITIES = [[("PROPER", "Alice")], [("PROPER", "Alice.")]]
+
+    @staticmethod
+    def _entity_store():
+        store = Mock()
+        store.list = Mock(
+            return_value=(
+                [SimpleNamespace(id="ent-1", payload={"data": "Alice", "linked_memory_ids": ["m0"]})],
+                None,
+            )
+        )
+        store.search_batch = Mock(
+            return_value=[
+                [],
+                [SimpleNamespace(id="ent-1", score=0.99, payload={"data": "Alice", "linked_memory_ids": ["m0"]})],
+            ]
+        )
+        return store
+
+    @staticmethod
+    def _final_links(store):
+        calls = [c.kwargs for c in store.update.call_args_list if c.kwargs["vector_id"] == "ent-1"]
+        assert calls, "the shared entity row was never updated"
+        return set(calls[-1]["payload"]["linked_memory_ids"])
+
+    def test_sync_two_entities_matching_one_row_keep_both_links(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.custom_instructions = None
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.llm.generate_response.return_value = self.LLM_RESPONSE
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda texts, _action="add": [[0.1] * 10 for _ in texts])
+        memory._entity_store = self._entity_store()
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=self.ENTITIES)
+        mocker.patch("mem0.memory.main.capture_event")
+
+        result = memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I met Bob. I am a nurse."}],
+            metadata={"user_id": "u1"},
+            filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        assert len(result) == 2
+        assert self._final_links(memory._entity_store) == {"m0", *(r["id"] for r in result)}
+
+    @pytest.mark.asyncio
+    async def test_async_two_entities_matching_one_row_keep_both_links(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.custom_instructions = None
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.llm.generate_response.return_value = self.LLM_RESPONSE
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda texts, _action="add": [[0.1] * 10 for _ in texts])
+        memory._entity_store = self._entity_store()
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=self.ENTITIES)
+        mocker.patch("mem0.memory.main.capture_event")
+
+        result = await memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I met Bob. I am a nurse."}],
+            metadata={"user_id": "u1"},
+            effective_filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        assert len(result) == 2
+        assert self._final_links(memory._entity_store) == {"m0", *(r["id"] for r in result)}
+
+
 class TestPartialInsertFailure:
     """Records the vector store rejects must never be reported as successful ADDs (#6911)."""
 
