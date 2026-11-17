@@ -58,6 +58,7 @@ class LLMBase(ABC):
         reasoning_models = {
             "o1", "o1-preview", "o3-mini", "o3",
             "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
+            "gpt-6",
         }
 
         model_lower = model.lower()
@@ -67,9 +68,20 @@ class LLMBase(ABC):
         if base_model in reasoning_models:
             return True
 
-        # Match o1/o3 family with prefixes (o1-2024-12-17, o3-2025-04-16)
-        # but NOT gpt-5.x variants (gpt-5.4-mini supports temperature)
+        # Match o1/o3 family with prefixes (o1-2024-12-17, o3-2025-04-16).
         if any(base_model.startswith(prefix) for prefix in ["o1-", "o1.", "o3-", "o3."]):
+            return True
+
+        # Bare GPT-5 family (gpt-5-mini, gpt-5-nano, gpt-5-2026-...) rejects
+        # client-supplied temperature/top_p on Chat Completions and must be
+        # treated as reasoning. gpt-5.X variants (dot-separated, e.g. gpt-5.4-mini)
+        # still support sampling params and intentionally fall through below.
+        if base_model.startswith("gpt-5-"):
+            return True
+
+        # Entire GPT-6 family (gpt-6.1-terra and successors) empirically rejects
+        # client-supplied sampling params.
+        if any(base_model.startswith(prefix) for prefix in ["gpt-6-", "gpt-6."]):
             return True
 
         return False
@@ -78,10 +90,10 @@ class LLMBase(ABC):
         """
         Check if the model expects ``max_completion_tokens`` instead of ``max_tokens``.
 
-        The whole GPT-5 family (gpt-5.4-mini, gpt-5.4-nano, gpt-5.5, ...) rejects the
-        legacy ``max_tokens`` parameter on the Chat Completions API and requires
-        ``max_completion_tokens``. Older models (gpt-4.x, gpt-3.5, etc.) still accept
-        ``max_tokens``.
+        The whole GPT-5 family (gpt-5.4-mini, gpt-5.4-nano, gpt-5.5, ...) and the
+        GPT-6 family (gpt-6.1-terra, ...) reject the legacy ``max_tokens`` parameter
+        on the Chat Completions API and require ``max_completion_tokens``. Older
+        models (gpt-4.x, gpt-3.5, etc.) still accept ``max_tokens``.
 
         Args:
             model: The model name to check
@@ -91,7 +103,7 @@ class LLMBase(ABC):
         """
         # Strip provider prefixes (e.g. "openai/gpt-5.4-mini" -> "gpt-5.4-mini")
         base_model = (model or "").lower().rsplit("/", 1)[-1]
-        return base_model.startswith("gpt-5")
+        return base_model.startswith("gpt-5") or base_model.startswith("gpt-6")
 
     def _get_supported_params(self, **kwargs) -> Dict:
         """
