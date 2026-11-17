@@ -198,7 +198,7 @@ class TestSQLiteManager:
             sqlite_manager.add_history(
                 memory_id=sample_data["memory_id"],
                 old_memory=f"Memory {i}",
-                new_memory=f"Memory {i+1}",
+                new_memory=f"Memory {i + 1}",
                 event="ADD" if i == 0 else "UPDATE",
                 created_at=ts,
                 updated_at=ts if i > 0 else None,
@@ -280,6 +280,34 @@ class TestSQLiteManager:
         assert history[0]["actor_id"] is None
         assert history[0]["is_deleted"] is False
         mgr.close()
+
+    @pytest.mark.parametrize("existing_database", [False, True])
+    def test_message_queries_use_scope_index(self, temp_db_path, existing_database):
+        if existing_database:
+            legacy_manager = SQLiteManager(temp_db_path)
+            legacy_manager.connection.execute("DROP INDEX IF EXISTS idx_messages_scope_time")
+            legacy_manager.save_messages([{"role": "user", "content": "earlier"}], "session")
+            legacy_manager.close()
+
+        manager = SQLiteManager(temp_db_path)
+        try:
+            statements = []
+            manager.connection.set_trace_callback(statements.append)
+            manager.save_messages([{"role": "assistant", "content": "latest"}], "session")
+            messages = manager.get_last_messages("session")
+            manager.connection.set_trace_callback(None)
+
+            expected = ["earlier", "latest"] if existing_database else ["latest"]
+            assert [message["content"] for message in messages] == expected
+
+            for operation, expected_lookups, expected_sorts in [("DELETE", 2, 0), ("SELECT", 1, 1)]:
+                query = next(statement for statement in statements if statement.lstrip().startswith(operation))
+                plan = manager.connection.execute(f"EXPLAIN QUERY PLAN {query}").fetchall()
+                assert sum("SEARCH messages USING" in row[3] for row in plan) == expected_lookups, plan
+                # Only the SELECT's outer chronological sort should remain.
+                assert sum("USE TEMP B-TREE FOR ORDER BY" in row[3] for row in plan) == expected_sorts, plan
+        finally:
+            manager.close()
 
     def test_reset_drops_tables(self, temp_db_path):
         """reset() must drop both history and messages tables."""
