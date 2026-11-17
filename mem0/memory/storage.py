@@ -141,6 +141,9 @@ class SQLiteManager:
                     )
                 """
                 )
+                self.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_messages_scope_time ON messages (session_scope, created_at DESC)"
+                )
                 self.connection.execute("COMMIT")
             except Exception as e:
                 self.connection.execute("ROLLBACK")
