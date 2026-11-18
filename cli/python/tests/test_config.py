@@ -46,6 +46,28 @@ class TestConfig:
         loaded = load_config()
         assert loaded.platform.api_key == "m0-test-key"
 
+    def test_utf8_values_load_on_non_utf8_host(self, isolate_config, monkeypatch):
+        """Config is user-facing state shared across machines; a UTF-8 file must
+        load the same way on a host whose default text encoding is not UTF-8."""
+        import builtins
+        import json
+
+        from mem0_cli.config import CONFIG_FILE
+
+        CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        CONFIG_FILE.write_text(
+            json.dumps({"platform": {"user_email": "José Müller@example.com"}}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        def non_utf8_open(file, mode="r", **kwargs):
+            kwargs.setdefault("encoding", "cp1252")
+            return builtins.open(file, mode, **kwargs)
+
+        monkeypatch.setattr("mem0_cli.config.open", non_utf8_open, raising=False)
+
+        assert load_config().platform.user_email == "José Müller@example.com"
+
     def test_env_var_override(self, isolate_config, monkeypatch):
         config = Mem0Config()
         config.platform.api_key = "file-key"
