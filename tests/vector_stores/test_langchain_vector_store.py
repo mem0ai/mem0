@@ -165,10 +165,9 @@ def test_list_with_filters(langchain_instance):
 
     # Verify the results
     assert len(results) == 1
-    assert len(results[0]) == 1
-    assert results[0][0].payload["user_id"] == "alice"
-    assert results[0][0].payload["agent_id"] == "agent1"
-    assert results[0][0].payload["run_id"] == "run1"
+    assert results[0].payload["user_id"] == "alice"
+    assert results[0].payload["agent_id"] == "agent1"
+    assert results[0].payload["run_id"] == "run1"
 
 
 def test_list_with_single_filter(langchain_instance):
@@ -190,8 +189,7 @@ def test_list_with_single_filter(langchain_instance):
 
     # Verify the results
     assert len(results) == 1
-    assert len(results[0]) == 1
-    assert results[0][0].payload["user_id"] == "alice"
+    assert results[0].payload["user_id"] == "alice"
 
 
 def test_list_with_no_filters(langchain_instance):
@@ -212,8 +210,7 @@ def test_list_with_no_filters(langchain_instance):
 
     # Verify the results
     assert len(results) == 1
-    assert len(results[0]) == 1
-    assert results[0][0].payload["name"] == "vector1"
+    assert results[0].payload["name"] == "vector1"
 
 
 def test_list_with_exception(langchain_instance):

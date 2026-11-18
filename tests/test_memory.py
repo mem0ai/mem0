@@ -952,6 +952,39 @@ async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_
     datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
 
 
+@pytest.mark.parametrize("is_async", [False, True])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_delete_all_accepts_flat_list_from_vector_store(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, is_async):
+    """Stores that return a flat list (Chroma, LangChain) must work with delete_all, including when empty."""
+    import asyncio
+    from mem0.memory.main import AsyncMemory, Memory
+
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mem1 = MagicMock()
+    mem1.id = "mem-1"
+    mem1.payload = {"data": "one", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
+    mock_vector_store.list.side_effect = [[mem1], []]
+    mock_vector_store.get.return_value = mem1
+
+    memory = (AsyncMemory if is_async else Memory)(MemoryConfig())
+    result = memory.delete_all(user_id="u")
+    if is_async:
+        result = asyncio.run(result)
+
+    assert result == {"message": "Memories deleted successfully!"}
+    mock_vector_store.delete.assert_called_once()
+
+    mock_vector_store.list.side_effect = [[]]
+    result = memory.delete_all(user_id="u")
+    if is_async:
+        result = asyncio.run(result)
+    assert result == {"message": "Memories deleted successfully!"}
+
+
 @pytest.mark.asyncio
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
