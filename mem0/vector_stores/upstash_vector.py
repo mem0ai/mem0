@@ -51,10 +51,13 @@ class UpstashVector(VectorStoreBase):
         Initialize the UpstashVector vector store.
 
         Args:
+            collection_name (str): Name of the collection to store vectors in. Upstash calls this a
+                namespace; `insert()` logs `into namespace {self.collection_name}`.
             url (str, optional): URL for Upstash Vector index. Defaults to None.
-            token (int, optional): Token for Upstash Vector index. Defaults to None.
+            token (str, optional): Token for Upstash Vector index. Defaults to None.
             client (Index, optional): Existing `upstash_vector.Index` client instance. Defaults to None.
-            namespace (str, optional): Default namespace for the index. Defaults to None.
+            enable_embeddings (bool, optional): Whether to use Upstash's built-in embedding models.
+                Defaults to False.
         """
         if client:
             self.client = client
