@@ -39,6 +39,9 @@ icon: "bolt"
     | Update memory | `await memory.update(memory_id=..., text=...)` | Accepts partial updates. |
     | Delete memory | `await memory.delete(memory_id=...)` | Returns confirmation payload. |
     | Delete in bulk | `await memory.delete_all(...)` | Requires at least one scope filter. |
+    | Batch add | `await memory.batch_add([...])` | One entry per input item, in input order. |
+    | Batch update | `await memory.batch_update([...])` | One entry per input item, in input order. |
+    | Batch delete | `await memory.batch_delete([...])` | Returns a `successful`/`failed`/`errors` roll-up. |
     | History | `await memory.history(memory_id=...)` | Fetches change log for auditing. |
   </Accordion>
 </AccordionGroup>
@@ -101,24 +104,53 @@ async def safe_memory_usage():
 async def batch_operations():
     memory = AsyncMemory()
 
-    tasks = [
-        memory.add(
-            messages=[{"role": "user", "content": f"Message {i}"}],
-            user_id=f"user_{i}"
-        )
-        for i in range(5)
-    ]
+    results = await memory.batch_add(
+        [
+            {"messages": "I like tea", "metadata": {"topic": "drinks"}},
+            {"messages": "I play chess"},
+            {"messages": "I garden"},
+        ],
+        user_id="alice",
+        metadata={"source": "import"},
+    )
 
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    for i, result in enumerate(results):
-        if isinstance(result, Exception):
-            print(f"Task {i} failed: {result}")
-        else:
-            print(f"Task {i} completed successfully")
+    for entry in results:
+        print(entry["status"], entry["result"]["results"])
 ```
 
 <Info icon="check">
-  When concurrency works correctly, successful tasks return memory IDs while failures surface as exceptions in the `results` list.
+  `batch_add` runs the items concurrently and returns one entry per input item, in input order. A
+  failing item is reported as `{"status": "error", "error": ...}` and does not stop the rest of the
+  batch.
+</Info>
+
+<Warning>
+  `batch_add` performs one LLM extraction call and one set of vector-store writes per item, so it
+  multiplies provider calls by the batch size. Backed by an on-disk or embedded vector store, pass
+  `max_concurrency=1` to run the batch strictly in sequence.
+</Warning>
+
+```python
+async def update_and_sweep():
+    memory = AsyncMemory()
+
+    updates = await memory.batch_update(
+        [
+            {"memory_id": "mem-1", "text": "Likes to play tennis"},
+            {"memory_id": "mem-2", "metadata": {"lang": "en"}},
+        ],
+        max_concurrency=1,
+    )
+    print([entry["status"] for entry in updates])
+
+    sweep = await memory.batch_delete(["mem-3", "mem-4"], max_concurrency=1)
+    print(sweep["summary"])  # "Deleted 2/2 memories"
+```
+
+<Info icon="check">
+  `batch_delete` returns a roll-up: `successful`, `failed`, `errors` and a `summary` string. The
+  synchronous `Memory` class exposes the same three methods as `batch_add`, `batch_update` and
+  `batch_delete`, with `max_workers` in place of `max_concurrency`.
 </Info>
 
 ### Add resilience with retries
