@@ -121,6 +121,7 @@ agent.print_grouped_by_actor()
 - Each message is attributed to a user or agent (actor)
 - All messages are stored in a shared project space (`run_id`)
 - You can sort messages by time, group by actor, and format timestamps for clarity
+- mem.add function is using infer=False and hence a model inference is bypassed, letting Mem0 to store the passed message as is.
 - Mem0 makes it easy to build collaborative, attributed chat/task systems
 
 ## Conclusion
