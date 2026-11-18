@@ -188,7 +188,7 @@ m.add("I enjoy reading science fiction books", user_id="alice")
 # Search with reranking
 results = m.search(
     "What outdoor activities do I enjoy?",
-    user_id="alice",
+    filters={"user_id": "alice"},
     rerank=True
 )
 
@@ -266,7 +266,7 @@ config = {
 try:
     results = m.search(
         "test query",
-        user_id="alice",
+        filters={"user_id": "alice"},
         rerank=True
     )
 except Exception as e:
@@ -274,7 +274,7 @@ except Exception as e:
     # Fall back to vector search only
     results = m.search(
         "test query",
-        user_id="alice",
+        filters={"user_id": "alice"},
         rerank=False
     )
 ```
