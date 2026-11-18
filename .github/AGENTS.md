@@ -26,6 +26,7 @@ Package workflows keep their own push-to-main and manual triggers. Their `pull_r
 | n8n Node | `n8n-nodes-mem0-checks.yml` | Push to main (`integrations/n8n-nodes-mem0/`), manual | ESLint + tsc build on Node 20 |
 | Zapier App | `zapier-mem0-checks.yml` | Push to main (`integrations/zapier-mem0/`), manual | tsc + `zapier validate` + offline unit tests on Node 22 |
 | mem0-strands | `mem0-strands-checks.yml` | Push to main (`integrations/mem0-strands/`), manual | Ruff + mypy + pytest + hatch build on Python 3.10, 3.11, 3.12 |
+| Eve | `eve-checks.yml` | Push to main (`integrations/eve/`), manual | tsc + vitest + tsup on Node 24 |
 | docs llms.txt | `docs-llms-txt-check.yml` | Manual | `docs/llms.txt` coverage |
 | GitHub Scripts | inline in `ci-gate.yml` | none | `node` over every `.github/scripts/*.test.js` |
 
@@ -64,6 +65,7 @@ Requiring `CI Gate` also means fork PRs from first-time contributors cannot merg
 | DeepSeek Harness Plugin | `deepseek-plugin-cd.yml` | `deepseek-plugin-v*` | npm (`@mem0/deepseek-plugin`) |
 | n8n Node | `n8n-nodes-mem0-cd.yml` | `n8n-nodes-mem0-v*` | npm (`@mem0/n8n-nodes-mem0`) |
 | mem0-strands | `mem0-strands-cd.yml` | `mem0-strands-v*` | PyPI (`mem0-strands`) |
+| Eve | `eve-cd.yml` | `eve-v*` | npm (`@mem0/eve`) |
 
 - Package CD workflows are `workflow_dispatch`-only, with `tag` and `prerelease` inputs. They check out and build the given tag.
 - All publishing uses **OIDC trusted publishing**. No tokens, no secrets.
