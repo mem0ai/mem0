@@ -50,7 +50,7 @@ Or create a config file at `~/.pi/agent/mem0-config.json`:
 }
 ```
 
-Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
+Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`, `MEM0_APP_ID`) override the config file. `MEM0_APP_ID` pins the project identity used for scoping.
 
 `searchThreshold` (default `0.3`) is the minimum similarity score (0–1) a memory must reach to count as a match for `/mem0-search` and `/mem0-forget`. It is passed to the mem0 search API (along with reranking for higher-precision ordering), so a query with no sufficiently similar memory reports no match instead of returning the closest unrelated memories. Raise it to be stricter; lower it if relevant results are missed.
 
@@ -86,7 +86,7 @@ The plugin includes 6 skills that guide the agent on how to use each capability:
 | `session` | user + app_id + run_id | Recall restricted to memories saved with the current session ID |
 | `global` | user only | All memories across all your projects |
 
-Project scoping uses `git rev-parse --show-toplevel` to detect the repository root, so all subdirectories within a monorepo share the same memory pool.
+Project scoping uses `git rev-parse --show-toplevel` to detect the repository root, so all subdirectories within a monorepo share the same memory pool. Set `MEM0_APP_ID` to pin the project identity — it takes precedence over git detection, which matters inside git worktrees, where the detected root is the worktree and would otherwise give it a separate memory pool. Empty, whitespace-only, and wildcard values are ignored.
 
 Global tool operations require `/mem0-scope global` or `defaultScope: "global"` in plugin configuration. A model-supplied `scope` argument cannot enable cross-project access on its own. Empty or wildcard user, project, and session identities are rejected.
 
