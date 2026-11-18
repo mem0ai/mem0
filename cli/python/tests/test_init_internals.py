@@ -9,6 +9,9 @@ These tests exercise the units that the high-level subprocess parity tests in
     trailing newlines, and never mangle other lines.
   - The 403→ratelimit translation in ``bootstrap_via_backend`` surfaces the
     real cause instead of DRF's opaque "You do not have permission" string.
+  - Under ``--json``, a successful ``bootstrap_via_backend`` prints exactly one
+    JSON envelope that says ``mcp_ready: false`` (#6346), and the human path
+    keeps its claim hint.
 
 Mirror surface lives in ``cli/node/tests/agent-mode.test.ts``; if you add a
 behavioral assertion here, mirror it on the Node side and vice versa.
@@ -204,3 +207,109 @@ def test_bootstrap_403_permission_surfaces_ratelimit(monkeypatch, capsys) -> Non
     combined = captured.out + captured.err
     assert "Daily Agent Mode signup limit reached" in combined
     assert "permission to perform this action" not in combined
+
+
+# ── bootstrap success output: --json vs human (#6346) ─────────────────────
+
+
+def _fake_bootstrap_ok(monkeypatch, envelope: dict) -> None:
+    """Make httpx.Client.post return a 200 with the given bootstrap envelope.
+
+    Also stubs ``sync_api_key``: ``save_config`` calls it, and its targets are the
+    developer's real ``~/.claude/settings.json`` and shell rc files.
+    """
+    monkeypatch.setattr("mem0_cli.plugin_sync.sync_api_key", lambda _key: [])
+    fake_resp = MagicMock()
+    fake_resp.status_code = 200
+    fake_resp.json = MagicMock(return_value=envelope)
+
+    class _Client:
+        def __init__(self, *a, **kw):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, *a, **kw):
+            return fake_resp
+
+    monkeypatch.setattr(httpx, "Client", _Client)
+
+
+def test_bootstrap_json_mode_emits_single_envelope(monkeypatch, capsys) -> None:
+    """`mem0 init --agent --json` must print one JSON object, not the claim prose."""
+    import json
+
+    from mem0_cli.commands.agent_mode_cmd import bootstrap_via_backend
+    from mem0_cli.config import Mem0Config
+
+    _fake_bootstrap_ok(
+        monkeypatch,
+        {
+            "api_key": "m0-test-key",
+            "default_user_id": "agent-u1",
+            "claim_command": "mem0 init --email <your-email>",
+        },
+    )
+    monkeypatch.setattr("mem0_cli.state._agent_mode", True)
+    cfg = Mem0Config()
+    cfg.platform.base_url = "https://api.mem0.ai"
+
+    bootstrap_via_backend(cfg, agent_caller="codex")
+
+    out = capsys.readouterr().out
+    envelope = json.loads(out)  # fails if anything but one JSON object was printed
+    assert envelope["status"] == "success"
+    assert envelope["command"] == "init"
+    data = envelope["data"]
+    assert data["api_key_saved"] is True
+    assert data["default_user_id"] == "agent-u1"
+    assert data["mcp_ready"] is False
+    assert "MEM0_API_KEY" in data["next_step"]
+    assert "restart" in data["next_step"]
+    assert data["claim_command"] == "mem0 init --email <your-email>"
+    assert "identify_hint" not in data  # caller already identified itself
+    assert "To claim this account later" not in out
+
+
+def test_bootstrap_json_mode_carries_notice_and_identify_hint(monkeypatch, capsys) -> None:
+    import json
+
+    from mem0_cli.commands.agent_mode_cmd import bootstrap_via_backend
+    from mem0_cli.config import Mem0Config
+
+    _fake_bootstrap_ok(
+        monkeypatch,
+        {"api_key": "m0-test-key", "default_user_id": "agent-u1", "mem0_notice": "Claim me"},
+    )
+    monkeypatch.setattr("mem0_cli.state._agent_mode", True)
+    cfg = Mem0Config()
+    cfg.platform.base_url = "https://api.mem0.ai"
+
+    bootstrap_via_backend(cfg)  # no --agent-caller
+
+    data = json.loads(capsys.readouterr().out)["data"]
+    assert data["mem0_notice"] == "Claim me"
+    assert "mem0 identify" in data["identify_hint"]
+
+
+def test_bootstrap_human_mode_keeps_banners(monkeypatch, capsys) -> None:
+    """Without --json the Rich success line and claim hint are unchanged."""
+    from mem0_cli.commands.agent_mode_cmd import bootstrap_via_backend
+    from mem0_cli.config import Mem0Config
+
+    _fake_bootstrap_ok(monkeypatch, {"api_key": "m0-test-key", "default_user_id": "agent-u1"})
+    monkeypatch.setattr("mem0_cli.state._agent_mode", False)
+    cfg = Mem0Config()
+    cfg.platform.base_url = "https://api.mem0.ai"
+
+    bootstrap_via_backend(cfg)
+
+    out = capsys.readouterr().out
+    assert "Agent Mode active" in out
+    assert "To claim this account later" in out
+    assert "identify yourself" in out
+    assert '"status"' not in out
