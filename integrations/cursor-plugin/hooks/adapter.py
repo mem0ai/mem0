@@ -38,8 +38,11 @@ def normalize(payload: dict, event: str) -> dict:
     value = dict(payload)
     value.setdefault("session_id", value.get("conversation_id") or value.get("parent_conversation_id", ""))
     roots = value.get("workspace_roots") or []
-    if roots:
-        value.setdefault("cwd", roots[0])
+    if roots and (not value.get("cwd") or value.get("cwd") in (".", "")):
+        # Cursor runs hook commands with the plugin cache dir as $PWD and
+        # sends workspace_roots instead of cwd. Prefer the real workspace root
+        # so every workspace does not share one project scope (or a "." key).
+        value["cwd"] = roots[0]
     if "tool_output" in value:
         value.setdefault("tool_response", value["tool_output"])
     if "error_message" in value:
