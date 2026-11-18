@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -8,7 +8,7 @@ COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 RUN \
   if [ -f yarn.lock ]; then yarn --frozen-lockfile --network-timeout 600000; \
   elif [ -f package-lock.json ]; then npm ci; \
-  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --config.dangerouslyAllowAllBuilds=true; \
   else npm install; \
   fi
 
@@ -20,8 +20,8 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 # Placeholder values replaced at runtime by entrypoint.sh
-ENV NEXT_PUBLIC_API_URL=NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_INSTANCE_NAME=NEXT_PUBLIC_INSTANCE_NAME
+ENV NEXT_PUBLIC_API_URL=http://localhost:8888
+ENV NEXT_PUBLIC_INSTANCE_NAME=Mem0
 
 RUN npm run build
 
