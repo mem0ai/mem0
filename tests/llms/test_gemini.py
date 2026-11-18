@@ -232,6 +232,86 @@ def test_explicit_config_values_passed_to_generation_config(mock_gemini_client: 
     assert config_arg.top_p == 0.9
 
 
+# --- tool_choice mapping and per-call kwargs (issue #5430) ---
+
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "add_memory",
+            "description": "Add a memory",
+            "parameters": {
+                "type": "object",
+                "properties": {"data": {"type": "string", "description": "Data to add to memory"}},
+                "required": ["data"],
+            },
+        },
+    }
+]
+
+
+def _mock_text_response():
+    """A minimal successful Gemini response carrying a single text part."""
+    mock_part = Mock(text="ok", function_call=None)
+    mock_content = Mock(parts=[mock_part])
+    mock_candidate = Mock(content=mock_content)
+    return Mock(candidates=[mock_candidate])
+
+
+@pytest.mark.parametrize("tool_choice", ["any", "required"])
+def test_tool_choice_forcing_maps_to_any_mode(mock_gemini_client: Mock, tool_choice: str):
+    """The cross-provider value "required" means "must call a tool"; like "any" it
+    must map to Gemini's ANY mode, not NONE (which silently disables tool calling)."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    mock_gemini_client.models.generate_content.return_value = _mock_text_response()
+
+    llm.generate_response([{"role": "user", "content": "hi"}], tools=TOOLS, tool_choice=tool_choice)
+
+    config_arg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    function_calling_config = config_arg.tool_config.function_calling_config
+    assert function_calling_config.mode == types.FunctionCallingConfigMode.ANY
+    assert function_calling_config.allowed_function_names == ["add_memory"]
+
+
+def test_tool_choice_none_maps_to_none_mode(mock_gemini_client: Mock):
+    """An explicit "none" still disables tool calling and sets no allowed names."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    mock_gemini_client.models.generate_content.return_value = _mock_text_response()
+
+    llm.generate_response([{"role": "user", "content": "hi"}], tools=TOOLS, tool_choice="none")
+
+    config_arg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    function_calling_config = config_arg.tool_config.function_calling_config
+    assert function_calling_config.mode == types.FunctionCallingConfigMode.NONE
+    assert function_calling_config.allowed_function_names is None
+
+
+def test_generate_response_accepts_kwargs(mock_gemini_client: Mock):
+    """The base contract allows per-call kwargs; Gemini must not raise TypeError."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    mock_gemini_client.models.generate_content.return_value = _mock_text_response()
+
+    response = llm.generate_response([{"role": "user", "content": "hi"}], some_unused_param=True)
+
+    assert response == "ok"
+
+
+def test_per_call_max_tokens_overrides_config(mock_gemini_client: Mock):
+    """A per-call max_tokens kwarg overrides config.max_tokens as max_output_tokens."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    mock_gemini_client.models.generate_content.return_value = _mock_text_response()
+
+    llm.generate_response([{"role": "user", "content": "hi"}], max_tokens=4096)
+
+    config_arg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert config_arg.max_output_tokens == 4096
+
+
 # --- Vertex AI backend initialization (issue #3990, PR #4030) ---
 
 
