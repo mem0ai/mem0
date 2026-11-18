@@ -66,7 +66,8 @@ class Qdrant(VectorStoreBase):
             on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
                 Does not delete the local database path. Defaults to False.
         """
-        if client:
+        self._owns_client = client is None
+        if client is not None:
             self.client = client
             self.is_local = False
         else:
@@ -106,6 +107,12 @@ class Qdrant(VectorStoreBase):
         else:
             self._write_lock = nullcontext()
         self.create_col(embedding_model_dims, on_disk)
+
+    def close(self):
+        """Release an internally created client; borrowed clients remain open."""
+        if self._owns_client:
+            self.client.close()
+            self._owns_client = False
 
     def _get_bm25_encoder(self):
         """Lazy-load the BM25 sparse text encoder (fastembed)."""
