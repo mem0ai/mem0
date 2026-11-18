@@ -1156,8 +1156,12 @@ class Memory(MemoryBase):
                         filters=search_filters,
                     )
 
-                    # 7d: Separate into inserts vs updates
+                    # 7d: Separate into inserts vs updates.
+                    # Entity search above is a snapshot from before this loop.
+                    # Keep links already applied to each stored entity so a later
+                    # name that resolves to the same row does not overwrite them.
                     to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                    batch_linked_memory_ids = {}
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
@@ -1167,9 +1171,14 @@ class Memory(MemoryBase):
                         match = exact_match or semantic_match
                         if match:
                             # Update existing entity
-                            payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
+                            payload = dict(match.payload or {})
+                            entity_id = str(match.id)
+                            if entity_id in batch_linked_memory_ids:
+                                linked = set(batch_linked_memory_ids[entity_id])
+                            else:
+                                linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
+                            batch_linked_memory_ids[entity_id] = linked
                             payload["linked_memory_ids"] = sorted(linked)
                             try:
                                 self.entity_store.update(
@@ -2839,8 +2848,12 @@ class AsyncMemory(MemoryBase):
                         filters=search_filters,
                     )
 
-                    # 7d: Separate into inserts vs updates
+                    # 7d: Separate into inserts vs updates.
+                    # Entity search above is a snapshot from before this loop.
+                    # Keep links already applied to each stored entity so a later
+                    # name that resolves to the same row does not overwrite them.
                     to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                    batch_linked_memory_ids = {}
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
@@ -2849,9 +2862,14 @@ class AsyncMemory(MemoryBase):
                         semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
                         match = exact_match or semantic_match
                         if match:
-                            payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
+                            payload = dict(match.payload or {})
+                            entity_id = str(match.id)
+                            if entity_id in batch_linked_memory_ids:
+                                linked = set(batch_linked_memory_ids[entity_id])
+                            else:
+                                linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
+                            batch_linked_memory_ids[entity_id] = linked
                             payload["linked_memory_ids"] = sorted(linked)
                             try:
                                 await asyncio.to_thread(
