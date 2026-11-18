@@ -333,7 +333,12 @@ def list_bundled_providers(_auth=Depends(verify_auth)):
 def set_config(config: Dict[str, Any], _auth=Depends(require_admin)):
     """Set memory configuration. Requires admin role."""
     _validate_bundled_providers(config)
-    update_config(config)
+    try:
+        update_config(config)
+    except ValueError as e:
+        # e.g. the configured embedder and the vector store disagree on the vector
+        # dimension, which would make every write fail.
+        raise HTTPException(status_code=400, detail=str(e))
     return {"message": "Configuration set successfully"}
 
 
