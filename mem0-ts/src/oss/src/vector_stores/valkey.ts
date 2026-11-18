@@ -30,10 +30,7 @@ interface ValkeyClient {
  * Escape Valkey Search TAG filter special characters.
  */
 function escapeTagValue(value: unknown): string {
-  return String(value).replace(
-    /([,.<>{}\[\]"':;!@#$%^&*()\-+=~|/\\\s])/g,
-    "\\$1",
-  );
+  return String(value).replace(/([,.<>{}\[\]"':;!@#$%^&*()\-+=~|/\\\s])/g, "\\$1");
 }
 
 const EXCLUDED_KEYS = new Set([
@@ -125,8 +122,7 @@ function formatTimestamp(timestamp: number, timezone: string = "UTC"): string {
     second: "2-digit",
     hourCycle: "h23",
   }).formatToParts(date);
-  const get = (type: string) =>
-    parts.find((part) => part.type === type)?.value ?? "00";
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
   const yyyy = get("year");
   const MM = get("month");
   const dd = get("day");
@@ -172,9 +168,7 @@ export class ValkeyDB implements VectorStore {
     this.indexPrefix = `mem0:${config.collectionName}`;
     this.embeddingModelDims = config.embeddingModelDims;
     this.timezone = config.timezone ?? "UTC";
-    this.indexType = (config.indexType ?? "hnsw").toLowerCase() as
-      | "hnsw"
-      | "flat";
+    this.indexType = (config.indexType ?? "hnsw").toLowerCase() as "hnsw" | "flat";
     this.hnswM = config.hnswM ?? 16;
     this.hnswEfConstruction = config.hnswEfConstruction ?? 200;
     this.hnswEfRuntime = config.hnswEfRuntime ?? 10;
@@ -182,9 +176,7 @@ export class ValkeyDB implements VectorStore {
     this.valkeyUrl = config.valkeyUrl;
 
     if (this.indexType !== "hnsw" && this.indexType !== "flat") {
-      throw new Error(
-        `Invalid indexType: ${config.indexType}. Must be 'hnsw' or 'flat'`,
-      );
+      throw new Error(`Invalid indexType: ${config.indexType}. Must be 'hnsw' or 'flat'`);
     }
 
     this.initialize().catch((err) => {
@@ -231,6 +223,11 @@ export class ValkeyDB implements VectorStore {
             distanceMetric,
           ];
 
+    // Ensure prefix terminates with a colon so FT.CREATE only matches keys
+    // belonging to this collection and does not match companion collections
+    // like mem0:{collection}_entities:* (fixes #5680).
+    const formattedPrefix = prefix.endsWith(":") ? prefix : `${prefix}:`;
+
     return [
       "FT.CREATE",
       collectionName,
@@ -238,7 +235,7 @@ export class ValkeyDB implements VectorStore {
       "HASH",
       "PREFIX",
       "1",
-      prefix,
+      formattedPrefix,
       "SCHEMA",
       "memory_id",
       "TAG",
@@ -280,14 +277,41 @@ export class ValkeyDB implements VectorStore {
     await this.ensureSearchModule();
 
     try {
-      await this.client.call("FT.INFO", this.collectionName);
+      const info = await this.client.call("FT.INFO", this.collectionName);
+      // Check for legacy prefix without trailing colon (which leaks entity keys)
+      if (Array.isArray(info)) {
+        let prefixes: string[] = [];
+        for (let i = 0; i < info.length - 1; i += 2) {
+          if (info[i] === "index_definition" && Array.isArray(info[i + 1])) {
+            const def = info[i + 1];
+            for (let j = 0; j < def.length - 1; j += 2) {
+              if (def[j] === "prefixes" && Array.isArray(def[j + 1])) {
+                prefixes = def[j + 1];
+                break;
+              }
+            }
+            break;
+          } else if (info[i] === "prefixes" && Array.isArray(info[i + 1])) {
+            prefixes = info[i + 1];
+            break;
+          }
+        }
+        for (const p of prefixes) {
+          const pStr = String(p);
+          if (pStr && !pStr.endsWith(":")) {
+            console.warn(
+              `[mem0] Valkey index '${this.collectionName}' has legacy prefix '${pStr}' without a trailing colon. ` +
+                "This may cause entity keys to leak into memory search results. " +
+                `To apply the fix, recreate the index using reset() or run 'FT.DROPINDEX ${this.collectionName}'.`,
+            );
+            break;
+          }
+        }
+      }
       return;
     } catch (error: any) {
       const message = String(error?.message ?? error).toLowerCase();
-      if (
-        !message.includes("not found") &&
-        !message.includes("unknown index")
-      ) {
+      if (!message.includes("not found") && !message.includes("unknown index")) {
         throw error;
       }
     }
@@ -321,9 +345,7 @@ export class ValkeyDB implements VectorStore {
       this.client = new Valkey(this.valkeyUrl) as unknown as ValkeyClient;
     }
 
-    this.client.on("error", (err) =>
-      console.error("Valkey Client Error:", err),
-    );
+    this.client.on("error", (err) => console.error("Valkey Client Error:", err));
     this.client.on("connect", () => console.log("Valkey Client Connected"));
   }
 
@@ -343,9 +365,7 @@ export class ValkeyDB implements VectorStore {
     const snakeFilters = filters ? toSnakeCase(filters) : undefined;
     if (
       !snakeFilters ||
-      !Object.entries(snakeFilters).some(
-        ([, value]) => value !== null && value !== undefined,
-      )
+      !Object.entries(snakeFilters).some(([, value]) => value !== null && value !== undefined)
     ) {
       return `*=>${knnPart}`;
     }
@@ -363,8 +383,7 @@ export class ValkeyDB implements VectorStore {
 
   private docToResult(doc: ValkeySearchDoc): VectorStoreResult {
     const rawDistance = doc.vector_score ? Number(doc.vector_score) : undefined;
-    const score =
-      rawDistance !== undefined ? Math.max(0, 1 - rawDistance) : undefined;
+    const score = rawDistance !== undefined ? Math.max(0, 1 - rawDistance) : undefined;
 
     const resultPayload: Record<string, any> = {
       hash: doc.hash ?? "",
@@ -375,10 +394,7 @@ export class ValkeyDB implements VectorStore {
     };
 
     if (doc.updated_at) {
-      resultPayload.updated_at = formatTimestamp(
-        Number(doc.updated_at),
-        this.timezone,
-      );
+      resultPayload.updated_at = formatTimestamp(Number(doc.updated_at), this.timezone);
     }
     if (doc.agent_id) resultPayload.agent_id = doc.agent_id;
     if (doc.run_id) resultPayload.run_id = doc.run_id;
@@ -399,11 +415,7 @@ export class ValkeyDB implements VectorStore {
     };
   }
 
-  async insert(
-    vectors: number[][],
-    ids: string[],
-    payloads: Record<string, any>[],
-  ): Promise<void> {
+  async insert(vectors: number[][], ids: string[], payloads: Record<string, any>[]): Promise<void> {
     await Promise.all(
       vectors.map(async (vector, idx) => {
         const payload = toSnakeCase(payloads[idx] ?? {});
@@ -418,14 +430,10 @@ export class ValkeyDB implements VectorStore {
           memory_id: id,
           hash: payload.hash ?? `hash_${id}`,
           memory: payload.data ?? `data_${id}`,
-          created_at: String(
-            Math.floor(new Date(payload.created_at).getTime() / 1000),
-          ),
+          created_at: String(Math.floor(new Date(payload.created_at).getTime() / 1000)),
           embedding: Buffer.from(new Float32Array(vector).buffer),
           metadata: JSON.stringify(
-            Object.fromEntries(
-              Object.entries(payload).filter(([k]) => !EXCLUDED_KEYS.has(k)),
-            ),
+            Object.fromEntries(Object.entries(payload).filter(([k]) => !EXCLUDED_KEYS.has(k))),
           ),
         };
 
@@ -514,11 +522,7 @@ export class ValkeyDB implements VectorStore {
     return this.docToResult(doc);
   }
 
-  async update(
-    vectorId: string,
-    vector: number[],
-    payload: Record<string, any>,
-  ): Promise<boolean> {
+  async update(vectorId: string, vector: number[], payload: Record<string, any>): Promise<boolean> {
     const snakePayload = toSnakeCase(payload);
     const key = `${this.indexPrefix}:${vectorId}`;
 
@@ -530,13 +534,9 @@ export class ValkeyDB implements VectorStore {
       memory_id: vectorId,
       hash: snakePayload.hash ?? `hash_${vectorId}`,
       memory: snakePayload.data ?? `data_${vectorId}`,
-      created_at: String(
-        Math.floor(new Date(snakePayload.created_at).getTime() / 1000),
-      ),
+      created_at: String(Math.floor(new Date(snakePayload.created_at).getTime() / 1000)),
       metadata: JSON.stringify(
-        Object.fromEntries(
-          Object.entries(snakePayload).filter(([k]) => !EXCLUDED_KEYS.has(k)),
-        ),
+        Object.fromEntries(Object.entries(snakePayload).filter(([k]) => !EXCLUDED_KEYS.has(k))),
       ),
     };
     if (vector) {
@@ -544,9 +544,7 @@ export class ValkeyDB implements VectorStore {
     }
 
     if (snakePayload.updated_at) {
-      hashData.updated_at = String(
-        Math.floor(new Date(snakePayload.updated_at).getTime() / 1000),
-      );
+      hashData.updated_at = String(Math.floor(new Date(snakePayload.updated_at).getTime() / 1000));
     }
 
     for (const field of ["agent_id", "run_id", "user_id"]) {
@@ -603,10 +601,7 @@ export class ValkeyDB implements VectorStore {
     }
   }
 
-  async list(
-    filters?: SearchFilters,
-    topK: number = 100,
-  ): Promise<[VectorStoreResult[], number]> {
+  async list(filters?: SearchFilters, topK: number = 100): Promise<[VectorStoreResult[], number]> {
     const dummyVector = new Array(this.embeddingModelDims).fill(0);
     const results = await this.search(dummyVector, topK, filters);
     return [results, results.length];
@@ -623,8 +618,7 @@ export class ValkeyDB implements VectorStore {
     }
 
     const randomUserId =
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15);
+      Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     await this.client.set("memory_migrations:1", randomUserId);
     return randomUserId;
   }
