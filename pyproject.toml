@@ -28,6 +28,11 @@ dependencies = [
 nlp = [
     "spacy>=3.7.0",
 ]
+audio = [
+    "funasr>=1.1.0",
+    "torch>=2.0.0",
+    "torchaudio>=2.0.0",
+]
 vector-stores = [
     "vecs>=0.4.0",
     "chromadb>=0.4.24",
