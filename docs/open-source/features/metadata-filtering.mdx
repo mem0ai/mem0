@@ -210,24 +210,40 @@ results = m.search(
 
 ## Configure it
 
-Tune your vector store so filter-heavy queries stay fast. Index fields you frequently filter on and keep complex checks for later in the evaluation order.
+Tune your vector store so filter-heavy queries stay fast. How you index fields depends on the store; Qdrant is a good example because mem0 already indexes the scope fields it manages.
+
+When mem0 creates or opens a collection on a remote Qdrant server (including Qdrant Cloud), it ensures keyword payload indexes exist for `user_id`, `agent_id`, `run_id`, and `actor_id`. Embedded Qdrant (`path=...`) skips payload index creation, so those fields stay unindexed there. No extra config is needed:
 
 ```python
-# Ensure your vector store supports indexing on filtered fields
+from mem0 import Memory
+
 config = {
     "vector_store": {
         "provider": "qdrant",
         "config": {
             "host": "localhost",
-            "port": 6333,
-            "indexed_fields": ["category", "priority", "status", "user_id"]
+            "port": 6333
         }
     }
 }
+
+m = Memory.from_config(config)
 ```
 
+`QdrantConfig` does not accept an `indexed_fields` key; passing one raises a validation error. For metadata you filter on often, create the payload index yourself with `qdrant-client` after the collection exists. mem0 writes metadata keys at the top level of the payload, so use the metadata key as `field_name`:
+
+```python
+from qdrant_client import QdrantClient
+
+client = QdrantClient(host="localhost", port=6333)
+client.create_payload_index("mem0", field_name="category", field_schema="keyword")
+client.create_payload_index("mem0", field_name="priority", field_schema="integer")  # for {"gte": 5}-style range filters
+```
+
+Use the collection name from your config (`mem0` by default). Match the schema to the filter: `keyword` for equality and list operators, `integer` or `float` for numeric comparisons. Qdrant only uses an index when its schema matches the filter, so an index with the wrong type will not speed up the query.
+
 <Info icon="check">
-  After enabling indexing, benchmark the same query: latency should drop once the store can prune documents on indexed fields before vector scoring.
+  After creating an index, benchmark the same query: latency should drop once the store can prune documents on indexed fields before vector scoring.
 </Info>
 
 <Tip>
