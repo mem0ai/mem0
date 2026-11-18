@@ -19,6 +19,12 @@ class GoogleGenAIEmbedding(EmbeddingBase):
 
         self.client = genai.Client(api_key=api_key)
 
+        self.embedding_types = {
+            "add": self.config.memory_add_embedding_type or "RETRIEVAL_DOCUMENT",
+            "update": self.config.memory_update_embedding_type or "RETRIEVAL_DOCUMENT",
+            "search": self.config.memory_search_embedding_type or "RETRIEVAL_QUERY",
+        }
+
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
         Get the embedding for the given text using Google Generative AI.
@@ -30,10 +36,14 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
 
-        # Create config for embedding parameters
-        config = types.EmbedContentConfig(output_dimensionality=self.config.embedding_dims)
+        embedding_type = "SEMANTIC_SIMILARITY"
+        if memory_action is not None:
+            if memory_action not in self.embedding_types:
+                raise ValueError(f"Invalid memory action: {memory_action}")
+            embedding_type = self.embedding_types[memory_action]
 
-        # Call the embed_content method with the correct parameters
+        config = types.EmbedContentConfig(output_dimensionality=self.config.embedding_dims, task_type=embedding_type)
+
         response = self.client.models.embed_content(model=self.config.model, contents=text, config=config)
 
         return response.embeddings[0].values
@@ -41,7 +51,14 @@ class GoogleGenAIEmbedding(EmbeddingBase):
     def embed_batch(self, texts, memory_action="add"):
         if not texts:
             return []
-        config = types.EmbedContentConfig(output_dimensionality=self.config.embedding_dims)
+
+        embedding_type = "SEMANTIC_SIMILARITY"
+        if memory_action is not None:
+            if memory_action not in self.embedding_types:
+                raise ValueError(f"Invalid memory action: {memory_action}")
+            embedding_type = self.embedding_types[memory_action]
+
+        config = types.EmbedContentConfig(output_dimensionality=self.config.embedding_dims, task_type=embedding_type)
         MAX_BATCH = 100
         all_embeddings = []
         for i in range(0, len(texts), MAX_BATCH):
