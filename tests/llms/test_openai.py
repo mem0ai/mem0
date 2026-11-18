@@ -309,6 +309,30 @@ def test_gpt5_mini_not_classified_as_reasoning(mock_openai_client):
     assert call_kwargs[1].get("temperature") == 0.1
 
 
+def test_gpt5_mini_strips_sampling_params(mock_openai_client):
+    """Bare gpt-5-mini (and gpt-5-nano, gpt-6.1-terra) must NOT send temperature/top_p.
+
+    OpenAI rejects any client-supplied value for these models with:
+        Unsupported value: 'temperature' does not support 0.1 with this model.
+    Regression for https://github.com/mem0ai/mem0/issues/6085
+    """
+    for model in ("gpt-5-mini", "gpt-5-nano", "gpt-6.1-terra"):
+        config = OpenAIConfig(model=model, temperature=0.1, top_p=0.1)
+        llm = OpenAILLM(config)
+        messages = [{"role": "user", "content": "Hello"}]
+
+        mock_response = Mock()
+        mock_response.choices = [Mock(message=Mock(content="ok"))]
+        mock_openai_client.chat.completions.create.return_value = mock_response
+
+        llm.generate_response(messages)
+
+        call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+        assert "temperature" not in call_kwargs, f"{model} must not send temperature"
+        assert "top_p" not in call_kwargs, f"{model} must not send top_p"
+        assert "max_tokens" not in call_kwargs, f"{model} must not send max_tokens"
+
+
 def test_is_reasoning_model_classification(mock_openai_client):
     """Test _is_reasoning_model correctly classifies known models."""
     config = OpenAIConfig(model="gpt-4.1")
@@ -322,6 +346,20 @@ def test_is_reasoning_model_classification(mock_openai_client):
     assert llm._is_reasoning_model("o1-preview") is True
     assert llm._is_reasoning_model("o1-2024-12-17") is True
     assert llm._is_reasoning_model("openai/o3-mini") is True
+
+    # Bare GPT-5 family — hyphenated variants reject client-supplied temperature/top_p.
+    # Regression for https://github.com/mem0ai/mem0/issues/6085
+    assert llm._is_reasoning_model("gpt-5-mini") is True
+    assert llm._is_reasoning_model("gpt-5-nano") is True
+    assert llm._is_reasoning_model("gpt-5-micro") is True
+    assert llm._is_reasoning_model("gpt-5-2026-01-01") is True
+    assert llm._is_reasoning_model("openai/gpt-5-mini") is True
+
+    # Entire GPT-6 family rejects client-supplied sampling params.
+    assert llm._is_reasoning_model("gpt-6") is True
+    assert llm._is_reasoning_model("gpt-6.1-terra") is True
+    assert llm._is_reasoning_model("gpt-6-mini") is True
+    assert llm._is_reasoning_model("openai/gpt-6.1-terra") is True
 
     # Non-reasoning models — should return False
     assert llm._is_reasoning_model("gpt-5.4-mini") is False
