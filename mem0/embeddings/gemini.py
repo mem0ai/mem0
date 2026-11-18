@@ -8,16 +8,32 @@ from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
 
 
+DEFAULT_MODEL = "models/gemini-embedding-001"
+
+
 class GoogleGenAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
-        self.config.model = self.config.model or "models/gemini-embedding-001"
+        self.config.model = self.config.model or DEFAULT_MODEL
         self.config.embedding_dims = self.config.embedding_dims or self.config.output_dimensionality or 768
 
-        api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
-
-        self.client = genai.Client(api_key=api_key)
+        if getattr(self.config, "vertexai", False):
+            # Vertex AI publisher model IDs are unprefixed. The Gemini Developer
+            # API accepts (and this class defaults to) a "models/" prefix, which
+            # Vertex answers with an empty-bodied 404, so normalise it here.
+            # Without this, flipping `vertexai` on an otherwise working config
+            # fails with a message that points nowhere.
+            if self.config.model.startswith("models/"):
+                self.config.model = self.config.model[len("models/") :]
+            self.client = genai.Client(
+                vertexai=True,
+                project=self.config.project,
+                location=self.config.location,
+            )
+        else:
+            api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
+            self.client = genai.Client(api_key=api_key)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
