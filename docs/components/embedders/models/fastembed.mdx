@@ -29,6 +29,13 @@ from mem0 import Memory
 os.environ["OPENAI_API_KEY"] = "your_api_key" # For LLM
 
 config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "fastembed_memories",
+            "embedding_model_dims": 1024
+        }
+    },
     "embedder": {
         "provider": "fastembed",
         "config": {
@@ -77,7 +84,7 @@ await memory.add(messages, { userId: "john" });
 </CodeGroup>
 
 <Note>
-  **The Python and TypeScript SDKs default to different models.** Python defaults to `thenlper/gte-large` (1024 dimensions), while TypeScript defaults to `fast-bge-small-en-v1.5` (384 dimensions). The TypeScript package (`fastembed` on npm) ships a fixed set of ONNX models and does not include `thenlper/gte-large`. Because the two defaults produce vectors of different dimensions, do not point both SDKs at the same vector store collection unless you configure them to use the same model.
+  **The Python and TypeScript SDKs default to different models.** Python defaults to `thenlper/gte-large` (1024 dimensions), while TypeScript defaults to `fast-bge-small-en-v1.5` (384 dimensions). The TypeScript package (`fastembed` on npm) ships a fixed set of ONNX models and does not include `thenlper/gte-large`. Because the two defaults produce vectors of different dimensions, do not point both SDKs at the same vector store collection unless you configure them to use the same model. In Python, the embedder derives its dimension from the model but the Qdrant vector store does not — its `embedding_model_dims` defaults to 1536, so set it to the model's dimension (1024 for `thenlper/gte-large`, as in the example above) or writes fail with `Vector dimension error: expected dim: 1536, got 1024`. A collection that already exists at another dimension cannot be reused: recreate it, or give the example its own `collection_name` as above.
 </Note>
 
 The TypeScript SDK supports these FastEmbed models. Pass the exact string as `model`:
@@ -99,7 +106,7 @@ Here are the parameters available for configuring the FastEmbed embedder:
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `model` | The name of the FastEmbed model to use | `thenlper/gte-large` |
-| `embedding_dims` | Dimensions of the embedding model (auto-derived from the model if not set) | `None` |
+| `embedding_dims` | Dimensions of the embedding model (auto-derived from the model if not set). Does not configure the vector store — set `vector_store.config.embedding_model_dims` to match. | `None` |
 </Tab>
 <Tab title="TypeScript">
 | Parameter | Description | Default Value |
