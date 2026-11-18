@@ -9,12 +9,82 @@ import redis
 from redis.commands.search.query import Query
 from redisvl.index import SearchIndex
 from redisvl.query import TextQuery, VectorQuery
-from redisvl.query.filter import Tag
+from redisvl.query.filter import Num, Tag, Text
 
 from mem0.memory.utils import extract_json
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+# Range operators compare numerically; Tag/Text only express (in)equality and
+# term matching, so they must go through Num.
+_NUMERIC_OPERATORS = {
+    "gt": lambda field, value: Num(field) > value,
+    "gte": lambda field, value: Num(field) >= value,
+    "lt": lambda field, value: Num(field) < value,
+    "lte": lambda field, value: Num(field) <= value,
+}
+
+
+def _build_condition(key, value):
+    """Translate one ``{key: value}`` filter entry into a redisvl filter expression.
+
+    ``value`` may be a scalar (exact Tag match), a list (Tag OR-of-values, i.e.
+    ``in``), or an operator dict such as ``{"gte": 18}`` or ``{"icontains": "x"}``.
+    """
+    if isinstance(value, dict):
+        conditions = []
+        for operator, operand in value.items():
+            if operator == "eq":
+                conditions.append(Tag(key) == operand)
+            elif operator == "ne":
+                conditions.append(Tag(key) != operand)
+            elif operator == "in":
+                conditions.append(Tag(key) == list(operand))
+            elif operator == "nin":
+                conditions.append(Tag(key) != list(operand))
+            elif operator in ("contains", "icontains"):
+                # RediSearch text matching is case-insensitive, so both map to Text.
+                conditions.append(Text(key) % operand)
+            elif operator in _NUMERIC_OPERATORS:
+                conditions.append(_NUMERIC_OPERATORS[operator](key, operand))
+            else:
+                raise ValueError(f"Unsupported filter operator: {operator}")
+        return reduce(lambda x, y: x & y, conditions)
+
+    # Scalars and lists both become Tag matches; a list means "any of" (``in``).
+    return Tag(key) == value
+
+
+def _build_filter_expression(filters):
+    """Build a redisvl filter expression from mem0's universal filter dict.
+
+    Supports scalar equality, list membership, per-field operator dicts
+    (eq/ne/gt/gte/lt/lte/in/nin/contains/icontains) and a top-level ``$or``.
+    ``None`` values are skipped so an all-``None`` filter matches everything.
+    ``$not`` is rejected: redisvl cannot negate a compound expression, so it
+    must fail loudly rather than be silently dropped.
+    """
+    if not filters:
+        return None
+
+    conditions = []
+    for key, value in filters.items():
+        if key == "$or":
+            or_conditions = [expr for expr in (_build_filter_expression(sub) for sub in value) if expr is not None]
+            if or_conditions:
+                conditions.append(reduce(lambda x, y: x | y, or_conditions))
+            continue
+        if key == "$not":
+            raise ValueError("Redis vector store does not support the $not filter operator")
+        if value is None:
+            continue
+        conditions.append(_build_condition(key, value))
+
+    if not conditions:
+        return None
+    return reduce(lambda x, y: x & y, conditions)
+
 
 # TODO: Improve as these are not the best fields for the Redis's perspective. Might do away with them.
 DEFAULT_FIELDS = [
@@ -151,11 +221,7 @@ class RedisDB(VectorStoreBase):
         self.index.load(data, id_field="memory_id")
 
     def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None):
-        filter = None
-        if filters:
-            conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
-            if conditions:
-                filter = reduce(lambda x, y: x & y, conditions)
+        filter = _build_filter_expression(filters)
 
         v = VectorQuery(
             vector=np.array(vectors, dtype=np.float32).tobytes(),
@@ -205,11 +271,7 @@ class RedisDB(VectorStoreBase):
         Returns:
             List[MemoryResult]: Search results.
         """
-        filter_expression = None
-        if filters:
-            conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
-            if conditions:
-                filter_expression = reduce(lambda x, y: x & y, conditions)
+        filter_expression = _build_filter_expression(filters)
 
         t = TextQuery(
             text=query,
@@ -346,11 +408,7 @@ class RedisDB(VectorStoreBase):
         """
         List all recent created memories from the vector store.
         """
-        filter = None
-        if filters:
-            conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
-            if conditions:
-                filter = reduce(lambda x, y: x & y, conditions)
+        filter = _build_filter_expression(filters)
         query = Query(str(filter) if filter is not None else "*").sort_by("created_at", asc=False)
         if top_k is not None:
             query = query.paging(0, top_k)
