@@ -990,33 +990,19 @@ class Memory(MemoryBase):
             self.db.save_messages(messages, session_scope)
             return []
 
-        # Phase 3: Batch embed all extracted memory texts
-        mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
-        try:
-            mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
-            embed_map = dict(zip(mem_texts, mem_embeddings_list))
-        except Exception:
-            # Fallback: embed individually
-            embed_map = {}
-            for text in mem_texts:
-                try:
-                    embed_map[text] = self.embedding_model.embed(text, "add")
-                except Exception as e:
-                    logger.warning(f"Failed to embed memory text: {e}")
-
-        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
-        # Build set of existing hashes for dedup
+        # Phase 3: Hash dedup + per-memory CPU processing (before embedding,
+        # so we don't pay for embeddings of memories that get deduplicated)
         existing_hashes = set()
         for mem in existing_results:
             h = mem.payload.get("hash") if hasattr(mem, "payload") and mem.payload else None
             if h:
                 existing_hashes.add(h)
 
-        records = []  # (memory_id, text, embedding, payload)
         seen_hashes = set()  # dedup within the current batch
+        candidates = []  # (memory_id, text, payload), embedding added in Phase 4
         for mem in extracted_memories:
             text = mem.get("text")
-            if not text or text not in embed_map:
+            if not text:
                 continue
 
             mem_hash = hashlib.md5(text.encode()).hexdigest()
@@ -1038,7 +1024,33 @@ class Memory(MemoryBase):
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
-            records.append((memory_id, text, embed_map[text], mem_metadata))
+            candidates.append((memory_id, text, mem_metadata))
+
+        if not candidates:
+            self.db.save_messages(messages, session_scope)
+            return []
+
+        # Phase 4: Batch embed only the surviving (deduplicated) texts
+        unique_texts = [text for _, text, _ in candidates]
+        try:
+            mem_embeddings_list = self.embedding_model.embed_batch(unique_texts, "add")
+            embed_map = dict(zip(unique_texts, mem_embeddings_list))
+        except Exception:
+            # Fallback: embed individually
+            embed_map = {}
+            for text in unique_texts:
+                try:
+                    embed_map[text] = self.embedding_model.embed(text, "add")
+                except Exception as e:
+                    logger.warning(f"Failed to embed memory text: {e}")
+
+        records = []  # (memory_id, text, embedding, payload)
+        for memory_id, text, mem_metadata in candidates:
+            embedding = embed_map.get(text)
+            if embedding is None:
+                logger.warning(f"Failed to embed memory text: {text[:50]}")
+                continue
+            records.append((memory_id, text, embedding, mem_metadata))
 
         if not records:
             self.db.save_messages(messages, session_scope)
@@ -2673,31 +2685,19 @@ class AsyncMemory(MemoryBase):
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
             return []
 
-        # Phase 3: Batch embed all extracted memory texts
-        mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
-        try:
-            mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
-            embed_map = dict(zip(mem_texts, mem_embeddings_list))
-        except Exception:
-            embed_map = {}
-            for text in mem_texts:
-                try:
-                    embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
-                except Exception as e:
-                    logger.warning(f"Failed to embed memory text (async): {e}")
-
-        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
+        # Phase 3: Hash dedup + per-memory CPU processing (before embedding,
+        # so we don't pay for embeddings of memories that get deduplicated)
         existing_hashes = set()
         for mem in existing_results:
             h = mem.payload.get("hash") if hasattr(mem, "payload") and mem.payload else None
             if h:
                 existing_hashes.add(h)
 
-        records = []
-        seen_hashes = set()
+        seen_hashes = set()  # dedup within the current batch
+        candidates = []  # (memory_id, text, payload), embedding added in Phase 4
         for mem in extracted_memories:
             text = mem.get("text")
-            if not text or text not in embed_map:
+            if not text:
                 continue
 
             mem_hash = hashlib.md5(text.encode()).hexdigest()
@@ -2719,7 +2719,32 @@ class AsyncMemory(MemoryBase):
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
-            records.append((memory_id, text, embed_map[text], mem_metadata))
+            candidates.append((memory_id, text, mem_metadata))
+
+        if not candidates:
+            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+            return []
+
+        # Phase 4: Batch embed only the surviving (deduplicated) texts
+        unique_texts = [text for _, text, _ in candidates]
+        try:
+            mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, unique_texts, "add")
+            embed_map = dict(zip(unique_texts, mem_embeddings_list))
+        except Exception:
+            embed_map = {}
+            for text in unique_texts:
+                try:
+                    embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
+                except Exception as e:
+                    logger.warning(f"Failed to embed memory text (async): {e}")
+
+        records = []  # (memory_id, text, embedding, payload)
+        for memory_id, text, mem_metadata in candidates:
+            embedding = embed_map.get(text)
+            if embedding is None:
+                logger.warning(f"Failed to embed memory text (async): {text[:50]}")
+                continue
+            records.append((memory_id, text, embedding, mem_metadata))
 
         if not records:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
