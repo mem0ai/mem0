@@ -60,7 +60,7 @@ class LangchainLLM(LLMBase):
         **kwargs,
     ):
         """
-        Generate a response based on the given messages using langchain_community.
+        Generate a response based on the given messages using langchain.
 
         Args:
             messages (list): List of message dicts containing 'role' and 'content'.
