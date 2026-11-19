@@ -93,6 +93,9 @@ class LLMReranker(BaseReranker):
 
     def _extract_score(self, response_text: str) -> float:
         """Extract numerical score from LLM response."""
+        # Drop reasoning blocks (e.g. qwen3, deepseek-r1) so numbers mentioned while thinking
+        # aren't taken as the score. An unterminated block means the answer was cut off.
+        response_text = re.sub(r"<think>.*?(?:</think>|$)", "", response_text, flags=re.DOTALL)
         # Prefer a decimal, fall back to an integer, then clamp: out-of-range outputs
         # like "2.0"/"5" become 1.0 instead of being mis-parsed into a stray 0/1 digit.
         matches = re.findall(r'-?\d+\.\d+', response_text) or re.findall(r'-?\d+', response_text)
