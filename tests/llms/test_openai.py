@@ -62,6 +62,49 @@ def test_generate_response_without_tools(mock_openai_client):
     assert response == "I'm doing well, thank you for asking!"
 
 
+def test_generate_response_falls_back_to_reasoning_content(mock_openai_client):
+    config = OpenAIConfig(model="glm-5.1", temperature=0.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Extract facts"}]
+
+    mock_message = Mock(content="", reasoning_content='{"facts": ["User lives in Guadalajara"]}')
+    mock_response = Mock(choices=[Mock(message=mock_message)])
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    assert response == '{"facts": ["User lives in Guadalajara"]}'
+
+
+def test_generate_response_prefers_content_over_reasoning_content(mock_openai_client):
+    config = OpenAIConfig(model="glm-5.1", temperature=0.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Extract facts"}]
+
+    mock_message = Mock(content='{"facts": ["final answer"]}', reasoning_content="internal reasoning")
+    mock_response = Mock(choices=[Mock(message=mock_message)])
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    assert response == '{"facts": ["final answer"]}'
+
+
+def test_generate_response_preserves_empty_content_without_reasoning(mock_openai_client):
+    config = OpenAIConfig(model="glm-5.1", temperature=0.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Extract facts"}]
+
+    mock_message = Mock(spec=["content"])
+    mock_message.content = ""
+    mock_response = Mock(choices=[Mock(message=mock_message)])
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    assert response == ""
+
+
 def test_generate_response_with_tools(mock_openai_client):
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = OpenAILLM(config)
