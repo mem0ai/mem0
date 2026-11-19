@@ -8,6 +8,14 @@ from mem0.embeddings.base import EmbeddingBase
 from mem0.utils.gcp_auth import GCPAuthenticator
 
 
+def _max_instances_per_request(model: str) -> int:
+    # Vertex AI's per-request input cap depends on the model family: gemini-embedding-*
+    # accepts exactly one input text per predict() call, while text-embedding-004/005 and
+    # text-multilingual-embedding-002 accept up to 250.
+    # https://docs.cloud.google.com/vertex-ai/docs/samples/aiplatform-sdk-embedding
+    return 1 if model.startswith("gemini-embedding") else 250
+
+
 class VertexAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
@@ -72,8 +80,9 @@ class VertexAIEmbedding(EmbeddingBase):
                 raise ValueError(f"Invalid memory action: {memory_action}")
             embedding_type = self.embedding_types[memory_action]
         all_embeddings = []
-        for i in range(0, len(texts), 250):
-            chunk = texts[i : i + 250]
+        chunk_size = _max_instances_per_request(self.config.model)
+        for i in range(0, len(texts), chunk_size):
+            chunk = texts[i : i + chunk_size]
             inputs = [TextEmbeddingInput(text=t, task_type=embedding_type) for t in chunk]
             results = self.model.get_embeddings(texts=inputs, output_dimensionality=self.config.embedding_dims)
             all_embeddings.extend(r.values for r in results)
