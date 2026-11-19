@@ -13,6 +13,7 @@ from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.minimax import MinimaxConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
+from mem0.configs.llms.together import TogetherConfig
 from mem0.configs.llms.vllm import VllmConfig
 from mem0.configs.llms.xai import XAIConfig
 from mem0.configs.rerankers.base import BaseRerankerConfig
@@ -43,7 +44,7 @@ class LlmFactory:
         "ollama": ("mem0.llms.ollama.OllamaLLM", OllamaConfig),
         "openai": ("mem0.llms.openai.OpenAILLM", OpenAIConfig),
         "groq": ("mem0.llms.groq.GroqLLM", BaseLlmConfig),
-        "together": ("mem0.llms.together.TogetherLLM", BaseLlmConfig),
+        "together": ("mem0.llms.together.TogetherLLM", TogetherConfig),
         "aws_bedrock": ("mem0.llms.aws_bedrock.AWSBedrockLLM", AWSBedrockConfig),
         "litellm": ("mem0.llms.litellm.LiteLLM", BaseLlmConfig),
         "azure_openai": ("mem0.llms.azure_openai.AzureOpenAILLM", AzureOpenAIConfig),
