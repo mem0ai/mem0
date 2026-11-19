@@ -9,6 +9,26 @@
 
 export const ENTITY_BOOST_WEIGHT = 0.5;
 
+const MISSING_TIMESTAMP = -Infinity;
+
+function parseTimestamp(value: unknown): number {
+  if (value == null) {
+    return MISSING_TIMESTAMP;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : MISSING_TIMESTAMP;
+  }
+  const parsed = Date.parse(String(value));
+  return Number.isNaN(parsed) ? MISSING_TIMESTAMP : parsed / 1000;
+}
+
+function resultSortKey(a: ScoredResult): [number, number, number, string] {
+  const payload = a.payload ?? {};
+  const updatedAt = parseTimestamp(payload.updated_at);
+  const createdAt = parseTimestamp(payload.created_at);
+  return [-a.score, -updatedAt, -createdAt, a.id];
+}
+
 /**
  * Get BM25 sigmoid parameters based on query length.
  *
@@ -158,6 +178,14 @@ export function scoreAndRank(
     scored.push(entry);
   }
 
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort((a, b) => {
+    const keyA = resultSortKey(a);
+    const keyB = resultSortKey(b);
+    for (let i = 0; i < keyA.length; i++) {
+      if (keyA[i] < keyB[i]) return -1;
+      if (keyA[i] > keyB[i]) return 1;
+    }
+    return 0;
+  });
   return scored.slice(0, topK);
 }

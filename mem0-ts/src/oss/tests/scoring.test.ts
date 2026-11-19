@@ -46,4 +46,61 @@ describe("scoreAndRank", () => {
     expect(details.maxPossibleScore).toBe(1.0);
     expect(details.finalScore).toBe(0.8);
   });
+
+  it("breaks score ties by updated_at", () => {
+    const tied = [
+      {
+        id: "older",
+        score: 0.5,
+        payload: { updated_at: "2026-01-01T00:00:00Z" },
+      },
+      {
+        id: "newer",
+        score: 0.5,
+        payload: { updated_at: "2026-06-01T00:00:00Z" },
+      },
+    ];
+    const scored = scoreAndRank(tied, {}, {}, 0.1, 10);
+    expect(scored.map((r) => r.id)).toEqual(["newer", "older"]);
+  });
+
+  it("breaks updated_at ties by created_at", () => {
+    const tied = [
+      {
+        id: "older",
+        score: 0.5,
+        payload: { created_at: "2026-01-01T00:00:00Z" },
+      },
+      {
+        id: "newer",
+        score: 0.5,
+        payload: { created_at: "2026-06-01T00:00:00Z" },
+      },
+    ];
+    const scored = scoreAndRank(tied, {}, {}, 0.1, 10);
+    expect(scored.map((r) => r.id)).toEqual(["newer", "older"]);
+  });
+
+  it("breaks timestamp ties by id for stability", () => {
+    const tied = [
+      { id: "b", score: 0.5, payload: { updated_at: "2026-01-01T00:00:00Z" } },
+      { id: "a", score: 0.5, payload: { updated_at: "2026-01-01T00:00:00Z" } },
+    ];
+    const scored = scoreAndRank(tied, {}, {}, 0.1, 10);
+    expect(scored.map((r) => r.id)).toEqual(["a", "b"]);
+  });
+
+  it("treats missing or malformed timestamps as older than valid ones", () => {
+    const tied = [
+      { id: "bad", score: 0.5, payload: { updated_at: "not-a-date" } },
+      { id: "missing", score: 0.5, payload: {} },
+      {
+        id: "valid",
+        score: 0.5,
+        payload: { updated_at: "2026-01-01T00:00:00Z" },
+      },
+    ];
+    const scored = scoreAndRank(tied, {}, {}, 0.1, 10);
+    expect(scored.map((r) => r.id)).toEqual(["valid", "bad", "missing"]);
+  });
 });
