@@ -29,8 +29,16 @@ describe("telemetry sampling", () => {
   let originalFetch: typeof global.fetch;
   let fetchMock: jest.Mock;
   let randomSpy: jest.SpyInstance;
+  let originalTelemetry: string | undefined;
 
   beforeEach(() => {
+    // jest.setup.ts disables telemetry for the whole suite. This file is the
+    // one that exercises the sender, so re-enable it and drop the module
+    // registry, since telemetry.ts reads MEM0_TELEMETRY at import time and the
+    // tests below import it dynamically. fetch is mocked, so nothing leaves.
+    originalTelemetry = process.env.MEM0_TELEMETRY;
+    process.env.MEM0_TELEMETRY = "true";
+    jest.resetModules();
     originalFetch = global.fetch;
     fetchMock = jest.fn().mockResolvedValue({
       ok: true,
@@ -41,6 +49,11 @@ describe("telemetry sampling", () => {
   });
 
   afterEach(() => {
+    if (originalTelemetry === undefined) {
+      delete process.env.MEM0_TELEMETRY;
+    } else {
+      process.env.MEM0_TELEMETRY = originalTelemetry;
+    }
     global.fetch = originalFetch;
     randomSpy.mockRestore();
     jest.resetModules();
