@@ -110,11 +110,25 @@ class OllamaLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        # Build parameters for Ollama
+        # Build parameters for Ollama via the shared reasoning-model gate so
+        # temperature/top_p/num_predict are omitted for o-series / gpt-5 names.
+        supported = self._get_supported_params(messages=messages)
         params = {
             "model": self.config.model,
             "messages": messages,
         }
+
+        options: Dict[str, Union[int, float]] = {}
+        if "temperature" in supported:
+            options["temperature"] = supported["temperature"]
+        if "top_p" in supported:
+            options["top_p"] = supported["top_p"]
+        if "max_tokens" in supported:
+            options["num_predict"] = supported["max_tokens"]
+        elif "max_completion_tokens" in supported:
+            options["num_predict"] = supported["max_completion_tokens"]
+        if options:
+            params["options"] = options
 
         # Handle JSON response format by using Ollama's native format parameter
         if response_format and response_format.get("type") == "json_object":
@@ -125,17 +139,6 @@ class OllamaLLM(LLMBase):
             else:
                 messages.append({"role": "user", "content": "Please respond with valid JSON only."})
             params["messages"] = messages
-
-        # Add options for Ollama (temperature, num_predict, top_p)
-        options = {
-            "temperature": self.config.temperature,
-            "num_predict": self.config.max_tokens,
-            "top_p": self.config.top_p,
-        }
-        params["options"] = options
-
-        # Remove OpenAI-specific parameters that Ollama doesn't support
-        params.pop("max_tokens", None)  # Ollama uses different parameter names
 
         if tools:
             params["tools"] = tools
