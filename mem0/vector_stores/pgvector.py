@@ -250,7 +250,7 @@ class PGVector(VectorStoreBase):
             except Exception as exc:
                 conn.rollback()
                 logger.error(f"Error occurred: {exc}")
-                raise exc
+                raise
             finally:
                 cur.close()
                 self.connection_pool.putconn(conn)
