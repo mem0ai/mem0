@@ -15,6 +15,10 @@ class ValkeyConfig(BaseModel):
     hnsw_ef_construction: int = Field(200, description="HNSW: search width during index construction")
     hnsw_ef_runtime: int = Field(10, description="HNSW: search width during queries")
     cluster_mode: bool = Field(False, description="Enable cluster mode for Valkey cluster (CME) deployments")
+    distance: str = Field(
+        "COSINE",
+        description="Distance metric for the vector index: COSINE, L2, or IP",
+    )
 
     @model_validator(mode="before")
     @classmethod
