@@ -1,0 +1,6 @@
+- insert:
+    - id: mem0
+      name: "@mem0/deepseek-plugin"
+      config:
+        # Credentials stay in the process environment, not the bundle.
+        userId: !!js process.env.MEM0_USER_ID
