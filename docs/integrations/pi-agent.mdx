@@ -40,6 +40,10 @@ source ~/.bashrc
 ```
 </CodeGroup>
 
+<Tip>
+  Already set up the [Mem0 CLI](/platform/cli) with `mem0 init`? The extension also reads the key it saved in `~/.mem0/config.json`, so you can skip this step. `MEM0_API_KEY` and `apiKey` in `mem0-config.json` take precedence.
+</Tip>
+
 ## Installation
 
 ```bash
@@ -68,7 +72,7 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `apiKey` | `string` | `$MEM0_API_KEY` | Mem0 API key. Environment variable takes precedence. |
+| `apiKey` | `string` | `$MEM0_API_KEY` | Mem0 API key. Environment variable takes precedence. Falls back to the key `mem0 init` saved. |
 | `userId` | `string` | `$MEM0_USER_ID` or `"default"` | User identity for memory scoping |
 | `autoCapture` | `boolean` | `true` | Store facts from conversations automatically |
 | `defaultScope` | `string` | `"project"` | Default memory scope: `project`, `session`, or `global` |
@@ -147,7 +151,7 @@ You: What do you know about my preferences?
 
 ## Troubleshooting
 
-- **"No API key found"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
+- **"No API key found"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites) or run `mem0 init`
 - **Extension not loading**: Check Pi startup output for errors. For a source checkout, run `pnpm build`, then `pi -e ./dist/entry.js` from the plugin directory
 - **Memories not capturing**: Verify `autoCapture` is `true` (default). Check `/mem0-status` for connection health
 - **Wrong project detected**: The plugin uses the git repository root as `app_id`. If not in a git repo, it falls back to the working directory name. Run `/mem0-status` to see the detected project

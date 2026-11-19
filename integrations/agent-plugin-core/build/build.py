@@ -103,6 +103,7 @@ def _render_harness_id(host: str, *, portable: bool = False) -> str:
         "\n"
         f'HARNESS_ID = "{host}"\n'
         f'SOURCE_TAG = "{tag}"\n'
+        f'DATA_DIR_NAME = "{host}-plugin"\n'
         "\n"
         "# Platform-side vocabulary (mem0_event.source + X-Application). The whole\n"
         "# plugin family is one source; which editor it runs in is the application.\n"

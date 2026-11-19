@@ -166,7 +166,7 @@ claude plugin update mem0@mem0-plugins --scope user
 
 | Problem | Fix |
 | --- | --- |
-| Missing key | Reinstall with `--config api_key="$MEM0_API_KEY"` while the var is set. |
+| Missing key | Reinstall with `--config api_key="$MEM0_API_KEY"` while the var is set, or run `mem0 init` with the [Mem0 CLI](/platform/cli). The plugin falls back to the key it saves. |
 | `401 Unauthorized` | API key is invalid or expired. Run `/mem0:status` to confirm. |
 | No memory after ending a session | Extraction runs in the background. Wait a moment, then search again. |
 | Sidekick won't start | Must be in a Git repo. Check that your Claude Code version supports plugin agents and worktrees. |

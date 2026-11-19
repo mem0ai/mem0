@@ -56,6 +56,10 @@ source ~/.bashrc
 ```
 </CodeGroup>
 
+<Tip>
+  Already set up the [Mem0 CLI](/platform/cli) with `mem0 init`? The plugin also reads the key it saved in `~/.mem0/config.json`, so you can skip this step. `config.apiKey` and `MEM0_API_KEY` take precedence.
+</Tip>
+
 ## Try it locally
 
 1. Build and pack the plugin:
@@ -103,7 +107,7 @@ For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that
 
 | Field | Required | Default | Notes |
 |---|---|---|---|
-| `apiKey` | no | `$MEM0_API_KEY` | Mem0 platform API key |
+| `apiKey` | no | `$MEM0_API_KEY` | Mem0 platform API key. Falls back to the key `mem0 init` saved. |
 | `userId` | yes | | Default entity that owns the memories |
 | `allowUserOverride` | no | `false` | Permit model-selected access to a different user only in a trusted multi-user deployment |
 | `host` | no | `api.mem0.ai` | Platform base URL (on-prem / dedicated) |
