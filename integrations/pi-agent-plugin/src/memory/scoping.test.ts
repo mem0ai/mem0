@@ -33,6 +33,28 @@ describe("detectAppId", () => {
     });
     expect(detectAppId("/home/user/scratch")).toBe("scratch");
   });
+
+  it("prefers MEM0_APP_ID over the git root", () => {
+    vi.stubEnv("MEM0_APP_ID", "pinned-app");
+    mockExecFileSync.mockReturnValue("/home/user/projects/my-app\n");
+    expect(detectAppId("/home/user/projects/my-app")).toBe("pinned-app");
+    vi.unstubAllEnvs();
+  });
+
+  it("uses MEM0_APP_ID outside a git repository", () => {
+    vi.stubEnv("MEM0_APP_ID", "pinned-app");
+    mockExecFileSync.mockImplementation(() => {
+      throw new Error("fatal: not a git repository");
+    });
+    expect(detectAppId("/home/user/scratch")).toBe("pinned-app");
+    vi.unstubAllEnvs();
+  });
+
+  it("uses a padded MEM0_APP_ID verbatim", () => {
+    vi.stubEnv("MEM0_APP_ID", "  my-app  ");
+    expect(detectAppId("/home/user/projects/other-repo")).toBe("  my-app  ");
+    vi.unstubAllEnvs();
+  });
 });
 
 describe("detectRunId", () => {
