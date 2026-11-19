@@ -28,16 +28,16 @@ def mock_cluster(mock_session):
 @pytest.fixture
 def cassandra_instance(mock_cluster, mock_session):
     """Create a CassandraDB instance with mocked cluster."""
-    with patch('mem0.vector_stores.cassandra.Cluster') as mock_cluster_class:
+    with patch("mem0.vector_stores.cassandra.Cluster") as mock_cluster_class:
         mock_cluster_class.return_value = mock_cluster
-        
+
         instance = CassandraDB(
-            contact_points=['127.0.0.1'],
+            contact_points=["127.0.0.1"],
             port=9042,
-            username='testuser',
-            password='testpass',
-            keyspace='test_keyspace',
-            collection_name='test_collection',
+            username="testuser",
+            password="testpass",
+            keyspace="test_keyspace",
+            collection_name="test_collection",
             embedding_model_dims=128,
         )
         instance.session = mock_session
@@ -46,24 +46,24 @@ def cassandra_instance(mock_cluster, mock_session):
 
 def test_cassandra_init(mock_cluster, mock_session):
     """Test CassandraDB initialization."""
-    with patch('mem0.vector_stores.cassandra.Cluster') as mock_cluster_class:
+    with patch("mem0.vector_stores.cassandra.Cluster") as mock_cluster_class:
         mock_cluster_class.return_value = mock_cluster
 
         instance = CassandraDB(
-            contact_points=['127.0.0.1'],
+            contact_points=["127.0.0.1"],
             port=9042,
-            username='testuser',
-            password='testpass',
-            keyspace='test_keyspace',
-            collection_name='test_collection',
+            username="testuser",
+            password="testpass",
+            keyspace="test_keyspace",
+            collection_name="test_collection",
             embedding_model_dims=128,
         )
 
-        assert instance.contact_points == ['127.0.0.1']
+        assert instance.contact_points == ["127.0.0.1"]
         assert instance.port == 9042
-        assert instance.username == 'testuser'
-        assert instance.keyspace == 'test_keyspace'
-        assert instance.collection_name == 'test_collection'
+        assert instance.username == "testuser"
+        assert instance.keyspace == "test_keyspace"
+        assert instance.collection_name == "test_collection"
         assert instance.embedding_model_dims == 128
 
 
@@ -95,12 +95,12 @@ def test_search(cassandra_instance):
     """Test vector search."""
     # Mock the database response
     mock_row1 = Mock()
-    mock_row1.id = 'id1'
+    mock_row1.id = "id1"
     mock_row1.vector = [0.1, 0.2, 0.3]
     mock_row1.payload = json.dumps({"text": "test1"})
 
     mock_row2 = Mock()
-    mock_row2.id = 'id2'
+    mock_row2.id = "id2"
     mock_row2.vector = [0.4, 0.5, 0.6]
     mock_row2.payload = json.dumps({"text": "test2"})
 
@@ -143,7 +143,7 @@ def test_get(cassandra_instance):
     """Test retrieving a vector by ID."""
     # Mock the database response
     mock_row = Mock()
-    mock_row.id = 'test_id'
+    mock_row.id = "test_id"
     mock_row.vector = [0.1, 0.2, 0.3]
     mock_row.payload = json.dumps({"text": "test"})
 
@@ -200,15 +200,15 @@ def test_col_info(cassandra_instance):
     info = cassandra_instance.col_info()
 
     assert isinstance(info, dict)
-    assert 'name' in info
-    assert 'keyspace' in info
+    assert "name" in info
+    assert "keyspace" in info
 
 
 def test_list(cassandra_instance):
     """Test listing vectors."""
     # Mock the database response
     mock_row = Mock()
-    mock_row.id = 'id1'
+    mock_row.id = "id1"
     mock_row.vector = [0.1, 0.2, 0.3]
     mock_row.payload = json.dumps({"text": "test1"})
 
@@ -229,45 +229,40 @@ def test_reset(cassandra_instance):
 
 def test_astra_db_connection(mock_cluster, mock_session):
     """Test connection with DataStax Astra DB secure connect bundle."""
-    with patch('mem0.vector_stores.cassandra.Cluster') as mock_cluster_class:
+    with patch("mem0.vector_stores.cassandra.Cluster") as mock_cluster_class:
         mock_cluster_class.return_value = mock_cluster
 
         instance = CassandraDB(
-            contact_points=['127.0.0.1'],
+            contact_points=["127.0.0.1"],
             port=9042,
-            username='testuser',
-            password='testpass',
-            keyspace='test_keyspace',
-            collection_name='test_collection',
+            username="testuser",
+            password="testpass",
+            keyspace="test_keyspace",
+            collection_name="test_collection",
             embedding_model_dims=128,
-            secure_connect_bundle='/path/to/bundle.zip'
+            secure_connect_bundle="/path/to/bundle.zip",
         )
 
-        assert instance.secure_connect_bundle == '/path/to/bundle.zip'
+        assert instance.secure_connect_bundle == "/path/to/bundle.zip"
 
 
 def test_search_with_filters(cassandra_instance):
     """Test vector search with filters."""
     # Mock the database response
     mock_row1 = Mock()
-    mock_row1.id = 'id1'
+    mock_row1.id = "id1"
     mock_row1.vector = [0.1, 0.2, 0.3]
     mock_row1.payload = json.dumps({"text": "test1", "category": "A"})
 
     mock_row2 = Mock()
-    mock_row2.id = 'id2'
+    mock_row2.id = "id2"
     mock_row2.vector = [0.4, 0.5, 0.6]
     mock_row2.payload = json.dumps({"text": "test2", "category": "B"})
 
     cassandra_instance.session.execute = Mock(return_value=[mock_row1, mock_row2])
 
     query_vector = [0.2, 0.3, 0.4]
-    results = cassandra_instance.search(
-        query="test",
-        vectors=query_vector,
-        top_k=5,
-        filters={"category": "A"}
-    )
+    results = cassandra_instance.search(query="test", vectors=query_vector, top_k=5, filters={"category": "A"})
 
     assert isinstance(results, list)
     # Should only return filtered results
@@ -277,11 +272,7 @@ def test_search_with_filters(cassandra_instance):
 
 def test_output_data_model():
     """Test OutputData model."""
-    data = OutputData(
-        id="test_id",
-        score=0.95,
-        payload={"text": "test"}
-    )
+    data = OutputData(id="test_id", score=0.95, payload={"text": "test"})
 
     assert data.id == "test_id"
     assert data.score == 0.95
@@ -315,3 +306,47 @@ def test_insert_without_payloads(cassandra_instance):
     assert cassandra_instance.session.prepare.called
     assert cassandra_instance.session.execute.called
 
+
+def _two_age_rows(instance):
+    row_young = Mock()
+    row_young.id = "id1"
+    row_young.vector = [0.1, 0.2, 0.3]
+    row_young.payload = json.dumps({"text": "young", "age": 20, "city": "delhi", "active": True})
+
+    row_old = Mock()
+    row_old.id = "id2"
+    row_old.vector = [0.4, 0.5, 0.6]
+    row_old.payload = json.dumps({"text": "old", "age": 35, "city": "Delhi HQ", "tags": ["a", "b"]})
+
+    instance.session.execute = Mock(return_value=[row_young, row_old])
+    return instance
+
+
+@pytest.mark.parametrize(
+    "filters,expected_ids",
+    [
+        ({"age": {"gte": 30}}, ["id2"]),
+        ({"age": {"gt": 20, "lt": 40}}, ["id2"]),
+        ({"age": {"ne": 20}}, ["id2"]),
+        ({"age": {"in": [35, 40]}}, ["id2"]),
+        ({"age": {"nin": [20]}}, ["id2"]),
+        ({"city": {"contains": "Delhi"}}, ["id2"]),
+        ({"city": {"icontains": "delhi hq"}}, ["id2"]),
+        ({"city": "*"}, ["id1", "id2"]),  # both rows have the field
+        ({"tags": {"in": ["b"]}}, ["id2"]),
+        ({"$or": [{"age": {"lt": 25}}, {"age": {"gte": 30}}]}, ["id1", "id2"]),
+        ({"$not": [{"age": {"lt": 25}}]}, ["id2"]),
+    ],
+)
+def test_search_supports_operator_filters(cassandra_instance, filters, expected_ids):
+    """Operator, $or/$not and wildcard filters must match rows instead of excluding everything (#7926)."""
+    instance = _two_age_rows(cassandra_instance)
+    results = instance.search(query="test", vectors=[0.2, 0.3, 0.4], top_k=5, filters=filters)
+    got = sorted(r.id for r in results)
+    assert got == (expected_ids if expected_ids is not None else ["id1", "id2"])
+
+
+def test_list_supports_operator_filters(cassandra_instance):
+    instance = _two_age_rows(cassandra_instance)
+    results = instance.list(filters={"age": {"gte": 30}})
+    assert [r.id for r in results[0]] == ["id2"]

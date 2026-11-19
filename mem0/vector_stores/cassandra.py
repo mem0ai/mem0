@@ -20,7 +20,7 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
-_SAFE_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]{0,127}$')
+_SAFE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,127}$")
 
 
 def _validate_identifier(name: str, label: str = "identifier") -> str:
@@ -36,6 +36,71 @@ class OutputData(BaseModel):
     id: Optional[str]
     score: Optional[float]
     payload: Optional[dict]
+
+
+def _field_matches(actual: Any, condition: Any) -> bool:
+    """Match one payload field against a processed filter condition."""
+    if condition == "*":
+        return actual is not None
+    if isinstance(condition, dict):
+        for op, expected in condition.items():
+            if op == "eq":
+                ok = actual == expected
+            elif op == "ne":
+                ok = actual != expected
+            elif op in ("gt", "gte", "lt", "lte"):
+                if actual is None:
+                    return False
+                if op == "gt":
+                    ok = actual > expected
+                elif op == "gte":
+                    ok = actual >= expected
+                elif op == "lt":
+                    ok = actual < expected
+                else:
+                    ok = actual <= expected
+            elif op == "in":
+                ok = (
+                    any(v in actual for v in expected) if isinstance(actual, (list, tuple, set)) else actual in expected
+                )
+            elif op == "nin":
+                ok = (
+                    not any(v in actual for v in expected)
+                    if isinstance(actual, (list, tuple, set))
+                    else actual not in expected
+                )
+            elif op == "contains":
+                ok = actual is not None and str(expected) in str(actual)
+            elif op == "icontains":
+                ok = actual is not None and str(expected).lower() in str(actual).lower()
+            else:
+                raise ValueError(f"Unsupported metadata filter operator: {op}")
+            if not ok:
+                return False
+        return True
+    if isinstance(condition, list):
+        return actual in condition
+    return actual == condition
+
+
+def _payload_matches(payload: Dict[str, Any], filters: Dict[str, Any]) -> bool:
+    """Evaluate a processed metadata filter against one payload row.
+
+    ``Memory`` hands stores operator dicts (``{"age": {"gte": 30}}``), ``$or`` / ``$not``
+    lists and the ``"*"`` wildcard, plus the list shorthand for ``in``; a bare value is
+    equality. Comparing those shapes against the payload with ``==`` matched nothing and
+    excluded every row (issue #7926).
+    """
+    for key, condition in filters.items():
+        if key == "$or":
+            if not any(_payload_matches(payload, sub) for sub in condition):
+                return False
+        elif key == "$not":
+            if any(_payload_matches(payload, sub) for sub in condition):
+                return False
+        elif not _field_matches(payload.get(key), condition):
+            return False
+    return True
 
 
 class CassandraDB(VectorStoreBase):
@@ -82,7 +147,7 @@ class CassandraDB(VectorStoreBase):
         self.cluster = None
         self.session = None
         self._setup_connection()
-        
+
         # Create keyspace and table if they don't exist
         self._create_keyspace()
         self._create_table()
@@ -93,31 +158,28 @@ class CassandraDB(VectorStoreBase):
             # Setup authentication
             auth_provider = None
             if self.username and self.password:
-                auth_provider = PlainTextAuthProvider(
-                    username=self.username,
-                    password=self.password
-                )
+                auth_provider = PlainTextAuthProvider(username=self.username, password=self.password)
 
             # Connect to Astra DB using secure connect bundle
             if self.secure_connect_bundle:
                 self.cluster = Cluster(
-                    cloud={'secure_connect_bundle': self.secure_connect_bundle},
+                    cloud={"secure_connect_bundle": self.secure_connect_bundle},
                     auth_provider=auth_provider,
-                    protocol_version=self.protocol_version
+                    protocol_version=self.protocol_version,
                 )
             else:
                 # Connect to standard Cassandra cluster
                 cluster_kwargs = {
-                    'contact_points': self.contact_points,
-                    'port': self.port,
-                    'protocol_version': self.protocol_version
+                    "contact_points": self.contact_points,
+                    "port": self.port,
+                    "protocol_version": self.protocol_version,
                 }
-                
+
                 if auth_provider:
-                    cluster_kwargs['auth_provider'] = auth_provider
-                
+                    cluster_kwargs["auth_provider"] = auth_provider
+
                 if self.load_balancing_policy:
-                    cluster_kwargs['load_balancing_policy'] = self.load_balancing_policy
+                    cluster_kwargs["load_balancing_policy"] = self.load_balancing_policy
 
                 self.cluster = Cluster(**cluster_kwargs)
 
@@ -186,10 +248,7 @@ class CassandraDB(VectorStoreBase):
             raise
 
     def insert(
-        self,
-        vectors: List[List[float]],
-        payloads: Optional[List[Dict]] = None,
-        ids: Optional[List[str]] = None
+        self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None
     ):
         """
         Insert vectors into the collection.
@@ -214,10 +273,7 @@ class CassandraDB(VectorStoreBase):
             prepared = self.session.prepare(query)
 
             for vector, payload, vec_id in zip(vectors, payloads, ids):
-                self.session.execute(
-                    prepared,
-                    (vec_id, vector, json.dumps(payload))
-                )
+                self.session.execute(prepared, (vec_id, vector, json.dumps(payload)))
         except Exception as e:
             logger.error(f"Failed to insert vectors: {e}")
             raise
@@ -265,7 +321,7 @@ class CassandraDB(VectorStoreBase):
                 if filters:
                     try:
                         payload = json.loads(row.payload) if row.payload else {}
-                        match = all(payload.get(k) == v for k, v in filters.items())
+                        match = _payload_matches(payload, filters)
                         if not match:
                             continue
                     except json.JSONDecodeError:
@@ -277,12 +333,7 @@ class CassandraDB(VectorStoreBase):
             scored_results = scored_results[:top_k]
 
             return [
-                OutputData(
-                    id=r[0],
-                    score=float(r[1]),
-                    payload=json.loads(r[2]) if r[2] else {}
-                )
-                for r in scored_results
+                OutputData(id=r[0], score=float(r[1]), payload=json.loads(r[2]) if r[2] else {}) for r in scored_results
             ]
         except Exception as e:
             logger.error(f"Search failed: {e}")
@@ -367,11 +418,7 @@ class CassandraDB(VectorStoreBase):
             if not row:
                 return None
 
-            return OutputData(
-                id=row.id,
-                score=None,
-                payload=json.loads(row.payload) if row.payload else {}
-            )
+            return OutputData(id=row.id, score=None, payload=json.loads(row.payload) if row.payload else {})
         except Exception as e:
             logger.error(f"Failed to get vector: {e}")
             return None
@@ -384,9 +431,7 @@ class CassandraDB(VectorStoreBase):
             List[str]: List of collection names
         """
         try:
-            prepared = self.session.prepare(
-                "SELECT table_name FROM system_schema.tables WHERE keyspace_name = ?"
-            )
+            prepared = self.session.prepare("SELECT table_name FROM system_schema.tables WHERE keyspace_name = ?")
             rows = self.session.execute(prepared, (self.keyspace,))
             return [row.table_name for row in rows]
         except Exception as e:
@@ -425,17 +470,13 @@ class CassandraDB(VectorStoreBase):
                 "name": self.collection_name,
                 "keyspace": self.keyspace,
                 "count": count,
-                "vector_dims": self.embedding_model_dims
+                "vector_dims": self.embedding_model_dims,
             }
         except Exception as e:
             logger.error(f"Failed to get collection info: {e}")
             return {}
 
-    def list(
-        self,
-        filters: Optional[Dict] = None,
-        top_k: int = 100
-    ) -> List[List[OutputData]]:
+    def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> List[List[OutputData]]:
         """
         List all vectors in the collection.
 
@@ -460,18 +501,14 @@ class CassandraDB(VectorStoreBase):
                 if filters:
                     try:
                         payload = json.loads(row.payload) if row.payload else {}
-                        match = all(payload.get(k) == v for k, v in filters.items())
+                        match = _payload_matches(payload, filters)
                         if not match:
                             continue
                     except json.JSONDecodeError:
                         continue
 
                 results.append(
-                    OutputData(
-                        id=row.id,
-                        score=None,
-                        payload=json.loads(row.payload) if row.payload else {}
-                    )
+                    OutputData(id=row.id, score=None, payload=json.loads(row.payload) if row.payload else {})
                 )
 
             return [results]
@@ -500,4 +537,3 @@ class CassandraDB(VectorStoreBase):
                 logger.info("Cassandra cluster connection closed")
         except Exception:
             pass
-
