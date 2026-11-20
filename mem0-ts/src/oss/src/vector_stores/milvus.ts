@@ -1,5 +1,6 @@
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 /**
  * Supported Milvus metric types. Mirrors the Python provider
@@ -46,11 +47,13 @@ export interface MilvusConfig extends VectorStoreConfig {
  */
 export class Milvus implements VectorStore {
   private client: any;
+  private readonly config: MilvusConfig;
   private readonly collectionName: string;
   private readonly dimension: number;
   private readonly metricType: MilvusMetricType;
+  private _clientPromise?: Promise<void>;
   private _initPromise?: Promise<void>;
-  // Lazily-resolved SDK enums (set during client construction).
+  // Lazily-resolved SDK enums (set during client initialization).
   private DataType: any;
   private FunctionType: any;
   // Whether this collection has the `text` + `sparse` fields for BM25 hybrid
@@ -59,46 +62,13 @@ export class Milvus implements VectorStore {
   private hasBm25Schema = false;
 
   constructor(config: MilvusConfig) {
+    this.config = config;
     this.collectionName = config.collectionName || "mem0";
     this.dimension = config.embeddingModelDims || config.dimension || 1536;
     this.metricType = config.metricType || "L2";
 
     if (config.client) {
       this.client = config.client;
-      // Best-effort SDK enum resolution for an injected client (undefined when
-      // the SDK isn't installed, e.g. unit tests that pass a fake client).
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const sdk = require("@zilliz/milvus2-sdk-node");
-        this.DataType = sdk.DataType;
-        this.FunctionType = sdk.FunctionType;
-      } catch (_) {
-        this.DataType = undefined;
-        this.FunctionType = undefined;
-      }
-    } else {
-      let MilvusClient: any;
-      let DataType: any;
-      let FunctionType: any;
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const sdk = require("@zilliz/milvus2-sdk-node");
-        MilvusClient = sdk.MilvusClient;
-        DataType = sdk.DataType;
-        FunctionType = sdk.FunctionType;
-      } catch (_) {
-        throw new Error(
-          "The '@zilliz/milvus2-sdk-node' package is required to use the Milvus vector store. " +
-            "Install it with: npm install @zilliz/milvus2-sdk-node",
-        );
-      }
-      this.DataType = DataType;
-      this.FunctionType = FunctionType;
-      this.client = new MilvusClient({
-        address: config.url || "http://localhost:19530",
-        token: config.token,
-        database: config.dbName || undefined,
-      });
     }
 
     this.initialize().catch((err) =>
@@ -106,9 +76,52 @@ export class Milvus implements VectorStore {
     );
   }
 
+  private async ensureClient(): Promise<void> {
+    if (!this._clientPromise) {
+      this._clientPromise = (async () => {
+        if (this.client) {
+          // Best-effort SDK enum resolution for an injected client (undefined
+          // when the SDK isn't installed, e.g. unit tests with a fake client).
+          try {
+            const sdk = await import("@zilliz/milvus2-sdk-node");
+            this.DataType = sdk.DataType;
+            this.FunctionType = sdk.FunctionType;
+          } catch (_) {
+            this.DataType = undefined;
+            this.FunctionType = undefined;
+          }
+          return;
+        }
+
+        const sdk = await loadPeer(
+          "@zilliz/milvus2-sdk-node",
+          "Milvus vector store",
+          () => import("@zilliz/milvus2-sdk-node"),
+        );
+        this.DataType = sdk.DataType;
+        this.FunctionType = sdk.FunctionType;
+        this.client = new sdk.MilvusClient({
+          address: this.config.url || "http://localhost:19530",
+          token: this.config.token,
+          database: this.config.dbName || undefined,
+        });
+      })().catch((err) => {
+        this._clientPromise = undefined;
+        throw err;
+      });
+    }
+    return this._clientPromise;
+  }
+
   async initialize(): Promise<void> {
     if (!this._initPromise) {
-      this._initPromise = this.createCol(this.collectionName, this.dimension);
+      this._initPromise = (async () => {
+        await this.ensureClient();
+        await this.createCol(this.collectionName, this.dimension);
+      })().catch((err) => {
+        this._initPromise = undefined;
+        throw err;
+      });
     }
     return this._initPromise;
   }
@@ -274,6 +287,7 @@ export class Milvus implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    await this.ensureClient();
     const data = vectors.map((vector, idx) => {
       const metadata = payloads[idx] || {};
       const row: Record<string, any> = {
@@ -319,6 +333,7 @@ export class Milvus implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
+    await this.ensureClient();
     const filter = this.createFilter(filters);
     const req: Record<string, any> = {
       collection_name: this.collectionName,
@@ -345,6 +360,7 @@ export class Milvus implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
+    await this.ensureClient();
     if (!this.hasBm25Schema) return null;
     try {
       const filter = this.createFilter(filters);
@@ -365,6 +381,7 @@ export class Milvus implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    await this.ensureClient();
     const res = await this.client.get({
       collection_name: this.collectionName,
       ids: [vectorId],
@@ -383,6 +400,7 @@ export class Milvus implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    await this.ensureClient();
     const row: Record<string, any> = {
       id: vectorId,
       vectors: vector,
@@ -396,6 +414,7 @@ export class Milvus implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
+    await this.ensureClient();
     await this.client.delete({
       collection_name: this.collectionName,
       ids: [vectorId],
@@ -403,6 +422,7 @@ export class Milvus implements VectorStore {
   }
 
   async deleteCol(): Promise<void> {
+    await this.ensureClient();
     await this.client.dropCollection({
       collection_name: this.collectionName,
     });
@@ -412,6 +432,7 @@ export class Milvus implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    await this.ensureClient();
     const filter = this.createFilter(filters);
     const res = await this.client.query({
       collection_name: this.collectionName,
@@ -436,6 +457,7 @@ export class Milvus implements VectorStore {
   }
 
   private async ensureMigrationsCol(): Promise<void> {
+    await this.ensureClient();
     const name = "memory_migrations";
     const has = await this.client.hasCollection({ collection_name: name });
     const exists = typeof has === "object" && has !== null ? has.value : has;

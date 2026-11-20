@@ -550,4 +550,27 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     const insertCall = client.calls.find((c) => c.method === "insert")!;
     expect(insertCall.args.data[0].text).toBe("d");
   });
+
+  it("defers loading @zilliz/milvus2-sdk-node until async initialization (ESM compatible)", () => {
+    // Constructing without an injected client must not synchronously require()
+    // @zilliz/milvus2-sdk-node, which would throw in ESM bundles.
+    expect(
+      () =>
+        new Milvus({
+          collectionName: "lazy_esm_test",
+          url: "localhost:19530",
+          dimension: 3,
+        }),
+    ).not.toThrow();
+  });
+
+  it("does not contain synchronous require() calls for @zilliz/milvus2-sdk-node", () => {
+    const { readFileSync } = require("fs");
+    const { resolve } = require("path");
+    const source = readFileSync(
+      resolve(__dirname, "../vector_stores/milvus.ts"),
+      "utf8",
+    );
+    expect(source).not.toMatch(/require\s*\(\s*["']@zilliz\/milvus2-sdk-node/);
+  });
 });
