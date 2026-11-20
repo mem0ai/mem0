@@ -212,22 +212,23 @@ results = m.search(
 
 Tune your vector store so filter-heavy queries stay fast. Index fields you frequently filter on and keep complex checks for later in the evaluation order.
 
+With Qdrant, Mem0 creates keyword indexes for `user_id`, `agent_id`, `run_id` and `actor_id` when it connects to a Qdrant server or Qdrant Cloud. It doesn't create indexes in local mode (`path=`). Mem0 has no setting for indexing other fields.
+
+To index your own metadata fields, create the payload indexes with `qdrant-client`. Mem0 stores metadata keys at the top level of each point's payload, so use the metadata key as the field name:
+
 ```python
-# Ensure your vector store supports indexing on filtered fields
-config = {
-    "vector_store": {
-        "provider": "qdrant",
-        "config": {
-            "host": "localhost",
-            "port": 6333,
-            "indexed_fields": ["category", "priority", "status", "user_id"]
-        }
-    }
-}
+from qdrant_client import QdrantClient
+
+client = QdrantClient(host="localhost", port=6333)
+
+# "mem0" is the default collection_name; use yours if you changed it
+client.create_payload_index("mem0", field_name="category", field_schema="keyword")
+client.create_payload_index("mem0", field_name="status", field_schema="keyword")
+client.create_payload_index("mem0", field_name="priority", field_schema="integer")  # for range filters like {"gte": 5}
 ```
 
 <Info icon="check">
-  After enabling indexing, benchmark the same query: latency should drop once the store can prune documents on indexed fields before vector scoring.
+  After creating the indexes, benchmark the same query: latency should drop once the store can prune documents on indexed fields before vector scoring.
 </Info>
 
 <Tip>
