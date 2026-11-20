@@ -68,11 +68,13 @@ def test_completions_create(mock_memory_client, mock_litellm):
     completions = Completions(mock_memory_client)
 
     messages = [{"role": "user", "content": "Hello, how are you?"}]
-    mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
+    mock_memory_client.search.return_value = {"results": [{"memory": "Some relevant memory"}]}
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     mock_litellm.supports_function_calling.return_value = True
 
-    response = completions.create(model="gpt-4.1-nano-2025-04-14", messages=messages, user_id="test_user", temperature=0.7)
+    response = completions.create(
+        model="gpt-4.1-nano-2025-04-14", messages=messages, user_id="test_user", temperature=0.7
+    )
 
     mock_memory_client.add.assert_called_once()
     mock_memory_client.search.assert_called_once()
@@ -88,7 +90,7 @@ def test_completions_create(mock_memory_client, mock_litellm):
 
 def test_completions_create_keeps_filters_out_of_add(mock_memory_client, mock_litellm):
     completions = Completions(mock_memory_client)
-    mock_memory_client.search.return_value = []
+    mock_memory_client.search.return_value = {"results": []}
     mock_litellm.supports_function_calling.return_value = True
 
     with patch("mem0.proxy.main.threading.Thread") as mock_thread:
@@ -102,7 +104,94 @@ def test_completions_create_keeps_filters_out_of_add(mock_memory_client, mock_li
 
     assert "filters" not in mock_memory_client.add.call_args.kwargs
     assert mock_memory_client.add.call_args.kwargs["user_id"] == "test_user"
-    assert mock_memory_client.search.call_args.kwargs["filters"] == {"categories": {"in": ["travel"]}}
+    # Entity ids route through filters (merged with the user-supplied filters),
+    # matching the search() contract that rejects top-level entity params.
+    assert mock_memory_client.search.call_args.kwargs["filters"] == {
+        "categories": {"in": ["travel"]},
+        "user_id": "test_user",
+    }
+
+
+def test_completions_search_routes_entity_ids_through_filters(mock_memory_client, mock_litellm):
+    """Regression test: chat completions must route entity ids through filters.
+
+    `Memory.search` and `MemoryClient.search` reject top-level entity params
+    (`user_id`/`agent_id`/`run_id`) with a ValueError — they must be passed via
+    `filters={"user_id": ...}` instead. The proxy's `_fetch_relevant_memories`
+    used to pass them as top-level kwargs, so every chat completion whose last
+    message is a user message raised:
+
+        ValueError: Top-level entity parameters {'user_id'} are not supported
+        in search(). Use filters={'user_id': '...'} instead.
+
+    The search must therefore be called with the entity ids merged into
+    `filters` (user-supplied filters preserved, None entity ids omitted) and no
+    top-level entity kwargs at all.
+    """
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = {"results": [{"memory": "Some relevant memory"}]}
+    mock_litellm.supports_function_calling.return_value = True
+
+    with patch("mem0.proxy.main.threading.Thread") as mock_thread:
+        mock_thread.side_effect = lambda target, daemon: Mock(start=target)
+        completions.create(
+            model="gpt-4.1-nano-2025-04-14",
+            messages=[{"role": "user", "content": "Hello"}],
+            user_id="test_user",
+            filters={"categories": {"in": ["travel"]}},
+        )
+
+    search_kwargs = mock_memory_client.search.call_args.kwargs
+    # No top-level entity params — this is what both search() implementations reject.
+    assert "user_id" not in search_kwargs
+    assert "agent_id" not in search_kwargs
+    assert "run_id" not in search_kwargs
+    # Entity ids live in filters, merged with the user-supplied filters.
+    assert search_kwargs["filters"]["user_id"] == "test_user"
+    assert search_kwargs["filters"]["categories"] == {"in": ["travel"]}
+
+
+def test_completions_search_filters_omit_unset_entity_ids(mock_memory_client, mock_litellm):
+    """Only the entity ids actually provided should land in filters."""
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = {"results": []}
+    mock_litellm.supports_function_calling.return_value = True
+
+    with patch("mem0.proxy.main.threading.Thread") as mock_thread:
+        mock_thread.side_effect = lambda target, daemon: Mock(start=target)
+        completions.create(
+            model="gpt-4.1-nano-2025-04-14",
+            messages=[{"role": "user", "content": "Hello"}],
+            user_id="test_user",
+        )
+
+    search_kwargs = mock_memory_client.search.call_args.kwargs
+    assert "user_id" not in search_kwargs
+    assert search_kwargs["filters"] == {"user_id": "test_user"}
+
+
+def test_completions_format_query_reads_results_key_for_memory_client(mock_memory_client, mock_litellm):
+    """Regression test: the MemoryClient branch of _format_query_with_memories
+    must read `relevant_memories["results"]`, not iterate the response dict.
+
+    MemoryClient.search returns {"results": [...]}; iterating the dict yields
+    the key string "results", and `memory["memory"]` on that string raises
+    TypeError: string indices must be integers.
+    """
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = {"results": [{"memory": "user likes cats"}]}
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    mock_litellm.supports_function_calling.return_value = True
+
+    response = completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=[{"role": "user", "content": "Hello"}],
+        user_id="test_user",
+    )
+
+    assert response == {"choices": [{"message": {"content": "ok"}}]}
+    prompt = mock_litellm.completion.call_args[1]["messages"][-1]["content"]
+    assert "user likes cats" in prompt
 
 
 def test_completions_create_with_system_message(mock_memory_client, mock_litellm):
@@ -112,7 +201,7 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello, how are you?"},
     ]
-    mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
+    mock_memory_client.search.return_value = {"results": [{"memory": "Some relevant memory"}]}
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     mock_litellm.supports_function_calling.return_value = True
 
@@ -137,7 +226,7 @@ def test_completions_create_messages_default_does_not_leak_between_calls(mock_me
     completions = Completions(mock_memory_client)
     mock_litellm.supports_function_calling.return_value = True
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
-    mock_memory_client.search.return_value = []
+    mock_memory_client.search.return_value = {"results": []}
 
     # Each call passes a fresh list — confirms the public happy path stays green.
     completions.create(
