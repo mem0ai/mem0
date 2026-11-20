@@ -1,3 +1,5 @@
+import { readFileSync } from "fs";
+import { join } from "path";
 import { Milvus } from "../vector_stores/milvus";
 
 /**
@@ -549,5 +551,21 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     await store.insert([[1, 2, 3]], ["a"], [{ data: "d" }]);
     const insertCall = client.calls.find((c) => c.method === "insert")!;
     expect(insertCall.args.data[0].text).toBe("d");
+  });
+
+  it("never loads the SDK via a synchronous require()", () => {
+    // Regression: the constructor used to call require("@zilliz/milvus2-sdk-node")
+    // synchronously. tsup's ESM output rewrites require() into a shim that
+    // throws "Dynamic require of ... is not supported", which made the store
+    // unusable for every ESM consumer (a misleading "package not installed"
+    // error on the no-client path, and undefined DataType/FunctionType on the
+    // injected-client path). The SDK must be loaded lazily via dynamic
+    // import() instead — the same rule AGENTS.md states and every other
+    // vector store follows (loadPeer + ensureClient).
+    const source = readFileSync(
+      join(__dirname, "..", "vector_stores", "milvus.ts"),
+      "utf8",
+    );
+    expect(source).not.toMatch(/[^.\w]require\(\s*["']/);
   });
 });
