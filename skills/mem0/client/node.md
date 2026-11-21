@@ -379,7 +379,7 @@ const m = new Memory(config);
 const m2 = Memory.fromConfig(config);
 ```
 
-Defaults when omitted: LLM `openai` `gpt-5-mini`, embedder `openai` `text-embedding-3-small`, vector store `memory` (in-process), history `sqlite` at `memory.db`. `reranker` is also accepted (providers `cohere`, `zero_entropy`, `sentence_transformer`, `huggingface`, `llm_reranker`) and applies when `search` is called with `rerank: true`. There is no graph store in the TS OSS SDK.
+Defaults when omitted: LLM `openai` `gpt-6.1-terra`, embedder `openai` `text-embedding-3-small`, vector store `memory` (in-process), history `sqlite` at `memory.db`. `reranker` is also accepted (providers `cohere`, `zero_entropy`, `sentence_transformer`, `huggingface`, `llm_reranker`) and applies when `search` is called with `rerank: true`. There is no graph store in the TS OSS SDK.
 
 ### Methods
 

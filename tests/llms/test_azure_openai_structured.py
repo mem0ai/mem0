@@ -59,7 +59,7 @@ def test_init_with_default_credential(mock_credential, mock_token_provider, mock
     mock_token_provider.return_value = "token-provider"
     llm = AzureOpenAIStructuredLLM(config)
     # Should set default model if not provided
-    assert llm.config.model == "gpt-5-mini"
+    assert llm.config.model == "gpt-6.1-terra"
     mock_credential.assert_called_once()
     mock_token_provider.assert_called_once_with(mock_credential.return_value, SCOPE)
     mock_azure_openai.assert_called_once()
@@ -94,7 +94,7 @@ def test_init_with_placeholder_api_key_uses_default_credential(
         config = DummyConfig(model=None, azure_kwargs=DummyAzureKwargs(api_key="your-api-key"))
         mock_token_provider.return_value = "token-provider"
         llm = AzureOpenAIStructuredLLM(config)
-        assert llm.config.model == "gpt-5-mini"
+        assert llm.config.model == "gpt-6.1-terra"
         mock_credential.assert_called_once()
         mock_token_provider.assert_called_once_with(mock_credential.return_value, SCOPE)
         mock_azure_openai.assert_called_once()

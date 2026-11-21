@@ -141,3 +141,10 @@ def test_generate_response_with_tools(mock_litellm):
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
+def test_litellm_default_model(mock_litellm):
+    """Test that LiteLLM defaults to gpt-6.1-terra when no model is provided."""
+    config = BaseLlmConfig(model=None)
+    llm = litellm.LiteLLM(config)
+    assert llm.config.model == "gpt-6.1-terra"

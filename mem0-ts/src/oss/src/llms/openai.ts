@@ -12,7 +12,7 @@ export class OpenAILLM implements LLM {
       baseURL: config.baseURL,
       ...(config.timeout != null && { timeout: config.timeout }),
     });
-    this.model = config.model || "gpt-5-mini";
+    this.model = config.model || "gpt-6.1-terra";
   }
 
   async generateResponse(

@@ -359,7 +359,7 @@ pip install "mem0ai[extras]"   # optional: fastembed for Qdrant BM25 keyword sea
 ```python
 from mem0 import Memory
 
-m = Memory()  # Defaults: OpenAI gpt-5-mini + text-embedding-3-small, local Qdrant at /tmp/qdrant
+m = Memory()  # Defaults: OpenAI gpt-6.1-terra + text-embedding-3-small, local Qdrant at /tmp/qdrant
 ```
 
 `Memory(config)` takes a `MemoryConfig` object. For a plain dict use `Memory.from_config(config)`. Requires `OPENAI_API_KEY` for the default LLM and embedder.

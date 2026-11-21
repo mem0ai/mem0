@@ -502,3 +502,9 @@ def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):
     llm = OpenAILLM(config)
     assert llm.config.http_client_proxies == "http://proxy.local:8080"
     assert isinstance(llm.config.http_client, httpx.Client)
+
+
+def test_openai_default_model(mock_openai_client):
+    """Test that OpenAILLM defaults to gpt-6.1-terra when no model is provided."""
+    llm = OpenAILLM(OpenAIConfig(api_key="test-key"))
+    assert llm.config.model == "gpt-6.1-terra"

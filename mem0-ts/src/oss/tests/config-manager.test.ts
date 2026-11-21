@@ -403,7 +403,7 @@ describe("ConfigManager", () => {
         });
 
         expect(cfg.llm.config.baseURL).toBe("https://api.openai.com/v1");
-        expect(cfg.llm.config.model).toBe("gpt-5-mini");
+        expect(cfg.llm.config.model).toBe("gpt-6.1-terra");
       }
     });
 

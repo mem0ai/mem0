@@ -60,3 +60,10 @@ def test_uses_openai_base_url_environment_variable(monkeypatch):
         OpenAIStructuredLLM(OpenAIConfig(api_key="test-api-key"))
 
     mock_openai.assert_called_once_with(api_key="test-api-key", base_url=base_url)
+
+
+def test_openai_structured_default_model():
+    """Test that OpenAI structured LLM defaults to gpt-6.1-terra when no model is provided."""
+    with patch("mem0.llms.openai_structured.OpenAI"):
+        llm = OpenAIStructuredLLM(OpenAIConfig(api_key="test-api-key"))
+        assert llm.config.model == "gpt-6.1-terra"

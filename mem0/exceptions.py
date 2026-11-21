@@ -353,7 +353,7 @@ class LLMError(MemoryError):
         raise LLMError(
             message="LLM operation failed",
             error_code="LLM_001",
-            details={"model": "gpt-5-mini", "prompt_length": 500},
+            details={"model": "gpt-6.1-terra", "prompt_length": 500},
             suggestion="Please check your LLM configuration and API key"
         )
     """

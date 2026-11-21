@@ -59,7 +59,7 @@ What happens under the hood:
 1. The prompt is stored to Mem0 (`POST /v3/memories/add/`), awaited before the LLM call (a failed write is logged and ignored)
 2. The prompt is sent to Mem0 search (`POST /v3/memories/search/`) to retrieve relevant memories
 3. If any memories are found, they are injected as a system message at the start of the prompt
-4. The underlying LLM (e.g., OpenAI gpt-5-mini) generates a response using the enriched prompt
+4. The underlying LLM (e.g., OpenAI gpt-6.1-terra) generates a response using the enriched prompt
 
 For `generateText`, the retrieved memories are also attached to the result as a source:
 

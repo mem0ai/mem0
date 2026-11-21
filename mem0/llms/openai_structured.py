@@ -12,7 +12,7 @@ class OpenAIStructuredLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gpt-5-mini"
+            self.config.model = "gpt-6.1-terra"
 
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
         base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"

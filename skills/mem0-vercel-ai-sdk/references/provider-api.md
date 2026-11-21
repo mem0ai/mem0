@@ -233,4 +233,4 @@ Both `doGenerate` and `doStream` follow the same internal flow:
 type Mem0ChatModelId = string & NonNullable<unknown>;
 ```
 
-Any non-null string. The model ID is passed through to the underlying provider (e.g., `"gpt-5-mini"`, `"gemini-2.5-flash"`).
+Any non-null string. The model ID is passed through to the underlying provider (e.g., `"gpt-6.1-terra"`, `"gemini-2.5-flash"`).
