@@ -205,3 +205,17 @@ class TestRemoveCodeBlocks:
 
     def test_unsupported_content_type_returns_empty_string(self):
         assert remove_code_blocks(42) == ""
+
+    def test_four_backtick_outer_fence_enclosing_inner_code_blocks(self):
+        content = "````markdown\nRun this check:\n```sh\necho ok\n```\n````"
+        expected = "Run this check:\n```sh\necho ok\n```"
+        assert remove_code_blocks(content) == expected
+
+    def test_five_backtick_outer_fence(self):
+        content = "`````\nouter\n````\ninner\n````\n`````"
+        expected = "outer\n````\ninner\n````"
+        assert remove_code_blocks(content) == expected
+
+    def test_mismatched_fence_length_not_stripped(self):
+        content = "````markdown\ncontent\n```"
+        assert remove_code_blocks(content) == content
