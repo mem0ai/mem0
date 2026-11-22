@@ -205,3 +205,8 @@ class TestRemoveCodeBlocks:
 
     def test_unsupported_content_type_returns_empty_string(self):
         assert remove_code_blocks(42) == ""
+
+    def test_longer_outer_fence_with_nested_blocks(self):
+        # Reproduces #7963: 4-backtick outer fence enclosing inner 3-backtick code block
+        content = "````markdown\nRun this check:\n```sh\necho ok\n```\n````"
+        assert remove_code_blocks(content) == "Run this check:\n```sh\necho ok\n```"
