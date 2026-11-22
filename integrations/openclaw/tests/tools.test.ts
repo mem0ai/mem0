@@ -887,3 +887,101 @@ describe("memory_update execute", () => {
   });
 });
 
+
+// ---------------------------------------------------------------------------
+// memory_event_list / memory_event_status mode guards
+// ---------------------------------------------------------------------------
+
+describe("memory_event tools mode guards", () => {
+  // Mirrors index.ts: the OSS path always sets deps.backend to the
+  // providerToBackend adapter, whose event methods throw a generic error.
+  // The tools must return the documented not_platform contract based on the
+  // config mode, not on backend presence.
+  const ossBackend = {
+    listEvents: vi
+      .fn()
+      .mockRejectedValue(new Error("Event management is only available in platform mode.")),
+    getEvent: vi
+      .fn()
+      .mockRejectedValue(new Error("Event management is only available in platform mode.")),
+  };
+
+  function ossDeps() {
+    return createMockToolDeps({
+      cfg: {
+        mode: "open-source",
+        userId: "testuser",
+        topK: 5,
+        autoCapture: true,
+        autoRecall: true,
+        searchThreshold: 0.1,
+        customInstructions: "test",
+        customCategories: {},
+      },
+      backend: ossBackend,
+    });
+  }
+
+  it("memory_event_list returns the not_platform contract in open-source mode", async () => {
+    const ctx = ossDeps();
+    const tool = createMemoryEventListTool(ctx);
+
+    const result = await tool.execute("call-1", {});
+
+    expect(result.content[0].text).toBe(
+      "Event tracking is only available in platform mode.",
+    );
+    expect(result.details.error).toBe("not_platform");
+    expect(ctx.backend.listEvents).not.toHaveBeenCalled();
+    expect(ctx.captureToolEvent).toHaveBeenCalledWith("memory_event_list", {
+      success: false,
+      latency_ms: 0,
+      error: "not_platform",
+    });
+  });
+
+  it("memory_event_status returns the not_platform contract in open-source mode", async () => {
+    const ctx = ossDeps();
+    const tool = createMemoryEventStatusTool(ctx);
+
+    const result = await tool.execute("call-2", { event_id: "ev-1" });
+
+    expect(result.content[0].text).toBe(
+      "Event tracking is only available in platform mode.",
+    );
+    expect(result.details.error).toBe("not_platform");
+    expect(ctx.backend.getEvent).not.toHaveBeenCalled();
+    expect(ctx.captureToolEvent).toHaveBeenCalledWith("memory_event_status", {
+      success: false,
+      latency_ms: 0,
+      error: "not_platform",
+    });
+  });
+
+  it("memory_event_list still lists events in platform mode", async () => {
+    const ctx = createMockToolDeps({
+      backend: {
+        listEvents: vi
+          .fn()
+          .mockResolvedValue([
+            {
+              id: "ev-1",
+              event_type: "ADD",
+              status: "done",
+              latency: 12.4,
+              created_at: "2026-01-01T00:00:00Z",
+            },
+          ]),
+        getEvent: vi.fn(),
+      },
+    });
+    const tool = createMemoryEventListTool(ctx);
+
+    const result = await tool.execute("call-3", {});
+
+    expect(ctx.backend.listEvents).toHaveBeenCalled();
+    expect(result.content[0].text).toContain("1 event(s)");
+    expect(result.details.count).toBe(1);
+    expect(result.details.error).toBeUndefined();
+  });
+});
