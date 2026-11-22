@@ -140,3 +140,20 @@ def test_parse_response_with_tools_object_style(mock_ollama_client):
     result = llm._parse_response(mock_response, tools)
 
     assert result["tool_calls"] == [{"name": "extract", "arguments": {"entities": ["Alice"]}}]
+
+
+def test_parse_response_with_null_function_tool_call(mock_ollama_client):
+    """A dict tool_call with an explicit "function": null must not crash parsing.
+
+    The object-style branch already guards a missing function (`if fn else`);
+    the dict branch must degrade the same way: empty name and arguments.
+    """
+    config = OllamaConfig(model="llama3.1:70b")
+    llm = OllamaLLM(config)
+
+    mock_response = {"message": {"content": "", "tool_calls": [{"function": None}]}}
+    tools = [{"type": "function", "function": {"name": "extract"}}]
+
+    result = llm._parse_response(mock_response, tools)
+
+    assert result == {"content": "", "tool_calls": [{"name": "", "arguments": {}}]}

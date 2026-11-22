@@ -70,7 +70,7 @@ class OllamaLLM(LLMBase):
 
             for tool_call in raw_calls:
                 if isinstance(tool_call, dict):
-                    fn = tool_call.get("function", {})
+                    fn = tool_call.get("function") or {}
                     name = fn.get("name", "")
                     arguments = fn.get("arguments", {})
                 else:
