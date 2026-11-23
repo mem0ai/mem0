@@ -192,8 +192,18 @@ class MilvusDB(VectorStoreBase):
             raw_distance = value.get("distance")
             metadata = value.get("entity", {}).get("metadata")
 
-            if raw_distance is not None and self.metric_type in (MetricType.L2, "L2"):
-                score = 1.0 / (1.0 + raw_distance)
+            if raw_distance is not None:
+                if self.metric_type in (MetricType.L2, "L2"):
+                    score = 1.0 / (1.0 + raw_distance)
+                elif self.metric_type in (MetricType.COSINE, "COSINE"):
+                    # Milvus reports cosine *distance* (1 - similarity, lower is
+                    # better), but the score contract across mem0 is
+                    # higher-is-better. Sibling providers (pgvector, weaviate,
+                    # s3_vectors, turbopuffer) apply the same conversion.
+                    score = max(0.0, 1.0 - raw_distance)
+                else:
+                    # IP (inner product) returns similarity directly.
+                    score = raw_distance
             else:
                 score = raw_distance
 

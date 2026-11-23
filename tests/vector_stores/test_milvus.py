@@ -139,7 +139,7 @@ class TestMilvusDB:
         # Verify results are parsed correctly
         assert len(results) == 1
         assert results[0].id == "mem1"
-        assert results[0].score == 0.8
+        assert results[0].score == pytest.approx(0.2)  # cosine distance 0.8 -> similarity 0.2
 
     def test_search_different_user_ids(self, milvus_db, mock_milvus_client):
         """Test that search works with different user_ids (reproduces reported bug)."""
@@ -241,13 +241,15 @@ class TestMilvusDB:
         ]
         
         parsed = milvus_db._parse_output(raw_data)
-        
+
         assert len(parsed) == 2
         assert parsed[0].id == "mem1"
-        assert parsed[0].score == 0.9
+        # The fixture uses MetricType.COSINE: Milvus returns distance = 1 - similarity,
+        # so scores are converted to higher-is-better similarities (0.9 -> 0.1).
+        assert parsed[0].score == pytest.approx(0.1)
         assert parsed[0].payload == {"user_id": "alice"}
         assert parsed[1].id == "mem2"
-        assert parsed[1].score == 0.85
+        assert parsed[1].score == pytest.approx(0.15)
 
     def test_update_with_none_vector_fetches_existing(self, milvus_db, mock_milvus_client):
         """Test that update with vector=None fetches the existing vector (fixes #3708)."""
@@ -394,6 +396,65 @@ class TestMilvusDB:
 
         # create_collection should not be called
         mock_milvus_client.create_collection.assert_not_called()
+
+    def test_parse_output_converts_cosine_distance_to_similarity(self, milvus_db):
+        """Regression: with metric_type=COSINE, Milvus returns distance = 1 - similarity
+        (lower is better), but the score contract across mem0 is higher-is-better.
+        Passing the distance through as the score inverts the ranking: the true match
+        gets the lowest score, near-duplicate dedupe (score >= 0.95) never fires, and
+        score_and_rank's threshold drops the best hit. Sibling providers (pgvector,
+        weaviate, s3_vectors, turbopuffer) all convert cosine distance before scoring.
+        """
+        assert milvus_db.metric_type == MetricType.COSINE
+        hits = [
+            {"id": "good", "distance": 0.05, "entity": {"metadata": {"data": "match"}}},
+            {"id": "bad", "distance": 0.95, "entity": {"metadata": {"data": "mismatch"}}},
+        ]
+
+        parsed = milvus_db._parse_output(hits)
+
+        assert parsed[0].score == pytest.approx(0.95)
+        assert parsed[1].score == pytest.approx(0.05)
+
+    def test_parse_output_l2_distance_normalization_unchanged(self, mock_milvus_client):
+        """L2 already normalizes to a 0..1 similarity; the fix must not change it."""
+        db = MilvusDB(
+            url="http://localhost:19530",
+            token="test_token",
+            collection_name="test_collection",
+            embedding_model_dims=1536,
+            metric_type=MetricType.L2,
+            db_name="test_db"
+        )
+        hits = [
+            {"id": "good", "distance": 0.05, "entity": {"metadata": {"data": "match"}}},
+            {"id": "bad", "distance": 0.95, "entity": {"metadata": {"data": "mismatch"}}},
+        ]
+
+        parsed = db._parse_output(hits)
+
+        assert parsed[0].score == pytest.approx(1.0 / 1.05)
+        assert parsed[1].score == pytest.approx(1.0 / 1.95)
+
+    def test_parse_output_ip_score_passes_through(self, mock_milvus_client):
+        """IP (inner product) returns similarity directly; it must stay untouched."""
+        db = MilvusDB(
+            url="http://localhost:19530",
+            token="test_token",
+            collection_name="test_collection",
+            embedding_model_dims=1536,
+            metric_type=MetricType.IP,
+            db_name="test_db"
+        )
+        hits = [
+            {"id": "good", "distance": 0.9, "entity": {"metadata": {"data": "match"}}},
+            {"id": "bad", "distance": 0.2, "entity": {"metadata": {"data": "mismatch"}}},
+        ]
+
+        parsed = db._parse_output(hits)
+
+        assert parsed[0].score == 0.9
+        assert parsed[1].score == 0.2
 
 
 if __name__ == "__main__":
