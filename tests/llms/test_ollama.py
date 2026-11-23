@@ -104,9 +104,7 @@ def test_generate_response_with_tools_string_arguments(mock_ollama_client):
     mock_response = {
         "message": {
             "content": "",
-            "tool_calls": [
-                {"function": {"name": "test_fn", "arguments": '{"key": "value"}'}}
-            ],
+            "tool_calls": [{"function": {"name": "test_fn", "arguments": '{"key": "value"}'}}],
         }
     }
     mock_ollama_client.chat.return_value = mock_response
@@ -140,3 +138,31 @@ def test_parse_response_with_tools_object_style(mock_ollama_client):
     result = llm._parse_response(mock_response, tools)
 
     assert result["tool_calls"] == [{"name": "extract", "arguments": {"entities": ["Alice"]}}]
+
+
+def test_parse_response_with_tools_null_function_dict_and_object(mock_ollama_client):
+    """Regression test for #7980: dict and object tool calls with null function should not crash."""
+    config = OllamaConfig(model="llama3.1:70b")
+    llm = OllamaLLM(config)
+    tools = [{"type": "function", "function": {"name": "extract"}}]
+
+    # 1. Dict-style tool call with function: null (Issue #7980)
+    dict_response = {
+        "message": {
+            "content": "Searching...",
+            "tool_calls": [{"function": None}],
+        }
+    }
+    result_dict = llm._parse_response(dict_response, tools)
+    assert result_dict["tool_calls"] == [{"name": "", "arguments": {}}]
+
+    # 2. Object-style tool call with function: None
+    mock_tool_call = Mock()
+    mock_tool_call.function = None
+    mock_message = Mock()
+    mock_message.content = ""
+    mock_message.tool_calls = [mock_tool_call]
+    mock_response = Mock(message=mock_message)
+
+    result_obj = llm._parse_response(mock_response, tools)
+    assert result_obj["tool_calls"] == [{"name": "", "arguments": {}}]
