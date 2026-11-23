@@ -169,8 +169,7 @@ class MilvusDB(VectorStoreBase):
                 operands.append(f'(metadata["{key}"] == {value})')
             else:
                 raise ValueError(
-                    f"Filter value for {key!r} must be str, int, float, or bool, "
-                    f"got {type(value).__name__}"
+                    f"Filter value for {key!r} must be str, int, float, or bool, got {type(value).__name__}"
                 )
 
         return " and ".join(operands)
@@ -192,10 +191,15 @@ class MilvusDB(VectorStoreBase):
             raw_distance = value.get("distance")
             metadata = value.get("entity", {}).get("metadata")
 
-            if raw_distance is not None and self.metric_type in (MetricType.L2, "L2"):
-                score = 1.0 / (1.0 + raw_distance)
+            if raw_distance is not None:
+                if self.metric_type in (MetricType.L2, "L2"):
+                    score = 1.0 / (1.0 + raw_distance)
+                elif self.metric_type in (MetricType.COSINE, "COSINE"):
+                    score = max(0.0, 1.0 - raw_distance)
+                else:
+                    score = raw_distance
             else:
-                score = raw_distance
+                score = None
 
             memory_obj = OutputData(id=uid, score=score, payload=metadata)
             memory.append(memory_obj)
