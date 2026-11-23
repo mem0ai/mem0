@@ -55,6 +55,26 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    recency_weight: float = Field(
+        description=(
+            "Maximum freshness discount on a memory's score (issue #7535): "
+            "final = base * (1 - recency_weight * (1 - recency)), where base is "
+            "the normalized relevance score and recency = "
+            "1 / (1 + age_days / recency_tau_days) from the memory's updated_at "
+            "(falling back to created_at) at query time, so even an infinitely "
+            "old memory keeps 1 - recency_weight of its base score. "
+            "0.0 (default) disables it; 0.25 is the suggested activation value."
+        ),
+        default=0.0,
+    )
+    recency_tau_days: float = Field(
+        description=(
+            "Half-life in days of the freshness discount: a memory whose age "
+            "equals recency_tau_days gets recency 0.5 (half the maximum "
+            "discount). Only used when recency_weight > 0."
+        ),
+        default=365.0,
+    )
 
 
 class AzureConfig(BaseModel):

@@ -1,0 +1,100 @@
+---
+title: Recency-Aware Ranking
+description: Let newer facts outrank outdated ones with an opt-in recency term in search scoring.
+icon: "clock"
+---
+
+Recency-aware ranking adds an optional time-decay term to search scoring so that when two memories state conflicting versions of a fact, the update can outrank the outdated record instead of losing by a hair on text similarity alone. Enable it per deployment with `recency_weight`.
+
+<Info>
+  **You'll use this when…**
+  - Users correct earlier facts ("I moved to the suburbs") and the old answer keeps winning search.
+  - Your agent reads time-sensitive state (location, plan, ownership) where the latest write should win.
+  - You want an explicit, tunable freshness signal rather than re-sorting results in your prompt layer.
+</Info>
+
+<Note>
+  Recency is **off by default** (`recency_weight = 0.0`). With the default, result ordering is identical to previous versions.
+</Note>
+
+---
+
+## How it works
+
+Search first computes the usual relevance score, then applies a freshness *discount* on top:
+
+```
+base       = (semantic + bm25 + entity_boost) / max_possible
+recency    = 1 / (1 + age_days / recency_tau_days)
+discount   = 1 - recency_weight * (1 - recency)
+final      = base * discount
+```
+
+So instead of *adding* points to newer memories, recall *subtracted* from older ones — with a floor: even an infinitely old memory keeps `1 - recency_weight` of its relevance score. Two consequences of the multiplicative form:
+
+- **Relevance gates the discount.** A weak match gains little absolute ground from being fresh (its discount headroom is a fraction of its own low base), so a brand-new but clearly less relevant memory does not jump over an older strong match.
+- **The ordering is scale-free.** The discount is a ratio, so vector stores that return unbounded engine scores (e.g. Elasticsearch/OpenSearch `_score`) rank exactly the same as stores returning cosine similarity in `[0, 1]`.
+
+Other properties:
+
+- **Effective time per memory:** `updated_at`, falling back to `created_at`. Missing or unparseable timestamps score recency 0 (maximum discount). Future timestamps clamp to recency 1.0 (no discount).
+- **`recency_tau_days`** (default `365`): a memory whose age equals tau scores recency 0.5 — half the maximum discount. Larger tau treats months-old and years-old memories as similarly fresh; smaller tau sharpens the distinction between recent writes.
+- **Anchored at query time:** a candidate's recency depends only on its own timestamp, never on the other candidates retrieved. Adding or removing candidates cannot flip two memories' relative order.
+- **Scores only contract.** Enabling recency never raises any score; it can only lower stale ones. With `recency_weight = 0`, results are bit-identical to previous versions.
+
+The semantic threshold still gates first: a candidate below the vector-similarity threshold is excluded no matter how new it is.
+
+## Configure it
+
+```python
+from mem0 import Memory
+
+config = {
+    "recency_weight": 0.25,     # 0.0 (default) disables the discount
+    "recency_tau_days": 365.0,  # recency = 0.5 at this age
+    # ... llm / embedder / vector_store as usual
+}
+
+m = Memory.from_config(config)
+```
+
+Both `Memory` and `AsyncMemory` share the same scoring path; the config applies to both.
+
+### Choosing the weight
+
+`recency_weight` is the **maximum fraction of its own score an old memory can lose**: at `0.25` every result keeps at least 75% of its relevance score, so near-tied updated facts surface while clearly more relevant older memories always win. It is the suggested starting point; in the reference repro for issue [#7535](https://github.com/mem0ai/mem0/issues/7535) on Qdrant + fastembed, `0.25` already flips all three stale-fact pairs to the update (the BM25 keyword signal included).
+
+Raise it (up to ~0.4) if updated facts in your traffic are spaced very close in time and need more separation; lower it (0.1–0.15) if your facts are mostly *timeless* (allergies, names, ownership) and you only want a hint of freshness. Exact flip thresholds drift slightly with the collection's keyword statistics (BM25 IDF is collection-wide), so a pair that flips at 0.25 in one store may need ~0.3 in another — calibrate against your own traffic.
+
+## Known limitations
+
+- **Near-ties, not vetoes.** The discount settles close calls; it cannot overturn a clearly more relevant older memory by design, and it does not resolve contradictions. If you need both versions visible to the agent, keep them in the prompt layer as well.
+- **Mutation time is not event time.** Any `update()` — including metadata-only edits — refreshes `updated_at`, which then becomes the freshness anchor. If you attach mutable tags/labels to memories, recent-but-unimportant edits can make a stale fact look fresh. Work toward separating content updates from metadata updates is tracked in [#7562](https://github.com/mem0ai/mem0/issues/7562).
+- **Timeless facts pay a bounded tax.** Old but permanently true facts (allergies, birthplaces) get discounted like anything else — at most `recency_weight` (25% by default). They are never removed from results, only displaced within the top-k, and only by fresher candidates that were already within the discount band of their score. If most of your memories are timeless, use a smaller weight.
+
+---
+
+## Verify it is working
+
+```python
+results = m.search("Where do I live?", filters={"user_id": "u1"}, top_k=5)
+for r in results["results"]:
+    print(r["score"], r["created_at"], r["memory"])
+```
+
+<Info icon="check">
+  With `recency_weight > 0`, a newer memory that previously lost by a small score margin should now rank first; with `recency_weight = 0.0`, ordering must be identical to before.
+</Info>
+
+<Tip>
+  Log a few real queries with recency on and off before rollout. Near-ties are where recency helps; large semantic gaps should be unaffected.
+</Tip>
+
+---
+
+## Best practices
+
+1. **Start at 0.25, then calibrate:** raise it if keyword-activated setups dilute the term below what your fact pairs need, lower it if old-but-relevant context gets buried.
+2. **Pick tau from your churn rate:** facts that turn over weekly deserve a much smaller `recency_tau_days` than facts that turn over yearly.
+3. **Keep timestamps trustworthy:** prefer content edits through `update()` over rewriting memories, so `updated_at` tracks real changes (see the limitation above).
+4. **Pair with prompt-layer dates:** ranking decides what surfaces first; telling the model each memory's date still helps it reason about conflicts.
