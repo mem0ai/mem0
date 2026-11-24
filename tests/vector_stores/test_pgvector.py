@@ -2543,6 +2543,22 @@ class TestBuildFilterConditions(unittest.TestCase):
         conditions, params = _build_filter_conditions({"is_active": False})
         self.assertEqual(params, ["is_active", "false"])
 
+    def test_boolean_operators_use_json_casing(self):
+        conditions, params = _build_filter_conditions({"is_active": {"eq": True}})
+        self.assertEqual(params, ["is_active", "true"])
+
+        conditions, params = _build_filter_conditions({"is_active": {"ne": False}})
+        self.assertEqual(params, ["is_active", "false"])
+
+        conditions, params = _build_filter_conditions({"is_active": {"in": [True, False]}})
+        self.assertEqual(params, ["is_active", ["true", "false"]])
+
+        conditions, params = _build_filter_conditions({"is_active": {"nin": [False]}})
+        self.assertEqual(params, ["is_active", ["false"]])
+
+        conditions, params = _build_filter_conditions({"is_active": [True, False]})
+        self.assertEqual(params, ["is_active", ["true", "false"]])
+
     def test_numeric_scalar_becomes_string(self):
         conditions, params = _build_filter_conditions({"priority": 42})
         self.assertEqual(params, ["priority", "42"])
