@@ -1,4 +1,5 @@
 import copy
+import re
 import json
 import os
 from typing import Dict, List, Optional, Union
@@ -87,7 +88,7 @@ class AzureOpenAILLM(LLMBase):
         messages = copy.deepcopy(messages)
         last_content = messages[-1].get("content")
         if isinstance(last_content, str):
-            messages[-1]["content"] = last_content.replace("assistant", "ai")
+            messages[-1]["content"] = re.sub(r"\bassistant\b", "ai", last_content)
         return messages
 
     def _parse_response(self, response, tools):
