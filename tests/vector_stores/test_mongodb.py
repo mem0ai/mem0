@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pymongo.errors import OperationFailure
 
 from mem0.vector_stores.mongodb import MongoDB
 
@@ -285,6 +286,35 @@ def test_update_with_unchanged_values_returns_true(mongo_vector_fixture):
     mock_collection.update_one.return_value = MagicMock(matched_count=1, modified_count=0)
 
     assert mongo_vector.update(vector_id="id1", payload={"data": "same"}) is True
+
+
+# What a real server returns when the connecting user holds `read` but not `readWrite`.
+NOT_AUTHORIZED = OperationFailure("not authorized on test_db to execute command", code=13)
+
+
+def test_insert_raises_when_the_driver_rejects_the_write(mongo_vector_fixture):
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    mock_collection.insert_many.side_effect = NOT_AUTHORIZED
+
+    with pytest.raises(OperationFailure):
+        mongo_vector.insert(vectors=[[0.1] * 1536], payloads=[{"data": "x"}], ids=["id1"])
+
+
+def test_update_raises_when_the_driver_rejects_the_write(mongo_vector_fixture):
+    # Returning None here would read as "updated" to Memory.update().
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    mock_collection.update_one.side_effect = NOT_AUTHORIZED
+
+    with pytest.raises(OperationFailure):
+        mongo_vector.update(vector_id="id1", vector=[0.1] * 1536, payload={"data": "x"})
+
+
+def test_delete_raises_when_the_driver_rejects_the_write(mongo_vector_fixture):
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    mock_collection.delete_one.side_effect = NOT_AUTHORIZED
+
+    with pytest.raises(OperationFailure):
+        mongo_vector.delete(vector_id="id1")
 
 
 def test_get(mongo_vector_fixture):

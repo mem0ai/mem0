@@ -146,6 +146,7 @@ class MongoDB(VectorStoreBase):
             logger.info(f"Inserted {len(data)} documents into '{self.collection_name}'.")
         except PyMongoError as e:
             logger.error(f"Error inserting data: {e}")
+            raise
 
     @staticmethod
     def _validate_filter_value(key: str, value: Any) -> None:
@@ -292,6 +293,7 @@ class MongoDB(VectorStoreBase):
                 logger.warning(f"No document found with ID '{vector_id}' to delete.")
         except PyMongoError as e:
             logger.error(f"Error deleting document: {e}")
+            raise
 
     def update(
         self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None
@@ -324,6 +326,7 @@ class MongoDB(VectorStoreBase):
                 return False
             except PyMongoError as e:
                 logger.error(f"Error updating document: {e}")
+                raise
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
