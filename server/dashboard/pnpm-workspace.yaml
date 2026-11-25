@@ -16,3 +16,4 @@ overrides:
   "browserslist@<4.28.7": ">=4.28.7 <5.0.0"
   "follow-redirects@<1.16.2": ">=1.16.2 <2.0.0"
   "source-map-js@<1.2.2": ">=1.2.2 <2.0.0"
+  "postcss-selector-parser@>=6.1.0 <6.1.3": ">=6.1.3 <7.0.0"

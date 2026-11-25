@@ -18,6 +18,7 @@ overrides:
   js-yaml@>=4.0.0 <4.3.2: '>=4.3.2 <5.0.0'
   browserslist@<4.28.7: '>=4.28.7 <5.0.0'
   handlebars@<4.7.10: '>=4.7.10 <5.0.0'
+  '@ai-sdk/provider-utils@<4.0.33': '>=4.0.33 <5.0.0'
 
 importers:
 
@@ -42,8 +43,8 @@ importers:
         specifier: ^3.0.10
         version: 3.0.10
       '@ai-sdk/provider-utils':
-        specifier: ^4.0.27
-        version: 4.0.27(zod@3.25.76)
+        specifier: ^4.0.33
+        version: 4.0.67(zod@3.25.76)
       ai:
         specifier: ^6.0.199
         version: 6.0.199(zod@3.25.76)
@@ -123,14 +124,18 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/provider-utils@4.0.27':
-    resolution: {integrity: sha512-ubkAJ+xODouwtmN1tYlvTPphH1hPOBfZaEQe8U7skGvFAnIRs9PPpsq57bC2+Ky/MB4yzhd6YOsxTAx9sGpazw==}
-    engines: {node: '>=18'}
+  '@ai-sdk/provider-utils@4.0.67':
+    resolution: {integrity: sha512-0WV1upni0SUAKdsMTOADbPFU0CBji/XjNPcG0J+LWb5DZFtTWRrflj/oY7qi3zbJswvE1aWv/d+h/A8BEWnAWA==}
+    engines: {node: '>=18.17'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
   '@ai-sdk/provider@3.0.10':
     resolution: {integrity: sha512-Q3BZ27qfpYqnCYGvE3vt+Qi6LGOF9R5Nmzn+9JoM1lCRsD9mYaIhfJLkSunN48nfGXJ6n+XNV0J/XVpqGQl7Dw==}
+    engines: {node: '>=18'}
+
+  '@ai-sdk/provider@3.0.19':
+    resolution: {integrity: sha512-5lWq7zSfRaU5ylDESn3sDQjgGl2AI1vjZKO/6JY3aFW70ct4zcP1kN+ZUYOuTXr28fVsYbyu2YFhddLdIgQFZQ==}
     engines: {node: '>=18'}
 
   '@babel/code-frame@7.29.7':
@@ -1839,6 +1844,10 @@ packages:
   undici-types@5.26.5:
     resolution: {integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==}
 
+  undici@6.29.1:
+    resolution: {integrity: sha512-EvRlUt/QqAEvXdQeRMYUfwOQsfzpDztykrG2owGEE/rBOBoYv9uF39ZzsNDh4lTFHhTr2XOZjKkYgueD12ZmGA==}
+    engines: {node: '>=18.17'}
+
   update-browserslist-db@1.3.2:
     resolution: {integrity: sha512-UQ+MSxlhRm1bzjhU+DcuXfjFO1FzNtqhK5+9Yvlp90ItDLk5vT932A0rFu619nf7RVS+Y/VeaUW1jaRDqZ8VJw==}
     hasBin: true
@@ -1905,48 +1914,53 @@ snapshots:
   '@ai-sdk/anthropic@3.0.82(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
       zod: 3.25.76
 
   '@ai-sdk/cohere@3.0.36(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
       zod: 3.25.76
 
   '@ai-sdk/gateway@3.0.127(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
       '@vercel/oidc': 3.2.0
       zod: 3.25.76
 
   '@ai-sdk/google@3.0.80(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
       zod: 3.25.76
 
   '@ai-sdk/groq@3.0.39(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
       zod: 3.25.76
 
   '@ai-sdk/openai@3.0.69(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
       zod: 3.25.76
 
-  '@ai-sdk/provider-utils@4.0.27(zod@3.25.76)':
+  '@ai-sdk/provider-utils@4.0.67(zod@3.25.76)':
     dependencies:
-      '@ai-sdk/provider': 3.0.10
+      '@ai-sdk/provider': 3.0.19
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.1.0
+      undici: 6.29.1
       zod: 3.25.76
 
   '@ai-sdk/provider@3.0.10':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@ai-sdk/provider@3.0.19':
     dependencies:
       json-schema: 0.4.0
 
@@ -2586,7 +2600,7 @@ snapshots:
     dependencies:
       '@ai-sdk/gateway': 3.0.127(zod@3.25.76)
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
       '@opentelemetry/api': 1.9.1
       zod: 3.25.76
 
@@ -3800,6 +3814,8 @@ snapshots:
   undefsafe@2.0.5: {}
 
   undici-types@5.26.5: {}
+
+  undici@6.29.1: {}
 
   update-browserslist-db@1.3.2(browserslist@4.28.9):
     dependencies:

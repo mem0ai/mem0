@@ -19,6 +19,7 @@ overrides:
   browserslist@<4.28.7: '>=4.28.7 <5.0.0'
   follow-redirects@<1.16.2: '>=1.16.2 <2.0.0'
   source-map-js@<1.2.2: '>=1.2.2 <2.0.0'
+  postcss-selector-parser@>=6.1.0 <6.1.3: '>=6.1.3 <7.0.0'
 
 importers:
 
@@ -2592,8 +2593,8 @@ packages:
     resolution: {integrity: sha512-IQ7TZdoaqbT+LCpShg46jnZVlhWD2w6iQYAcYXfHARZ7X1t/UGhhceQDs5X0cGqKvYlHNOuv7Oa1xmb0oQuA3w==}
     engines: {node: '>=4'}
 
-  postcss-selector-parser@6.1.2:
-    resolution: {integrity: sha512-Q8qQfPiZ+THO/3ZrOrO0cJJKfpYCagtMUkXbnEfmgUjwXg6z/WBeOyS9APBBPCTSiDV+s4SwQGu8yFsiMRIudg==}
+  postcss-selector-parser@6.1.6:
+    resolution: {integrity: sha512-BK87/Qgti3DIcgS2PaCVoteFIkjIFvCJBizZDIVSjdlFNg4Jv+SRqbN2JONb/qQUH4ZFqfXYF+izg15W2HVRvA==}
     engines: {node: '>=4'}
 
   postcss-value-parser@4.2.0:
@@ -5584,16 +5585,15 @@ snapshots:
   postcss-nested@6.2.0(postcss@8.5.23):
     dependencies:
       postcss: 8.5.23
-      postcss-selector-parser: 6.1.2
+      postcss-selector-parser: 6.1.6
 
   postcss-selector-parser@6.0.10:
     dependencies:
       cssesc: 3.0.0
       util-deprecate: 1.0.2
 
-  postcss-selector-parser@6.1.2:
+  postcss-selector-parser@6.1.6:
     dependencies:
-      cssesc: 3.0.0
       util-deprecate: 1.0.2
 
   postcss-value-parser@4.2.0: {}
@@ -6045,7 +6045,7 @@ snapshots:
       postcss-js: 4.1.0(postcss@8.5.23)
       postcss-load-config: 6.0.1(jiti@1.21.7)(postcss@8.5.23)
       postcss-nested: 6.2.0(postcss@8.5.23)
-      postcss-selector-parser: 6.1.2
+      postcss-selector-parser: 6.1.6
       resolve: 1.22.12
       sucrase: 3.35.1
     transitivePeerDependencies:
