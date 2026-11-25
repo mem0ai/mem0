@@ -785,3 +785,44 @@ class TestCosineNormalization:
 
             assert results[0].id == "x"
             assert results[0].score == pytest.approx(1.0, abs=1e-5)
+
+
+@pytest.mark.parametrize(
+    "payload, filters",
+    [
+        ({"stage": 0}, {"stage": False}),
+        ({"stage": False}, {"stage": 0}),
+        ({"stage": 1}, {"stage": True}),
+        ({"stage": True}, {"stage": 1}),
+        ({"stage": 1}, {"stage": [True]}),
+        ({"stage": 1}, {"stage": {"eq": True}}),
+        ({"stage": True}, {"stage": {"gt": 0}}),
+    ],
+)
+def test_apply_filters_does_not_conflate_bool_and_int(faiss_instance, payload, filters):
+    assert faiss_instance._apply_filters(payload, filters) is False
+
+
+@pytest.mark.parametrize(
+    "payload, filters, expected",
+    [
+        ({"stage": False}, {"stage": {"eq": False}}, True),
+        ({"stage": False}, {"stage": {"eq": True}}, False),
+        ({"stage": 0}, {"stage": {"ne": False}}, True),
+        ({"stage": "b"}, {"stage": {"in": ["a", "b"]}}, True),
+        ({"stage": "c"}, {"stage": {"nin": ["a", "b"]}}, True),
+        ({"score": 5}, {"score": {"gte": 5, "lt": 10}}, True),
+        ({"score": 10}, {"score": {"gte": 5, "lt": 10}}, False),
+        ({"score": "high"}, {"score": {"gt": 1}}, False),
+        ({"text": "Hello World"}, {"text": {"contains": "World"}}, True),
+        ({"text": "Hello World"}, {"text": {"icontains": "world"}}, True),
+        ({"text": "Hello World"}, {"text": {"contains": "world"}}, False),
+    ],
+)
+def test_apply_filters_evaluates_operators(faiss_instance, payload, filters, expected):
+    assert faiss_instance._apply_filters(payload, filters) is expected
+
+
+def test_apply_filters_rejects_unknown_operator(faiss_instance):
+    with pytest.raises(NotImplementedError):
+        faiss_instance._apply_filters({"stage": 1}, {"stage": {"between": [0, 2]}})

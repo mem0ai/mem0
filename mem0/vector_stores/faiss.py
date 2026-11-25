@@ -131,6 +131,13 @@ def _validate_docstore_structure(data: Any) -> tuple:
     return docstore, index_to_id
 
 
+def _strict_equal(stored: Any, expected: Any) -> bool:
+    """Compare filter values without treating ``True``/``False`` as equal to ``1``/``0``."""
+    if isinstance(stored, bool) != isinstance(expected, bool):
+        return False
+    return stored == expected
+
+
 class OutputData(BaseModel):
     id: Optional[str]  # memory id
     score: Optional[float]  # distance
@@ -448,13 +455,48 @@ class FAISS(VectorStoreBase):
             if key not in payload:
                 return False
 
-            if isinstance(value, list):
-                if payload[key] not in value:
+            if isinstance(value, dict):
+                if not all(self._match_operator(payload[key], op, operand) for op, operand in value.items()):
                     return False
-            elif payload[key] != value:
+            elif isinstance(value, list):
+                if not any(_strict_equal(payload[key], item) for item in value):
+                    return False
+            elif not _strict_equal(payload[key], value):
                 return False
 
         return True
+
+    @staticmethod
+    def _match_operator(stored: Any, op: str, operand: Any) -> bool:
+        """Evaluate one Mem0 filter operator (e.g. ``{"gte": 5}``) against a stored value."""
+        if op == "eq":
+            return _strict_equal(stored, operand)
+        if op == "ne":
+            return not _strict_equal(stored, operand)
+        if op == "in":
+            return any(_strict_equal(stored, item) for item in operand)
+        if op == "nin":
+            return not any(_strict_equal(stored, item) for item in operand)
+        if op in ("gt", "gte", "lt", "lte"):
+            if isinstance(stored, bool) or isinstance(operand, bool):
+                return False
+            try:
+                if op == "gt":
+                    return stored > operand
+                if op == "gte":
+                    return stored >= operand
+                if op == "lt":
+                    return stored < operand
+                return stored <= operand
+            except TypeError:
+                return False
+        if op in ("contains", "icontains"):
+            if not isinstance(stored, str) or not isinstance(operand, str):
+                return False
+            if op == "icontains":
+                return operand.lower() in stored.lower()
+            return operand in stored
+        raise NotImplementedError(f"Filter operator '{op}' is not supported by the FAISS vector store")
 
     @_locked
     def delete(self, vector_id: str):
