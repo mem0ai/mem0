@@ -149,6 +149,29 @@ def test_insert(valkey_db, mock_valkey_client):
     assert "embedding" in kwargs["mapping"]
 
 
+def test_insert_stores_updated_at(valkey_db, mock_valkey_client):
+    """Test that insert stores updated_at when provided in payload (#7999)."""
+    vectors = [np.random.rand(1536).tolist()]
+    now_iso = datetime.now(pytz.timezone("UTC")).isoformat()
+    expected_ts = int(datetime.fromisoformat(now_iso).timestamp())
+    payloads = [
+        {
+            "hash": "test_hash",
+            "data": "test_data",
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        }
+    ]
+    ids = ["test_id"]
+
+    valkey_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+    mock_valkey_client.hset.assert_called_once()
+    _, kwargs = mock_valkey_client.hset.call_args
+    assert "updated_at" in kwargs["mapping"]
+    assert kwargs["mapping"]["updated_at"] == expected_ts
+
+
 def test_insert_handles_missing_created_at(valkey_db, mock_valkey_client):
     """Test inserting vectors with missing created_at field."""
     # Prepare test data
@@ -180,6 +203,7 @@ def test_insert_and_update_with_none_timestamps(valkey_db, mock_valkey_client):
     )
     _, insert_kwargs = mock_valkey_client.hset.call_args
     assert isinstance(insert_kwargs["mapping"]["created_at"], int)
+    assert "updated_at" not in insert_kwargs["mapping"]
 
     valkey_db.update(
         vector_id="id1",

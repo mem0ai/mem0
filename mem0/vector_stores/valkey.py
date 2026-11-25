@@ -317,6 +317,10 @@ class ValkeyDB(VectorStoreBase):
                     "embedding": np.array(vector, dtype=np.float32).tobytes(),
                 }
 
+                # Add updated_at if available
+                if payload.get("updated_at"):
+                    hash_data["updated_at"] = int(datetime.fromisoformat(payload["updated_at"]).timestamp())
+
                 # Add optional fields
                 for field in ["agent_id", "run_id", "user_id"]:
                     if field in payload:
