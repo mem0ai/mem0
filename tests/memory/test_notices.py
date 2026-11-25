@@ -1,6 +1,7 @@
 import asyncio
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -1641,3 +1642,18 @@ class TestStaticFlagEvaluation:
         monkeypatch.setattr(notices, "_cached_config", {"variant_split": 0.0, "notices": {}})
         result = notices._evaluate_notice_flags("any-user")
         assert result.get_flag(notices.FLAG_KEY) == notices.HOLDOUT_VARIANT
+
+
+@pytest.mark.parametrize(
+    "value",
+    [float("inf"), float("-inf"), Decimal("Infinity"), Decimal("-Infinity")],
+    ids=["float_inf", "float_neg_inf", "decimal_inf", "decimal_neg_inf"],
+)
+def test_coerce_nonnegative_int_returns_default_for_infinite_values(value):
+    """An infinite value is unparseable, not a count: it must not raise.
+
+    `int()` raises OverflowError (not ValueError) for infinities, which the
+    helper did not catch, so a count read as inf escaped as an exception
+    instead of falling back to the default (GH#8012).
+    """
+    assert notices._coerce_nonnegative_int(value, 7) == 7

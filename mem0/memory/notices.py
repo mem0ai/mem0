@@ -1575,7 +1575,7 @@ def _coerce_nonnegative_int(value: Any, default: Optional[int]) -> Optional[int]
         return default
     try:
         parsed = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return default
     return parsed if parsed >= 0 else default
 
