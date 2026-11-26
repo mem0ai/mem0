@@ -18,7 +18,8 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 </Warning>
 
 <Warning>
-  **OSS vs Platform API paths:** The self-hosted OSS server does **not** use the `/v1/` prefix. For example, the endpoint is `POST /memories`, not `POST /v1/memories/`. The [API Reference](/api-reference) documents the hosted platform at `api.mem0.ai` which uses `/v1/` paths: those do not apply to the OSS server.
+  The self-hosted server exposes unversioned routes such as `POST /memories` and `POST /search`. Call them directly over HTTP using your server's [authentication settings](#authentication).
+  The Python `MemoryClient` and `AsyncMemoryClient` use the [Platform API](/api-reference). Setting `host` changes the destination, but the clients still request Platform routes such as `GET /v1/ping/`, which returns 404 on the OSS server.
 </Warning>
 
 <Warning>
