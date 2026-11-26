@@ -2563,3 +2563,22 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_in_accepts_list_value(self):
         conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
         self.assertEqual(params, ["user_id", ["alice", "bob"]])
+
+    def test_in_with_boolean_values_uses_json_casing(self):
+        conditions, params = _build_filter_conditions({"flag": {"in": [True]}})
+        self.assertEqual(conditions, ["payload->>%s = ANY(%s)"])
+        self.assertEqual(params, ["flag", ["true"]])
+
+    def test_nin_with_boolean_values_uses_json_casing(self):
+        conditions, params = _build_filter_conditions({"flag": {"nin": [False]}})
+        self.assertEqual(conditions, ["NOT (payload->>%s = ANY(%s))"])
+        self.assertEqual(params, ["flag", ["false"]])
+
+    def test_list_shorthand_with_boolean_values_uses_json_casing(self):
+        conditions, params = _build_filter_conditions({"flag": [True, False]})
+        self.assertEqual(conditions, ["payload->>%s = ANY(%s)"])
+        self.assertEqual(params, ["flag", ["true", "false"]])
+
+    def test_in_with_mixed_value_types(self):
+        conditions, params = _build_filter_conditions({"flag": {"in": [True, "active", 1]}})
+        self.assertEqual(params, ["flag", ["true", "active", "1"]])

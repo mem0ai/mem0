@@ -93,7 +93,7 @@ def _build_filter_conditions(filters):
                         raise ValueError(
                             f"Filter operator {op!r} for key {key!r} requires a list value, got {type(op_value).__name__}"
                         )
-                    str_list = [str(v) for v in op_value]
+                    str_list = [json.dumps(v) if isinstance(v, bool) else str(v) for v in op_value]
                     conditions.append(template)
                     params.extend([key, str_list])
                 elif op in ("contains", "icontains"):
@@ -108,7 +108,7 @@ def _build_filter_conditions(filters):
                         params.extend([key, str(op_value)])
         elif isinstance(value, list):
             conditions.append("payload->>%s = ANY(%s)")
-            params.extend([key, [str(v) for v in value]])
+            params.extend([key, [json.dumps(v) if isinstance(v, bool) else str(v) for v in value]])
         else:
             conditions.append("payload->>%s = %s")
             if isinstance(value, bool):
