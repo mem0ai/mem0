@@ -1166,3 +1166,21 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
         self.assertIn("mem0ai[extras]", joined)  # points at the right install
         self.assertNotIn("pip install fastembed", joined)  # not the bare package
         self.assertNotIn("\u2014", joined)  # no em-dash
+
+    def test_float_equality_filter_uses_range(self):
+        """#8039: Float equality filters must use Range(gte=v, lte=v) since Qdrant MatchValue rejects floats."""
+        cond_shorthand = self.qdrant._build_field_condition("score", 0.0)
+        self.assertIsNotNone(cond_shorthand)
+        self.assertIsNone(cond_shorthand.match)
+        self.assertEqual(cond_shorthand.range, Range(gte=0.0, lte=0.0))
+
+        cond_explicit = self.qdrant._build_field_condition("score", {"eq": 1.5})
+        self.assertIsNotNone(cond_explicit)
+        self.assertIsNone(cond_explicit.match)
+        self.assertEqual(cond_explicit.range, Range(gte=1.5, lte=1.5))
+
+        full_filter = self.qdrant._create_filter({"v": 0.0, "w": {"eq": 1.0}})
+        self.assertIsInstance(full_filter, Filter)
+        self.assertEqual(len(full_filter.must), 2)
+        self.assertEqual(full_filter.must[0].range, Range(gte=0.0, lte=0.0))
+        self.assertEqual(full_filter.must[1].range, Range(gte=1.0, lte=1.0))

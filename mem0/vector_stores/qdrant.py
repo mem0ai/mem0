@@ -302,6 +302,8 @@ class Qdrant(VectorStoreBase):
             if isinstance(value, list):
                 # List shorthand: {"field": ["a", "b"]} treated as in-operator.
                 return FieldCondition(key=key, match=MatchAny(any=value))
+            if isinstance(value, float):
+                return FieldCondition(key=key, range=Range(gte=value, lte=value))
             # Simple equality: {"field": "value"}
             return FieldCondition(key=key, match=MatchValue(value=value))
 
@@ -326,7 +328,10 @@ class Qdrant(VectorStoreBase):
                     ) from e
             return FieldCondition(key=key, range=Range(**range_kwargs))
         elif "eq" in value:
-            return FieldCondition(key=key, match=MatchValue(value=value["eq"]))
+            eq_val = value["eq"]
+            if isinstance(eq_val, float):
+                return FieldCondition(key=key, range=Range(gte=eq_val, lte=eq_val))
+            return FieldCondition(key=key, match=MatchValue(value=eq_val))
         elif "ne" in value:
             return FieldCondition(key=key, match=MatchExcept(**{"except": [value["ne"]]}))
         elif "in" in value:
