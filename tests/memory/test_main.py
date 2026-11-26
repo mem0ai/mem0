@@ -8,7 +8,10 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from mem0.exceptions import LLMError, VectorStoreError
+from mem0.memory import main as mem0_main
 from mem0.memory.main import AsyncMemory, Memory
+
+_real_safe_deepcopy_config = mem0_main._safe_deepcopy_config
 
 
 def _setup_mocks(mocker):
@@ -327,6 +330,29 @@ def _build_memory_instance(mocker, memory_cls):
     memory.vector_store = mocker.MagicMock()
     memory.db = mocker.MagicMock()
     return memory
+
+
+def test_memory_init_does_not_deepcopy_vector_store_config_for_telemetry(mocker):
+    """Memory.__init__ used to deep-copy the vector store config into a
+    telemetry_config local that was unconditionally overwritten a few lines
+    later. The deepcopy is real work (configs can hold non-trivial clients)
+    with no effect, so __init__ must not perform it. The telemetry vector
+    store itself must still be created from the rebuilt config."""
+    _setup_mocks(mocker)
+    mocker.patch("mem0.memory.main.MEM0_TELEMETRY", True)
+    mocker.patch("mem0.memory.main.capture_event")
+
+    spy = mocker.patch(
+        "mem0.memory.main._safe_deepcopy_config",
+        wraps=_real_safe_deepcopy_config,
+    )
+
+    memory = Memory()
+
+    assert spy.call_count == 0
+    # The telemetry vector store is still initialized (second factory call
+    # from the _setup_mocks side_effect list).
+    assert memory._telemetry_vector_store is not None
 
 
 def _assert_utc_timestamp(timestamp: str):
