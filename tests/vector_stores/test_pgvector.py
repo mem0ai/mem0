@@ -2547,6 +2547,22 @@ class TestBuildFilterConditions(unittest.TestCase):
         conditions, params = _build_filter_conditions({"priority": 42})
         self.assertEqual(params, ["priority", "42"])
 
+    def test_in_operator_booleans_use_json_casing(self):
+        conditions, params = _build_filter_conditions({"flag": {"in": [True, False]}})
+        self.assertEqual(params, ["flag", ["true", "false"]])
+
+    def test_nin_operator_booleans_use_json_casing(self):
+        conditions, params = _build_filter_conditions({"flag": {"nin": [True]}})
+        self.assertEqual(params, ["flag", ["true"]])
+
+    def test_list_shorthand_booleans_use_json_casing(self):
+        conditions, params = _build_filter_conditions({"flag": [True, False]})
+        self.assertEqual(params, ["flag", ["true", "false"]])
+
+    def test_eq_ne_operator_booleans_use_json_casing(self):
+        conditions, params = _build_filter_conditions({"flag": {"eq": True}, "other": {"ne": False}})
+        self.assertEqual(params, ["flag", "true", "other", "false"])
+
     def test_in_rejects_string_value(self):
         """Passing a string to 'in' would iterate characters and produce a misleading ANY() clause."""
         with self.assertRaises(ValueError, msg="Expected ValueError for non-list 'in' value"):
