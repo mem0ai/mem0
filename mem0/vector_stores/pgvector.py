@@ -46,6 +46,21 @@ OPERATOR_SQL_MAP = {
     "icontains": ("payload->>%s ILIKE %s", False),
 }
 
+_ISO_DATETIME_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}"  # date part
+    r"([T ]\d{2}:\d{2}(:\d{2})?"  # optional time part
+    r"(\.\d+)?"  # optional fractional seconds
+    r"(Z|[+-]\d{2}:?\d{2})?"  # optional timezone
+    r")?$"
+)
+
+_DATETIME_OPERATOR_SQL_MAP = {
+    "gt": "payload->>%s > %s",
+    "gte": "payload->>%s >= %s",
+    "lt": "payload->>%s < %s",
+    "lte": "payload->>%s <= %s",
+}
+
 
 def _build_filter_conditions(filters):
     """Translate a processed filter dict into SQL WHERE fragments and parameter list."""
@@ -101,10 +116,15 @@ def _build_filter_conditions(filters):
                     conditions.append(template + " ESCAPE '\\'")
                     params.extend([key, f"%{escaped}%"])
                 else:
-                    conditions.append(template)
                     if is_numeric:
-                        params.extend([key, float(op_value)])
+                        if isinstance(op_value, str) and _ISO_DATETIME_RE.match(op_value):
+                            conditions.append(_DATETIME_OPERATOR_SQL_MAP[op])
+                            params.extend([key, op_value])
+                        else:
+                            conditions.append(template)
+                            params.extend([key, float(op_value)])
                     else:
+                        conditions.append(template)
                         params.extend([key, str(op_value)])
         elif isinstance(value, list):
             conditions.append("payload->>%s = ANY(%s)")

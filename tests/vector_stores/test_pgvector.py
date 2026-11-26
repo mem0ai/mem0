@@ -2563,3 +2563,13 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_in_accepts_list_value(self):
         conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
         self.assertEqual(params, ["user_id", ["alice", "bob"]])
+
+    def test_iso_datetime_range_operators(self):
+        conditions, params = _build_filter_conditions({
+            "dt": {"gt": "2025-01-05", "lte": "2025-12-31T23:59:59Z"}
+        })
+        self.assertEqual(
+            conditions,
+            ["payload->>%s > %s", "payload->>%s <= %s"],
+        )
+        self.assertEqual(params, ["dt", "2025-01-05", "dt", "2025-12-31T23:59:59Z"])
