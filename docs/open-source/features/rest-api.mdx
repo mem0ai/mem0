@@ -42,12 +42,13 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 
 <Tabs>
   <Tab title="Steps">
-1. Create `server/.env` with your keys:
+1. For a new installation, copy the example environment file from the repository root.
 
     ```bash
-    OPENAI_API_KEY=your-openai-api-key
-    JWT_SECRET=$(openssl rand -base64 48)
+    cp server/.env.example server/.env
     ```
+
+    In `server/.env`, set `POSTGRES_PASSWORD` for the bundled database, `OPENAI_API_KEY` for the default provider, and `JWT_SECRET` for authentication. Generate the signing secret in your shell with `openssl rand -base64 48` and paste its output into the file. See [Configure the environment](/open-source/setup#configure-the-environment) for the other settings.
 
 2. Bootstrap the stack in one command:
 
@@ -69,22 +70,17 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 
 <AccordionGroup>
   <Accordion title="Other install paths">
-    **Run with Docker**
+    **Run with a locally built Docker image**
 
-    <Tabs>
-      <Tab title="Pull image">
-```bash
-docker pull mem0/mem0-api-server
-```
-      </Tab>
-      <Tab title="Build locally">
-```bash
-docker build -t mem0-api-server .
-```
-      </Tab>
-    </Tabs>
+    On Linux/amd64, use the [Compose steps above](#run-with-docker-compose-development) to build the API from source and start PostgreSQL. The legacy `mem0/mem0-api-server:latest` image on Docker Hub only includes a Linux/arm64 build.
 
-    1. Create a `.env` file with `OPENAI_API_KEY` and `JWT_SECRET`.
+    If you already manage the server's PostgreSQL databases, build the standalone API image from the `server/` directory.
+
+    ```bash
+    docker build -t mem0-api-server .
+    ```
+
+    1. Set the database connection, `OPENAI_API_KEY`, and `JWT_SECRET` in `server/.env`. Use a database host reachable from the container.
     2. Run the container:
 
     ```bash
