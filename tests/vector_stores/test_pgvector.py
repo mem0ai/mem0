@@ -2563,3 +2563,64 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_in_accepts_list_value(self):
         conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
         self.assertEqual(params, ["user_id", ["alice", "bob"]])
+
+    def test_gt_date_string(self):
+        conditions, params = _build_filter_conditions({"dt": {"gt": "2025-01-05"}})
+        self.assertEqual(conditions, ["payload->>%s > %s"])
+        self.assertEqual(params, ["dt", "2025-01-05"])
+
+    def test_gte_date_string(self):
+        conditions, params = _build_filter_conditions({"dt": {"gte": "2025-01-05"}})
+        self.assertEqual(conditions, ["payload->>%s >= %s"])
+        self.assertEqual(params, ["dt", "2025-01-05"])
+
+    def test_lt_date_string(self):
+        conditions, params = _build_filter_conditions({"dt": {"lt": "2025-01-10"}})
+        self.assertEqual(conditions, ["payload->>%s < %s"])
+        self.assertEqual(params, ["dt", "2025-01-10"])
+
+    def test_lte_date_string(self):
+        conditions, params = _build_filter_conditions({"dt": {"lte": "2025-01-10T23:59:59Z"}})
+        self.assertEqual(conditions, ["payload->>%s <= %s"])
+        self.assertEqual(params, ["dt", "2025-01-10T23:59:59Z"])
+
+    def test_mixed_numeric_and_date_range(self):
+        conditions, params = _build_filter_conditions({
+            "score": {"gte": 0.5, "lt": 10},
+            "dt": {"gte": "2025-01-01", "lte": "2025-01-31"},
+        })
+        self.assertEqual(
+            conditions,
+            [
+                "(payload->>%s)::numeric >= %s",
+                "(payload->>%s)::numeric < %s",
+                "payload->>%s >= %s",
+                "payload->>%s <= %s",
+            ],
+        )
+        self.assertEqual(params, ["score", 0.5, "score", 10.0, "dt", "2025-01-01", "dt", "2025-01-31"])
+
+    def test_range_numeric_int_float_and_numeric_string_preserved(self):
+        cases = [
+            ({"score": {"gt": 10}}, "(payload->>%s)::numeric > %s", 10.0),
+            ({"score": {"gte": 3.14}}, "(payload->>%s)::numeric >= %s", 3.14),
+            ({"score": {"lt": "42.5"}}, "(payload->>%s)::numeric < %s", 42.5),
+            ({"score": {"lte": "100"}}, "(payload->>%s)::numeric <= %s", 100.0),
+        ]
+        for filt, expected_cond, expected_val in cases:
+            with self.subTest(filt=filt):
+                conditions, params = _build_filter_conditions(filt)
+                self.assertEqual(conditions, [expected_cond])
+                self.assertEqual(params, ["score", expected_val])
+                self.assertIsInstance(params[1], float)
+
+    def test_range_bool_behavior_preserved(self):
+        conditions, params = _build_filter_conditions({"flag": {"gte": True, "lt": False}})
+        self.assertEqual(conditions, ["(payload->>%s)::numeric >= %s", "(payload->>%s)::numeric < %s"])
+        self.assertEqual(params, ["flag", 1.0, "flag", 0.0])
+
+    def test_range_non_string_invalid_value_still_raises(self):
+        with self.assertRaises(TypeError):
+            _build_filter_conditions({"score": {"gt": None}})
+        with self.assertRaises(ValueError):
+            _build_filter_conditions({"score": {"gt": b"2025-01-05"}})

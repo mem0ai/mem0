@@ -100,12 +100,20 @@ def _build_filter_conditions(filters):
                     escaped = str(op_value).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
                     conditions.append(template + " ESCAPE '\\'")
                     params.extend([key, f"%{escaped}%"])
+                elif is_numeric:
+                    try:
+                        numeric_val = float(op_value)
+                    except ValueError:
+                        if not isinstance(op_value, str):
+                            raise
+                        conditions.append(template.replace("(payload->>%s)::numeric", "payload->>%s", 1))
+                        params.extend([key, op_value])
+                    else:
+                        conditions.append(template)
+                        params.extend([key, numeric_val])
                 else:
                     conditions.append(template)
-                    if is_numeric:
-                        params.extend([key, float(op_value)])
-                    else:
-                        params.extend([key, str(op_value)])
+                    params.extend([key, str(op_value)])
         elif isinstance(value, list):
             conditions.append("payload->>%s = ANY(%s)")
             params.extend([key, [str(v) for v in value]])
