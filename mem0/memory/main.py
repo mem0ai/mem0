@@ -1698,6 +1698,8 @@ class Memory(MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            recency_weight=self.config.recency_weight,
+            recency_tau_days=self.config.recency_tau_days,
         )
 
         # Step 9: Format results
@@ -3387,6 +3389,8 @@ class AsyncMemory(MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            recency_weight=self.config.recency_weight,
+            recency_tau_days=self.config.recency_tau_days,
         )
 
         # Step 9: Format results
