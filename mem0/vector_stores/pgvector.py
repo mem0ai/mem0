@@ -56,7 +56,15 @@ def _build_filter_conditions(filters):
         return conditions, params
 
     for key, value in filters.items():
-        if key == "$or":
+        if key in ("$and", "AND"):
+            for and_filter in value:
+                sub_conds, sub_params = _build_filter_conditions(and_filter)
+                if sub_conds:
+                    conditions.append("(" + " AND ".join(sub_conds) + ")")
+                    params.extend(sub_params)
+            continue
+
+        if key in ("$or", "OR"):
             or_groups = []
             for or_filter in value:
                 sub_conds, sub_params = _build_filter_conditions(or_filter)
@@ -67,7 +75,7 @@ def _build_filter_conditions(filters):
                 conditions.append("(" + " OR ".join(or_groups) + ")")
             continue
 
-        if key == "$not":
+        if key in ("$not", "NOT"):
             not_groups = []
             for not_filter in value:
                 sub_conds, sub_params = _build_filter_conditions(not_filter)

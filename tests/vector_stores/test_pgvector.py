@@ -2563,3 +2563,20 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_in_accepts_list_value(self):
         conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
         self.assertEqual(params, ["user_id", ["alice", "bob"]])
+
+    def test_and_operator_with_nested_or(self):
+        conditions, params = _build_filter_conditions({
+            "$and": [
+                {"$or": [{"a": 1}, {"b": 1}]},
+                {"c": 1},
+            ]
+        })
+        self.assertEqual(len(conditions), 2)
+        self.assertEqual(
+            conditions,
+            [
+                "(((payload->>%s = %s) OR (payload->>%s = %s)))",
+                "(payload->>%s = %s)",
+            ],
+        )
+        self.assertEqual(params, ["a", "1", "b", "1", "c", "1"])
