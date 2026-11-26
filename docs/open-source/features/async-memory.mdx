@@ -23,6 +23,28 @@ icon: "bolt"
 
 ## Feature anatomy
 
+### Cancellation during writes
+
+Cancelling an `AsyncMemory` call during extraction, embedding, or pre-write
+retrieval stops it before a new persistence unit starts. Once persistence starts,
+the call waits for that unit's vector mutation, matching history attempt, and
+existing per-unit entity bookkeeping before raising `asyncio.CancelledError`.
+Repeated cancellation does not abandon that work. Keep the memory instance and
+its stores open until the cancelled call has finished.
+
+For raw additions, one record is a unit; cancellation does not start subsequent
+records. Inferred additions drain the already-prepared batch, including existing
+fallbacks and message bookkeeping. Cancellation can therefore take as long as
+the synchronous backend and bookkeeping require; it is not a hard timeout or a
+rollback. If a started operation fails while cancellation is pending, the failure
+is logged and attached as the cancellation exception's cause. Ordinary provider
+and history errors retain their existing behavior.
+
+This does not provide cross-store transactions, recover from process termination,
+or make a concurrent `close()` safe. `delete_all()` drains started per-memory
+deletions through their history; cancellation does not promise completion of the
+remaining scope or whole-scope entity reconciliation.
+
 - **Direct storage access:** `AsyncMemory` talks to the same backends as the synchronous client but keeps everything in-process for lower latency.
 - **Method parity:** Each memory operation (`add`, `search`, `get_all`, `delete`, etc.) mirrors the synchronous API, letting you reuse payload shapes.
 - **Concurrent execution:** Non-blocking I/O lets you schedule multiple memory tasks with `asyncio.gather`.
