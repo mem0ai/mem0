@@ -13,6 +13,10 @@ class EmbedderConfig(BaseModel):
     @field_validator("config")
     def validate_config(cls, v, values):
         provider = values.data.get("provider")
+        if v is None:
+            # Normalize an explicit None (the field is Optional[dict]) to the
+            # default empty dict, matching VectorStoreConfig's behavior.
+            return {}
         if provider in [
             "openai",
             "ollama",

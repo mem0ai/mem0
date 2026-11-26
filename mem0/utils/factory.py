@@ -171,7 +171,9 @@ class EmbedderFactory:
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
             embedder_instance = load_class(class_type)
-            base_config = BaseEmbedderConfig(**config)
+            # config=None is valid at the EmbedderConfig layer (Optional[dict]);
+            # treat it as the default empty config.
+            base_config = BaseEmbedderConfig(**(config or {}))
             return embedder_instance(base_config)
         else:
             raise ValueError(f"Unsupported Embedder provider: {provider_name}")
