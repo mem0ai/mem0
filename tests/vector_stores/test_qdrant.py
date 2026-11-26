@@ -917,6 +917,46 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         self.assertIsInstance(cond.match, MatchValue)
         self.assertEqual(cond.match.value, 42)
 
+    def test_float_equality_uses_exact_range(self):
+        """Float scalar equality should use Range(gte=val, lte=val) since Qdrant MatchValue rejects floats (#8039, #8023)."""
+        cond = self.qdrant._build_field_condition("score", 0.5)
+        self.assertIsNone(cond.match)
+        self.assertIsInstance(cond.range, Range)
+        self.assertEqual(cond.range.gte, 0.5)
+        self.assertEqual(cond.range.lte, 0.5)
+
+    def test_eq_with_float_uses_exact_range(self):
+        """eq operator with float should use Range(gte=val, lte=val) (#8039, #8023)."""
+        cond = self.qdrant._build_field_condition("score", {"eq": 1.0})
+        self.assertIsNone(cond.match)
+        self.assertIsInstance(cond.range, Range)
+        self.assertEqual(cond.range.gte, 1.0)
+        self.assertEqual(cond.range.lte, 1.0)
+
+    def test_float_equality_end_to_end_local_qdrant(self):
+        """Filtering by float equality in local Qdrant should return matching points without ValidationError (#8039, #8023)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Qdrant(
+                collection_name="float_eq_test",
+                embedding_model_dims=4,
+                path=os.path.join(tmp, "qdrant"),
+            )
+            try:
+                store.insert(
+                    vectors=[[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]],
+                    payloads=[{"v": 1.0, "score": 0.5}, {"v": 2.0, "score": 0.8}],
+                    ids=[str(uuid.uuid4()), str(uuid.uuid4())],
+                )
+                res_scalar = store.list(filters={"v": 1.0})[0]
+                self.assertEqual(len(res_scalar), 1)
+                self.assertEqual(res_scalar[0].payload["v"], 1.0)
+
+                res_eq_op = store.list(filters={"score": {"eq": 0.5}})[0]
+                self.assertEqual(len(res_eq_op), 1)
+                self.assertEqual(res_eq_op[0].payload["score"], 0.5)
+            finally:
+                store.client.close()
+
     def test_eq_with_boolean(self):
         """eq operator with boolean should work."""
         cond = self.qdrant._build_field_condition("active", {"eq": False})
