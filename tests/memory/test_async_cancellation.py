@@ -1,12 +1,14 @@
 """Cancellation at provider boundaries with real disk Qdrant and SQLite.
 
 Only model SDK responses and provider response timing are controlled. No Mem0
-method is mocked; worker Futures finish before stores are closed or reopened.
+mutation method is mocked; worker Futures finish before stores are reopened.
+Telemetry and optional NLP/BM25 model loading are disabled for test isolation.
 """
 
 import asyncio
 import json
 import sqlite3
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
@@ -35,6 +37,18 @@ class Workers(ThreadPoolExecutor):
 @pytest.fixture
 def memory_config(tmp_path, monkeypatch):
     monkeypatch.setenv("MEM0_TELEMETRY", "false")
+    # Both modules capture this flag at import time; changing the environment
+    # alone is too late if another test already imported Mem0.
+    monkeypatch.setattr("mem0.memory.main.MEM0_TELEMETRY", False)
+    monkeypatch.setattr("mem0.memory.telemetry.MEM0_TELEMETRY", False)
+    monkeypatch.setitem(sys.modules, "fastembed", None)
+    # Isolate optional model caches as well as SDK availability: an earlier
+    # test may already have loaded spaCy. No NLP/model downloads are needed to
+    # exercise real vector/history persistence and cancellation.
+    for name in ("_nlp_full", "_nlp_lemma"):
+        monkeypatch.setattr(f"mem0.utils.spacy_models.{name}", None)
+    for name in ("_load_failed_full", "_load_failed_lemma"):
+        monkeypatch.setattr(f"mem0.utils.spacy_models.{name}", True)
 
     def embed(_sdk, **kwargs):
         return SimpleNamespace(
