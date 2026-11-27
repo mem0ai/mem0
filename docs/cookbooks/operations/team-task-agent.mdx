@@ -44,6 +44,7 @@ class CollaborativeAgent:
 
     def add_message(self, role, name, content):
         msg = {"role": role, "name": name, "content": content}
+        # infer=False stores the message as-is without LLM-based memory extraction/filtering
         self.mem.add([msg], run_id=self.run_id, infer=False)
 
     def brainstorm(self, prompt):
@@ -120,6 +121,7 @@ agent.print_grouped_by_actor()
 
 - Each message is attributed to a user or agent (actor)
 - All messages are stored in a shared project space (`run_id`)
+- `infer=False` in `mem.add()` directly persists the raw message without LLM extraction or filtering, ensuring verbatim memory retention
 - You can sort messages by time, group by actor, and format timestamps for clarity
 - Mem0 makes it easy to build collaborative, attributed chat/task systems
 
