@@ -10,7 +10,7 @@ Connect Camel's agent framework to Mem0 so every agent can persist and recall co
 
 <Info>
   **Prerequisites**
-  - Mem0: `MEM0_API_KEY` (or self-hosted endpoint), `pip install mem0ai`
+  - Mem0: a Mem0 Platform API key and `pip install mem0ai`
   - Camel AI: `pip install camel-ai` (requires Python 3.9+)
   - Optional: OpenAI API key if you run LLM-backed agents
 </Info>
@@ -21,18 +21,11 @@ Connect Camel's agent framework to Mem0 so every agent can persist and recall co
 
 <Tabs>
   <Tab title="Mem0">
-<Steps>
-<Step title="Export your API key">
+Set your Mem0 Platform API key in the environment.
+
 ```bash
-export MEM0_API_KEY="sk-..."
+export MEM0_API_KEY="your-mem0-platform-api-key"
 ```
-</Step>
-<Step title="(Self-host) Point to your Mem0 API">
-```bash
-export MEM0_BASE_URL="https://your-mem0-domain"
-```
-</Step>
-</Steps>
   </Tab>
   <Tab title="Camel">
 <Steps>
@@ -51,7 +44,8 @@ export OPENAI_API_KEY="sk-openai..."
 </Tabs>
 
 <Tip>
-  Mem0Storage reads `MEM0_API_KEY` automatically. Pass `api_key` explicitly only when you need to override the environment.
+  Camel's `Mem0Storage` reads `MEM0_API_KEY` and connects to `api.mem0.ai` even when `MEM0_BASE_URL` is set.
+  For a self-hosted Mem0 server, send HTTP requests directly to its [OSS REST API](/open-source/features/rest-api#authentication).
 </Tip>
 
 ## Wire Mem0 into a Camel agent
@@ -124,9 +118,8 @@ print(response.msgs[0].content)
 
 ## Troubleshooting
 
-- **Missing MEM0_API_KEY**: set `export MEM0_API_KEY="sk-..."` or pass `api_key` into `Mem0Storage`.
+- **Missing MEM0_API_KEY**: set `MEM0_API_KEY` to your Platform key or pass the key as `api_key` to `Mem0Storage`.
 - **No memories returned**: ensure `agent_id`/`user_id` in your query match what you used when writing.
-- **Network errors to Mem0**: if self-hosting, set `MEM0_BASE_URL` to your deployment URL.
 
 <CardGroup cols={2}>
   <Card
