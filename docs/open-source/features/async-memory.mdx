@@ -74,22 +74,14 @@ memory = AsyncMemory(config=custom_config)
 
 ### Manage lifecycle and concurrency
 
+Use `AsyncMemory` as an async context manager to close its SQLite history connection when the block exits, including when an operation raises an exception.
+
 ```python
 import asyncio
-from contextlib import asynccontextmanager
 from mem0 import AsyncMemory
 
-@asynccontextmanager
-async def get_memory():
-    memory = AsyncMemory()
-    try:
-        yield memory
-    finally:
-        # Clean up resources if needed
-        pass
-
 async def safe_memory_usage():
-    async with get_memory() as memory:
+    async with AsyncMemory() as memory:
         return await memory.search("test query", filters={"user_id": "alice"})
 ```
 
