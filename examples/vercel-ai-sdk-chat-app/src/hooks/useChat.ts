@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createMem0, getMemories } from '@mem0/vercel-ai-provider';
-import { LanguageModelV1Prompt, streamText } from 'ai';
+import { ModelMessage, streamText } from 'ai';
 import { Message, Memory } from '@/types';
 import { WELCOME_MESSAGE, INVALID_CONFIG_MESSAGE, ERROR_MESSAGE, AI_MODELS, Provider } from '@/constants/messages';
 
@@ -28,7 +28,7 @@ interface MemoryResponse {
 type MessageContent = 
   | { type: 'text'; text: string }
   | { type: 'image'; image: string }
-  | { type: 'file'; mimeType: string; data: Buffer };
+  | { type: 'file'; mediaType: string; data: Buffer };
 
 interface PromptMessage {
   role: string;
@@ -46,7 +46,7 @@ export const useChat = ({ user, mem0ApiKey, openaiApiKey, provider }: UseChatPro
     apiKey: openaiApiKey,
   });
 
-  const updateMemories = async (messages: LanguageModelV1Prompt) => {
+  const updateMemories = async (messages: Parameters<typeof getMemories>[0]) => {
     try {
       const fetchedMemories = await getMemories(messages, {
         user_id: user,
@@ -81,7 +81,7 @@ export const useChat = ({ user, mem0ApiKey, openaiApiKey, provider }: UseChatPro
       if (message.audio) {
         messageContent.push({
           type: 'file',
-          mimeType: 'audio/mpeg',
+          mediaType: 'audio/mpeg',
           data: message.audio as Buffer,
         });
       }
@@ -120,14 +120,14 @@ export const useChat = ({ user, mem0ApiKey, openaiApiKey, provider }: UseChatPro
     setThinking(true);
 
     const messagesForPrompt = formatMessagesForPrompt([...messages, userMessage]);
-    await updateMemories(messagesForPrompt as LanguageModelV1Prompt);
+    await updateMemories(messagesForPrompt as Parameters<typeof getMemories>[0]);
 
     try {
       const { textStream } = await streamText({
         model: mem0(AI_MODELS[provider], {
           user_id: user,
         }),
-        messages: messagesForPrompt as LanguageModelV1Prompt,
+        messages: messagesForPrompt as ModelMessage[],
       });
 
       const assistantMessageId = Date.now() + 1;
