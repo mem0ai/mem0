@@ -75,6 +75,8 @@ interface RecallOptions {
   maxChars?: number;
   seenIds?: Set<string>;
   timeoutMs?: number;
+  /** Gate for marking memories as seen. Return false when the context will not reach the model. */
+  canDeliver?: () => boolean;
 }
 
 interface MemoryLifecycleOptions {
@@ -110,12 +112,14 @@ class MemoryLifecycle {
     prompt: string,
     enabled: boolean,
     search: (query: string) => Promise<{ results?: unknown[] }>,
+    canDeliver?: () => boolean,
   ): Promise<string> {
     return buildRecallContext(prompt, enabled, search, {
       heading: this.#options.recallHeading,
       maxChars: this.#options.maxContextChars,
       seenIds: this.#seenMemoryIds,
       timeoutMs: this.#options.recallTimeoutMs,
+      canDeliver,
     });
   }
 }
@@ -156,6 +160,7 @@ export async function buildRecallContext(
     const suffix = "\n</mem0-relevant-memories>";
     const maxChars = options.maxChars ?? DEFAULT_MAX_CONTEXT_CHARS;
     const lines: string[] = [];
+    const includedIds: string[] = [];
     for (const memory of unseen) {
       const line = `${lines.length + 1}. ${redactSecrets(formatMemoryCompact(memory))
         .replace(/\s+/g, " ")
@@ -164,15 +169,20 @@ export async function buildRecallContext(
       if (candidate.length > maxChars) {
         if (!lines.length) {
           const available = maxChars - prefix.length - suffix.length;
-          if (available > 1) lines.push(`${line.slice(0, available - 1).trimEnd()}…`);
+          if (available > 1) {
+            lines.push(`${line.slice(0, available - 1).trimEnd()}…`);
+            includedIds.push(memory.id);
+          }
         }
         break;
       }
       lines.push(line);
-      options.seenIds?.add(memory.id);
+      includedIds.push(memory.id);
     }
     if (!lines.length) return "";
-    if (unseen[0] && !options.seenIds?.has(unseen[0].id)) options.seenIds?.add(unseen[0].id);
+    if (options.canDeliver?.() ?? true) {
+      for (const id of includedIds) options.seenIds?.add(id);
+    }
     return prefix + lines.join("\n") + suffix;
   } catch {
     return "";
