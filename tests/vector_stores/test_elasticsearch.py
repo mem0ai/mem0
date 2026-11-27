@@ -321,13 +321,12 @@ class TestElasticsearchDB(unittest.TestCase):
         self.client_mock.search.assert_called_once()
 
         # Verify results
-        self.assertEqual(len(results), 1)  # Outer list
-        self.assertEqual(len(results[0]), 2)  # Inner list
-        self.assertIsInstance(results[0][0], OutputData)
-        self.assertEqual(results[0][0].id, "id1")
-        self.assertEqual(results[0][0].payload, {"key1": "value1"})
-        self.assertEqual(results[0][1].id, "id2")
-        self.assertEqual(results[0][1].payload, {"key2": "value2"})
+        self.assertEqual(len(results), 2)  # Flat list
+        self.assertIsInstance(results[0], OutputData)
+        self.assertEqual(results[0].id, "id1")
+        self.assertEqual(results[0].payload, {"key1": "value1"})
+        self.assertEqual(results[1].id, "id2")
+        self.assertEqual(results[1].payload, {"key2": "value2"})
 
     def test_delete(self):
         # Perform delete
