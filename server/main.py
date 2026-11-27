@@ -19,6 +19,7 @@ from errors import (
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from mem0.telemetry import otel as mem0_otel
 from models import RequestLog, User
 from pydantic import BaseModel, Field
 from rate_limit import limiter
@@ -141,6 +142,12 @@ DEFAULT_CONFIG = {
 
 set_session_factory(SessionLocal)
 initialize_state(DEFAULT_CONFIG)
+
+# Turnkey OTLP export for the memory server when OTEL_EXPORTER_OTLP_ENDPOINT is
+# set (no-op otherwise, and never clobbers an operator-installed provider). This
+# is an application configuring the SDK — the mem0 library never does.
+if mem0_otel.bootstrap_tracing("mem0-server"):
+    logging.getLogger(__name__).info("mem0 OTel tracing bootstrapped (OTLP export enabled)")
 
 
 app = FastAPI(
@@ -290,6 +297,30 @@ def _persist_request_log(method: str, path: str, status_code: int, latency_ms: f
 
 
 @app.middleware("http")
+async def otel_server_trace(request: Request, call_next):
+    """Continue the agent's distributed trace through the memory server.
+
+    Extracts the inbound W3C ``traceparent`` and opens a SERVER span, so the
+    downstream ``memory.<op>`` spans (and their embedding / vector-store / LLM
+    children) render as one ``agent → memory server → mem0`` trace instead of a
+    detached single-span root. No-op when ``mem0[otel]`` is not installed.
+    """
+    span_attrs = {
+        "http.request.method": request.method,
+        "url.path": request.url.path,
+        mem0_otel.ATTR_OPERATION: "server.request",
+    }
+    with mem0_otel.start_server_span(f"{request.method} {request.url.path}", dict(request.headers), span_attrs) as span:
+        response = await call_next(request)
+        try:
+            if span is not None:
+                span.set_attribute("http.response.status_code", response.status_code)
+        except Exception:
+            pass
+        return response
+
+
+@app.middleware("http")
 async def log_requests(request: Request, call_next):
     request.state.auth_type = getattr(request.state, "auth_type", "none")
     rid = new_request_id()
@@ -383,7 +414,16 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
 
 
 ALL_MEMORIES_LIMIT = 1000
-_RESERVED_PAYLOAD_KEYS = {"data", "user_id", "agent_id", "run_id", "hash", "created_at", "updated_at", "expiration_date"}
+_RESERVED_PAYLOAD_KEYS = {
+    "data",
+    "user_id",
+    "agent_id",
+    "run_id",
+    "hash",
+    "created_at",
+    "updated_at",
+    "expiration_date",
+}
 
 
 def _serialize_memory(row: Any) -> Dict[str, Any]:
@@ -426,9 +466,7 @@ def get_all_memories(
                 raise HTTPException(status_code=403, detail="Admin role required to list all memories.")
             # Admin all-memory listing is intentionally raw; scoped get_all below applies expiry visibility.
             return _list_all_memories(limit=top_k if top_k is not None else ALL_MEMORIES_LIMIT)
-        filters = {
-            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v
-        }
+        filters = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v}
         params = {"filters": filters}
         if top_k is not None:
             params["top_k"] = top_k
@@ -535,9 +573,7 @@ def delete_all_memories(
     if not any([user_id, run_id, agent_id]):
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
-        params = {
-            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v
-        }
+        params = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v}
         get_memory_instance().delete_all(**params)
         return MessageResponse(message="All relevant memories deleted")
     except Exception:
