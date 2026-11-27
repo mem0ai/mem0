@@ -27,7 +27,7 @@ Import required modules and set up configurations:
 
 ```python
 from typing import Annotated, TypedDict, List
-from langgraph.graph import StateGraph, START
+from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langchain_openai import ChatOpenAI
 from mem0 import MemoryClient
@@ -116,7 +116,7 @@ Configure the LangGraph with appropriate nodes and edges:
 ```python
 graph.add_node("chatbot", chatbot)
 graph.add_edge(START, "chatbot")
-graph.add_edge("chatbot", "chatbot")
+graph.add_edge("chatbot", END)
 
 compiled_graph = graph.compile()
 ```
