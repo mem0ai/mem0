@@ -66,6 +66,10 @@ mem0 init --api-key "your-api-key"
 ```
 
 </CodeGroup>
+
+<Note>
+  In Python you don't have to paste the key into your code: set `MEM0_API_KEY` in your environment and call `MemoryClient()` with no arguments — it picks the key up automatically.
+</Note>
 </Step>
 
 <Step title="Add a memory">
@@ -104,6 +108,10 @@ mem0 add "I'm a vegetarian and allergic to nuts." --user-id user123
 ```
 
 </CodeGroup>
+
+<Note>
+  Only include the turns that carry facts about the user. In a chat loop that usually means just the user turn — the assistant reply gets mined for facts too, so passing the whole conversation can store your bot's own answers as facts about the user. For a chat app, save the user turn on its own: `client.add([{"role": "user", "content": message}], user_id="user123")`.
+</Note>
 
 Mem0 pulls the individual facts out of the conversation and stores each one separately:
 
@@ -144,6 +152,10 @@ mem0 search "What are my dietary restrictions?" --user-id user123
 ```
 
 </CodeGroup>
+
+<Note>
+  If a search right after adding comes back empty, wait a moment and try again — new memories can take a short while to become searchable.
+</Note>
 
 Both facts come back, ranked by how well they match the question:
 
