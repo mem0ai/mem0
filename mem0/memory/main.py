@@ -485,8 +485,8 @@ class _AsyncOSSProject:
 
 
 class Memory(MemoryBase):
-    def __init__(self, config: MemoryConfig = MemoryConfig()):
-        self.config = config
+    def __init__(self, config: Optional[MemoryConfig] = None):
+        self.config = config if config is not None else MemoryConfig()
 
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
@@ -504,10 +504,10 @@ class Memory(MemoryBase):
 
         # Initialize reranker if configured
         self.reranker = None
-        if config.reranker:
+        if self.config.reranker:
             self.reranker = RerankerFactory.create(
-                config.reranker.provider,
-                config.reranker.config
+                self.config.reranker.provider,
+                self.config.reranker.config
             )
 
         # Entity store is initialized lazily on first use
@@ -2193,8 +2193,8 @@ class Memory(MemoryBase):
 
 
 class AsyncMemory(MemoryBase):
-    def __init__(self, config: MemoryConfig = MemoryConfig()):
-        self.config = config
+    def __init__(self, config: Optional[MemoryConfig] = None):
+        self.config = config if config is not None else MemoryConfig()
 
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
@@ -2213,10 +2213,10 @@ class AsyncMemory(MemoryBase):
 
         # Initialize reranker if configured
         self.reranker = None
-        if config.reranker:
+        if self.config.reranker:
             self.reranker = RerankerFactory.create(
-                config.reranker.provider,
-                config.reranker.config
+                self.config.reranker.provider,
+                self.config.reranker.config
             )
 
         if MEM0_TELEMETRY:
