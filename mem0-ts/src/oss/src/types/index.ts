@@ -83,6 +83,8 @@ export interface LLMConfig {
   client?: any;
 }
 
+export type FusionStrategy = "additive" | "rrf";
+
 export interface RerankerConfig {
   apiKey?: string;
   /** The reranker model to use. Default varies by provider. */
@@ -152,6 +154,10 @@ export interface MemoryConfig {
   disableHistory?: boolean;
   historyDbPath?: string;
   customInstructions?: string;
+  /** Search score fusion strategy. Defaults to additive scoring. */
+  fusionStrategy?: FusionStrategy;
+  /** Reciprocal-rank-fusion constant. Must be a positive integer. */
+  rrfK?: number;
 }
 
 export interface MemoryItem {
@@ -260,4 +266,6 @@ export const MemoryConfigSchema = z.object({
     })
     .optional(),
   disableHistory: z.boolean().optional(),
+  fusionStrategy: z.enum(["additive", "rrf"]).default("additive"),
+  rrfK: z.number().int().positive().finite().default(60),
 });

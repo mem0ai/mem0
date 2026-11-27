@@ -438,6 +438,31 @@ class TestPGVector(unittest.TestCase):
         # Restore the module after the sys.modules patch reverts
         importlib.reload(sys.modules['mem0.vector_stores.pgvector'])
 
+    @patch.object(PGVector, '_get_cursor')
+    def test_get_by_ids_uses_parameterized_membership_and_complete_filters(self, mock_get_cursor):
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        self.mock_cursor.fetchall.return_value = [
+            (self.test_ids[0], {"data": "scoped"}),
+        ]
+
+        pgvector = PGVector.__new__(PGVector)
+        pgvector.collection_name = "test_collection"
+        pgvector._collection_ensured = True
+        result = pgvector.get_by_ids(
+            self.test_ids,
+            filters={"user_id": "alice", "priority": {"gte": 1, "lte": 3}},
+        )
+
+        query, params = self.mock_cursor.execute.call_args.args
+        query_text = str(query)
+        self.assertIn("id = ANY(%s::uuid[])", query_text)
+        self.assertIn("payload->>%s", query_text)
+        self.assertEqual(params[0], self.test_ids)
+        self.assertEqual(params[1:], ["user_id", "alice", "priority", 1.0, "priority", 3.0])
+        self.assertEqual(result[0].id, self.test_ids[0])
+        self.assertEqual(result[0].payload, {"data": "scoped"})
+
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
     @patch.object(PGVector, '_get_cursor')

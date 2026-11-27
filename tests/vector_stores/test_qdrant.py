@@ -510,6 +510,30 @@ class TestQdrant(unittest.TestCase):
         self.assertEqual(result["id"], vector_id)
         self.assertEqual(result["payload"], {"key": "value"})
 
+    def test_get_by_ids_applies_complete_filter_without_vectors(self):
+        requested_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
+        mock_point = MagicMock(id=requested_ids[0], payload={"key": "value"})
+        self.client_mock.scroll.return_value = ([mock_point], None)
+
+        result = self.qdrant.get_by_ids(
+            requested_ids,
+            filters={"user_id": "alice", "priority": {"gte": 1, "lte": 3}},
+        )
+
+        call_args = self.client_mock.scroll.call_args.kwargs
+        self.assertEqual(call_args["collection_name"], "test_collection")
+        self.assertEqual(call_args["limit"], len(requested_ids))
+        self.assertTrue(call_args["with_payload"])
+        self.assertFalse(call_args["with_vectors"])
+        scoped_filter = call_args["scroll_filter"]
+        self.assertIsInstance(scoped_filter, Filter)
+        self.assertEqual(scoped_filter.must[0].has_id, requested_ids)
+        # The complete existing filter is nested alongside HasId, retaining
+        # both identity and range predicates.
+        self.assertIsInstance(scoped_filter.must[1], Filter)
+        self.assertEqual(len(scoped_filter.must[1].must), 2)
+        self.assertEqual(result, [mock_point])
+
     def test_list_cols(self):
         self.client_mock.get_collections.return_value = MagicMock(collections=[{"name": "test_collection"}])
         result = self.qdrant.list_cols()

@@ -111,46 +111,69 @@ export class MemoryVectorStore implements VectorStore {
       return value.includes(payloadValue);
     }
 
-    // Handle comparison operators
-    if ("eq" in value) {
-      return payloadValue === value.eq;
-    }
-    if ("ne" in value) {
-      return payloadValue !== value.ne;
-    }
-    if ("gt" in value) {
-      return payloadValue > value.gt;
-    }
-    if ("gte" in value) {
-      return payloadValue >= value.gte;
-    }
-    if ("lt" in value) {
-      return payloadValue < value.lt;
-    }
-    if ("lte" in value) {
-      return payloadValue <= value.lte;
-    }
-    if ("in" in value) {
-      return Array.isArray(value.in) && value.in.includes(payloadValue);
-    }
-    if ("nin" in value) {
-      return !Array.isArray(value.nin) || !value.nin.includes(payloadValue);
-    }
-    if ("contains" in value) {
-      return (
-        typeof payloadValue === "string" &&
-        payloadValue.includes(value.contains)
-      );
-    }
-    if ("icontains" in value) {
-      return (
-        typeof payloadValue === "string" &&
-        payloadValue.toLowerCase().includes(value.icontains.toLowerCase())
-      );
+    // Apply every operator in a condition. In particular, a range such as
+    // {gte: 10, lte: 20} must enforce both bounds rather than only whichever
+    // key happened to be enumerated first.
+    const operators = Object.entries(value);
+    const knownOperators = new Set([
+      "eq",
+      "ne",
+      "gt",
+      "gte",
+      "lt",
+      "lte",
+      "in",
+      "nin",
+      "contains",
+      "icontains",
+    ]);
+    if (!operators.some(([operator]) => knownOperators.has(operator))) {
+      // Unknown operator - treat as nested object for equality (shouldn't
+      // happen normally, but preserves the previous behavior).
+      return payloadValue === value;
     }
 
-    // Unknown operator - treat as nested object for equality (shouldn't happen normally)
-    return payloadValue === value;
+    return operators.every(([operator, expected]) => {
+      const expectedValue: any = expected;
+      switch (operator) {
+        case "eq":
+          return payloadValue === expectedValue;
+        case "ne":
+          return payloadValue !== expectedValue;
+        case "gt":
+          return payloadValue > expectedValue;
+        case "gte":
+          return payloadValue >= expectedValue;
+        case "lt":
+          return payloadValue < expectedValue;
+        case "lte":
+          return payloadValue <= expectedValue;
+        case "in":
+          return (
+            Array.isArray(expectedValue) && expectedValue.includes(payloadValue)
+          );
+        case "nin":
+          return (
+            !Array.isArray(expectedValue) ||
+            !expectedValue.includes(payloadValue)
+          );
+        case "contains":
+          return (
+            typeof payloadValue === "string" &&
+            payloadValue.includes(expectedValue)
+          );
+        case "icontains":
+          return (
+            typeof payloadValue === "string" &&
+            typeof expectedValue === "string" &&
+            payloadValue.toLowerCase().includes(expectedValue.toLowerCase())
+          );
+        default:
+          // A known operator alongside an unknown one cannot satisfy the
+          // complete predicate.
+          return false;
+      }
+    });
   }
 
   /**
@@ -401,6 +424,35 @@ export class MemoryVectorStore implements VectorStore {
       id: row.id,
       payload,
     };
+  }
+
+  async getByIds(
+    ids: string[],
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[]> {
+    if (ids.length === 0) return [];
+
+    const placeholders = ids.map(() => "?").join(", ");
+    const rows = this.db
+      .prepare(`SELECT id, payload FROM vectors WHERE id IN (${placeholders})`)
+      .all(...ids) as any[];
+
+    const requested = new Set(ids.map(String));
+    const results: VectorStoreResult[] = [];
+    for (const row of rows) {
+      const id = String(row.id);
+      if (!requested.has(id)) continue;
+      const payload = this.normalizePayload(JSON.parse(row.payload));
+      const memoryVector: MemoryVector = {
+        id,
+        vector: [],
+        payload,
+      };
+      if (this.filterVector(memoryVector, filters)) {
+        results.push({ id, payload });
+      }
+    }
+    return results;
   }
 
   async update(

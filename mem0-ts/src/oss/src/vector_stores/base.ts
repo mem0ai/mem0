@@ -16,6 +16,11 @@ export interface VectorStore {
     topK?: number,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null>;
+  /** Retrieve a bounded set of IDs while enforcing the complete filter scope. */
+  getByIds?(
+    ids: string[],
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[]>;
   get(vectorId: string): Promise<VectorStoreResult | null>;
   /** Must not create a record. true: record changed; false: id does not exist; void: the store cannot tell. */
   update(
