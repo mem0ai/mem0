@@ -2,6 +2,14 @@ from abc import ABC, abstractmethod
 
 
 class VectorStoreBase(ABC):
+    def close(self):
+        """Release resources owned by the store, if supported by the provider.
+
+        Providers must leave caller-supplied clients open and tolerate repeated
+        calls. The default is a no-op for providers without lifecycle support.
+        """
+        pass
+
     @abstractmethod
     def create_col(self, name, vector_size, distance):
         """Create a new collection."""
