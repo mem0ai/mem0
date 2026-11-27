@@ -13,8 +13,9 @@ class TogetherEmbedding(EmbeddingBase):
 
         self.config.model = self.config.model or "intfloat/multilingual-e5-large-instruct"
         api_key = self.config.api_key or os.getenv("TOGETHER_API_KEY")
+        base_url = self.config.together_base_url or os.getenv("TOGETHER_API_BASE") or "https://api.together.ai/v1"
         self.config.embedding_dims = self.config.embedding_dims or 1024
-        self.client = Together(api_key=api_key)
+        self.client = Together(api_key=api_key, base_url=base_url)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
