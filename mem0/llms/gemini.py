@@ -55,39 +55,17 @@ class GeminiLLM(LLMBase):
         """
         # Get parts safely — content can be None when Gemini blocks the response
         candidate = response.candidates[0] if response.candidates else None
-        parts = candidate.content.parts if candidate and candidate.content else None
+        parts = (candidate.content.parts or []) if candidate and candidate.content else []
+        text = "".join(part.text for part in parts if part.text and not part.thought)
+        if not tools:
+            return text
 
-        if tools:
-            processed_response = {
-                "content": None,
-                "tool_calls": [],
-            }
-
-            if parts:
-                # Extract content from the first candidate
-                for part in parts:
-                    if hasattr(part, "text") and part.text:
-                        processed_response["content"] = part.text
-                        break
-
-                # Extract function calls
-                for part in parts:
-                    if hasattr(part, "function_call") and part.function_call:
-                        fn = part.function_call
-                        processed_response["tool_calls"].append(
-                            {
-                                "name": fn.name,
-                                "arguments": dict(fn.args) if fn.args else {},
-                            }
-                        )
-
-            return processed_response
-        else:
-            if parts:
-                for part in parts:
-                    if hasattr(part, "text") and part.text:
-                        return part.text
-            return ""
+        tool_calls = []
+        for part in parts:
+            if part.function_call:
+                fn = part.function_call
+                tool_calls.append({"name": fn.name, "arguments": dict(fn.args or {})})
+        return {"content": text or None, "tool_calls": tool_calls}
 
     def _reformat_messages(self, messages: List[Dict[str, str]]):
         """

@@ -24,7 +24,7 @@ def test_generate_response_without_tools(mock_gemini_client: Mock):
         {"role": "user", "content": "Hello, how are you?"},
     ]
 
-    mock_part = Mock(text="I'm doing well, thank you for asking!")
+    mock_part = types.Part(text="I'm doing well, thank you for asking!")
     mock_content = Mock(parts=[mock_part])
     mock_candidate = Mock(content=mock_content)
     mock_response = Mock(candidates=[mock_candidate])
@@ -73,18 +73,10 @@ def test_generate_response_with_tools(mock_gemini_client: Mock):
         }
     ]
 
-    mock_tool_call = Mock()
-    mock_tool_call.name = "add_memory"
-    mock_tool_call.args = {"data": "Today is a sunny day."}
-
-    # Create mock parts with both text and function_call
-    mock_text_part = Mock()
-    mock_text_part.text = "I've added the memory for you."
-    mock_text_part.function_call = None
-
-    mock_func_part = Mock()
-    mock_func_part.text = None
-    mock_func_part.function_call = mock_tool_call
+    mock_text_part = types.Part(text="I've added the memory for you.")
+    mock_func_part = types.Part(
+        function_call=types.FunctionCall(name="add_memory", args={"data": "Today is a sunny day."})
+    )
 
     mock_content = Mock()
     mock_content.parts = [mock_text_part, mock_func_part]
@@ -130,6 +122,37 @@ def test_parse_response_none_content_no_tools(mock_gemini_client: Mock):
 
     result = llm._parse_response(mock_response, tools=None)
     assert result == ""
+
+
+@pytest.mark.parametrize("with_thought", [False, True])
+def test_generate_response_returns_complete_json_from_text_parts(mock_gemini_client, with_thought):
+    parts = [types.Part(text='{"memory":[{"text":"Likes '), types.Part(text='tea."}]}')]
+    if with_thought:
+        parts.insert(0, types.Part(text="planning", thought=True))
+    mock_gemini_client.models.generate_content.return_value = types.GenerateContentResponse(
+        candidates=[types.Candidate(content=types.Content(parts=parts))]
+    )
+    llm = GeminiLLM()
+
+    result = llm.generate_response([{"role": "user", "content": "I like tea"}], response_format={"type": "json_object"})
+
+    assert result == '{"memory":[{"text":"Likes tea."}]}'
+
+
+@pytest.mark.parametrize("has_answer", [False, True])
+def test_parse_response_keeps_tool_call_and_only_answer_text(mock_gemini_client, has_answer):
+    parts = [types.Part(text="planning", thought=True)]
+    if has_answer:
+        parts.extend([types.Part(text="Looking "), types.Part(text="it up.")])
+    parts.append(types.Part(function_call=types.FunctionCall(name="lookup", args={"item": "tea"})))
+    response = types.GenerateContentResponse(candidates=[types.Candidate(content=types.Content(parts=parts))])
+
+    result = GeminiLLM()._parse_response(response, tools=[{"function": {"name": "lookup"}}])
+
+    assert result == {
+        "content": "Looking it up." if has_answer else None,
+        "tool_calls": [{"name": "lookup", "arguments": {"item": "tea"}}],
+    }
 
 
 def test_parse_response_none_content_with_tools(mock_gemini_client: Mock):
@@ -196,7 +219,7 @@ def test_none_config_values_omitted_from_generation_config(mock_gemini_client: M
     config = BaseLlmConfig(model="gemini-2.0-flash", temperature=None, max_tokens=None, top_p=None)
     llm = GeminiLLM(config)
 
-    mock_part = Mock(text="ok")
+    mock_part = types.Part(text="ok")
     mock_content = Mock(parts=[mock_part])
     mock_candidate = Mock(content=mock_content)
     mock_response = Mock(candidates=[mock_candidate])
@@ -215,7 +238,7 @@ def test_explicit_config_values_passed_to_generation_config(mock_gemini_client: 
     config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.5, max_tokens=200, top_p=0.9)
     llm = GeminiLLM(config)
 
-    mock_part = Mock(text="ok")
+    mock_part = types.Part(text="ok")
     mock_content = Mock(parts=[mock_part])
     mock_candidate = Mock(content=mock_content)
     mock_response = Mock(candidates=[mock_candidate])
