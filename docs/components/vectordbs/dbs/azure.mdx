@@ -159,7 +159,7 @@ Troubleshooting tips for [Azure Identity](https://github.com/Azure/azure-sdk-for
 | `api_key` | API key of the Azure AI Search service | Optional | If not present, the [Azure Identity](#using-azure-identity-for-authentication) credential chain will be used |
 | `collection_name` | The name of the collection/index to store vectors | `mem0` | Any valid index name |
 | `embedding_model_dims` | Dimensions of the embedding model | `1536` | Any integer value |
-| `compression_type` | Type of vector compression to use | `none` | `none`, `scalar`, `binary` |
+| `compression_type` | Type of vector compression to use | `None` | `None`, `scalar`, `binary` |
 | `use_float16` | Store vectors in half precision (Edm.Half) | `False` | `True`, `False` |
 | `vector_filter_mode` | Vector filter mode to use | `preFilter` | `postFilter`, `preFilter` |
 | `hybrid_search` | Use hybrid search | `False` | `True`, `False` |
@@ -167,7 +167,7 @@ Troubleshooting tips for [Azure Identity](https://github.com/Azure/azure-sdk-for
 ## Notes on Configuration Options
 
 - **compression_type**: 
-  - `none`: No compression, uses full vector precision
+  - `None` (default, leave the key unset): No compression, uses full vector precision
   - `scalar`: Scalar quantization with reasonable balance of speed and accuracy
   - `binary`: Binary quantization for maximum compression with some accuracy trade-off
 
