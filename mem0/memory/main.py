@@ -90,6 +90,107 @@ def _vector_store_list_rows(listed):
     return []
 
 
+def _build_memory_payload(data: str, metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Build the payload for a verbatim (``infer=False``) memory.
+
+    Shared by ``_create_memory`` and the batched path so both write the same
+    fields (data/hash/timestamps/lemmatized text) with the same precedence.
+    """
+    payload = deepcopy(metadata) if metadata is not None else {}
+    payload["data"] = data
+    payload["hash"] = hashlib.md5(data.encode()).hexdigest()
+    if "created_at" not in payload:
+        payload["created_at"] = datetime.now(timezone.utc).isoformat()
+    payload["updated_at"] = payload["created_at"]
+    payload["text_lemmatized"] = lemmatize_for_bm25(data)
+    return payload
+
+
+def _embed_for_add(embedding_model, texts):
+    """Embed verbatim memories with one batch call when possible.
+
+    Falls back to the per-text ``embed`` path (what ``infer=False`` used before)
+    when a provider raises or returns the wrong number of vectors.
+    """
+    try:
+        embeddings = embedding_model.embed_batch(texts, "add")
+        if len(embeddings) != len(texts):
+            raise ValueError(f"embed_batch returned {len(embeddings)} vectors for {len(texts)} texts")
+        return list(embeddings)
+    except Exception as e:
+        logger.warning(f"Batch embedding for add() failed ({e}); falling back to one call per memory")
+        return [embedding_model.embed(text, "add") for text in texts]
+
+
+def _persist_memory_records(vector_store, db, records):
+    """Persist ``(memory_id, data, embedding, payload)`` records in batches.
+
+    Uses one bulk insert and one bulk history write, with the same per-record
+    fallbacks the inferred (V3) path uses. Returns the records the vector store
+    accepted, in input order, so callers never report a failed insert as a
+    successful memory.
+    """
+    if not records:
+        return []
+
+    try:
+        vector_store.insert(
+            vectors=[record[2] for record in records],
+            ids=[record[0] for record in records],
+            payloads=[record[3] for record in records],
+        )
+        persisted = records
+    except Exception as e:
+        logger.warning(f"Batch insert of {len(records)} memories failed ({e}); falling back to one insert per memory")
+        persisted = []
+        for record in records:
+            try:
+                vector_store.insert(vectors=[record[2]], ids=[record[0]], payloads=[record[3]])
+                persisted.append(record)
+            except Exception as insert_error:
+                logger.error(f"Failed to insert memory {record[0]}: {insert_error}")
+
+    if not persisted:
+        raise VectorStoreError(f"Failed to insert any of the {len(records)} memories into the vector store")
+
+    history_records = [
+        {
+            "memory_id": record[0],
+            "old_memory": None,
+            "new_memory": record[1],
+            "event": "ADD",
+            "created_at": record[3].get("created_at"),
+            "updated_at": record[3].get("updated_at"),
+            "is_deleted": 0,
+            "actor_id": record[3].get("actor_id"),
+            "role": record[3].get("role"),
+        }
+        for record in persisted
+    ]
+    try:
+        db.batch_add_history(history_records)
+    except Exception as e:
+        logger.warning(
+            f"Batch history write for {len(history_records)} memories failed ({e}); falling back to one write per memory"
+        )
+        for history_record in history_records:
+            try:
+                db.add_history(
+                    history_record["memory_id"],
+                    None,
+                    history_record["new_memory"],
+                    "ADD",
+                    created_at=history_record.get("created_at"),
+                    updated_at=history_record.get("updated_at"),
+                    actor_id=history_record.get("actor_id"),
+                    role=history_record.get("role"),
+                )
+            except Exception as history_error:
+                logger.error(f"Failed to add history for {history_record['memory_id']}: {history_error}")
+
+    return persisted
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -880,7 +981,7 @@ class Memory(MemoryBase):
 
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
         if not infer:
-            returned_memories = []
+            batch = []
             for message_dict in messages:
                 if (
                     not isinstance(message_dict, dict)
@@ -900,20 +1001,32 @@ class Memory(MemoryBase):
                 if actor_name:
                     per_msg_meta["actor_id"] = actor_name
 
-                msg_content = message_dict["content"]
-                msg_embeddings = self.embedding_model.embed(msg_content, "add")
-                mem_id = self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
+                batch.append((message_dict["content"], per_msg_meta, actor_name, message_dict["role"]))
 
-                returned_memories.append(
-                    {
-                        "id": mem_id,
-                        "memory": msg_content,
-                        "event": "ADD",
-                        "actor_id": actor_name if actor_name else None,
-                        "role": message_dict["role"],
-                    }
-                )
-            return returned_memories
+            if not batch:
+                return []
+
+            texts = [content for content, _, _, _ in batch]
+            embeddings = _embed_for_add(self.embedding_model, texts)
+
+            records = []
+            metadata_by_id = {}
+            for (content, per_msg_meta, actor_name, role), embedding in zip(batch, embeddings):
+                memory_id = str(uuid.uuid4())
+                records.append((memory_id, content, embedding, _build_memory_payload(content, per_msg_meta)))
+                metadata_by_id[memory_id] = (content, actor_name, role)
+
+            persisted = _persist_memory_records(self.vector_store, self.db, records)
+            return [
+                {
+                    "id": memory_id,
+                    "memory": metadata_by_id[memory_id][0],
+                    "event": "ADD",
+                    "actor_id": metadata_by_id[memory_id][1] if metadata_by_id[memory_id][1] else None,
+                    "role": metadata_by_id[memory_id][2],
+                }
+                for memory_id, _, _, _ in persisted
+            ]
 
         # === V3 PHASED BATCH PIPELINE ===
 
@@ -1979,13 +2092,7 @@ class Memory(MemoryBase):
         else:
             embeddings = self.embedding_model.embed(data, memory_action="add")
         memory_id = str(uuid.uuid4())
-        new_metadata = deepcopy(metadata) if metadata is not None else {}
-        new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        if "created_at" not in new_metadata:
-            new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
-        new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata = _build_memory_payload(data, metadata)
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -2564,7 +2671,7 @@ class AsyncMemory(MemoryBase):
         prompt: Optional[str] = None,
     ):
         if not infer:
-            returned_memories = []
+            batch = []
             for message_dict in messages:
                 if (
                     not isinstance(message_dict, dict)
@@ -2584,20 +2691,35 @@ class AsyncMemory(MemoryBase):
                 if actor_name:
                     per_msg_meta["actor_id"] = actor_name
 
-                msg_content = message_dict["content"]
-                msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
-                mem_id = await self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
+                batch.append((message_dict["content"], per_msg_meta, actor_name, message_dict["role"]))
 
-                returned_memories.append(
-                    {
-                        "id": mem_id,
-                        "memory": msg_content,
-                        "event": "ADD",
-                        "actor_id": actor_name if actor_name else None,
-                        "role": message_dict["role"],
-                    }
-                )
-            return returned_memories
+            if not batch:
+                return []
+
+            texts = [content for content, _, _, _ in batch]
+            embeddings = await asyncio.to_thread(_embed_for_add, self.embedding_model, texts)
+
+            def build_records():
+                records = []
+                metadata_by_id = {}
+                for (content, per_msg_meta, actor_name, role), embedding in zip(batch, embeddings):
+                    memory_id = str(uuid.uuid4())
+                    records.append((memory_id, content, embedding, _build_memory_payload(content, per_msg_meta)))
+                    metadata_by_id[memory_id] = (content, actor_name, role)
+                return records, metadata_by_id
+
+            records, metadata_by_id = await asyncio.to_thread(build_records)
+            persisted = await asyncio.to_thread(_persist_memory_records, self.vector_store, self.db, records)
+            return [
+                {
+                    "id": memory_id,
+                    "memory": metadata_by_id[memory_id][0],
+                    "event": "ADD",
+                    "actor_id": metadata_by_id[memory_id][1] if metadata_by_id[memory_id][1] else None,
+                    "role": metadata_by_id[memory_id][2],
+                }
+                for memory_id, _, _, _ in persisted
+            ]
 
         # === V3 PHASED BATCH PIPELINE (async) ===
 
@@ -3678,13 +3800,7 @@ class AsyncMemory(MemoryBase):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
 
         memory_id = str(uuid.uuid4())
-        new_metadata = deepcopy(metadata) if metadata is not None else {}
-        new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        if "created_at" not in new_metadata:
-            new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
-        new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata = _build_memory_payload(data, metadata)
 
         await asyncio.to_thread(
             self.vector_store.insert,
