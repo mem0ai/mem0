@@ -404,3 +404,44 @@ class TestNeptuneAnalyticsUpdateRollback:
         assert vec.update("A", payload={"data": "beta", "user_id": "u1"}) is True
         assert vec.get("A").payload["data"] == "beta"
         assert vec.update("A", vector=[0.9, 0.9]) is True
+
+
+class TestNeptuneAnalyticsSearchSimilarityScore:
+    """Neptune Analytics topKByEmbeddingWithFiltering returns squared Euclidean distance
+    (lower = closer). search() must convert it to a bounded similarity score via
+    1.0 / (1.0 + distance) per the VectorStoreBase.search contract (#7068)."""
+
+    def _make_vec(self, monkeypatch):
+        monkeypatch.setattr("mem0.vector_stores.neptune_analytics.NeptuneAnalyticsGraph", lambda *args, **kwargs: None)
+        vec = NeptuneAnalyticsVector(endpoint="neptune-graph://test", collection_name="scores")
+        return vec
+
+    def test_search_converts_squared_l2_distance_to_similarity(self, monkeypatch):
+        vec = self._make_vec(monkeypatch)
+        raw_rows = [
+            {"n": {"~id": "exact", "~properties": {"data": "exact match", "label": "MEM0_VECTOR_scores"}}, "score": 0.0},
+            {"n": {"~id": "near", "~properties": {"data": "near match", "label": "MEM0_VECTOR_scores"}}, "score": 0.25},
+            {"n": {"~id": "far", "~properties": {"data": "far match", "label": "MEM0_VECTOR_scores"}}, "score": 3.0},
+        ]
+        monkeypatch.setattr(vec, "execute_query", lambda *args, **kwargs: raw_rows)
+
+        results = vec.search(query="test", vectors=[0.1, 0.2], top_k=3)
+
+        assert [r.id for r in results] == ["exact", "near", "far"]
+        assert results[0].score == pytest.approx(1.0)
+        assert results[1].score == pytest.approx(0.8)
+        assert results[2].score == pytest.approx(0.25)
+        assert results[0].score > results[1].score > results[2].score
+
+    def test_get_and_list_keep_score_none(self, monkeypatch):
+        vec = self._make_vec(monkeypatch)
+        raw_rows = [
+            {"n": {"~id": "node1", "~properties": {"data": "hello", "label": "MEM0_VECTOR_scores"}}},
+        ]
+        monkeypatch.setattr(vec, "execute_query", lambda *args, **kwargs: raw_rows)
+
+        got = vec.get("node1")
+        listed = vec.list()[0]
+
+        assert got.score is None
+        assert listed[0].score is None

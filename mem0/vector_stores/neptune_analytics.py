@@ -436,7 +436,8 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             properties = item[self._FIELD_N][self._FIELD_PROP]
             properties.pop("label", None)
             if with_score:
-                score = item[self._FIELD_SCORE]
+                raw_distance = float(item[self._FIELD_SCORE])
+                score = 1.0 / (1.0 + raw_distance)
             else:
                 score = None
             result.append(OutputData(
