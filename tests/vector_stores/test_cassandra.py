@@ -275,6 +275,83 @@ def test_search_with_filters(cassandra_instance):
         assert result.payload.get("category") == "A"
 
 
+def test_search_pushes_user_id_filter_to_cql(cassandra_instance):
+    """Indexed filter keys must appear in the CQL WHERE clause, not just Python post-filter."""
+    cassandra_instance.session.execute = Mock(return_value=[])
+    mock_prepared = Mock()
+    cassandra_instance.session.prepare = Mock(return_value=mock_prepared)
+
+    cassandra_instance.search(
+        query="test",
+        vectors=[0.1, 0.2, 0.3],
+        top_k=5,
+        filters={"user_id": "alice"},
+    )
+
+    # prepare() must have been called (means a parameterized WHERE query was built)
+    cassandra_instance.session.prepare.assert_called()
+    cql = cassandra_instance.session.prepare.call_args[0][0]
+    assert "WHERE" in cql
+    assert "user_id = ?" in cql
+
+
+def test_search_non_indexed_filter_stays_in_python(cassandra_instance):
+    """Non-indexed filter keys must not appear in the CQL WHERE clause."""
+    mock_row = Mock()
+    mock_row.id = "id1"
+    mock_row.vector = [0.1, 0.2, 0.3]
+    mock_row.payload = '{"category": "A"}'
+    cassandra_instance.session.execute = Mock(return_value=[mock_row])
+
+    results = cassandra_instance.search(
+        query="test",
+        vectors=[0.1, 0.2, 0.3],
+        top_k=5,
+        filters={"category": "A"},
+    )
+
+    # No prepare() call means the query was sent without a parameterized WHERE
+    # (non-indexed key is filtered in Python, not CQL)
+    cassandra_instance.session.prepare.assert_not_called()
+    assert len(results) == 1
+
+
+def test_list_pushes_user_id_filter_to_cql(cassandra_instance):
+    """list() must use CQL WHERE for indexed columns, not a full table scan."""
+    cassandra_instance.session.execute = Mock(return_value=[])
+    mock_prepared = Mock()
+    cassandra_instance.session.prepare = Mock(return_value=mock_prepared)
+
+    cassandra_instance.list(filters={"user_id": "alice"}, top_k=10)
+
+    cassandra_instance.session.prepare.assert_called()
+    cql = cassandra_instance.session.prepare.call_args[0][0]
+    assert "WHERE" in cql
+    assert "user_id = ?" in cql
+
+
+def test_insert_stores_indexed_columns(cassandra_instance):
+    """insert() must pass user_id/agent_id/run_id as separate CQL parameters."""
+    mock_prepared = Mock()
+    cassandra_instance.session.prepare = Mock(return_value=mock_prepared)
+
+    cassandra_instance.insert(
+        vectors=[[0.1, 0.2, 0.3]],
+        payloads=[{"user_id": "alice", "agent_id": "ag1", "run_id": "r1", "text": "hi"}],
+        ids=["id1"],
+    )
+
+    cql = cassandra_instance.session.prepare.call_args[0][0]
+    assert "user_id" in cql
+    assert "agent_id" in cql
+    assert "run_id" in cql
+
+    execute_args = cassandra_instance.session.execute.call_args[0][1]
+    assert "alice" in execute_args
+    assert "ag1" in execute_args
+    assert "r1" in execute_args
+
+
 def test_output_data_model():
     """Test OutputData model."""
     data = OutputData(
