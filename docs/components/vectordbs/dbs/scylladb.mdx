@@ -1,0 +1,186 @@
+---
+title: ScyllaDB
+description: "Use ScyllaDB as a real-time distributed vector store in Mem0 with ANN search."
+---
+
+[ScyllaDB](https://www.scylladb.com/) is a real-time distributed NoSQL database designed for AI workloads requiring sub-millisecond latency, extreme throughput and high-availability. Mem0 uses [ScyllaDB Vector Search](https://cloud.docs.scylladb.com/stable/vector-search/index.html) for server-side approximate nearest neighbor (ANN) retrieval.
+
+### Prerequisites
+
+- ScyllaDB **2026.3 or later** with Vector Search enabled.
+- Either a [ScyllaDB Cloud](https://cloud.scylladb.com) cluster with **Vector and Text Search** enabled, or a self-hosted ScyllaDB node paired with the `scylladb/vector-store` service (local development).
+
+### Installation
+
+pip:
+```bash
+pip install mem0ai[scylladb]
+```
+
+uv:
+```bash
+uv add mem0ai[scylladb]
+```
+
+<Note>
+The `scylladb` extra installs `scylla-driver`, which provides the same `cassandra` Python package as `cassandra-driver`. Do not install both in the same environment.
+</Note>
+
+### Usage
+
+#### ScyllaDB Cloud
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "scylladb",
+        "config": {
+            "contact_points": ["node-0.aws-us-east-1.xxxxxxxx.clusters.scylla.cloud"],
+            "port": 9142,                                  # TLS CQL port
+            "username": "scylla",
+            "password": "<your-password>",
+            "datacenter": "AWS_US_EAST_1",                 # your ScyllaDB Cloud datacenter
+            "use_ssl": True,
+            "ssl_cert_path": "/path/to/scylladb_cluster_ca.pem",
+            "keyspace": "mem0",
+            "collection_name": "memories",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm looking for a good sci-fi book."},
+    {"role": "assistant", "content": "Have you tried Dune? It's a classic."},
+    {"role": "user", "content": "I've read Dune. I prefer hard sci-fi with realistic physics."},
+    {"role": "assistant", "content": "Then you'll love The Martian or Project Hail Mary by Andy Weir."},
+]
+m.add(messages, user_id="alice", metadata={"category": "books"})
+```
+
+#### Self-hosted ScyllaDB (Docker)
+
+<Note>
+Use this setup for local development and tests. For production, use ScyllaDB Cloud.
+</Note>
+
+Vector Search needs two services: a ScyllaDB node and the `scylladb/vector-store` service that builds and serves the ANN indexes. The vector store shares the ScyllaDB container's network namespace, so both services and your application reach ScyllaDB at `127.0.0.1`:
+
+```bash
+docker run -d --name scylla -p 9042:9042 \
+  scylladb/scylla:2026.3 \
+  --smp 1 --memory 1G --overprovisioned 1 \
+  --rpc-address 0.0.0.0 --broadcast-rpc-address 127.0.0.1 \
+  --vector-store-primary-uri http://127.0.0.1:6080
+
+# Wait until ScyllaDB accepts CQL connections
+until docker logs scylla 2>&1 | grep -q "Starting listening for CQL clients"; do sleep 2; done
+
+docker run -d --name scylla-vector-store --network container:scylla \
+  -e VECTOR_STORE_URI=127.0.0.1:6080 \
+  -e VECTOR_STORE_SCYLLADB_URI=127.0.0.1:9042 \
+  scylladb/vector-store:1.11.0
+```
+
+Then point Mem0 at `localhost`:
+
+```python
+config = {
+    "vector_store": {
+        "provider": "scylladb",
+        "config": {
+            "contact_points": ["127.0.0.1"],
+            "port": 9042,
+            "datacenter": "datacenter1",
+            "keyspace": "mem0",
+            "collection_name": "memories",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+No `username`/`password` are needed: ScyllaDB ships with authentication disabled unless you enable it.
+
+To clean up:
+
+```bash
+docker rm -f scylla-vector-store scylla
+```
+
+### Config
+
+| Parameter | Description | Default |
+| --- | --- | --- |
+| `contact_points` | List of ScyllaDB node addresses | Required |
+| `port` | CQL native-transport port (`9142` for TLS on ScyllaDB Cloud) | `9042` |
+| `username` | Database username | `None` |
+| `password` | Database password | `None` |
+| `keyspace` | Keyspace name (normalized to lowercase) | `"mem0"` |
+| `collection_name` | Table name for storing vectors (normalized to lowercase) | `"memories"` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `datacenter` | Local datacenter for DC-aware routing (required for ScyllaDB Cloud) | `None` |
+| `use_ssl` | Enable TLS/SSL | `False` |
+| `ssl_cert_path` | Path to CA certificate file. Leave `None` to use system CAs. | `None` |
+
+### Setup
+
+#### ScyllaDB Cloud
+1. Sign up at [cloud.scylladb.com](https://cloud.scylladb.com)
+2. Create a cluster running ScyllaDB 2026.3 or later and check **Enable the Vector and Text Search option**. For an existing cluster, choose **Enable Vector and Text Search** from the three-dot menu in the datacenter overview.
+3. Under **Security**, enable encrypted connections and **Download CA public key**. Pass the file path as `ssl_cert_path`.
+4. In the cluster dashboard, open the **Connect** tab and note your **connection details**:
+   - Contact point hostname (e.g., `node-0.aws-us-east-1.xxxxxxxx.clusters.scylla.cloud`)
+   - Datacenter name (e.g., `AWS_US_EAST_1`)
+   - Username and password
+5. Add your client's IP address to the cluster's **Allowed IPs**, or use VPC peering.
+
+See [Vector Search Deployments](https://cloud.docs.scylladb.com/stable/vector-search/vector-search-clusters.html) and [Client-to-node Encryption](https://cloud.docs.scylladb.com/stable/security/client-to-node-encryption.html) for details.
+
+### How Vector Search Works
+
+Mem0 stores `user_id`, `agent_id` and `run_id` in their own columns (alongside the full JSON payload) and creates one **local vector index** per column, plus a secondary index per column for listing:
+
+```sql
+CREATE TABLE mem0.memories (
+    id       text PRIMARY KEY,
+    vector   VECTOR<FLOAT, 1536>,
+    user_id  text,
+    agent_id text,
+    run_id   text,
+    payload  text
+);
+
+CREATE CUSTOM INDEX memories_user_id_ann ON mem0.memories ((user_id), vector, agent_id, run_id)
+    USING 'vector_index' WITH OPTIONS = {'similarity_function': 'COSINE'};
+-- ... and the same for agent_id and run_id
+
+CREATE INDEX memories_user_id_idx ON mem0.memories (user_id);
+-- ... and the same for agent_id and run_id
+```
+
+A search is always confined to one user, agent or run, so other tenants' memories never compete for the top-K slots:
+
+```sql
+SELECT id, similarity_cosine(vector, ?) AS score, payload
+FROM mem0.memories
+WHERE user_id = ?
+ORDER BY vector ANN OF ?
+LIMIT 5;
+```
+
+Scores are plain cosine similarities in `[-1, 1]` (higher is more similar): the store converts ScyllaDB's `similarity_cosine`, which returns `(1 + cos) / 2`, so Mem0's similarity thresholds behave the same as with other vector stores. Other metadata filters (for example `{"category": {"eq": "books"}}`) are evaluated against the payload within that scope. Every `search` call must include at least one of `user_id`, `agent_id` or `run_id`, which Mem0 already requires.
+
+### Performance Considerations
+
+- **DC-aware routing**: Always set `datacenter` to your local datacenter so the driver routes requests to the nearest shard-owning replica.
+- **Replication**: Mem0 creates the keyspace without a replication clause, so ScyllaDB uses `NetworkTopologyStrategy` with tablets and a replication factor that fits the cluster (3 on ScyllaDB Cloud, 1 on a single node). To use other settings, create the keyspace yourself before you start Mem0.
+- **Shard-awareness**: `scylla-driver` automatically routes each CQL request to the shard that owns the partition.
+- **Embedding dimensions**: Set `embedding_model_dims` to match your embedding model. This value is baked into the `VECTOR<FLOAT, N>` column definition and cannot be changed without recreating the table.
+- **Index freshness**: Newly written vectors typically become searchable within about a second.
