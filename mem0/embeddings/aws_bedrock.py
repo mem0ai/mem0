@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Literal, Optional
 
 try:
@@ -60,8 +61,10 @@ class AWSBedrockEmbedding(EmbeddingBase):
     def _get_embedding(self, text):
         """Call out to Bedrock embedding endpoint."""
 
-        # Format input body based on the provider
-        provider = self.config.model.split(".")[0]
+        # Format input body based on the provider. Cross-region inference profile IDs
+        # prefix the provider with a geography (us.cohere.embed-v4:0), so match it as a
+        # word anywhere in the ID, the way extract_provider() in mem0/llms/aws_bedrock.py does.
+        provider = "cohere" if re.search(r"\bcohere\b", self.config.model) else self.config.model.split(".")[0]
         input_body = {}
 
         if provider == "cohere":

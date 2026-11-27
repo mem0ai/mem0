@@ -105,3 +105,27 @@ def test_titan_v1_ignores_embedding_dims(mock_boto3_client):
         body = _captured_request_body(mock_boto3_client, config)
 
     assert "dimensions" not in body
+
+
+@pytest.mark.parametrize(
+    "model",
+    ["cohere.embed-english-v3", "us.cohere.embed-v4:0", "eu.cohere.embed-v4:0", "global.cohere.embed-v4:0"],
+)
+def test_cohere_request_for_base_and_inference_profile_ids(mock_boto3_client, model):
+    """Cross-region inference profile IDs put a geography in front of the provider.
+
+    The Cohere request and response shapes must still be used for them, as the
+    Bedrock LLM already resolves these IDs to their provider.
+    """
+    runtime = mock_boto3_client.return_value
+    response_stream = Mock()
+    response_stream.read.return_value = json.dumps({"embeddings": [[0.3, 0.4]]}).encode()
+    runtime.invoke_model.return_value = {"body": response_stream}
+
+    with patch("mem0.embeddings.aws_bedrock.os.environ", {}):
+        embedding = AWSBedrockEmbedding(BaseEmbedderConfig(model=model)).embed("hello world")
+
+    _, call_kwargs = runtime.invoke_model.call_args
+    assert call_kwargs["modelId"] == model
+    assert json.loads(call_kwargs["body"]) == {"input_type": "search_document", "texts": ["hello world"]}
+    assert embedding == [0.3, 0.4]
