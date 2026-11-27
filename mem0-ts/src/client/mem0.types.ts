@@ -240,6 +240,7 @@ export interface CreateMemoryExportPayload {
 export interface GetMemoryExportPayload {
   filters?: Record<string, any>;
   memoryExportId?: string;
+  memory_export_id?: string;
 }
 
 // ─── Profile Types ──────────────────────────────────────────
