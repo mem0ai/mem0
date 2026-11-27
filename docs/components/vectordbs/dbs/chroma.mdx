@@ -6,12 +6,13 @@ description: "Use Chroma as a vector database in Mem0 for local or cloud-hosted 
 
 ### Usage
 
+Set `OPENAI_API_KEY` in your environment for the default LLM and embedder.
+
+#### Local Chroma
+
 <CodeGroup>
 ```python Python
-import os
 from mem0 import Memory
-
-os.environ["OPENAI_API_KEY"] = "sk-xx"
 
 config = {
     "vector_store": {
@@ -19,9 +20,6 @@ config = {
         "config": {
             "collection_name": "test",
             "path": "db",
-            # Optional: ChromaDB Cloud configuration
-            # "api_key": "your-chroma-cloud-api-key",
-            # "tenant": "your-chroma-cloud-tenant-id",
         }
     }
 }
@@ -48,9 +46,6 @@ const config = {
       collectionName: 'memories',
       host: 'localhost',
       port: 8000,
-      // Optional: ChromaDB Cloud configuration
-      // apiKey: 'your-chroma-cloud-api-key',
-      // tenant: 'your-chroma-cloud-tenant-id',
     },
   },
 };
@@ -70,6 +65,43 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 The Node.js SDK uses the `chromadb` v3 client, which talks to a Chroma server over HTTP (local server or ChromaDB Cloud). Install it with `npm install chromadb`. Mem0 supplies the embeddings, so the collection is created without an embedding function.
 </Note>
 
+#### Chroma Cloud
+
+Set `CHROMA_API_KEY` and `CHROMA_TENANT` in your environment. Use the cloud credentials in place of the local path or server address.
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+m = Memory.from_config({
+    "vector_store": {
+        "provider": "chroma",
+        "config": {
+            "collection_name": "test",
+            "api_key": os.environ["CHROMA_API_KEY"],
+            "tenant": os.environ["CHROMA_TENANT"],
+        },
+    }
+})
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const memory = new Memory({
+  vectorStore: {
+    provider: 'chroma',
+    config: {
+      collectionName: 'memories',
+      apiKey: process.env.CHROMA_API_KEY,
+      tenant: process.env.CHROMA_TENANT,
+    },
+  },
+});
+```
+</CodeGroup>
+
 ### Config
 
 Here are the parameters available for configuring Chroma:
@@ -80,7 +112,7 @@ Here are the parameters available for configuring Chroma:
 | --- | --- | --- |
 | `collection_name` | The name of the collection | `mem0` |
 | `client` | Custom client for Chroma | `None` |
-| `path` | Path for the Chroma database | `db` |
+| `path` | Directory for a local Chroma database | `/tmp/chroma` for local storage |
 | `host` | The host where the Chroma server is running | `None` |
 | `port` | The port where the Chroma server is running | `None` |
 | `api_key` | ChromaDB Cloud API key (for cloud usage) | `None` |
