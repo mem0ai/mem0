@@ -39,18 +39,30 @@ class OpenAILLM(LLMBase):
         if not self.config.model:
             self.config.model = "gpt-5-mini"
 
+        # User-supplied HTTP headers (observability proxies such as Helicone,
+        # corporate API gateways, ...) are attached to the client rather than to
+        # individual requests, mirroring how azure_openai.py wires
+        # `default_headers`. The OpenAI SDK merges these with any per-request
+        # `extra_headers`, so the OpenRouter attribution headers set in
+        # `generate_response` still win for the keys they own. Only pass the
+        # kwarg when configured so existing setups are byte-for-byte unchanged.
+        client_kwargs = {}
+        if self.config.extra_headers:
+            client_kwargs["default_headers"] = self.config.extra_headers
+
         if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
             self.client = OpenAI(
                 api_key=os.environ.get("OPENROUTER_API_KEY"),
                 base_url=self.config.openrouter_base_url
                 or os.getenv("OPENROUTER_API_BASE")
                 or "https://openrouter.ai/api/v1",
+                **client_kwargs,
             )
         else:
             api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
             base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
 
-            self.client = OpenAI(api_key=api_key, base_url=base_url)
+            self.client = OpenAI(api_key=api_key, base_url=base_url, **client_kwargs)
 
     def _parse_response(self, response, tools):
         """
