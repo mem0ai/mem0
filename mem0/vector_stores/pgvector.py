@@ -36,10 +36,10 @@ logger = logging.getLogger(__name__)
 OPERATOR_SQL_MAP = {
     "eq": ("payload->>%s = %s", False),
     "ne": ("payload->>%s != %s", False),
-    "gt": ("(payload->>%s)::numeric > %s", True),
-    "gte": ("(payload->>%s)::numeric >= %s", True),
-    "lt": ("(payload->>%s)::numeric < %s", True),
-    "lte": ("(payload->>%s)::numeric <= %s", True),
+    "gt": ("CASE WHEN jsonb_typeof(payload->%s) = 'number' THEN (payload->>%s)::numeric > %s ELSE FALSE END", True),
+    "gte": ("CASE WHEN jsonb_typeof(payload->%s) = 'number' THEN (payload->>%s)::numeric >= %s ELSE FALSE END", True),
+    "lt": ("CASE WHEN jsonb_typeof(payload->%s) = 'number' THEN (payload->>%s)::numeric < %s ELSE FALSE END", True),
+    "lte": ("CASE WHEN jsonb_typeof(payload->%s) = 'number' THEN (payload->>%s)::numeric <= %s ELSE FALSE END", True),
     "in": ("payload->>%s = ANY(%s)", False),
     "nin": ("NOT (payload->>%s = ANY(%s))", False),
     "contains": ("payload->>%s LIKE %s", False),
@@ -103,7 +103,7 @@ def _build_filter_conditions(filters):
                 else:
                     conditions.append(template)
                     if is_numeric:
-                        params.extend([key, float(op_value)])
+                        params.extend([key, key, float(op_value)])
                     else:
                         params.extend([key, str(op_value)])
         elif isinstance(value, list):

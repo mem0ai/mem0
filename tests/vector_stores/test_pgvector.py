@@ -2413,32 +2413,32 @@ class TestBuildFilterConditions(unittest.TestCase):
         conditions, params = _build_filter_conditions({"price": {"gt": 100}})
         self.assertEqual(len(conditions), 1)
         self.assertIn("(payload->>%s)::numeric > %s", conditions[0])
-        self.assertEqual(params, ["price", 100.0])
+        self.assertEqual(params, ["price", "price", 100.0])
 
     def test_gte_operator(self):
         conditions, params = _build_filter_conditions({"price": {"gte": 100}})
         self.assertEqual(len(conditions), 1)
         self.assertIn("(payload->>%s)::numeric >= %s", conditions[0])
-        self.assertEqual(params, ["price", 100.0])
+        self.assertEqual(params, ["price", "price", 100.0])
 
     def test_lt_operator(self):
         conditions, params = _build_filter_conditions({"price": {"lt": 50}})
         self.assertEqual(len(conditions), 1)
         self.assertIn("(payload->>%s)::numeric < %s", conditions[0])
-        self.assertEqual(params, ["price", 50.0])
+        self.assertEqual(params, ["price", "price", 50.0])
 
     def test_lte_operator(self):
         conditions, params = _build_filter_conditions({"price": {"lte": 50}})
         self.assertEqual(len(conditions), 1)
         self.assertIn("(payload->>%s)::numeric <= %s", conditions[0])
-        self.assertEqual(params, ["price", 50.0])
+        self.assertEqual(params, ["price", "price", 50.0])
 
     def test_range_combination(self):
         conditions, params = _build_filter_conditions({"score": {"gte": 1, "lte": 10}})
         self.assertEqual(len(conditions), 2)
         self.assertIn("(payload->>%s)::numeric >= %s", conditions[0])
         self.assertIn("(payload->>%s)::numeric <= %s", conditions[1])
-        self.assertEqual(params, ["score", 1.0, "score", 10.0])
+        self.assertEqual(params, ["score", "score", 1.0, "score", "score", 10.0])
 
     def test_in_operator(self):
         conditions, params = _build_filter_conditions({"status": {"in": ["active", "pending"]}})
@@ -2515,7 +2515,7 @@ class TestBuildFilterConditions(unittest.TestCase):
         })
         self.assertEqual(len(conditions), 1)
         self.assertIn(" OR ", conditions[0])
-        self.assertEqual(params, ["price", 100.0, "price", 10.0])
+        self.assertEqual(params, ["price", "price", 100.0, "price", "price", 10.0])
 
     def test_mixed_simple_and_operator_filters(self):
         conditions, params = _build_filter_conditions({
@@ -2563,3 +2563,12 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_in_accepts_list_value(self):
         conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
         self.assertEqual(params, ["user_id", ["alice", "bob"]])
+
+    def test_numeric_range_operators_guard_non_numeric_jsonb_values(self):
+        for op, sql_op in [("gt", ">"), ("gte", ">="), ("lt", "<"), ("lte", "<=")]:
+            conditions, params = _build_filter_conditions({"v": {op: 5}})
+            self.assertEqual(
+                conditions,
+                [f"CASE WHEN jsonb_typeof(payload->%s) = 'number' THEN (payload->>%s)::numeric {sql_op} %s ELSE FALSE END"],
+            )
+            self.assertEqual(params, ["v", "v", 5.0])
