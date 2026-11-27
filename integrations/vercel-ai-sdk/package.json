@@ -41,7 +41,7 @@
     "ai": "^6.0.199",
     "dotenv": "^16.6.1",
     "partial-json": "0.1.7",
-    "zod": "^3.25.76"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^3.2.0",
@@ -55,7 +55,7 @@
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "zod": "^3.0.0"
+    "zod": "^3.0.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
     "zod": {
@@ -86,8 +86,8 @@
       "picomatch@<2.3.2": "^2.3.2",
       "rollup@>=4.0.0 <4.59.0": "^4.59.0",
       "esbuild": ">=0.28.1",
-      "brace-expansion@<1.1.16": ">=1.1.16 <2.0.0",
-      "brace-expansion@>=3.0.0 <5.0.8": ">=5.0.8 <6.0.0",
+      "brace-expansion@<1.1.21": ">=1.1.21 <2.0.0",
+      "brace-expansion@>=3.0.0 <5.0.12": ">=5.0.12 <6.0.0",
       "js-yaml@<3.15.2": ">=3.15.2 <4.0.0",
       "js-yaml@>=4.0.0 <4.3.2": ">=4.3.2 <5.0.0",
       "browserslist@<4.28.7": ">=4.28.7 <5.0.0",

@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@sinclair/typebox": "0.34.47",
-    "mem0ai": "3.0.7"
+    "mem0ai": "3.1.6"
   },
   "openclaw": {
     "extensions": [
@@ -56,11 +56,11 @@
   "devDependencies": {
     "@qdrant/js-client-rest": "^1.18.0",
     "@types/node": "^22.15.0",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
     "tsup": "^8.5.0",
     "typescript": "^5.8.3",
     "vite": "^8.1.6",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "pnpm": {
     "overrides": {
@@ -78,7 +78,8 @@
       "postcss@<8.5.18": ">=8.5.18 <9.0.0",
       "mongoose@>=9.0.0 <9.11.4": ">=9.11.4 <9.12.0",
       "follow-redirects@<1.16.2": ">=1.16.2 <2.0.0",
-      "source-map-js@<1.2.2": ">=1.2.2 <2.0.0"
+      "source-map-js@<1.2.2": ">=1.2.2 <2.0.0",
+      "zod@<4.6.6": ">=4.6.6 <5.0.0"
     }
   }
 }

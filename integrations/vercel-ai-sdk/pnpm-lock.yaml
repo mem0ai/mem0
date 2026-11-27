@@ -12,8 +12,8 @@ overrides:
   picomatch@<2.3.2: ^2.3.2
   rollup@>=4.0.0 <4.59.0: ^4.59.0
   esbuild: '>=0.28.1'
-  brace-expansion@<1.1.16: '>=1.1.16 <2.0.0'
-  brace-expansion@>=3.0.0 <5.0.8: '>=5.0.8 <6.0.0'
+  brace-expansion@<1.1.21: '>=1.1.21 <2.0.0'
+  brace-expansion@>=3.0.0 <5.0.12: '>=5.0.12 <6.0.0'
   js-yaml@<3.15.2: '>=3.15.2 <4.0.0'
   js-yaml@>=4.0.0 <4.3.2: '>=4.3.2 <5.0.0'
   browserslist@<4.28.7: '>=4.28.7 <5.0.0'
@@ -26,28 +26,28 @@ importers:
     dependencies:
       '@ai-sdk/anthropic':
         specifier: ^3.0.82
-        version: 3.0.82(zod@3.25.76)
+        version: 3.0.82(zod@4.6.7)
       '@ai-sdk/cohere':
         specifier: ^3.0.36
-        version: 3.0.36(zod@3.25.76)
+        version: 3.0.36(zod@4.6.7)
       '@ai-sdk/google':
         specifier: ^3.0.80
-        version: 3.0.80(zod@3.25.76)
+        version: 3.0.80(zod@4.6.7)
       '@ai-sdk/groq':
         specifier: ^3.0.39
-        version: 3.0.39(zod@3.25.76)
+        version: 3.0.39(zod@4.6.7)
       '@ai-sdk/openai':
         specifier: ^3.0.69
-        version: 3.0.69(zod@3.25.76)
+        version: 3.0.69(zod@4.6.7)
       '@ai-sdk/provider':
         specifier: ^3.0.10
         version: 3.0.10
       '@ai-sdk/provider-utils':
         specifier: ^4.0.33
-        version: 4.0.67(zod@3.25.76)
+        version: 4.0.67(zod@4.6.7)
       ai:
         specifier: ^6.0.199
-        version: 6.0.199(zod@3.25.76)
+        version: 6.0.199(zod@4.6.7)
       dotenv:
         specifier: ^16.6.1
         version: 16.6.1
@@ -55,8 +55,8 @@ importers:
         specifier: 0.1.7
         version: 0.1.7
       zod:
-        specifier: ^3.25.76
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.7
     devDependencies:
       '@edge-runtime/vm':
         specifier: ^3.2.0
@@ -848,11 +848,11 @@ packages:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
     engines: {node: '>=8'}
 
-  brace-expansion@1.1.16:
-    resolution: {integrity: sha512-IDw48K2/2kRkg9LdJxurvq3lV3aBgq0REY89duEqFRthjlPdXHKMj7EnQOXVckxzgisinf3nHfrcE2FufFLXMw==}
+  brace-expansion@1.1.22:
+    resolution: {integrity: sha512-CKLDTuSsN0+r1ThM0WkzzBI7dnPI6xEGfa/JnVYIK9JNBA1N1NyPwXVHor//NKD/y3sDxp764sZdLhFK7pH8XQ==}
 
-  brace-expansion@5.0.8:
-    resolution: {integrity: sha512-JZyDyq3D4AUifKTPOB7DELf6XsB3WdPuNxCtob1vFXPsSXhdAiHBWJ/tJ8HAc9aH84BK+5JFZLNkJKx3G9kzQg==}
+  brace-expansion@5.1.0:
+    resolution: {integrity: sha512-aa11Dv491GKnYqxaul3aRJ0szew7yMJMfZPnqD44NjGrZXoj62l41OEDDpdpC4eE2P88vBFfLuSyRhpG91NUvg==}
     engines: {node: 20 || >=22}
 
   braces@3.0.3:
@@ -1906,55 +1906,55 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
 snapshots:
 
-  '@ai-sdk/anthropic@3.0.82(zod@3.25.76)':
+  '@ai-sdk/anthropic@3.0.82(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
-      zod: 3.25.76
+      '@ai-sdk/provider-utils': 4.0.67(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/cohere@3.0.36(zod@3.25.76)':
+  '@ai-sdk/cohere@3.0.36(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
-      zod: 3.25.76
+      '@ai-sdk/provider-utils': 4.0.67(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/gateway@3.0.127(zod@3.25.76)':
+  '@ai-sdk/gateway@3.0.127(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.67(zod@4.6.7)
       '@vercel/oidc': 3.2.0
-      zod: 3.25.76
+      zod: 4.6.7
 
-  '@ai-sdk/google@3.0.80(zod@3.25.76)':
+  '@ai-sdk/google@3.0.80(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
-      zod: 3.25.76
+      '@ai-sdk/provider-utils': 4.0.67(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/groq@3.0.39(zod@3.25.76)':
+  '@ai-sdk/groq@3.0.39(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
-      zod: 3.25.76
+      '@ai-sdk/provider-utils': 4.0.67(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/openai@3.0.69(zod@3.25.76)':
+  '@ai-sdk/openai@3.0.69(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
-      zod: 3.25.76
+      '@ai-sdk/provider-utils': 4.0.67(zod@4.6.7)
+      zod: 4.6.7
 
-  '@ai-sdk/provider-utils@4.0.67(zod@3.25.76)':
+  '@ai-sdk/provider-utils@4.0.67(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 3.0.19
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.1.0
       undici: 6.29.1
-      zod: 3.25.76
+      zod: 4.6.7
 
   '@ai-sdk/provider@3.0.10':
     dependencies:
@@ -2596,13 +2596,13 @@ snapshots:
 
   acorn@8.16.0: {}
 
-  ai@6.0.199(zod@3.25.76):
+  ai@6.0.199(zod@4.6.7):
     dependencies:
-      '@ai-sdk/gateway': 3.0.127(zod@3.25.76)
+      '@ai-sdk/gateway': 3.0.127(zod@4.6.7)
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.67(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.67(zod@4.6.7)
       '@opentelemetry/api': 1.9.1
-      zod: 3.25.76
+      zod: 4.6.7
 
   ansi-escapes@4.3.2:
     dependencies:
@@ -2692,12 +2692,12 @@ snapshots:
 
   binary-extensions@2.3.0: {}
 
-  brace-expansion@1.1.16:
+  brace-expansion@1.1.22:
     dependencies:
       balanced-match: 1.0.2
       concat-map: 0.0.1
 
-  brace-expansion@5.0.8:
+  brace-expansion@5.1.0:
     dependencies:
       balanced-match: 4.0.4
 
@@ -3433,11 +3433,11 @@ snapshots:
 
   minimatch@10.2.5:
     dependencies:
-      brace-expansion: 5.0.8
+      brace-expansion: 5.1.0
 
   minimatch@3.1.5:
     dependencies:
-      brace-expansion: 1.1.16
+      brace-expansion: 1.1.22
 
   minimist@1.2.8: {}
 
@@ -3874,4 +3874,4 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod@3.25.76: {}
+  zod@4.6.7: {}
