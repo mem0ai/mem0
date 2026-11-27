@@ -167,7 +167,10 @@ export class AWSBedrockEmbedder implements Embedder {
   }
 
   private isCohereModel(): boolean {
-    return this.model.startsWith("cohere.");
+    // Cross-region inference profile ids put a geography in front of the
+    // provider (us.cohere.embed-v4:0), so match it as a word anywhere in the
+    // id, the way extractProvider() in llms/aws_bedrock.ts does.
+    return /\bcohere\b/.test(this.model);
   }
 
   private isCohereV4Model(): boolean {

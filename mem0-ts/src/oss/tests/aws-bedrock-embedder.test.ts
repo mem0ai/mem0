@@ -240,6 +240,32 @@ describe("AWSBedrockEmbedder", () => {
         [3, 4],
       ]);
     });
+
+    // Cross-region inference profile ids put a geography in front of the
+    // provider, so the id no longer starts with "cohere.".
+    it.each([
+      "us.cohere.embed-v4:0",
+      "eu.cohere.embed-v4:0",
+      "global.cohere.embed-v4:0",
+    ])(
+      "sends the Cohere request for the inference profile id %s",
+      async (model) => {
+        mockSend.mockResolvedValueOnce(
+          encode({ embeddings: { float: [[0.1, 0.2]] } }),
+        );
+        const embedder = new AWSBedrockEmbedder({ model });
+
+        const embedding = await embedder.embed("hello");
+
+        expect(embedding).toEqual([0.1, 0.2]);
+        expect(commandAt(0).input.modelId).toBe(model);
+        expect(requestBodyAt(0)).toEqual({
+          texts: ["hello"],
+          input_type: "search_document",
+          embedding_types: ["float"],
+        });
+      },
+    );
   });
 
   describe("client configuration", () => {
