@@ -32,6 +32,22 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+_MISSING = object()
+
+
+def _get_filter_value(payload: Dict, key: Any) -> Any:
+    # Match Qdrant's dotted-key semantics instead of treating dots as literal characters.
+    if not isinstance(payload, dict):
+        return _MISSING
+    if not isinstance(key, str):
+        return payload.get(key, _MISSING)
+    value: Any = payload
+    for part in key.split("."):
+        if not isinstance(value, dict) or part not in value:
+            return _MISSING
+        value = value[part]
+    return value
+
 
 def _locked(method):
     """Hold the instance lock so update's existence check and its write cannot interleave with a delete."""
@@ -441,17 +457,18 @@ class FAISS(VectorStoreBase):
         Returns:
             bool: True if payload passes filters, False otherwise.
         """
-        if not filters or not payload:
+        if not filters:
             return True
 
         for key, value in filters.items():
-            if key not in payload:
+            payload_value = _get_filter_value(payload, key)
+            if payload_value is _MISSING:
                 return False
 
             if isinstance(value, list):
-                if payload[key] not in value:
+                if payload_value not in value:
                     return False
-            elif payload[key] != value:
+            elif payload_value != value:
                 return False
 
         return True

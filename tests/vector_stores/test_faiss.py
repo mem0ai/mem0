@@ -27,6 +27,85 @@ def mock_faiss_index():
 
 
 @pytest.fixture
+def local_faiss_store(tmp_path):
+    return FAISS(
+        collection_name="dotted_filters",
+        path=str(tmp_path / "faiss"),
+        embedding_model_dims=2,
+    )
+
+
+def _filtered_ids(store, filters, operation):
+    if operation == "list":
+        return [result.id for result in store.list(filters=filters)[0]]
+    return [result.id for result in store.search(query="", vectors=[1.0, 0.0], top_k=20, filters=filters)]
+
+
+@pytest.mark.parametrize("operation", ["list", "search"])
+def test_dotted_filter_matches_nested_payload(local_faiss_store, operation):
+    local_faiss_store.insert(
+        vectors=[[1.0, 0.0], [0.0, 1.0]],
+        payloads=[{"group": {"sub": "alpha"}}, {"group": {"sub": "beta"}}],
+        ids=["nested-alpha", "nested-beta"],
+    )
+
+    assert _filtered_ids(local_faiss_store, {"group.sub": "alpha"}, operation) == ["nested-alpha"]
+
+
+@pytest.mark.parametrize("operation", ["list", "search"])
+def test_dotted_filter_does_not_match_literal_dotted_key(local_faiss_store, operation):
+    local_faiss_store.insert(
+        vectors=[[1.0, 0.0]],
+        payloads=[{"group.sub": "alpha"}],
+        ids=["literal-alpha"],
+    )
+
+    assert _filtered_ids(local_faiss_store, {"group.sub": "alpha"}, operation) == []
+
+
+@pytest.mark.parametrize("operation", ["list", "search"])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"other": "alpha"},
+        {"group": {}},
+        {"group": None},
+        {"group": "alpha"},
+        {"group": ["alpha"]},
+        {"group": {"other": "alpha"}},
+    ],
+    ids=[
+        "empty-payload",
+        "missing-intermediate",
+        "missing-leaf",
+        "null-intermediate",
+        "string-intermediate",
+        "list-intermediate",
+        "absent-leaf",
+    ],
+)
+def test_dotted_filter_rejects_invalid_nested_paths(local_faiss_store, operation, payload):
+    local_faiss_store.insert(vectors=[[1.0, 0.0]], payloads=[payload], ids=["invalid-path"])
+
+    assert _filtered_ids(local_faiss_store, {"group.sub": "alpha"}, operation) == []
+
+
+@pytest.mark.parametrize("operation", ["list", "search"])
+def test_dotted_filter_preserves_list_operator(local_faiss_store, operation):
+    local_faiss_store.insert(
+        vectors=[[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]],
+        payloads=[{"group": {"sub": "alpha"}}, {"group": {"sub": "beta"}}, {"group": {"sub": "gamma"}}],
+        ids=["nested-alpha", "nested-beta", "nested-gamma"],
+    )
+
+    assert _filtered_ids(local_faiss_store, {"group.sub": ["alpha", "beta"]}, operation) == [
+        "nested-alpha",
+        "nested-beta",
+    ]
+
+
+@pytest.fixture
 def faiss_instance(mock_faiss_index):
     with tempfile.TemporaryDirectory() as temp_dir:
         # Mock the faiss index creation
@@ -191,9 +270,7 @@ def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_
     search_indices = np.array([[0, 1, 2, 3]])
     mock_faiss_index.search.return_value = (search_scores, search_indices)
 
-    results = faiss_instance.search(
-        query="test query", vectors=query_vector, top_k=2, filters={"category": "A"}
-    )
+    results = faiss_instance.search(query="test query", vectors=query_vector, top_k=2, filters={"category": "A"})
 
     # Two matching vectors exist among the over-fetched set, so we must get top_k of them.
     assert len(results) == 2
