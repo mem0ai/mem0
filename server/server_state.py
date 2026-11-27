@@ -87,8 +87,13 @@ def update_config(updates: Dict[str, Any]) -> Dict[str, Any]:
     global _current_config, _memory_instance
     with _state_lock:
         next_config = _merge_config(_current_config, updates)
+        # Build the new instance before swapping it in: an invalid configuration
+        # (e.g. an embedder and a vector store that disagree on the vector
+        # dimension) must not leave the server with a new config and a stale
+        # memory instance.
+        next_memory_instance = Memory.from_config(next_config)
         _current_config = next_config
-        _memory_instance = Memory.from_config(next_config)
+        _memory_instance = next_memory_instance
         overrides = _load_overrides()
         overrides = _merge_config(overrides, updates)
         _save_overrides(overrides)

@@ -58,6 +58,7 @@ from mem0.memory.utils import (
     process_telemetry_filters,
     remove_code_blocks,
 )
+from mem0.utils.embedding_dims import resolve_embedding_dims
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
 from mem0.utils.factory import (
     EmbedderFactory,
@@ -485,13 +486,20 @@ class _AsyncOSSProject:
 
 
 class Memory(MemoryBase):
-    def __init__(self, config: MemoryConfig = MemoryConfig()):
-        self.config = config
+    def __init__(self, config: Optional[MemoryConfig] = None):
+        # A fresh config per instance: the default cannot be a shared module-level
+        # object, otherwise state resolved for one instance leaks into the next.
+        self.config = config if config is not None else MemoryConfig()
 
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
             self.config.embedder.config,
             self.config.vector_store.config,
+        )
+        resolve_embedding_dims(
+            self.embedding_model,
+            self.config.vector_store.config,
+            self.config.vector_store.provider,
         )
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
@@ -504,10 +512,10 @@ class Memory(MemoryBase):
 
         # Initialize reranker if configured
         self.reranker = None
-        if config.reranker:
+        if self.config.reranker:
             self.reranker = RerankerFactory.create(
-                config.reranker.provider,
-                config.reranker.config
+                self.config.reranker.provider,
+                self.config.reranker.config
             )
 
         # Entity store is initialized lazily on first use
@@ -1053,6 +1061,7 @@ class Memory(MemoryBase):
         # links, and the returned results — a record the store rejected must
         # never be reported back as a successful ADD.
         persisted_records = []
+        insert_error = None
         try:
             self.vector_store.insert(
                 vectors=all_vectors,
@@ -1067,13 +1076,17 @@ class Memory(MemoryBase):
                     self.vector_store.insert(vectors=[rec[2]], ids=[rec[0]], payloads=[rec[3]])
                     persisted_records.append(rec)
                 except Exception as e:
+                    insert_error = e
                     logger.error(f"Failed to insert memory {rec[0]}: {e}")
 
         if not persisted_records:
             self.db.save_messages(messages, session_scope)
-            raise VectorStoreError(
-                f"Failed to insert any of the {len(records)} extracted memories into the vector store"
-            )
+            message = f"Failed to insert any of the {len(records)} extracted memories into the vector store"
+            if insert_error is not None:
+                # Surface the underlying cause (e.g. an embedding dimension mismatch)
+                # instead of a generic failure.
+                message = f"{message}: {insert_error}"
+            raise VectorStoreError(message)
 
         # Batch history
         history_records = [
@@ -2193,13 +2206,20 @@ class Memory(MemoryBase):
 
 
 class AsyncMemory(MemoryBase):
-    def __init__(self, config: MemoryConfig = MemoryConfig()):
-        self.config = config
+    def __init__(self, config: Optional[MemoryConfig] = None):
+        # A fresh config per instance: the default cannot be a shared module-level
+        # object, otherwise state resolved for one instance leaks into the next.
+        self.config = config if config is not None else MemoryConfig()
 
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
             self.config.embedder.config,
             self.config.vector_store.config,
+        )
+        resolve_embedding_dims(
+            self.embedding_model,
+            self.config.vector_store.config,
+            self.config.vector_store.provider,
         )
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
@@ -2213,10 +2233,10 @@ class AsyncMemory(MemoryBase):
 
         # Initialize reranker if configured
         self.reranker = None
-        if config.reranker:
+        if self.config.reranker:
             self.reranker = RerankerFactory.create(
-                config.reranker.provider,
-                config.reranker.config
+                self.config.reranker.provider,
+                self.config.reranker.config
             )
 
         if MEM0_TELEMETRY:
@@ -2734,6 +2754,7 @@ class AsyncMemory(MemoryBase):
         # links, and the returned results — a record the store rejected must
         # never be reported back as a successful ADD.
         persisted_records = []
+        insert_error = None
         try:
             await asyncio.to_thread(
                 self.vector_store.insert,
@@ -2750,13 +2771,17 @@ class AsyncMemory(MemoryBase):
                     )
                     persisted_records.append(rec)
                 except Exception as e:
+                    insert_error = e
                     logger.error(f"Failed to insert memory {rec[0]} (async): {e}")
 
         if not persisted_records:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
-            raise VectorStoreError(
-                f"Failed to insert any of the {len(records)} extracted memories into the vector store"
-            )
+            message = f"Failed to insert any of the {len(records)} extracted memories into the vector store"
+            if insert_error is not None:
+                # Surface the underlying cause (e.g. an embedding dimension mismatch)
+                # instead of a generic failure.
+                message = f"{message}: {insert_error}"
+            raise VectorStoreError(message)
 
         # Batch history
         history_records = [
