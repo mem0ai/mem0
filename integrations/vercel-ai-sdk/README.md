@@ -224,7 +224,7 @@ const mem0 = createMem0({
 3. **Error Handling**: Implement proper error handling for memory operations
 4. **Memory Cleanup**: Regularly clean up unused memory contexts to optimize performance
 
-We also have support for `agent_id`, `app_id`, and `run_id`. Refer [Docs](https://docs.mem0.ai/api-reference/memory/add-memories).
+We also have support for `agent_id`, `app_id`, `run_id`, and `expiration_date` (e.g. `"2026-12-31"`, forwarded by `addMemories()` to set a TTL on stored memories). Refer [Docs](https://docs.mem0.ai/api-reference/memory/add-memories).
 
 ## Notes
 
