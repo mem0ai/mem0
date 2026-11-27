@@ -44,6 +44,16 @@ def faiss_instance(mock_faiss_index):
                 yield faiss_store
 
 
+def test_initializes_with_bare_relative_path(tmp_path, monkeypatch, mock_faiss_index):
+    """A relative directory name without a parent must not crash initialization."""
+    monkeypatch.chdir(tmp_path)
+
+    with patch("faiss.IndexFlatL2", return_value=mock_faiss_index), patch("faiss.write_index"):
+        FAISS(collection_name="relative_collection", path="faiss_store", embedding_model_dims=4)
+
+    assert (tmp_path / "faiss_store").is_dir()
+
+
 def test_create_col(faiss_instance, mock_faiss_index):
     # Test creating a collection with euclidean distance
     with patch("faiss.IndexFlatL2", return_value=mock_faiss_index) as mock_index_flat_l2:
