@@ -92,6 +92,7 @@ def test_the_portable_bundle_declares_no_host_application(tmp_path: Path) -> Non
     assert identity["PLATFORM_APPLICATION"] == ""
     # The PostHog-side label is still useful for grouping and stays populated.
     assert identity["HARNESS_ID"] == "coding-agent"
+    assert identity["DATA_DIR_NAME"] == "coding-agent-plugin"
     assert identity["PLATFORM_SOURCE"] == "MEM0_PLUGIN"
 
 
@@ -100,6 +101,7 @@ def test_a_native_bundle_names_the_host_it_was_built_for(host: str, tmp_path: Pa
     identity = _harness_identity(build(host, "native", tmp_path / host))
 
     assert identity["PLATFORM_APPLICATION"] == host
+    assert identity["DATA_DIR_NAME"] == f"{host}-plugin"
 
 
 @pytest.mark.parametrize("host", ["claude-code", "cursor", "codex", "kimi", "antigravity"])
