@@ -10,6 +10,7 @@ This standalone plugin recalls relevant memories before a response and extracts 
 - **Four agent tools** to search, add, update, and delete memories.
 - **Three backend modes** with interactive setup through `hermes memory setup`.
 - **User-scoped memories** with agent and channel metadata on writes.
+- **Optional conversation context** to trace memories to their source chat and session.
 
 ## Setup
 
@@ -76,12 +77,23 @@ Settings live in `$HERMES_HOME/mem0.json`; the default Hermes home is `~/.hermes
 | `user_id` | gateway user ID, then `hermes-user` | Set a stable ID to share memories across gateways |
 | `agent_id` | `hermes` | Agent identifier attached to writes |
 | `rerank` | `false` | Platform reranking for automatic recall and tool searches that omit `rerank` |
+| `share_conversation_context` | `false` | Opt in to conversation attribution metadata on new writes |
 | `sync_max_chars` | `450` | Maximum characters per user/assistant message sent for automatic extraction |
 | `oss` | `{}` | OSS LLM, embedder, and vector-store configuration written by setup |
 
 `MEM0_MODE`, `MEM0_HOST`, `MEM0_USER_ID`, and `MEM0_AGENT_ID` provide environment defaults; non-empty file settings override them. `MEM0_API_KEY` supplies the Cloud or server key when `api_key` is not set in the file.
 
 An explicit `user_id` other than `hermes-user` takes precedence over a gateway's native user ID. Searches use that user identity across sessions; writes attach `agent_id` and `metadata.channel`.
+
+### Conversation context (opt-in)
+
+New and existing installations keep channel-only metadata unless you enable **Share conversation context** in `hermes memory setup mem0`, in Hermes' native memory-provider settings, or by adding `"share_conversation_context": true` to the active profile's `mem0.json`. Restart Hermes after changing the setting; switching sessions within a running process does not reload configuration. The setup prompt is available in all three interactive backend modes; unattended setup preserves the saved preference.
+
+When enabled, both automatic capture and `mem0_add` attach the available `gateway_user_id`, `gateway_user_id_alt`, `user_name`, `chat_id`, `chat_name`, `chat_type`, `thread_id`, `session_title`, and `session_id` fields. These values go to the configured backend, including Mem0 Cloud when using Platform mode. Gateway identity remains separate from a configured shared memory `user_id`. Missing values are omitted and each new metadata value is capped at 256 characters. Local paths, routing keys, and credentials are never copied from initialization context.
+
+Session switches update the cached ID used by `mem0_add`; automatic capture uses the turn's session ID and snapshots metadata before queuing its own background worker. The previous session's title is dropped when the session ID changes or a turn supplies a different session ID, because Hermes does not supply the destination title in its switch hook. Gateway fields describe the context supplied at initialization. Searches remain scoped only to the memory user identity.
+
+Set the option to `false` and restart Hermes to stop adding this metadata. Existing memories are unchanged. The control uses the plugin's setup and native provider settings; it does not add a `hermes tools` menu entry.
 
 ## Automatic recall and capture
 
@@ -105,7 +117,7 @@ Automatic migration also requires coordination in Hermes:
 
 With those in place, Hermes can install a missing configured provider during `hermes update` or at agent startup. Startup installation respects `security.allow_lazy_installs`; disabled or offline installation requires manual action. Merging this directory alone does not register the catalog entry or complete rollout.
 
-The plugin supports CLI setup/status. It does not include a Desktop configuration panel or provider-specific CLI commands.
+The plugin supports CLI setup/status and exposes settings through Hermes' generic memory-provider configuration UI. It does not include a custom Desktop panel or provider-specific CLI commands.
 
 ## Troubleshooting
 
@@ -116,12 +128,21 @@ The plugin supports CLI setup/status. It does not include a Desktop configuratio
 
 ## Development
 
-From the Mem0 repository root, with `ruff` and `isort` installed:
+From the Mem0 repository root, with `pytest`, `mem0ai`, `httpx`, `ruff`, and `isort` installed:
 
 ```bash
+pytest --confcutdir=integrations/hermes-plugin-mem0/tests integrations/hermes-plugin-mem0/tests -q
 ruff check integrations/hermes-plugin-mem0
 isort --check-only --profile black integrations/hermes-plugin-mem0
 ```
+
+The collection boundary keeps pytest from importing the host-dependent plugin before the offline fixtures install their Hermes stubs. To exercise consent persistence through Hermes' native settings and session rotation through its real `MemoryManager`, use an isolated environment with the Hermes dependencies:
+
+```bash
+HERMES_SOURCE=/path/to/hermes-agent python integrations/hermes-plugin-mem0/tests/smoke_provenance.py
+```
+
+This check uses a temporary profile and a local HTTP transport; it makes no external memory requests. `tests/smoke_hermes.py` additionally exercises the real Mem0 SDK and local Qdrant with a simulated model API.
 
 Validate changes in an isolated Hermes profile using live CLI and Desktop sessions. Check memory
 add/search/update/delete, automatic capture and recall, overlapping Desktop sessions, and persistence after restart.

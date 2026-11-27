@@ -201,6 +201,17 @@ def _persist_provider_config(hermes_home: str, config: dict, provider_config: di
                      *([f"  {key_line}"] if env_writes else []), "", "  Start a new session to activate.", ""]))
 
 
+def _prompt_conversation_context(provider_config: dict) -> bool:
+    from . import _context_sharing_enabled
+
+    return bool(_curses_select(
+        "  Share conversation context with the memory backend?",
+        [("No", "Keep channel-only metadata"),
+         ("Yes", "Include user names/IDs, chat names/IDs, thread IDs, and session title/ID")],
+        default=int(_context_sharing_enabled(provider_config.get("share_conversation_context"))),
+    ))
+
+
 def _setup_platform(hermes_home: str, config: dict, flags: dict[str, str]) -> None:
     """Platform mode setup — prompts for API key (secret -> .env), user/agent ids and rerank (-> mem0.json)."""
     from utils import read_json_or_empty
@@ -213,8 +224,9 @@ def _setup_platform(hermes_home: str, config: dict, flags: dict[str, str]) -> No
     choices = ["true", "false"]
     current = str(provider_config.get("rerank", "false") or "").lower()
     provider_config["rerank"] = choices[_curses_select("  Enable reranking for recall", [(c, "") for c in choices], default=choices.index(current) if current in choices else 0)]
+    provider_config["share_conversation_context"] = _prompt_conversation_context(provider_config)
     if flags.get("dry_run"):
-        _print_dry_run(str({k: provider_config.get(k) for k in ("user_id", "agent_id", "rerank")}), env_writes)
+        _print_dry_run(str({k: provider_config.get(k) for k in ("user_id", "agent_id", "rerank", "share_conversation_context")}), env_writes)
         return
     # Routing checks ``host`` before platform, so clear a stale self-hosted host. "" rather than
     # pop(): save_config merges into the existing mem0.json, so a popped key would survive.
@@ -250,6 +262,7 @@ def _setup_selfhosted(hermes_home: str, config: dict, flags: dict[str, str]) -> 
     env_writes = _api_key_writes(flags, "Server API key", fresh_label="Server API key (blank if AUTH_DISABLED)")
     user_id = flags.get("user_id") or _prompt("User identifier", default=provider_config.get("user_id") or "hermes-user")
     agent_id = _prompt("Agent identifier", default=provider_config.get("agent_id") or "hermes")
+    provider_config["share_conversation_context"] = _prompt_conversation_context(provider_config)
     if flags.get("dry_run"):
         _print_dry_run(f"host={host}, user_id={user_id}, agent_id={agent_id}", env_writes, lambda: _check_selfhosted_server(host))
         return
@@ -270,14 +283,15 @@ def _print_oss_summary(oss_config: dict, env_writes: dict, dry_run: bool = False
     print("\n".join(lines))
 
 
-def _finish_oss(hermes_home: str, config: dict, oss_config: dict, env_writes: dict[str, str], user_id: str, agent_id: str, pgvector_config: dict | None = None) -> None:
+def _finish_oss(hermes_home: str, config: dict, oss_config: dict, env_writes: dict[str, str], user_id: str, agent_id: str, pgvector_config: dict | None = None, *, share_conversation_context: bool | None = None) -> None:
     """Shared OSS tail: write secrets + mem0.json, install deps, activate, check, summarize."""
     from . import Mem0MemoryProvider
     if env_writes:
         _write_env(Path(hermes_home) / ".env", env_writes)
-    Mem0MemoryProvider().save_config(
-        {"mode": "oss", "user_id": user_id, "agent_id": agent_id, "oss": oss_config}, hermes_home
-    )
+    values = {"mode": "oss", "user_id": user_id, "agent_id": agent_id, "oss": oss_config}
+    if share_conversation_context is not None:
+        values["share_conversation_context"] = share_conversation_context
+    Mem0MemoryProvider().save_config(values, hermes_home)
     _install_provider_deps(oss_config["llm"]["provider"], oss_config["embedder"]["provider"], oss_config["vector_store"]["provider"])
     if pgvector_config:
         _ensure_pgvector_extension(pgvector_config)
@@ -440,6 +454,8 @@ def _configure_model_provider(kind: str, registry: dict, hermes_home: str, env_w
 
 
 def _setup_oss_interactive(hermes_home: str, config: dict) -> None:
+    from utils import read_json_or_empty
+
     env_writes: dict[str, str] = {}
     llm_id, llm_def, llm_model, llm_url = _configure_model_provider("LLM", LLM_PROVIDERS, hermes_home, env_writes)
     embedder_id, _, embedder_model, embedder_url = _configure_model_provider("Embedder", EMBEDDER_PROVIDERS, hermes_home, env_writes, llm=(llm_id, llm_def))
@@ -456,6 +472,7 @@ def _setup_oss_interactive(hermes_home: str, config: dict) -> None:
         pgvector_config = {**pg, "port": int(pg["port"]), **({"password": pg_password} if pg_password else {})}
     user_id = _input("User ID", os.getenv("USER", "hermes-user"))
     agent_id = _input("Agent ID", "hermes")
+    share_context = _prompt_conversation_context(read_json_or_empty(Path(hermes_home) / "mem0.json"))
     flags = {
         "oss_llm": llm_id, "oss_llm_model": llm_model, "oss_llm_url": llm_url or "",
         "oss_llm_key": env_writes.get(llm_def["env_var"], "") if llm_def.get("env_var") else "",
@@ -464,7 +481,8 @@ def _setup_oss_interactive(hermes_home: str, config: dict) -> None:
     }
     flags.update({f"oss_vector_{key}": str(val) for key, val in (pgvector_config or {}).items() if val})
     oss_config, _ = build_oss_config(flags)
-    _finish_oss(hermes_home, config, oss_config, env_writes, user_id, agent_id, pgvector_config)
+    _finish_oss(hermes_home, config, oss_config, env_writes, user_id, agent_id, pgvector_config,
+                share_conversation_context=share_context)
 
 
 def _install_provider_deps(llm_id: str, embedder_id: str, vector_id: str) -> None:
