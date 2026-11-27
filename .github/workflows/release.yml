@@ -48,6 +48,7 @@ jobs:
             deepseek-plugin-v*)  workflow="deepseek-plugin-cd.yml" ;;
             n8n-nodes-mem0-v*) workflow="n8n-nodes-mem0-cd.yml" ;;
             mem0-strands-v*)   workflow="mem0-strands-cd.yml" ;;
+            eve-v*)            workflow="eve-cd.yml" ;;
             v*)           workflow="cd.yml" ;;
             *)
               echo "::error::Release tag '$TAG' does not match any known package prefix — nothing will be published. See the tag prefix table in AGENTS.md."
