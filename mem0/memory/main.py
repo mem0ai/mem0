@@ -22,8 +22,9 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
-from mem0.exceptions import LLMError, VectorStoreError
+from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.exceptions import VectorStoreError
 from mem0.memory.base import MemoryBase
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
@@ -2192,6 +2193,33 @@ class Memory(MemoryBase):
         raise NotImplementedError("Chat function not implemented yet.")
 
 
+async def _run_persistence(operation):
+    """Own a started write through bookkeeping before delivering cancellation.
+
+    Preparation stays cancellable. No task or coroutine is created until the
+    checkpoint succeeds. Once started, retain and drain the task even when the
+    caller is cancelled repeatedly; a slow synchronous provider can delay this.
+    """
+    await asyncio.sleep(0)
+    task = asyncio.create_task(operation())
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError as cancelled:
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                continue
+            except Exception:
+                break
+        try:
+            task.result()
+        except Exception as error:
+            logger.error("Persistence failed while draining a cancelled mutation", exc_info=True)
+            raise cancelled from error
+        raise cancelled
+
+
 class AsyncMemory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
@@ -2725,182 +2753,185 @@ class AsyncMemory(MemoryBase):
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
             return []
 
-        # Phase 6: Batch persist
-        all_vectors = [r[2] for r in records]
-        all_ids = [r[0] for r in records]
-        all_payloads = [r[3] for r in records]
+        async def persist():
+            # Phase 6: Batch persist
+            all_vectors = [r[2] for r in records]
+            all_ids = [r[0] for r in records]
+            all_payloads = [r[3] for r in records]
 
-        # Only records confirmed to be stored make it into history, entity
-        # links, and the returned results — a record the store rejected must
-        # never be reported back as a successful ADD.
-        persisted_records = []
-        try:
-            await asyncio.to_thread(
-                self.vector_store.insert,
-                vectors=all_vectors,
-                ids=all_ids,
-                payloads=all_payloads,
-            )
-            persisted_records = records
-        except Exception:
-            for rec in records:
-                try:
-                    await asyncio.to_thread(
-                        self.vector_store.insert, vectors=[rec[2]], ids=[rec[0]], payloads=[rec[3]]
-                    )
-                    persisted_records.append(rec)
-                except Exception as e:
-                    logger.error(f"Failed to insert memory {rec[0]} (async): {e}")
+            # Only records confirmed to be stored make it into history, entity
+            # links, and the returned results — a record the store rejected must
+            # never be reported back as a successful ADD.
+            persisted_records = []
+            try:
+                await asyncio.to_thread(
+                    self.vector_store.insert,
+                    vectors=all_vectors,
+                    ids=all_ids,
+                    payloads=all_payloads,
+                )
+                persisted_records = records
+            except Exception:
+                for rec in records:
+                    try:
+                        await asyncio.to_thread(
+                            self.vector_store.insert, vectors=[rec[2]], ids=[rec[0]], payloads=[rec[3]]
+                        )
+                        persisted_records.append(rec)
+                    except Exception as e:
+                        logger.error(f"Failed to insert memory {rec[0]} (async): {e}")
 
-        if not persisted_records:
-            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
-            raise VectorStoreError(
-                f"Failed to insert any of the {len(records)} extracted memories into the vector store"
-            )
+            if not persisted_records:
+                await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+                raise VectorStoreError(
+                    f"Failed to insert any of the {len(records)} extracted memories into the vector store"
+                )
 
-        # Batch history
-        history_records = [
-            {
-                "memory_id": r[0],
-                "old_memory": None,
-                "new_memory": r[1],
-                "event": "ADD",
-                "created_at": r[3].get("created_at"),
-                "is_deleted": 0,
-            }
-            for r in persisted_records
-        ]
-        try:
-            await asyncio.to_thread(self.db.batch_add_history, history_records)
-        except Exception:
-            for hr in history_records:
-                try:
-                    await asyncio.to_thread(
-                        self.db.add_history, hr["memory_id"], None, hr["new_memory"], "ADD",
-                        created_at=hr.get("created_at")
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to add history for {hr['memory_id']} (async): {e}")
+            # Batch history
+            history_records = [
+                {
+                    "memory_id": r[0],
+                    "old_memory": None,
+                    "new_memory": r[1],
+                    "event": "ADD",
+                    "created_at": r[3].get("created_at"),
+                    "is_deleted": 0,
+                }
+                for r in persisted_records
+            ]
+            try:
+                await asyncio.to_thread(self.db.batch_add_history, history_records)
+            except Exception:
+                for hr in history_records:
+                    try:
+                        await asyncio.to_thread(
+                            self.db.add_history, hr["memory_id"], None, hr["new_memory"], "ADD",
+                            created_at=hr.get("created_at")
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to add history for {hr['memory_id']} (async): {e}")
 
-        # Phase 7: Batch entity linking
-        try:
-            all_texts = [r[1] for r in persisted_records]
-            all_entities = await asyncio.to_thread(extract_entities_batch, all_texts)
+            # Phase 7: Batch entity linking
+            try:
+                all_texts = [r[1] for r in persisted_records]
+                all_entities = await asyncio.to_thread(extract_entities_batch, all_texts)
 
-            # 7a: Global dedup
-            global_entities = {}
-            for idx, (memory_id, text, embedding, payload) in enumerate(persisted_records):
-                entities = all_entities[idx] if idx < len(all_entities) else []
-                for entity_type, entity_text in entities:
-                    key = self._normalize_entity_text(entity_text)
-                    if key in global_entities:
-                        global_entities[key][2].add(memory_id)
-                    else:
-                        global_entities[key] = [entity_type, entity_text, {memory_id}]
+                # 7a: Global dedup
+                global_entities = {}
+                for idx, (memory_id, text, embedding, payload) in enumerate(persisted_records):
+                    entities = all_entities[idx] if idx < len(all_entities) else []
+                    for entity_type, entity_text in entities:
+                        key = self._normalize_entity_text(entity_text)
+                        if key in global_entities:
+                            global_entities[key][2].add(memory_id)
+                        else:
+                            global_entities[key] = [entity_type, entity_text, {memory_id}]
 
-            if global_entities:
-                ordered_keys = list(global_entities.keys())
-                entity_texts = [global_entities[k][1] for k in ordered_keys]
+                if global_entities:
+                    ordered_keys = list(global_entities.keys())
+                    entity_texts = [global_entities[k][1] for k in ordered_keys]
 
-                # 7b: Batch embed entities
-                try:
-                    entity_embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "add")
-                except Exception:
-                    entity_embeddings = []
-                    for t in entity_texts:
-                        try:
-                            entity_embeddings.append(await asyncio.to_thread(self.embedding_model.embed, t, "add"))
-                        except Exception:
-                            entity_embeddings.append(None)
+                    # 7b: Batch embed entities
+                    try:
+                        entity_embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "add")
+                    except Exception:
+                        entity_embeddings = []
+                        for t in entity_texts:
+                            try:
+                                entity_embeddings.append(await asyncio.to_thread(self.embedding_model.embed, t, "add"))
+                            except Exception:
+                                entity_embeddings.append(None)
 
-                if len(entity_embeddings) != len(ordered_keys):
-                    logger.warning(
-                        "embed_batch returned %d vectors for %d entity texts — "
-                        "padding/truncating to avoid dropping entity links",
-                        len(entity_embeddings),
-                        len(ordered_keys),
-                    )
-                    entity_embeddings = list(entity_embeddings[: len(ordered_keys)])
-                    entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
+                    if len(entity_embeddings) != len(ordered_keys):
+                        logger.warning(
+                            "embed_batch returned %d vectors for %d entity texts — "
+                            "padding/truncating to avoid dropping entity links",
+                            len(entity_embeddings),
+                            len(ordered_keys),
+                        )
+                        entity_embeddings = list(entity_embeddings[: len(ordered_keys)])
+                        entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
 
-                valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
-                if valid:
-                    valid_indices, valid_keys = zip(*valid)
-                    valid_vectors = [entity_embeddings[i] for i in valid_indices]
-                    exact_matches = await asyncio.to_thread(self._existing_entities_by_text, search_filters)
+                    valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
+                    if valid:
+                        valid_indices, valid_keys = zip(*valid)
+                        valid_vectors = [entity_embeddings[i] for i in valid_indices]
+                        exact_matches = await asyncio.to_thread(self._existing_entities_by_text, search_filters)
 
-                    # 7c: Batch search for existing entities
-                    valid_texts = [global_entities[k][1] for k in valid_keys]
-                    existing_matches = await asyncio.to_thread(
-                        self.entity_store.search_batch,
-                        queries=valid_texts,
-                        vectors_list=valid_vectors,
-                        top_k=1,
-                        filters=search_filters,
-                    )
+                        # 7c: Batch search for existing entities
+                        valid_texts = [global_entities[k][1] for k in valid_keys]
+                        existing_matches = await asyncio.to_thread(
+                            self.entity_store.search_batch,
+                            queries=valid_texts,
+                            vectors_list=valid_vectors,
+                            top_k=1,
+                            filters=search_filters,
+                        )
 
-                    # 7d: Separate into inserts vs updates
-                    to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
-                    for j, key in enumerate(valid_keys):
-                        entity_type, entity_text, memory_ids = global_entities[key]
-                        matches = existing_matches[j] if j < len(existing_matches) else []
-                        exact_match = exact_matches.get(key)
+                        # 7d: Separate into inserts vs updates
+                        to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                        for j, key in enumerate(valid_keys):
+                            entity_type, entity_text, memory_ids = global_entities[key]
+                            matches = existing_matches[j] if j < len(existing_matches) else []
+                            exact_match = exact_matches.get(key)
 
-                        semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
-                        match = exact_match or semantic_match
-                        if match:
-                            payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
+                            semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
+                            match = exact_match or semantic_match
+                            if match:
+                                payload = match.payload or {}
+                                linked = set(payload.get("linked_memory_ids", []))
+                                linked |= memory_ids
+                                payload["linked_memory_ids"] = sorted(linked)
+                                try:
+                                    await asyncio.to_thread(
+                                        self.entity_store.update,
+                                        vector_id=match.id,
+                                        vector=None,
+                                        payload=payload,
+                                    )
+                                except Exception as e:
+                                    logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
+                            else:
+                                to_insert_vectors.append(valid_vectors[j])
+                                to_insert_ids.append(str(uuid.uuid4()))
+                                to_insert_payloads.append({
+                                    "data": entity_text,
+                                    "entity_type": entity_type,
+                                    "linked_memory_ids": sorted(memory_ids),
+                                    **search_filters,
+                                })
+
+                        # 7e: Batch insert new entities
+                        if to_insert_vectors:
                             try:
                                 await asyncio.to_thread(
-                                    self.entity_store.update,
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
+                                    self.entity_store.insert,
+                                    vectors=to_insert_vectors,
+                                    ids=to_insert_ids,
+                                    payloads=to_insert_payloads,
                                 )
                             except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
-                        else:
-                            to_insert_vectors.append(valid_vectors[j])
-                            to_insert_ids.append(str(uuid.uuid4()))
-                            to_insert_payloads.append({
-                                "data": entity_text,
-                                "entity_type": entity_type,
-                                "linked_memory_ids": sorted(memory_ids),
-                                **search_filters,
-                            })
+                                logger.warning(f"Batch entity insert failed (async): {e}")
+            except Exception as e:
+                logger.warning(f"Batch entity linking failed (async): {e}")
 
-                    # 7e: Batch insert new entities
-                    if to_insert_vectors:
-                        try:
-                            await asyncio.to_thread(
-                                self.entity_store.insert,
-                                vectors=to_insert_vectors,
-                                ids=to_insert_ids,
-                                payloads=to_insert_payloads,
-                            )
-                        except Exception as e:
-                            logger.warning(f"Batch entity insert failed (async): {e}")
-        except Exception as e:
-            logger.warning(f"Batch entity linking failed (async): {e}")
+            # Phase 8: Save messages + return
+            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
 
-        # Phase 8: Save messages + return
-        await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+            returned_memories = [
+                {"id": r[0], "memory": r[1], "event": "ADD"}
+                for r in persisted_records
+            ]
 
-        returned_memories = [
-            {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in persisted_records
-        ]
+            keys, encoded_ids = process_telemetry_filters(effective_filters)
+            capture_event(
+                "mem0.add",
+                self,
+                {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"},
+            )
+            return returned_memories
 
-        keys, encoded_ids = process_telemetry_filters(effective_filters)
-        capture_event(
-            "mem0.add",
-            self,
-            {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"},
-        )
-        return returned_memories
+        return await _run_persistence(persist)
 
     async def get(self, memory_id):
         """
@@ -3686,26 +3717,29 @@ class AsyncMemory(MemoryBase):
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
 
-        await asyncio.to_thread(
-            self.vector_store.insert,
-            vectors=[embeddings],
-            ids=[memory_id],
-            payloads=[new_metadata],
-        )
+        async def persist():
+            await asyncio.to_thread(
+                self.vector_store.insert,
+                vectors=[embeddings],
+                ids=[memory_id],
+                payloads=[new_metadata],
+            )
 
-        await asyncio.to_thread(
-            self.db.add_history,
-            memory_id,
-            None,
-            data,
-            "ADD",
-            created_at=new_metadata.get("created_at"),
-            updated_at=new_metadata.get("updated_at"),
-            actor_id=new_metadata.get("actor_id"),
-            role=new_metadata.get("role"),
-        )
+            await asyncio.to_thread(
+                self.db.add_history,
+                memory_id,
+                None,
+                data,
+                "ADD",
+                created_at=new_metadata.get("created_at"),
+                updated_at=new_metadata.get("updated_at"),
+                actor_id=new_metadata.get("actor_id"),
+                role=new_metadata.get("role"),
+            )
 
-        return memory_id
+            return memory_id
+
+        return await _run_persistence(persist)
 
     async def _create_procedural_memory(self, messages, metadata=None, llm=None, prompt=None):
         """
@@ -3804,36 +3838,39 @@ class AsyncMemory(MemoryBase):
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
 
-        updated = await asyncio.to_thread(
-            self.vector_store.update,
-            vector_id=memory_id,
-            vector=embeddings,
-            payload=new_metadata,
-        )
-        if updated is False:
-            raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
-        logger.info(f"Updating memory with ID {memory_id=} with {data=}")
+        async def persist():
+            updated = await asyncio.to_thread(
+                self.vector_store.update,
+                vector_id=memory_id,
+                vector=embeddings,
+                payload=new_metadata,
+            )
+            if updated is False:
+                raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
+            logger.info(f"Updating memory with ID {memory_id=} with {data=}")
 
-        await asyncio.to_thread(
-            self.db.add_history,
-            memory_id,
-            prev_value,
-            data,
-            "UPDATE",
-            created_at=new_metadata["created_at"],
-            updated_at=new_metadata["updated_at"],
-            actor_id=new_metadata.get("actor_id"),
-            role=new_metadata.get("role"),
-        )
+            await asyncio.to_thread(
+                self.db.add_history,
+                memory_id,
+                prev_value,
+                data,
+                "UPDATE",
+                created_at=new_metadata["created_at"],
+                updated_at=new_metadata["updated_at"],
+                actor_id=new_metadata.get("actor_id"),
+                role=new_metadata.get("role"),
+            )
 
-        # Entity-store cleanup: strip this memory's id from old-text entities,
-        # then re-extract entities from the new text and link them back.
-        session_filters = {k: new_metadata[k] for k in ("user_id", "agent_id", "run_id") if new_metadata.get(k)}
-        if text_changed:
-            await self._remove_memory_from_entity_store(memory_id, session_filters)
-            await self._link_entities_for_memory(memory_id, data, session_filters)
+            # Entity-store cleanup: strip this memory's id from old-text entities,
+            # then re-extract entities from the new text and link them back.
+            session_filters = {k: new_metadata[k] for k in ("user_id", "agent_id", "run_id") if new_metadata.get(k)}
+            if text_changed:
+                await self._remove_memory_from_entity_store(memory_id, session_filters)
+                await self._link_entities_for_memory(memory_id, data, session_filters)
 
-        return memory_id
+            return memory_id
+
+        return await _run_persistence(persist)
 
     async def _delete_memory(self, memory_id, existing_memory=None, skip_entity_cleanup=False):
         logger.info(f"Deleting memory with {memory_id=}")
@@ -3847,24 +3884,27 @@ class AsyncMemory(MemoryBase):
         payload = existing_memory.payload or {}
         session_filters = {k: payload[k] for k in ("user_id", "agent_id", "run_id") if payload.get(k)}
 
-        await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
-        await asyncio.to_thread(
-            self.db.add_history,
-            memory_id,
-            prev_value,
-            None,
-            "DELETE",
-            created_at=created_at,
-            updated_at=updated_at,
-            actor_id=existing_memory.payload.get("actor_id"),
-            role=existing_memory.payload.get("role"),
-            is_deleted=1,
-        )
+        async def persist():
+            await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
+            await asyncio.to_thread(
+                self.db.add_history,
+                memory_id,
+                prev_value,
+                None,
+                "DELETE",
+                created_at=created_at,
+                updated_at=updated_at,
+                actor_id=existing_memory.payload.get("actor_id"),
+                role=existing_memory.payload.get("role"),
+                is_deleted=1,
+            )
 
-        if not skip_entity_cleanup:
-            await self._remove_memory_from_entity_store(memory_id, session_filters)
+            if not skip_entity_cleanup:
+                await self._remove_memory_from_entity_store(memory_id, session_filters)
 
-        return memory_id
+            return memory_id
+
+        return await _run_persistence(persist)
 
     async def reset(self):
         """
