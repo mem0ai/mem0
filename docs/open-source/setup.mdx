@@ -36,10 +36,11 @@ Copy `server/.env.example` to `server/.env` and fill in the required values. The
 |---|---|---|
 | `OPENAI_API_KEY` | Yes | Default LLM and embedder provider. |
 | `JWT_SECRET` | Yes | Signs access and refresh tokens. Use a long random value. A missing secret causes auth endpoints to return `500`. |
+| `POSTGRES_PASSWORD` | Yes (Docker Compose) | Password for the bundled PostgreSQL database. Compose requires a nonempty value to start the stack. |
 | `ADMIN_API_KEY` | Optional | Legacy shared admin key. Kept for back-compat; prefer per-user keys for new setups. |
 | `AUTH_DISABLED` | Optional | `true` turns off auth for local development only. Never enable in production. |
 | `DASHBOARD_URL` | Optional | Origin the API accepts for CORS. Defaults to `http://localhost:3000`. Set this when you front the dashboard on a custom domain. |
-| `POSTGRES_*` | Optional | Override the bundled Postgres / pgvector connection. |
+| Other `POSTGRES_*` variables | Optional | Override the bundled Postgres / pgvector connection settings. |
 
 <Tip>
   Generate a `JWT_SECRET` with `openssl rand -base64 48` or `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
