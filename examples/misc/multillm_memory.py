@@ -15,7 +15,7 @@ import logging
 from dotenv import load_dotenv
 from litellm import completion
 
-from mem0 import MemoryClient
+from mem0 import Memory, AsyncMemory
 
 load_dotenv()
 
@@ -29,7 +29,9 @@ logger = logging.getLogger(__name__)
 
 
 # Initialize memory client (platform version)
-memory = MemoryClient()
+memory = Memory()
+async_memory = AsyncMemory()
+
 
 # Research team models with specialized roles
 RESEARCH_TEAM = {
@@ -121,57 +123,37 @@ def show_team_knowledge(project_id: str):
             contributor = mem["metadata"].get("contributor", "Unknown")
             if contributor not in by_contributor:
                 by_contributor[contributor] = []
-            by_contributor[contributor].append(mem.get("memory", ""))
+            by_contributor[contributor].append(mem)
 
-    for contributor, research_items in by_contributor.items():
-        logger.info(f"{contributor.upper()}:")
-        for i, item in enumerate(research_items[:3], 1):  # Show latest 3
-            logger.info(f"   {i}. {item[:100]}...")
+    for contributor, memories in by_contributor.items():
+        logger.info(f"Contributor: {contributor}")
+        for mem in memories:
+            if "memory" in mem:
+                logger.info(f"• {mem['memory']}")
+        logger.info("")
 
+def export_session(filters, path):
+    memories = memory.search(query="", user_id="", limit=0, **filters)
+    if memories:
+        session = {
+            "memories": [mem for mem in memories if "memory" in mem],
+            "metadata": [mem.get("metadata", {}) for mem in memories],
+            "timestamps": [mem.get("timestamp", "") for mem in memories],
+        }
+        import json
+        with open(path, "w") as f:
+            json.dump(session, f)
+        return session
+    return None
 
-def demo_research_team():
-    """Demo: Building a SaaS product with the research team"""
-
-    project = "saas_product_research"
-
-    # Define research pipeline
-    research_pipeline = [
-        {
-            "stage": "Technical Architecture",
-            "specialist": "tech_analyst",
-            "task": "Analyze the best tech stack for a multi-tenant SaaS platform handling 10k+ users. Consider scalability, cost, and development speed.",
-        },
-        {
-            "stage": "Product Documentation",
-            "specialist": "writer",
-            "task": "Based on the technical analysis, write a clear product overview and user onboarding guide for our SaaS platform.",
-        },
-        {
-            "stage": "Market Analysis",
-            "specialist": "data_analyst",
-            "task": "Analyze market trends and pricing strategies for our SaaS platform. What metrics should we track?",
-        },
-        {
-            "stage": "Strategic Decision",
-            "specialist": "tech_analyst",
-            "task": "Given our technical architecture, documentation, and market analysis - what should be our MVP feature priority?",
-        },
-    ]
-
-    logger.info("AI Research Team: Building a SaaS Product")
-
-    # Execute research pipeline
-    for i, step in enumerate(research_pipeline, 1):
-        logger.info(f"\nStage {i}: {step['stage']}")
-        logger.info(f"Specialist: {step['specialist']}")
-
-        result = research_with_specialist(step["task"], step["specialist"], project)
-        logger.info(f"Task: {step['task']}")
-        logger.info(f"Result: {result[:200]}...\n")
-
-    show_team_knowledge(project)
-
-
-if __name__ == "__main__":
-    logger.info("Multi-LLM Research Team")
-    demo_research_team()
+def import_session(path, remap_scope):
+    with open(path, "r") as f:
+        session = json.load(f)
+    for i, mem in enumerate(session["memories"]):
+        mem["metadata"] = remap_scope.get("metadata", {}).get(str(i), mem["metadata"])
+    memories = [mem for mem in session["memories"]]
+    metadata = session["metadata"]
+    timestamps = session["timestamps"]
+    for mem, md, ts in zip(memories, metadata, timestamps):
+        memory.add(mem, user_id="", agent_id="", metadata=md, timestamp=ts)
+    return memories
