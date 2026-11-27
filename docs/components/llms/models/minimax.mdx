@@ -3,7 +3,15 @@ title: MiniMax
 description: "Configure MiniMax as an LLM provider in Mem0 with API key setup and optional custom endpoint configuration."
 ---
 
-To use MiniMax LLM models, you have to set the `MINIMAX_API_KEY` environment variable. You can also optionally set `MINIMAX_API_BASE` if you need to use a different API endpoint (defaults to `https://api.minimax.io/v1`).
+The `minimax` provider uses MiniMax's OpenAI-compatible API. Set the `MINIMAX_API_KEY` environment variable before using it. You can also set `MINIMAX_API_BASE` to override the API endpoint; it defaults to `https://api.minimax.io/v1`.
+
+## Models
+
+- `MiniMax-M3.1-Flash` is the default text model when `model` is omitted.
+- `MiniMax-M3` is available by setting `model` explicitly.
+- Saved and custom model IDs, including `MiniMax-M2.7`, are preserved.
+
+The provider does not inject thinking, reasoning-effort, or service-tier settings. Existing message and media handling is unchanged.
 
 ## Usage
 
@@ -19,7 +27,7 @@ config = {
     "llm": {
         "provider": "minimax",
         "config": {
-            "model": "MiniMax-M2.7",  # default model
+            "model": "MiniMax-M3.1-Flash",  # default model
             "temperature": 0.2,
             "max_tokens": 2000,
             "top_p": 1.0
@@ -45,7 +53,7 @@ const config = {
     provider: 'minimax',
     config: {
       apiKey: process.env.MINIMAX_API_KEY || '',
-      model: 'MiniMax-M2.7',
+      model: 'MiniMax-M3.1-Flash',
       temperature: 0.2,
       maxTokens: 2000,
       topP: 1.0,
@@ -64,7 +72,16 @@ await memory.add(messages, { userId: 'alice', metadata: { category: 'movies' } }
 
 </CodeGroup>
 
-You can also configure the API base URL in the config:
+## Endpoint configuration
+
+| Protocol             | Mem0 provider | Global                             | Mainland China                       |
+| :------------------- | :------------ | :--------------------------------- | :----------------------------------- |
+| OpenAI-compatible    | `minimax`     | `https://api.minimax.io/v1`        | `https://api.minimaxi.com/v1`        |
+| Anthropic-compatible | `anthropic`   | `https://api.minimax.io/anthropic` | `https://api.minimaxi.com/anthropic` |
+
+The `anthropic` provider calls the SDK's Messages client, which appends `/v1/messages`. Keep its base URL at `/anthropic` so the final global request URL is `https://api.minimax.io/anthropic/v1/messages`.
+
+Configure an OpenAI-compatible endpoint directly on the `minimax` provider:
 
 <CodeGroup>
 ```python Python
@@ -72,8 +89,8 @@ config = {
     "llm": {
         "provider": "minimax",
         "config": {
-            "model": "MiniMax-M2.7",
-            "minimax_base_url": "https://your-custom-endpoint.com",
+            "model": "MiniMax-M3.1-Flash",
+            "minimax_base_url": "https://api.minimaxi.com/v1",
             "api_key": "your-api-key"  # alternatively to using environment variable
         }
     }
@@ -85,9 +102,39 @@ const config = {
   llm: {
     provider: 'minimax',
     config: {
-      model: 'MiniMax-M2.7',
-      baseURL: 'https://your-custom-endpoint.com',
+      model: 'MiniMax-M3.1-Flash',
+      baseURL: 'https://api.minimaxi.com/v1',
       apiKey: 'your-api-key', // alternatively to using the environment variable
+    },
+  },
+};
+```
+</CodeGroup>
+
+For the Anthropic-compatible protocol, use the `anthropic` provider with the SDK base URL:
+
+<CodeGroup>
+```python Python
+config = {
+    "llm": {
+        "provider": "anthropic",
+        "config": {
+            "model": "MiniMax-M3.1-Flash",
+            "anthropic_base_url": "https://api.minimax.io/anthropic",
+            "api_key": "your-api-key"
+        }
+    }
+}
+```
+
+```typescript TypeScript
+const config = {
+  llm: {
+    provider: 'anthropic',
+    config: {
+      model: 'MiniMax-M3.1-Flash',
+      baseURL: 'https://api.minimax.io/anthropic',
+      apiKey: 'your-api-key',
     },
   },
 };
