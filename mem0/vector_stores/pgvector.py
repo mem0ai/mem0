@@ -34,7 +34,7 @@ from mem0.vector_stores.base import VectorStoreBase
 logger = logging.getLogger(__name__)
 
 OPERATOR_SQL_MAP = {
-    "eq": ("payload->>%s = %s", False),
+    "eq": ("payload->%s = %s::jsonb", False),
     "ne": ("payload->>%s != %s", False),
     "gt": ("(payload->>%s)::numeric > %s", True),
     "gte": ("(payload->>%s)::numeric >= %s", True),
@@ -100,6 +100,9 @@ def _build_filter_conditions(filters):
                     escaped = str(op_value).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
                     conditions.append(template + " ESCAPE '\\'")
                     params.extend([key, f"%{escaped}%"])
+                elif op == "eq":
+                    conditions.append(template)
+                    params.extend([key, json.dumps(op_value)])
                 else:
                     conditions.append(template)
                     if is_numeric:
@@ -110,11 +113,8 @@ def _build_filter_conditions(filters):
             conditions.append("payload->>%s = ANY(%s)")
             params.extend([key, [str(v) for v in value]])
         else:
-            conditions.append("payload->>%s = %s")
-            if isinstance(value, bool):
-                params.extend([key, json.dumps(value)])
-            else:
-                params.extend([key, str(value)])
+            conditions.append("payload->%s = %s::jsonb")
+            params.extend([key, json.dumps(value)])
 
     return conditions, params
 

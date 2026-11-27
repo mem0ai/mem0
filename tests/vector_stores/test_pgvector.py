@@ -2389,19 +2389,19 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_simple_equality(self):
         conditions, params = _build_filter_conditions({"user_id": "alice"})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s = %s", conditions[0])
-        self.assertEqual(params, ["user_id", "alice"])
+        self.assertIn("payload->%s = %s::jsonb", conditions[0])
+        self.assertEqual(params, ["user_id", '"alice"'])
 
     def test_multiple_equalities(self):
         conditions, params = _build_filter_conditions({"user_id": "alice", "agent_id": "bot1"})
         self.assertEqual(len(conditions), 2)
-        self.assertEqual(params, ["user_id", "alice", "agent_id", "bot1"])
+        self.assertEqual(params, ["user_id", '"alice"', "agent_id", '"bot1"'])
 
     def test_eq_operator(self):
         conditions, params = _build_filter_conditions({"status": {"eq": "active"}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s = %s", conditions[0])
-        self.assertEqual(params, ["status", "active"])
+        self.assertIn("payload->%s = %s::jsonb", conditions[0])
+        self.assertEqual(params, ["status", '"active"'])
 
     def test_ne_operator(self):
         conditions, params = _build_filter_conditions({"status": {"ne": "deleted"}})
@@ -2494,7 +2494,7 @@ class TestBuildFilterConditions(unittest.TestCase):
         self.assertEqual(len(conditions), 1)
         self.assertIn(" OR ", conditions[0])
         self.assertTrue(conditions[0].startswith("("))
-        self.assertEqual(params, ["user_id", "alice", "user_id", "bob"])
+        self.assertEqual(params, ["user_id", '"alice"', "user_id", '"bob"'])
 
     def test_not_operator(self):
         conditions, params = _build_filter_conditions({
@@ -2504,7 +2504,7 @@ class TestBuildFilterConditions(unittest.TestCase):
         })
         self.assertEqual(len(conditions), 1)
         self.assertTrue(conditions[0].startswith("NOT"))
-        self.assertEqual(params, ["status", "deleted"])
+        self.assertEqual(params, ["status", '"deleted"'])
 
     def test_or_with_operators(self):
         conditions, params = _build_filter_conditions({
@@ -2523,7 +2523,7 @@ class TestBuildFilterConditions(unittest.TestCase):
             "score": {"gte": 5},
         })
         self.assertEqual(len(conditions), 2)
-        self.assertIn("payload->>%s = %s", conditions[0])
+        self.assertIn("payload->%s = %s::jsonb", conditions[0])
         self.assertIn("(payload->>%s)::numeric >= %s", conditions[1])
 
     def test_unsupported_operator_raises(self):
@@ -2563,3 +2563,28 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_in_accepts_list_value(self):
         conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
         self.assertEqual(params, ["user_id", ["alice", "bob"]])
+
+    def test_equality_distinguishes_json_types(self):
+        """Regression test for #8040: string '1'/'true' must not conflate with int 1/bool True."""
+        str_cond, str_params = _build_filter_conditions({"v": "1"})
+        int_cond, int_params = _build_filter_conditions({"v": 1})
+        self.assertEqual(str_cond, ["payload->%s = %s::jsonb"])
+        self.assertEqual(int_cond, ["payload->%s = %s::jsonb"])
+        self.assertEqual(str_params, ["v", '"1"'])
+        self.assertEqual(int_params, ["v", "1"])
+        self.assertNotEqual(str_params[1], int_params[1])
+
+        str_bool_cond, str_bool_params = _build_filter_conditions({"f": "true"})
+        bool_cond, bool_params = _build_filter_conditions({"f": True})
+        self.assertEqual(str_bool_cond, ["payload->%s = %s::jsonb"])
+        self.assertEqual(bool_cond, ["payload->%s = %s::jsonb"])
+        self.assertEqual(str_bool_params, ["f", '"true"'])
+        self.assertEqual(bool_params, ["f", "true"])
+        self.assertNotEqual(str_bool_params[1], bool_params[1])
+
+        eq_str_cond, eq_str_params = _build_filter_conditions({"v": {"eq": "1"}})
+        eq_int_cond, eq_int_params = _build_filter_conditions({"v": {"eq": 1}})
+        self.assertEqual(eq_str_cond, ["payload->%s = %s::jsonb"])
+        self.assertEqual(eq_int_cond, ["payload->%s = %s::jsonb"])
+        self.assertEqual(eq_str_params, ["v", '"1"'])
+        self.assertEqual(eq_int_params, ["v", "1"])
