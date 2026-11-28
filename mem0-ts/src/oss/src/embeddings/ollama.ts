@@ -40,16 +40,16 @@ export class OllamaEmbedder implements Embedder {
     }
     // Coerce defensively since callers may pass values parsed from untrusted LLM JSON output.
     const input = typeof text === "string" ? text : JSON.stringify(text);
-    const response = await this.ollama.embed({
+    const response = await this.ollama.embeddings({
       model: this.model,
-      input,
+      prompt: input,
     });
-    if (!response.embeddings || response.embeddings.length === 0) {
+    if (!response.embedding || response.embedding.length === 0) {
       throw new Error(
-        `Ollama embed() returned no embeddings for model '${this.model}'`,
+        `Ollama embeddings() returned no embedding for model '${this.model}'`,
       );
     }
-    return response.embeddings[0];
+    return response.embedding;
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {

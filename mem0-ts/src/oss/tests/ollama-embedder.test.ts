@@ -6,9 +6,12 @@
 import { OllamaEmbedder } from "../src/embeddings/ollama";
 
 const mockEmbedding = [0.1, 0.2, 0.3, 0.4, 0.5];
-const mockEmbed = jest.fn().mockResolvedValue({
+const mockEmbedFail = jest.fn().mockImplementation(() => {
+  throw new TypeError("fetch failed");
+});
+const mockEmbeddings = jest.fn().mockResolvedValue({
   model: "nomic-embed-text:latest",
-  embeddings: [mockEmbedding],
+  embedding: mockEmbedding,
 });
 const mockList = jest.fn().mockResolvedValue({
   models: [{ name: "nomic-embed-text:latest" }],
@@ -17,7 +20,8 @@ const mockPull = jest.fn().mockResolvedValue({});
 
 jest.mock("ollama", () => ({
   Ollama: jest.fn().mockImplementation(() => ({
-    embed: mockEmbed,
+    embed: mockEmbedFail,
+    embeddings: mockEmbeddings,
     list: mockList,
     pull: mockPull,
   })),
@@ -25,22 +29,23 @@ jest.mock("ollama", () => ({
 
 describe("OllamaEmbedder (unit)", () => {
   beforeEach(() => {
-    mockEmbed.mockClear();
+    mockEmbedFail.mockClear();
+    mockEmbeddings.mockClear();
     mockList.mockClear();
     mockPull.mockClear();
   });
 
-  it("embed() calls ollama.embed with model and input, returns first embedding", async () => {
+  it("embed() calls ollama.embeddings with model and prompt, returns embedding", async () => {
     const embedder = new OllamaEmbedder({
       model: "nomic-embed-text:latest",
     });
 
     const result = await embedder.embed("Sample text to embed.");
 
-    expect(mockEmbed).toHaveBeenCalledTimes(1);
-    expect(mockEmbed.mock.calls[0][0]).toEqual({
+    expect(mockEmbeddings).toHaveBeenCalledTimes(1);
+    expect(mockEmbeddings.mock.calls[0][0]).toEqual({
       model: "nomic-embed-text:latest",
-      input: "Sample text to embed.",
+      prompt: "Sample text to embed.",
     });
     expect(result).toEqual(mockEmbedding);
   });
@@ -53,7 +58,7 @@ describe("OllamaEmbedder (unit)", () => {
     // Force a non-string through the type boundary
     await embedder.embed(42 as any);
 
-    expect(mockEmbed.mock.calls[0][0].input).toBe("42");
+    expect(mockEmbeddings.mock.calls[0][0].prompt).toBe("42");
   });
 
   it("embedBatch() returns vectors for multiple inputs", async () => {
@@ -63,7 +68,7 @@ describe("OllamaEmbedder (unit)", () => {
 
     const result = await embedder.embedBatch(["text1", "text2"]);
 
-    expect(mockEmbed).toHaveBeenCalledTimes(2);
+    expect(mockEmbeddings).toHaveBeenCalledTimes(2);
     expect(result).toEqual([mockEmbedding, mockEmbedding]);
   });
 
@@ -104,10 +109,10 @@ describe("OllamaEmbedder (unit)", () => {
     expect(mockPull).not.toHaveBeenCalled();
   });
 
-  it("embed() throws when embeddings array is empty", async () => {
-    mockEmbed.mockResolvedValueOnce({
+  it("embed() throws when embedding is empty", async () => {
+    mockEmbeddings.mockResolvedValueOnce({
       model: "nomic-embed-text:latest",
-      embeddings: [],
+      embedding: [],
     });
 
     const embedder = new OllamaEmbedder({
@@ -115,7 +120,21 @@ describe("OllamaEmbedder (unit)", () => {
     });
 
     await expect(embedder.embed("text")).rejects.toThrow(
-      "Ollama embed() returned no embeddings",
+      "Ollama embeddings() returned no embedding",
     );
+  });
+
+  it("calls /api/embeddings (via ollama.embeddings) not /api/embed (via ollama.embed)", async () => {
+    const embedder = new OllamaEmbedder({
+      model: "nomic-embed-text:latest",
+    });
+
+    await embedder.embed("verify endpoint");
+
+    // The old code called ollama.embed() → /api/embed — that path would
+    // throw TypeError("fetch failed") per mockEmbedFail.
+    expect(mockEmbedFail).not.toHaveBeenCalled();
+    // The fix calls ollama.embeddings() → /api/embeddings.
+    expect(mockEmbeddings).toHaveBeenCalled();
   });
 });
