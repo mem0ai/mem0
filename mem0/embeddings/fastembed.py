@@ -18,6 +18,17 @@ class FastEmbedEmbedding(EmbeddingBase):
         if not self.config.embedding_dims:
             self.config.embedding_dims = self.dense_model.embedding_size
 
+    def embed_batch(self, texts, memory_action="add"):
+        if not texts:
+            return []
+        embeddings = list(self.dense_model.embed(texts))
+        if len(embeddings) != len(texts):
+            raise ValueError(
+                f"FastEmbed embed_batch() returned {len(embeddings)} embeddings for {len(texts)} texts"
+                f" using model '{self.config.model}'"
+            )
+        return embeddings
+
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
         Convert the text to embeddings using FastEmbed running in the Onnx runtime
