@@ -253,11 +253,12 @@ export async function recall(
   const categoryOrder = recallConfig.categoryOrder ?? DEFAULT_CATEGORY_ORDER;
   const identityAlwaysInclude = recallConfig.identityAlwaysInclude !== false;
 
-  // Build search options (v3.0.0: keyword_search, reranking, filter_memories removed)
+  // Build search options (v3.0.0: keyword_search and filter_memories removed)
   const searchOpts: SearchOptions = {
     user_id: userId,
     top_k: maxMemories * 2, // Over-fetch for ranking
     threshold,
+    rerank: recallConfig.rerank !== false,
     source: "OPENCLAW",
   };
 
