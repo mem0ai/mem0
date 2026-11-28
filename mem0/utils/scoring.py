@@ -12,6 +12,8 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional
 
+from mem0.utils.memory_attributes import NEGATIVE_CONSTRAINT_BOOST_WEIGHT, get_constraint_boost
+
 
 def get_bm25_params(query: str, *, lemmatized: Optional[str] = None) -> tuple:
     """Get BM25 sigmoid parameters based on query length.
@@ -64,12 +66,13 @@ def score_and_rank(
     threshold: float,
     top_k: int,
     explain: bool = False,
+    query: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Score candidates additively and return top-k results.
 
     For each candidate:
         semantic_score is taken from the result's score field.
-        combined = (semantic + bm25 + entity_boost) / max_possible
+        combined = (semantic + bm25 + entity_boost + constraint_boost) / max_possible
 
     Threshold gates the semantic score BEFORE combining -- candidates
     below the threshold are excluded even if BM25/entity would boost them.
@@ -79,6 +82,7 @@ def score_and_rank(
         - Semantic + BM25: max_possible = 2.0
         - Semantic + BM25 + entity: max_possible = 2.5
         - Semantic + entity (no BM25): max_possible = 1.5
+        - Negative constraint boost adds 0.35 when active
 
     Args:
         semantic_results: Candidate memories from vector search.
@@ -87,18 +91,28 @@ def score_and_rank(
         threshold: Minimum semantic score required before hybrid scoring.
         top_k: Maximum number of results to return.
         explain: Include score_details in each result when true.
+        query: Original search query, used to boost negative constraints only
+            for recommendation or decision searches.
 
     Returns:
         List of scored result dicts sorted by combined score descending.
     """
     has_bm25 = bool(bm25_scores)
     has_entity = bool(entity_boosts)
+    constraint_boosts = {
+        str(result.get("id")): get_constraint_boost(query or "", result.get("payload") or {})
+        for result in semantic_results
+        if result.get("id") is not None
+    }
+    has_constraint = any(boost > 0 for boost in constraint_boosts.values())
 
     max_possible = 1.0
     if has_bm25:
         max_possible += 1.0
     if has_entity:
         max_possible += ENTITY_BOOST_WEIGHT
+    if has_constraint:
+        max_possible += NEGATIVE_CONSTRAINT_BOOST_WEIGHT
 
     scored: List[Dict[str, Any]] = []
 
@@ -114,8 +128,9 @@ def score_and_rank(
         mem_id_str = str(mem_id)
         bm25_score = bm25_scores.get(mem_id_str, 0.0)
         entity_boost = entity_boosts.get(mem_id_str, 0.0)
+        constraint_boost = constraint_boosts.get(mem_id_str, 0.0)
 
-        raw_combined = semantic_score + bm25_score + entity_boost
+        raw_combined = semantic_score + bm25_score + entity_boost + constraint_boost
         combined = min(raw_combined / max_possible, 1.0)
 
         scored_result = {
@@ -124,7 +139,7 @@ def score_and_rank(
             "payload": result.get("payload"),
         }
         if explain:
-            scored_result["score_details"] = {
+            score_details = {
                 "semantic_score": semantic_score,
                 "bm25_score": bm25_score,
                 "entity_boost": entity_boost,
@@ -133,6 +148,9 @@ def score_and_rank(
                 "final_score": combined,
                 "threshold": threshold,
             }
+            if has_constraint:
+                score_details["constraint_boost"] = constraint_boost
+            scored_result["score_details"] = score_details
         scored.append(scored_result)
 
     scored.sort(key=lambda x: x["score"], reverse=True)
